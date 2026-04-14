@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from domain.services.schemas.base import PaginatedResponse
 
@@ -43,8 +43,16 @@ class VideoFileConfig(BaseModel):
 
     @field_validator("video_path")
     @classmethod
-    def validate_video_path(cls, v: str) -> str:
-        """Validate that the video file exists and is a file."""
+    def validate_video_path(cls, v: str, info: ValidationInfo) -> str:
+        """Validate that the video file exists and is a file.
+
+        Filesystem validation can be skipped when deserializing from database
+        by setting context={'skip_file_validation': True}.
+        """
+        # Skip validation if context flag is set (for READ operations from DB)
+        if info.context and info.context.get("skip_file_validation"):
+            return v
+
         path = Path(v)
         if not path.exists():
             raise ValueError(f"Video file does not exist: {v}")
@@ -70,8 +78,16 @@ class ImagesFolderConfig(BaseModel):
 
     @field_validator("images_folder_path")
     @classmethod
-    def validate_images_folder_path(cls, v: str) -> str:
-        """Validate that the folder path exists and is a directory."""
+    def validate_images_folder_path(cls, v: str, info: ValidationInfo) -> str:
+        """Validate that the folder path exists and is a directory.
+
+        Filesystem validation can be skipped when deserializing from database
+        by setting context={'skip_file_validation': True}.
+        """
+        # Skip validation if context flag is set (for READ operations from DB)
+        if info.context and info.context.get("skip_file_validation"):
+            return v
+
         path = Path(v)
         if not path.exists():
             raise ValueError(f"Images folder does not exist: {v}")

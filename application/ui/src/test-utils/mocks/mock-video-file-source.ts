@@ -16,5 +16,6 @@ export const getMockedVideoFileSource = (
             video_path: source.filePath ?? '',
             source_type: 'video_file',
         },
+        available: true,
     };
 };

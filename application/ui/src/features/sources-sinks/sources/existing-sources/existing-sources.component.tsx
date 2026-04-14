@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect, useRef } from 'react';
+
 import { Source, SourceType } from '@/api';
 import { useCurrentProject } from '@/hooks';
+import { toast } from '@geti/ui';
 import { orderBy } from 'lodash-es';
 
 import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';
@@ -22,7 +25,15 @@ import {
 } from '../utils';
 import { VideoFileCard } from '../video-file/video-file-card.component';
 
-const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boolean; isTestDataset: boolean }) => {
+const getMenuItems = ({
+    isActiveSource,
+    isTestDataset,
+    isAvailable,
+}: {
+    isActiveSource: boolean;
+    isTestDataset: boolean;
+    isAvailable: boolean;
+}) => {
     const items = [
         {
             key: 'connect',
@@ -39,7 +50,7 @@ const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boole
     ];
 
     return items.filter((item) => {
-        if (item.key === 'connect' && isActiveSource) {
+        if (item.key === 'connect' && (isActiveSource || !isAvailable)) {
             return false;
         }
 
@@ -62,9 +73,38 @@ interface ExistingSourcesListProps {
 
 const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
+    const notifiedSourceIds = useRef(new Set<string>());
 
     const updateSource = useUpdateSource();
     const deleteSource = useDeleteSource();
+
+    // Show toast notifications for unavailable sources
+    useEffect(() => {
+        sources.forEach((source) => {
+            // Only show notification if source is unavailable and we haven't notified about it yet
+            if (source.available === false && source.unavailable_reason && !notifiedSourceIds.current.has(source.id)) {
+                const sourceTypeLabel =
+                    source.config.source_type === 'video_file'
+                        ? 'Video file'
+                        : source.config.source_type === 'images_folder'
+                          ? 'Images folder'
+                          : 'Source';
+
+                toast({
+                    type: 'error',
+                    message: `${sourceTypeLabel} unavailable: ${source.unavailable_reason}`,
+                    duration: 8000,
+                });
+
+                notifiedSourceIds.current.add(source.id);
+            }
+
+            // Remove from notified set if source becomes available again
+            if (source.available !== false && notifiedSourceIds.current.has(source.id)) {
+                notifiedSourceIds.current.delete(source.id);
+            }
+        });
+    }, [sources]);
 
     const handleAction = (source: Source) => (action: string) => {
         if (action === 'edit') {
@@ -93,10 +133,12 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
         <ExistingPipelineEntities.List>
             {sortSources(sources).map((source) => {
                 const isActiveSource = source.active;
+                const isAvailable = source.available !== false;
 
                 const menuItems = getMenuItems({
                     isActiveSource,
                     isTestDataset: isTestDatasetSource(source),
+                    isAvailable,
                 });
 
                 if (isTestDatasetSource(source)) {

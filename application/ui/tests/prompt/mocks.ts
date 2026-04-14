@@ -77,6 +77,7 @@ export const USB_CAMERA_SOURCE: USBCameraSourceType = {
         device_id: DEVICE_ID,
         source_type: 'usb_camera',
     },
+    available: true,
 };
 export const MOCK_PROMPT_ID = '123e4567-e89b-12d3-a456-426614174002';
 export const MOCK_PROMPT: VisualPromptItemType = getMockedVisualPromptItem({

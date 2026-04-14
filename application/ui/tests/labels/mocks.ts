@@ -17,6 +17,7 @@ export const USB_CAMERA_SOURCE: USBCameraSourceType = {
         device_id: DEVICE_ID,
         source_type: 'usb_camera',
     },
+    available: true,
 };
 
 export const registerApiLabels = ({

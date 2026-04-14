@@ -16,5 +16,6 @@ export const getMockedImagesFolderSource = (
             images_folder_path: source.imagesFolderPath ?? '',
             source_type: 'images_folder',
         },
+        available: true,
     };
 };

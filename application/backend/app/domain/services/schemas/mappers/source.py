@@ -4,24 +4,64 @@
 from collections.abc import Iterable
 from uuid import UUID
 
+from pydantic import TypeAdapter, ValidationError
+
 from domain.db.models import SourceDB
 from domain.services.schemas.base import Pagination
+from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.source import (
     SourceCreateSchema,
     SourceSchema,
     SourcesListSchema,
 )
 
+# Create type adapter for ReaderConfig union validation
+_reader_config_adapter = TypeAdapter(ReaderConfig)
+
 
 def source_db_to_schema(source: SourceDB) -> SourceSchema:
     """
     Map a SourceDB instance to SourceSchema.
-    Pydantic will discriminate ReaderConfig by its `source_type` inside config.
+
+    Skips filesystem validation when deserializing from database, but checks
+    file availability separately to populate the 'available' and 'unavailable_reason' fields.
     """
+    # First, deserialize config with filesystem validation skipped
+    try:
+        config = _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": True})
+    except ValidationError as e:
+        # If even basic validation fails, return with structural error
+        error_msg = "; ".join([f"{err['loc'][0]}: {err['msg']}" for err in e.errors()])
+        return SourceSchema(
+            id=source.id,
+            active=source.active,
+            config=source.config,
+            available=False,
+            unavailable_reason=f"Invalid configuration: {error_msg}",
+        )
+
+    # Now check if the source is actually available (file exists, etc.)
+    # by attempting validation without skip flag
+    try:
+        _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": False})
+        available = True
+        unavailable_reason = None
+    except ValidationError as e:
+        # File doesn't exist or other filesystem validation failed
+        available = False
+        # Extract the most relevant error message
+        errors = e.errors()
+        if errors:
+            unavailable_reason = errors[0].get("msg", "Source is unavailable")
+        else:
+            unavailable_reason = "Source is unavailable"
+
     return SourceSchema(
         id=source.id,
         active=source.active,
-        config=source.config,
+        config=config,
+        available=available,
+        unavailable_reason=unavailable_reason,
     )
 
 

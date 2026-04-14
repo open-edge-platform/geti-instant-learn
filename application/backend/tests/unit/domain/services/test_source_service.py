@@ -400,3 +400,51 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     assert ev.project_id == project_id
     assert ev.component_type == ComponentType.SOURCE
     assert ev.component_id == source_id
+
+
+def test_list_sources_with_missing_video_file(service):
+    """Test that sources with missing video files are returned with available=False."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create a source pointing to a non-existent video file
+    video_source = make_source(
+        project_id=project_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/nonexistent/video.mp4"},
+    )
+    service.source_repository.list_with_pagination_by_project.return_value = ([video_source], 1)
+
+    # Path.exists() will return False for the missing file
+    with patch("pathlib.Path.exists", return_value=False):
+        result = service.list_sources(project_id)
+
+    assert len(result.sources) == 1
+    source_schema = result.sources[0]
+    assert source_schema.id == video_source.id
+    assert source_schema.available is False
+    assert source_schema.unavailable_reason is not None
+    assert "does not exist" in source_schema.unavailable_reason
+
+
+def test_get_source_with_missing_video_file(service):
+    """Test that getting a source with a missing video file returns available=False."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    video_source = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/missing/file.mp4"},
+    )
+    service.source_repository.get_by_id_and_project.return_value = video_source
+
+    with patch("pathlib.Path.exists", return_value=False):
+        schema = service.get_source(project_id=project_id, source_id=source_id)
+
+    assert schema.id == source_id
+    assert schema.available is False
+    assert schema.unavailable_reason is not None
+    assert "does not exist" in schema.unavailable_reason

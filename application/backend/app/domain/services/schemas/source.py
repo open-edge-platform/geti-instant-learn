@@ -20,6 +20,8 @@ class SourceUpdateSchema(BaseModel):
 class SourceSchema(BaseIDSchema):
     active: bool
     config: ReaderConfig
+    available: bool = True
+    unavailable_reason: str | None = None
 
 
 class SourcesListSchema(PaginatedResponse):

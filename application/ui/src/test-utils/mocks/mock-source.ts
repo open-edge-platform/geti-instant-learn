@@ -14,6 +14,7 @@ export const getMockedSource = (source?: Partial<Source>): Source => {
             device_id: 0,
             seekable: false,
         },
+        available: true,
         ...source,
     };
 };

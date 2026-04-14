@@ -115,6 +115,9 @@ class SourceService(BaseService):
             create_data.active,
         )
 
+        # Validate the source config (filesystem checks will run for create operations)
+        # The config validation happens automatically via Pydantic when SourceCreateSchema is parsed
+
         try:
             with self.db_transaction():
                 if create_data.active:
