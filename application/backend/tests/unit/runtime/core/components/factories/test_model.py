@@ -192,6 +192,8 @@ class TestModelFactory:
                 precision="fp32",
                 device="cpu",
                 use_mask_refinement=True,
+                similarity_threshold=None,
+                num_grid_cells=8,
                 sam=SAMModelName.SAM_HQ_TINY,
                 encoder_model="dinov3_small",
             )
