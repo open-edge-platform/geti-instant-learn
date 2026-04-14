@@ -7,9 +7,20 @@ from uuid import UUID
 import numpy as np
 import pytest
 
-from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
+from domain.services.schemas.label import (
+    CategoryMappings,
+    LabelInfo,
+    RGBColor,
+    VisualizationInfo,
+    VisualizationLabel,
+)
 from domain.services.schemas.processor import OutputData
-from runtime.webrtc.visualizer import DEFAULT_FALLBACK_COLOR, InferenceVisualizer
+from runtime.webrtc.visualizer import (
+    DEFAULT_FALLBACK_COLOR,
+    CategoryResolver,
+    InferenceVisualizer,
+    generate_deterministic_color,
+)
 
 
 @pytest.fixture
@@ -28,9 +39,11 @@ def fxt_visualizer() -> InferenceVisualizer:
     with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = True
         mock_get_settings.return_value.visualize_boxes = False
+        mock_get_settings.return_value.visualize_labels = False
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
+        mock_get_settings.return_value.label_font_scale = 0.5
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -40,9 +53,11 @@ def fxt_visualizer_boxes_only() -> InferenceVisualizer:
     with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = False
         mock_get_settings.return_value.visualize_boxes = True
+        mock_get_settings.return_value.visualize_labels = False
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
+        mock_get_settings.return_value.label_font_scale = 0.5
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -52,9 +67,25 @@ def fxt_visualizer_both() -> InferenceVisualizer:
     with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = True
         mock_get_settings.return_value.visualize_boxes = True
+        mock_get_settings.return_value.visualize_labels = False
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
+        mock_get_settings.return_value.label_font_scale = 0.5
+        yield InferenceVisualizer(enable_visualization=True)
+
+
+@pytest.fixture
+def fxt_visualizer_boxes_with_labels() -> InferenceVisualizer:
+    """Visualizer configured to draw boxes with label captions."""
+    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+        mock_get_settings.return_value.visualize_masks = False
+        mock_get_settings.return_value.visualize_boxes = True
+        mock_get_settings.return_value.visualize_labels = True
+        mock_get_settings.return_value.mask_alpha = 1.0
+        mock_get_settings.return_value.mask_outline_thickness = 0
+        mock_get_settings.return_value.box_thickness = 2
+        mock_get_settings.return_value.label_font_scale = 0.5
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -72,14 +103,17 @@ def _two_pixel_disjoint_masks(h: int, w: int) -> np.ndarray:
 
 
 def _make_vis_info(
-    *, category_id_to_label_id: dict[int, str], label_colors: dict[str, tuple[int, int, int]]
+    *,
+    category_id_to_label_id: dict[int, str],
+    label_colors: dict[str, tuple[int, int, int]],
+    label_names: dict[str, str] | None = None,
 ) -> VisualizationInfo:
     return VisualizationInfo(
         label_colors=[
             VisualizationLabel(
                 id=UUID(label_id),
                 color=RGBColor(*rgb),
-                object_name=None,
+                object_name=(label_names or {}).get(label_id),
             )
             for label_id, rgb in label_colors.items()
         ],
@@ -140,7 +174,7 @@ def test_visualize_resolves_color_per_mask(
 
     if isinstance(expected, str) and expected.startswith("deterministic:"):
         category_id = int(expected.split(":", 1)[1])
-        expected_color = fxt_visualizer._generate_deterministic_color(category_id)
+        expected_color = generate_deterministic_color(category_id)
     else:
         expected_color = expected
 
@@ -296,7 +330,7 @@ def test_visualize_box_with_unmapped_category_uses_deterministic_color(
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
 
-    expected_color = fxt_visualizer_boxes_only._generate_deterministic_color(42)
+    expected_color = generate_deterministic_color(42)
     assert tuple(result[10, 20].tolist()) == expected_color
 
 
@@ -367,21 +401,22 @@ def test_visualize_both_masks_and_boxes(fxt_visualizer_both: InferenceVisualizer
     assert tuple(result[80, 80].tolist()) == (0, 0, 0)
 
 
-def test_draw_boxes_method(fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray) -> None:
+def test_box_renderer_draw(fxt_large_frame: np.ndarray) -> None:
+    from runtime.webrtc.visualizer import BoxRenderer
+
     label_id = "00000000-0000-0000-0000-000000000001"
-    label_colors = {label_id: (0, 255, 0)}
-    category_id_to_label_id = {0: label_id}
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+    resolver = CategoryResolver(vis_info)
+    renderer = BoxRenderer(box_thickness=2, visualize_labels=False, label_font_scale=0.5, resolver=resolver)
 
     boxes = np.array([[20, 20, 40, 40]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
+    prediction: dict[str, np.ndarray] = {"pred_boxes": boxes, "pred_labels": labels}
 
-    result = fxt_visualizer_boxes_only._draw_boxes(
-        fxt_large_frame.copy(),
-        boxes,
-        labels,
-        label_colors,
-        category_id_to_label_id,
-    )
+    result = renderer.draw(fxt_large_frame.copy(), prediction, labels)
 
     # Check box edge is drawn
     assert tuple(result[20, 30].tolist()) == (0, 255, 0)
@@ -408,3 +443,176 @@ def test_visualize_prediction_with_only_boxes_no_masks(
 
     # Box should be drawn
     assert tuple(result[10, 20].tolist()) == (0, 0, 255)
+
+
+# --- Label caption tests ---
+
+
+def test_visualize_draws_label_caption_with_name_and_score(
+    fxt_visualizer_boxes_with_labels: InferenceVisualizer,
+) -> None:
+    """Label name and confidence score are rendered above the bounding box."""
+    frame = np.zeros((200, 200, 3), dtype=np.uint8)
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (255, 0, 0)},
+        label_names={label_id: "Cat"},
+    )
+
+    boxes = np.array([[20, 40, 80, 100, 0.95]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+
+    result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
+
+    # The region above the box (y < 40) should have non-zero pixels from the caption
+    caption_region = result[0:40, 20:80]
+    assert caption_region.any(), "Expected label caption pixels above the bounding box"
+
+
+def test_visualize_draws_score_only_when_no_label_name(
+    fxt_visualizer_boxes_with_labels: InferenceVisualizer,
+) -> None:
+    """When object_name is not set, only the confidence score is rendered."""
+    frame = np.zeros((200, 200, 3), dtype=np.uint8)
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+        # no label_names -> object_name is None
+    )
+
+    boxes = np.array([[20, 40, 80, 100, 0.88]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+
+    result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
+
+    # Score-only caption should still appear above the box
+    caption_region = result[0:40, 20:80]
+    assert caption_region.any(), "Expected score caption pixels above the bounding box"
+
+
+def test_visualize_no_caption_when_labels_disabled(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    """No caption is drawn when visualize_labels is False."""
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (255, 0, 0)},
+        label_names={label_id: "Dog"},
+    )
+
+    boxes = np.array([[20, 30, 80, 80, 0.90]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+    output = OutputData(frame=fxt_large_frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # Area above the box should remain black (no caption)
+    caption_region = result[0:28, 20:80]
+    assert not caption_region.any(), "Expected no caption pixels when visualize_labels is disabled"
+
+
+def test_visualize_no_caption_for_box_without_score_or_name(
+    fxt_visualizer_boxes_with_labels: InferenceVisualizer,
+) -> None:
+    """No caption is drawn when there is no score column and no label name."""
+    frame = np.zeros((200, 200, 3), dtype=np.uint8)
+    vis_info = _make_vis_info(category_id_to_label_id={}, label_colors={})
+
+    # Box with no score column (4 cols), unmapped category -> no name either
+    boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
+    labels = np.array([99], dtype=np.int64)
+    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+
+    result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
+
+    # Caption region should be empty (no name, no score)
+    caption_region = result[0:38, 20:80]
+    assert not caption_region.any(), "Expected no caption when neither name nor score is available"
+
+
+def test_visualize_draws_label_name_only_without_score(
+    fxt_visualizer_boxes_with_labels: InferenceVisualizer,
+) -> None:
+    """Label name is rendered even when there is no score column."""
+    frame = np.zeros((200, 200, 3), dtype=np.uint8)
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 0, 255)},
+        label_names={label_id: "Bike"},
+    )
+
+    # Box without score column (4 cols)
+    boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+
+    result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
+
+    caption_region = result[0:40, 20:80]
+    assert caption_region.any(), "Expected label-name-only caption above bounding box"
+
+
+# --- CategoryResolver tests ---
+
+
+class TestCategoryResolver:
+    def test_resolve_mapped_category_returns_color_and_name(self) -> None:
+        label_id = "00000000-0000-0000-0000-000000000001"
+        vis_info = _make_vis_info(
+            category_id_to_label_id={0: label_id},
+            label_colors={label_id: (255, 0, 0)},
+            label_names={label_id: "Cat"},
+        )
+        resolver = CategoryResolver(vis_info)
+
+        info = resolver.resolve(0)
+
+        assert info.color == (255, 0, 0)
+        assert info.name == "Cat"
+
+    def test_resolve_mapped_category_without_name(self) -> None:
+        label_id = "00000000-0000-0000-0000-000000000001"
+        vis_info = _make_vis_info(
+            category_id_to_label_id={0: label_id},
+            label_colors={label_id: (0, 255, 0)},
+        )
+        resolver = CategoryResolver(vis_info)
+
+        info = resolver.resolve(0)
+
+        assert info.color == (0, 255, 0)
+        assert info.name is None
+
+    def test_resolve_unmapped_category_returns_deterministic_color(self) -> None:
+        resolver = CategoryResolver(None)
+
+        info = resolver.resolve(7)
+
+        assert info.color == generate_deterministic_color(7)
+        assert info.name is None
+
+    def test_resolve_none_category_returns_fallback(self) -> None:
+        resolver = CategoryResolver(None)
+
+        info = resolver.resolve(None)
+
+        assert info.color == DEFAULT_FALLBACK_COLOR
+        assert info.name is None
+
+    def test_extract_category_id_valid(self) -> None:
+        labels = np.array([3, 5], dtype=np.int64)
+        assert CategoryResolver.extract_category_id(labels, 0) == 3
+        assert CategoryResolver.extract_category_id(labels, 1) == 5
+
+    def test_extract_category_id_out_of_bounds(self) -> None:
+        labels = np.array([3], dtype=np.int64)
+        assert CategoryResolver.extract_category_id(labels, 5) is None
+
+    def test_extract_category_id_none_labels(self) -> None:
+        assert CategoryResolver.extract_category_id(None, 0) is None

@@ -43,6 +43,14 @@ class RGBColor:
 
 
 @dataclass(frozen=True)
+class LabelInfo:
+    """Resolved label metadata for a single category during visualization."""
+
+    color: tuple[int, int, int]
+    name: str | None = None
+
+
+@dataclass(frozen=True)
 class VisualizationLabel:
     """Label data needed for visualization."""
 
