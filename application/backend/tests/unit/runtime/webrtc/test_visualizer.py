@@ -9,7 +9,6 @@ import pytest
 
 from domain.services.schemas.label import (
     CategoryMappings,
-    LabelInfo,
     RGBColor,
     VisualizationInfo,
     VisualizationLabel,
