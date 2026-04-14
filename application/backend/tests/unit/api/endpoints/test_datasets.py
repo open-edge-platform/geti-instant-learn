@@ -27,8 +27,8 @@ def _create_client(datasets: DatasetsListSchema) -> TestClient:
 def test_get_datasets_success():
     response_payload = DatasetsListSchema(
         datasets=[
-            DatasetSchema(id=uuid4(), name="Aquarium", description="This is sample dataset of aquarium."),
-            DatasetSchema(id=uuid4(), name="Nuts", description="This is sample dataset of nuts."),
+            DatasetSchema(id=uuid4(), name="Aquarium"),
+            DatasetSchema(id=uuid4(), name="Nuts"),
         ],
         pagination=Pagination(count=2, total=2, offset=0, limit=2),
     )
@@ -58,9 +58,9 @@ def test_get_datasets_empty_list_when_cache_is_empty():
 def test_get_datasets_with_offset_and_limit():
     response_payload = DatasetsListSchema(
         datasets=[
-            DatasetSchema(id=uuid4(), name="Aquarium", description="This is sample dataset of aquarium."),
-            DatasetSchema(id=uuid4(), name="Nuts", description="This is sample dataset of nuts."),
-            DatasetSchema(id=uuid4(), name="Potatoes", description="This is sample dataset of potatoes."),
+            DatasetSchema(id=uuid4(), name="Aquarium"),
+            DatasetSchema(id=uuid4(), name="Nuts"),
+            DatasetSchema(id=uuid4(), name="Potatoes"),
         ],
         pagination=Pagination(count=3, total=3, offset=0, limit=3),
     )

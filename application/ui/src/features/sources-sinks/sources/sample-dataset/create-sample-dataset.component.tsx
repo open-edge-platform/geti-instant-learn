@@ -25,12 +25,6 @@ export const SampleDatasetTitle = ({ text = 'Sample dataset' }: SampleDatasetTex
     );
 };
 
-export const SampleDatasetDescription = ({
-    text = 'A collection of images for visual AI training and inference.',
-}: SampleDatasetTextProps) => {
-    return <Text UNSAFE_className={styles.description}>{text}</Text>;
-};
-
 interface CreateSampleDatasetProps {
     onSaved: () => void;
 }
@@ -75,7 +69,6 @@ export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
                 <Form validationBehavior={'native'} onSubmit={handleCreateSampleDataset}>
                     <Flex direction={'column'} gap={'size-200'}>
                         <SampleDatasetTitle text={selectedDataset?.name} />
-                        <SampleDatasetDescription text={selectedDataset?.description} />
 
                         {datasets.length > 0 ? (
                             <Picker

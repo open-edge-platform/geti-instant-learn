@@ -15,14 +15,12 @@ import { CreateSampleDataset } from './create-sample-dataset.component';
 const DATASET_1 = {
     id: '11111111-1111-1111-1111-111111111111',
     name: 'Aquarium',
-    description: 'Aquarium dataset',
     thumbnail: 'data:image/jpeg;base64,AAAA',
 };
 
 const DATASET_2 = {
     id: '22222222-2222-2222-2222-222222222222',
     name: 'Nuts',
-    description: 'Nuts dataset',
     thumbnail: 'data:image/jpeg;base64,BBBB',
 };
 
@@ -61,7 +59,6 @@ describe('CreateSampleDataset', () => {
         renderCreateSampleDataset();
 
         expect(await screen.findByRole('heading', { name: 'Aquarium' })).toBeVisible();
-        expect(screen.getByText('Aquarium dataset')).toBeVisible();
 
         const image = screen.getByRole('img', { name: 'Aquarium' });
         expect(image).toHaveAttribute('src', DATASET_1.thumbnail);

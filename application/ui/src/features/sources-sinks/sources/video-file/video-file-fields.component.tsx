@@ -13,6 +13,8 @@ interface VideoFileFieldsProps {
 }
 
 export const VideoFileFields = ({ filePath, onFilePathChange }: VideoFileFieldsProps) => {
+    const isTauri = isTauriRuntime();
+
     const handleBrowse = async (): Promise<void> => {
         const selectedPath = await pickVideoFilePath();
 
@@ -21,15 +23,15 @@ export const VideoFileFields = ({ filePath, onFilePathChange }: VideoFileFieldsP
         }
     };
 
-    const isTauri = isTauriRuntime();
-
     return (
         <View>
             <Flex alignItems={'end'} gap={'size-100'}>
                 <TextField label={'File path'} isRequired value={filePath} onChange={onFilePathChange} width={'100%'} />
-                <Button variant={'secondary'} onPress={handleBrowse} isDisabled={!isTauri}>
-                    Browse
-                </Button>
+                {isTauri ? (
+                    <Button variant={'secondary'} onPress={handleBrowse}>
+                        Browse
+                    </Button>
+                ) : null}
             </Flex>
         </View>
     );

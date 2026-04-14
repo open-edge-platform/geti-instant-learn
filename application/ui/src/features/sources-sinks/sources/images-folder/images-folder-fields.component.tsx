@@ -29,6 +29,8 @@ interface ImagesFolderFieldsProps {
 }
 
 export const ImagesFolderFields = ({ folderPath, onSetFolderPath }: ImagesFolderFieldsProps) => {
+    const isTauri = isTauriRuntime();
+
     const handleBrowse = async (): Promise<void> => {
         const selectedPath = await pickFolderPath();
 
@@ -36,8 +38,6 @@ export const ImagesFolderFields = ({ folderPath, onSetFolderPath }: ImagesFolder
             onSetFolderPath(selectedPath);
         }
     };
-
-    const isTauri = isTauriRuntime();
 
     return (
         <Flex alignItems={'end'} gap={'size-100'}>
@@ -49,9 +49,11 @@ export const ImagesFolderFields = ({ folderPath, onSetFolderPath }: ImagesFolder
                 contextualHelp={<FolderPathDescription />}
                 isRequired
             />
-            <Button variant={'secondary'} onPress={handleBrowse} isDisabled={!isTauri}>
-                Browse
-            </Button>
+            {isTauri ? (
+                <Button variant={'secondary'} onPress={handleBrowse}>
+                    Browse
+                </Button>
+            ) : null}
         </Flex>
     );
 };

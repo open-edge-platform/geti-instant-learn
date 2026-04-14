@@ -4,9 +4,7 @@ set shell := ["bash", "-cu"]
 
 py_path := "tests:src"
 
-# Ensure version in GHA workflow matches uv version here
-
-uv_version := "0.10.0"
+uv_version := `grep -A 3 '\[tool\.uv\]' pyproject.toml | grep 'required-version' | sed 's/.*"[~=<>]*\([0-9][0-9.]*\)"/\1/'`
 
 # Sphinx documentation variables
 
@@ -26,7 +24,7 @@ default:
 
 # Install uv
 pre-venv:
-    if ! uv self version | grep {{ uv_version }} >/dev/null; then \
+    @if ! command -v uv > /dev/null; then \
         curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}/uv-installer.sh" | sh; \
     fi
 
@@ -97,7 +95,7 @@ download-lvis:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    LVIS_DIR="{{ lvis-directory }}" 
+    LVIS_DIR="{{ lvis-directory }}"
 
     if [ -d "$LVIS_DIR" ] && [ "$(ls -A "$LVIS_DIR")" ]; then
         echo "LVIS dataset directory already exists and is not empty. Skipping download."
