@@ -1,6 +1,10 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import logging
+
+from domain.errors import DatasetNotFoundError
+from domain.services.dataset_discovery import get_first_dataset_path, resolve_dataset_path
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
     ReaderConfig,
@@ -16,6 +20,8 @@ from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
 from runtime.core.components.readers.video_file import VideoFileReader
 from settings import get_settings
 
+logger = logging.getLogger(__name__)
+
 
 class StreamReaderFactory:
     """
@@ -27,7 +33,10 @@ class StreamReaderFactory:
     """
 
     @classmethod
-    def create(cls, config: ReaderConfig | None) -> StreamReader:
+    def create(
+        cls,
+        config: ReaderConfig | None,
+    ) -> StreamReader:
         settings = get_settings()
         match config:
             case UsbCameraConfig() as config:
@@ -35,9 +44,31 @@ class StreamReaderFactory:
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
+                if config.dataset_id is not None:
+                    logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
+                    dataset_path = resolve_dataset_path(config.dataset_id, settings.template_dataset_dir)
+                    if dataset_path is None:
+                        logger.warning(
+                            "Sample dataset id '%s' could not be resolved in '%s'.",
+                            config.dataset_id,
+                            settings.template_dataset_dir,
+                        )
+                        raise DatasetNotFoundError(f"Sample dataset id '{config.dataset_id}' was not found.")
+                else:
+                    logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
+                    dataset_path = get_first_dataset_path(settings.template_dataset_dir)
+                    if dataset_path is None:
+                        logger.warning(
+                            "No sample datasets available in '%s'.",
+                            settings.template_dataset_dir,
+                        )
+                        raise DatasetNotFoundError("No sample datasets available.")
+
+                logger.info("Using sample dataset path '%s'.", dataset_path)
+
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
-                    images_folder_path=str(settings.template_dataset_dir / "coffee-berries"),
+                    images_folder_path=str(dataset_path),
                     seekable=config.seekable,
                 )
                 return ImageFolderReader(template_config, supported_extensions=settings.supported_extensions)

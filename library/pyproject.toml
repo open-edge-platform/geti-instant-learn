@@ -119,6 +119,7 @@ version = { file = ["VERSION"] }
 [tool.uv]
 package = true
 managed = true
+required-version = "~=0.10.0"
 conflicts = [
     [
         { extra = "cpu" },

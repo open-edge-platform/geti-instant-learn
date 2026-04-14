@@ -186,6 +186,10 @@ class OutputData:
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
     trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
+    def to_list(self) -> list[dict[str, list]]:
+        # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
+        return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
+
 
 class ProcessorSchema(BaseIDSchema):
     config: ModelConfig

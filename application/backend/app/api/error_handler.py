@@ -10,13 +10,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
+    DatasetNotFoundError,
     ResourceAlreadyExistsError,
     ResourceInUseError,
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
 from runtime.errors import (
-    DatasetNotFoundError,
     PipelineNotActiveError,
     PipelineProjectMismatchError,
     SinkConnectionError,
