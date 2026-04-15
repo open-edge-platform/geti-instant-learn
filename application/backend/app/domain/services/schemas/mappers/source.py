@@ -23,46 +23,52 @@ def source_db_to_schema(source: SourceDB) -> SourceSchema:
     """
     Map a SourceDB instance to SourceSchema.
 
-    Skips filesystem validation when deserializing from database, but checks
-    file availability separately to populate the 'available' and 'unavailable_reason' fields.
+    Validates with filesystem checks enabled first (common case: files exist).
+    On ValidationError, retries with skip_file_validation=True to deserialize
+    config and mark source as unavailable.
     """
-    # First, deserialize config with filesystem validation skipped
+    # Try validation with filesystem checks enabled (optimistic path)
     try:
-        config = _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": True})
-    except ValidationError as e:
-        # If even basic validation fails, return with structural error
-        error_msg = "; ".join([f"{err['loc'][0]}: {err['msg']}" for err in e.errors()])
+        config = _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": False})
+        # Success - source is available
         return SourceSchema(
             id=source.id,
             active=source.active,
-            config=source.config,
-            available=False,
-            unavailable_reason=f"Invalid configuration: {error_msg}",
+            config=config,
+            available=True,
+            unavailable_reason=None,
         )
-
-    # Now check if the source is actually available (file exists, etc.)
-    # by attempting validation without skip flag
-    try:
-        _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": False})
-        available = True
-        unavailable_reason = None
     except ValidationError as e:
-        # File doesn't exist or other filesystem validation failed
-        available = False
-        # Extract the most relevant error message
+        # Filesystem or other validation failed
+        # Extract error message for unavailable_reason
         errors = e.errors()
         if errors:
             unavailable_reason = errors[0].get("msg", "Source is unavailable")
         else:
             unavailable_reason = "Source is unavailable"
 
-    return SourceSchema(
-        id=source.id,
-        active=source.active,
-        config=config,
-        available=available,
-        unavailable_reason=unavailable_reason,
-    )
+        # Retry with filesystem validation skipped to get config
+        try:
+            config = _reader_config_adapter.validate_python(source.config, context={"skip_file_validation": True})
+            return SourceSchema(
+                id=source.id,
+                active=source.active,
+                config=config,
+                available=False,
+                unavailable_reason=unavailable_reason,
+            )
+        except ValidationError as structural_error:
+            # Structural validation failed (e.g., missing required fields, wrong types)
+            # Use model_construct to bypass all validation including ReaderConfig validation
+            # This allows returning raw config dict for debugging without re-raising ValidationError
+            error_msg = "; ".join([f"{err['loc'][0]}: {err['msg']}" for err in structural_error.errors()])
+            return SourceSchema.model_construct(
+                id=source.id,
+                active=source.active,
+                config=source.config,  # Raw dict - model_construct bypasses ReaderConfig validation
+                available=False,
+                unavailable_reason=f"Invalid configuration: {error_msg}",
+            )
 
 
 def sources_db_to_schemas(sources: Iterable[SourceDB]) -> list[SourceSchema]:

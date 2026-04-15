@@ -15,7 +15,11 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
-from domain.services.schemas.reader import SourceType, UsbCameraConfig, VideoFileConfig
+from domain.services.schemas.reader import (
+    SourceType,
+    UsbCameraConfig,
+    VideoFileConfig,
+)
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
 
@@ -37,6 +41,8 @@ def make_source(
         base_cfg |= {"device_id": 0}
     elif source_type == SourceType.VIDEO_FILE:
         base_cfg |= {"video_path": "/tmp/video.mp4"}
+    elif source_type == SourceType.IMAGES_FOLDER:
+        base_cfg |= {"images_folder_path": "/tmp/images"}
     if config_extra:
         base_cfg |= config_extra
     return SimpleNamespace(
@@ -486,3 +492,142 @@ def test_update_source_activate_with_missing_video_file_fails(service):
     # Verify the error is about the missing file
     errors = exc_info.value.errors()
     assert any("does not exist" in str(err.get("msg", "")).lower() for err in errors)
+
+
+def test_list_sources_with_missing_images_folder(service):
+    """Test that sources with missing images folders are returned with available=False."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create a source pointing to a non-existent images folder
+    images_source = make_source(
+        project_id=project_id,
+        source_type=SourceType.IMAGES_FOLDER,
+        config_extra={"images_folder_path": "/nonexistent/images"},
+    )
+    service.source_repository.list_with_pagination_by_project.return_value = ([images_source], 1)
+
+    # Path.exists() will return False for the missing folder
+    with patch("pathlib.Path.exists", return_value=False):
+        result = service.list_sources(project_id)
+
+    assert len(result.sources) == 1
+    source_schema = result.sources[0]
+    assert source_schema.id == images_source.id
+    assert source_schema.available is False
+    assert source_schema.unavailable_reason is not None
+    assert "does not exist" in source_schema.unavailable_reason
+
+
+def test_get_source_with_missing_images_folder(service):
+    """Test that getting a source with a missing images folder returns available=False."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    images_source = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.IMAGES_FOLDER,
+        config_extra={"images_folder_path": "/missing/images"},
+    )
+    service.source_repository.get_by_id_and_project.return_value = images_source
+
+    with patch("pathlib.Path.exists", return_value=False):
+        schema = service.get_source(project_id=project_id, source_id=source_id)
+
+    assert schema.id == source_id
+    assert schema.available is False
+    assert schema.unavailable_reason is not None
+    assert "does not exist" in schema.unavailable_reason
+
+
+def test_get_source_with_empty_images_folder(service):
+    """Test that getting a source with an empty images folder returns available=False."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    images_source = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.IMAGES_FOLDER,
+        config_extra={"images_folder_path": "/empty/folder"},
+    )
+    service.source_repository.get_by_id_and_project.return_value = images_source
+
+    # Mock the folder exists and is a directory, but is empty
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.is_dir", return_value=True),
+        patch("pathlib.Path.iterdir", return_value=iter([])),
+    ):  # Empty iterator
+        schema = service.get_source(project_id=project_id, source_id=source_id)
+
+    assert schema.id == source_id
+    assert schema.available is False
+    assert schema.unavailable_reason is not None
+    assert "empty" in schema.unavailable_reason.lower()
+
+
+def test_update_source_activate_with_missing_images_folder_fails(service):
+    """Test that activating a source with a missing images folder raises ValidationError (prevents blank screen)."""
+    from pydantic import ValidationError
+
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Existing source is inactive with an images folder path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.IMAGES_FOLDER,
+        config_extra={"images_folder_path": "/missing/images"},
+        active=False,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Try to activate with a missing images folder
+    update_schema_dict = {
+        "active": True,
+        "config": {
+            "source_type": "images_folder",
+            "images_folder_path": "/missing/images",
+        },
+    }
+
+    # When constructing SourceUpdateSchema, validation should fail because folder doesn't exist
+    with patch("pathlib.Path.exists", return_value=False):
+        with pytest.raises(ValidationError) as exc_info:
+            SourceUpdateSchema(**update_schema_dict)
+
+    # Verify the error is about the missing folder
+    errors = exc_info.value.errors()
+    assert any("does not exist" in str(err.get("msg", "")).lower() for err in errors)
+
+
+def test_get_source_with_structurally_invalid_config(service):
+    """Test that sources with structurally invalid config (e.g., missing required fields) don't crash GET."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create a source with structurally invalid config (missing required fields)
+    invalid_source = SimpleNamespace(
+        id=source_id,
+        project_id=project_id,
+        config={"source_type": "video_file"},  # Missing required 'video_path' field
+        active=False,
+    )
+    service.source_repository.get_by_id_and_project.return_value = invalid_source
+
+    # Should not raise, even though config is structurally invalid
+    schema = service.get_source(project_id=project_id, source_id=source_id)
+
+    # Verify response indicates unavailable with appropriate reason
+    assert schema.id == source_id
+    assert schema.available is False
+    assert schema.unavailable_reason is not None
+    assert "invalid configuration" in schema.unavailable_reason.lower()
