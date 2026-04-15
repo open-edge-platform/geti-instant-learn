@@ -241,7 +241,7 @@ class InferenceVisualizer:
         resolver = CategoryResolver(visualization_info)
         renderers = self._build_renderers(resolver)
 
-        logger.info(f"Visualizing predictions: {output_data.results}") #todo cleanup
+        logger.info(f"Visualizing predictions: {output_data.results}")  # todo cleanup
         logger.debug("Visualizing %d predictions", len(output_data.results))
         for prediction in output_data.results:
             labels = prediction.get("pred_labels")
