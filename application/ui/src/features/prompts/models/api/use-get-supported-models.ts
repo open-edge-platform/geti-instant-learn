@@ -10,7 +10,7 @@ export type SupportedModelMetadata = components['schemas']['SupportedModelMetada
 export type SupportedPromptType = components['schemas']['SupportedPromptType'];
 
 export const useGetSupportedModels = () => {
-    const { data } = $api.useSuspenseQuery('get', '/api/v1/supported-models', {
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/system/supported-models', {
         params: { query: { offset: 0, limit: 20 } },
     });
 
