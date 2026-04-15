@@ -106,7 +106,8 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
         decoderModel === model.config.sam_model &&
         precision === model.config.precision &&
         useMaskRefinement === model.config.use_mask_refinement &&
-        detectSmallObjects === (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined);
+        detectSmallObjects ===
+            (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined);
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
