@@ -233,9 +233,16 @@ class LabelService(BaseService):
         category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
 
         return CategoryMappings(
-            label_to_category_id=label_to_category_id,
-            category_id_to_label_id=category_id_to_label_id,
+            label_to_category_id=label_to_category_id, category_id_to_label_id=category_id_to_label_id
         )
+
+    def get_label_names(self, label_ids: Iterable[UUID]) -> dict[UUID, str]:
+        """Get label names for a set of label IDs."""
+        result: dict[UUID, str] = {}
+        for label_id in label_ids:
+            label = self.label_repository.get_by_id(label_id)
+            result[label_id] = label.name if label else str(label_id)
+        return result
 
     def _handle_label_integrity_error(
         self,
