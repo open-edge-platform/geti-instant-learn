@@ -141,6 +141,7 @@ class TestModelFactory:
                     mock_model_instance,
                     mock_reference_batch,
                     precision="fp32",
+                    compression="fp32",
                 )
                 mock_torch_handler.assert_not_called()
 
@@ -176,12 +177,15 @@ class TestModelFactory:
                 num_background_points=3,
                 confidence_threshold=0.5,
                 precision="fp32",
+                compression="fp32",
                 device="cpu",
                 use_mask_refinement=True,
                 sam=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_small",
             )
-            mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, precision="fp32")
+            mock_handler.assert_called_once_with(
+                mock_model_instance, mock_reference_batch, precision="fp32", compression="fp32"
+            )
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
         config = PerDinoConfig(
