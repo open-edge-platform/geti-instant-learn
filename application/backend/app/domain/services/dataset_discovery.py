@@ -37,7 +37,7 @@ def resolve_dataset_path_from_cache(dataset_id: UUID | None, dataset_paths: Mapp
         Resolved dataset path.
 
     Raises:
-        DatasetNotFoundError: If the dataset id is missing or no cached datasets exist.
+        DatasetNotFoundError: If the provided dataset id is not found in the cache or no cached datasets exist.
     """
     if dataset_id is not None:
         try:
