@@ -50,12 +50,12 @@ class TestMjpegStreamService:
         return visualizer
 
     @pytest.mark.asyncio
-    async def test_generate_frames_yields_multipart_frame(self, service, output_slot, mock_visualizer):
+    async def test_stream_yields_multipart_frame(self, service, output_slot, mock_visualizer):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         output_data = OutputData(frame=frame, results=[])
         output_slot.update(output_data)
 
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
         chunk = await gen.__anext__()
 
         assert chunk.startswith(f"--{BOUNDARY}\r\n".encode())
@@ -63,35 +63,35 @@ class TestMjpegStreamService:
         assert b"Content-Length: " in chunk
 
     @pytest.mark.asyncio
-    async def test_generate_frames_calls_visualizer(self, service, output_slot, mock_visualizer):
+    async def test_stream_calls_visualizer(self, service, output_slot, mock_visualizer):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         output_data = OutputData(frame=frame, results=[])
         output_slot.update(output_data)
 
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
         await gen.__anext__()
 
         mock_visualizer.visualize.assert_called_once_with(output_data=output_data, visualization_info=None)
 
     @pytest.mark.asyncio
-    async def test_generate_frames_passes_vis_info(self, service, output_slot, mock_visualizer):
+    async def test_stream_passes_vis_info(self, service, output_slot, mock_visualizer):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         output_data = OutputData(frame=frame, results=[])
         output_slot.update(output_data)
 
         vis_info = MagicMock()
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: vis_info)
+        gen = service.stream(output_slot, mock_visualizer, lambda: vis_info)
         await gen.__anext__()
 
         mock_visualizer.visualize.assert_called_once_with(output_data=output_data, visualization_info=vis_info)
 
     @pytest.mark.asyncio
-    async def test_generate_frames_skips_duplicate_frame(self, service, output_slot, mock_visualizer):
+    async def test_stream_skips_duplicate_frame(self, service, output_slot, mock_visualizer):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         output_data = OutputData(frame=frame, results=[])
         output_slot.update(output_data)
 
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
         await gen.__anext__()
 
         # Same object in slot — generator should not yield again within timeout
@@ -99,7 +99,7 @@ class TestMjpegStreamService:
             await asyncio.wait_for(gen.__anext__(), timeout=0.05)
 
     @pytest.mark.asyncio
-    async def test_generate_frames_yields_again_for_new_frame(self, output_slot, mock_visualizer):
+    async def test_stream_yields_again_for_new_frame(self, output_slot, mock_visualizer):
         # Use high max_fps so throttle doesn't interfere
         service = MjpegStreamService(quality=80, max_fps=1000)
 
@@ -118,7 +118,7 @@ class TestMjpegStreamService:
         assert chunk.startswith(f"--{BOUNDARY}\r\n".encode())
 
     @pytest.mark.asyncio
-    async def test_generate_frames_throttles_by_fps(self, output_slot, mock_visualizer):
+    async def test_stream_throttles_by_fps(self, output_slot, mock_visualizer):
         service = MjpegStreamService(quality=80, max_fps=10)  # 100ms interval
 
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -136,8 +136,8 @@ class TestMjpegStreamService:
             await asyncio.wait_for(gen.__anext__(), timeout=0.05)
 
     @pytest.mark.asyncio
-    async def test_generate_frames_waits_for_first_frame(self, service, output_slot, mock_visualizer):
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+    async def test_stream_waits_for_first_frame(self, service, output_slot, mock_visualizer):
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
 
         # No frame in slot — should not yield
         with pytest.raises(asyncio.TimeoutError):
