@@ -143,7 +143,7 @@ class Settings(BaseSettings):
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
     box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
-    label_font_scale: float = Field(default=0.5, alias="LABEL_FONT_SCALE")
+    label_font_scale: float = Field(default=2.0, alias="LABEL_FONT_SCALE")
 
     @property
     def ice_servers(self) -> list[dict]:

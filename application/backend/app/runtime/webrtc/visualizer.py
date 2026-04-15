@@ -5,52 +5,51 @@ from __future__ import annotations
 
 import logging
 from typing import Protocol
+from uuid import UUID
 
 import cv2
 import numpy as np
 
-from domain.services.schemas.label import LabelInfo, VisualizationInfo
+from domain.services.schemas.label import RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.processor import OutputData
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+_FALLBACK_ID = UUID(int=0)
 DEFAULT_FALLBACK_COLOR: tuple[int, int, int] = (128, 128, 128)
 
 
 class CategoryResolver:
-    """Resolve category IDs to label metadata (color, name).
+    """Resolve category IDs to visualization labels.
 
-    Encapsulates the category_id → label_id → LabelInfo lookup chain.
+    Encapsulates the category_id → label_id → VisualizationLabel lookup chain.
     Falls back to deterministic colors for unmapped categories and a neutral
     fallback when no category is available.
     """
 
     def __init__(self, visualization_info: VisualizationInfo | None = None) -> None:
         self._category_id_to_label_id: dict[int, str] = {}
-        self._label_id_to_info: dict[str, LabelInfo] = {}
+        self._label_id_to_vis: dict[str, VisualizationLabel] = {}
 
         if visualization_info is not None:
             self._category_id_to_label_id = visualization_info.category_mappings.category_id_to_label_id
-            self._label_id_to_info = {
-                str(item.id): LabelInfo(color=item.color.to_tuple(), name=item.object_name)
-                for item in visualization_info.label_colors
-            }
+            self._label_id_to_vis = {str(item.id): item for item in visualization_info.label_colors}
 
-    def resolve(self, category_id: int | None) -> LabelInfo:
-        """Return label metadata for a predicted category."""
+    def resolve(self, category_id: int | None) -> VisualizationLabel:
+        """Return visualization label for a predicted category."""
         if category_id is None:
-            return LabelInfo(color=DEFAULT_FALLBACK_COLOR)
+            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR))
 
         label_id = self._category_id_to_label_id.get(category_id)
         if label_id is None:
             logger.warning("No label mapping found for category_id=%d", category_id)
-            return LabelInfo(color=generate_deterministic_color(category_id))
+            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
 
-        info = self._label_id_to_info.get(label_id)
+        info = self._label_id_to_vis.get(label_id)
         if info is None:
             logger.warning("No color found for label_id=%s (category_id=%d)", label_id, category_id)
-            return LabelInfo(color=generate_deterministic_color(category_id))
+            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
 
         logger.debug("Category %d -> label %s -> color %s", category_id, label_id, info.color)
         return info
@@ -98,10 +97,11 @@ class MaskRenderer:
         for mask_idx, mask in enumerate(masks):
             category_id = self._resolver.extract_category_id(labels_np, mask_idx)
             info = self._resolver.resolve(category_id)
+            color = info.color.to_tuple()
 
             mask_bool = mask > 0.5
-            overlay = self._apply_overlay(overlay, mask_bool, info.color)
-            overlay = self._draw_contours(overlay, mask_bool, info.color)
+            overlay = self._apply_overlay(overlay, mask_bool, color)
+            overlay = self._draw_contours(overlay, mask_bool, color)
 
         return overlay
 
@@ -148,13 +148,14 @@ class BoxRenderer:
         for box_idx, box in enumerate(boxes):
             category_id = self._resolver.extract_category_id(labels_np, box_idx)
             info = self._resolver.resolve(category_id)
+            color = info.color.to_tuple()
 
             x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), info.color, self._box_thickness)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, self._box_thickness)
 
             if self._visualize_labels:
                 score = float(box[4]) if len(box) > 4 else None
-                self._draw_caption(frame, x1, y1, info.name, score, info.color)
+                self._draw_caption(frame, x1, y1, info.object_name, score, color)
 
         return frame
 
@@ -177,7 +178,7 @@ class BoxRenderer:
 
         caption = " ".join(parts)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        thickness = 1
+        thickness = 2
         (text_w, text_h), baseline = cv2.getTextSize(caption, font, self._label_font_scale, thickness)
 
         text_y = max(y1 - 6, text_h + 2)

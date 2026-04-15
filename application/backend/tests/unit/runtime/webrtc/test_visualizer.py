@@ -572,8 +572,8 @@ class TestCategoryResolver:
 
         info = resolver.resolve(0)
 
-        assert info.color == (255, 0, 0)
-        assert info.name == "Cat"
+        assert info.color.to_tuple() == (255, 0, 0)
+        assert info.object_name == "Cat"
 
     def test_resolve_mapped_category_without_name(self) -> None:
         label_id = "00000000-0000-0000-0000-000000000001"
@@ -585,24 +585,24 @@ class TestCategoryResolver:
 
         info = resolver.resolve(0)
 
-        assert info.color == (0, 255, 0)
-        assert info.name is None
+        assert info.color.to_tuple() == (0, 255, 0)
+        assert info.object_name is None
 
     def test_resolve_unmapped_category_returns_deterministic_color(self) -> None:
         resolver = CategoryResolver(None)
 
         info = resolver.resolve(7)
 
-        assert info.color == generate_deterministic_color(7)
-        assert info.name is None
+        assert info.color.to_tuple() == generate_deterministic_color(7)
+        assert info.object_name is None
 
     def test_resolve_none_category_returns_fallback(self) -> None:
         resolver = CategoryResolver(None)
 
         info = resolver.resolve(None)
 
-        assert info.color == DEFAULT_FALLBACK_COLOR
-        assert info.name is None
+        assert info.color.to_tuple() == DEFAULT_FALLBACK_COLOR
+        assert info.object_name is None
 
     def test_extract_category_id_valid(self) -> None:
         labels = np.array([3, 5], dtype=np.int64)
