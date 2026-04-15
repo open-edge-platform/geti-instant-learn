@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 
-import { Button, Flex, Loading } from '@geti/ui';
+import { Button, Flex } from '@geti/ui';
 import { Play } from '@geti/ui/icons';
 
 import { useStreamConnection } from '../mjpeg/stream-connection-provider';

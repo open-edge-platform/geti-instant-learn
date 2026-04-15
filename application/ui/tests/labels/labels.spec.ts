@@ -8,7 +8,7 @@ import { expect, http, test } from '@/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { Page } from '@playwright/test';
 
-import { initializeWebRTC } from '../prompt/initialize-webrtc';
+import { initializeStream } from '../prompt/initialize-stream';
 import { StreamPage } from '../prompt/stream-page';
 import { registerApiLabels, USB_CAMERA_SOURCE } from './mocks';
 
@@ -32,8 +32,8 @@ const setupLabels = async ({
 };
 
 test.describe('Labels', () => {
-    test.beforeEach(async ({ network, context, page }) => {
-        await initializeWebRTC({ network, context, page });
+    test.beforeEach(async ({ network, page }) => {
+        await initializeStream({ network, page });
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
