@@ -448,3 +448,41 @@ def test_get_source_with_missing_video_file(service):
     assert schema.available is False
     assert schema.unavailable_reason is not None
     assert "does not exist" in schema.unavailable_reason
+
+
+def test_update_source_activate_with_missing_video_file_fails(service):
+    """Test that activating a source with a missing video file raises ValidationError (prevents blank screen)."""
+    from pydantic import ValidationError
+
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Existing source is inactive with a video file path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/missing/video.mp4"},
+        active=False,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Try to activate with a missing video file
+    update_schema_dict = {
+        "active": True,
+        "config": {
+            "source_type": "video_file",
+            "video_path": "/missing/video.mp4",
+        },
+    }
+
+    # When constructing SourceUpdateSchema, validation should fail because file doesn't exist
+    with patch("pathlib.Path.exists", return_value=False):
+        with pytest.raises(ValidationError) as exc_info:
+            SourceUpdateSchema(**update_schema_dict)
+
+    # Verify the error is about the missing file
+    errors = exc_info.value.errors()
+    assert any("does not exist" in str(err.get("msg", "")).lower() for err in errors)
