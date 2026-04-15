@@ -36,10 +36,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# 1. Vision encoder wrapper
-# ---------------------------------------------------------------------------
-
 
 class OnnxVisionEncoder(nn.Module):
     """ONNX-exportable wrapper around the SAM3 vision encoder.
@@ -78,11 +74,6 @@ class OnnxVisionEncoder(nn.Module):
         # Drop last FPN level (0.5x scale) -- used only inside model.forward()
         # via fpn_hidden_states[:-1], fpn_position_encoding[:-1]
         return fpn_hidden[0], fpn_hidden[1], fpn_hidden[2], fpn_pos[2]
-
-
-# ---------------------------------------------------------------------------
-# 2. Text encoder wrapper
-# ---------------------------------------------------------------------------
 
 
 class OnnxTextEncoder(nn.Module):
@@ -125,11 +116,6 @@ class OnnxTextEncoder(nn.Module):
         text_features = self.text_projection(text_outputs.last_hidden_state)
         text_mask = attention_mask.bool()
         return text_features, text_mask
-
-
-# ---------------------------------------------------------------------------
-# 3. Geometry encoder wrapper
-# ---------------------------------------------------------------------------
 
 
 class OnnxGeometryEncoder(nn.Module):
@@ -216,11 +202,6 @@ class OnnxGeometryEncoder(nn.Module):
             geometry_outputs["last_hidden_state"],
             geometry_outputs["attention_mask"],
         )
-
-
-# ---------------------------------------------------------------------------
-# 4. Prompt decoder wrapper  (DETR encoder + decoder + scoring + mask decoder)
-# ---------------------------------------------------------------------------
 
 
 class OnnxPromptDecoder(nn.Module):
@@ -331,10 +312,6 @@ class OnnxPromptDecoder(nn.Module):
             presence_logits,
         )
 
-
-# ---------------------------------------------------------------------------
-# Export helpers
-# ---------------------------------------------------------------------------
 
 _VISION_ENCODER_NAME = "vision-encoder"
 _TEXT_ENCODER_NAME = "text-encoder"

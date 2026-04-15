@@ -65,7 +65,6 @@ predictions = model.predict([
 
 For more examples, see the [SAM3 aerial & maritime notebook](examples/sam3_aerial_maritime_example.ipynb).
 
-
 <details>
 <summary><strong>Box / point prompting</strong></summary>
 

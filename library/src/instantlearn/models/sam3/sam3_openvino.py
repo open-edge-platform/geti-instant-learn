@@ -242,7 +242,6 @@ class SAM3OpenVINO(Model):
         self.exemplar_text_mask: list[np.ndarray] | None = None
         self.exemplar_category_ids: list[int] | None = None
 
-        # -- Load sub-models --
         core = ov.Core()
 
         # Vision encoder + text encoder (always required)
