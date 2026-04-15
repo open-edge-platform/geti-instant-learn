@@ -10,7 +10,7 @@ import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-promp
 import { PromptPage } from '../annotator/prompt-page';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { registerApiLabels } from '../labels/mocks';
-import { initializeStream } from './initialize-stream';
+import { initializeStream } from './initialize-stream.ts';
 import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, USB_CAMERA_SOURCE } from './mocks';
 
 const waitForSAM = async (page: Page) => {

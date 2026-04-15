@@ -6,7 +6,7 @@
 import { expect, http, test } from '@/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
-import { initializeStream } from '../prompt/initialize-stream';
+import { initializeStream } from '../prompt/initialize-stream.ts';
 import { USB_CAMERA_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
