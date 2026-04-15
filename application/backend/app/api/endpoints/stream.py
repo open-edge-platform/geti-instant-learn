@@ -5,11 +5,12 @@
 
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from typing import Annotated
 from uuid import UUID
 
 import cv2
+import numpy as np
 from fastapi import Depends, Query
 from starlette.responses import StreamingResponse
 
@@ -27,15 +28,8 @@ logger = logging.getLogger(__name__)
 BOUNDARY = "frame"
 
 
-def _visualize_and_encode(
-    output_data: OutputData,
-    visualizer: InferenceVisualizer,
-    vis_info: VisualizationInfo | None,
-    quality: int,
-) -> bytes:
-    """CPU-bound: visualize predictions and encode to JPEG."""
-    np_frame = visualizer.visualize(output_data=output_data, visualization_info=vis_info)
-    bgr = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
+def _encode_jpeg(bgr: np.ndarray, quality: int) -> bytes:
+    """Encode a BGR frame to JPEG bytes."""
     ok, buf = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])
     if not ok:
         raise RuntimeError("JPEG encoding failed")
@@ -45,7 +39,7 @@ def _visualize_and_encode(
 async def _mjpeg_frames(
     output_slot: FrameSlot[OutputData],
     visualizer: InferenceVisualizer,
-    vis_info_provider: callable,
+    vis_info_provider: Callable[[], VisualizationInfo | None],
     quality: int,
     max_fps: int,
 ) -> AsyncGenerator[bytes, None]:
@@ -72,8 +66,12 @@ async def _mjpeg_frames(
         last_output = output_data
         vis_info: VisualizationInfo | None = vis_info_provider()
 
-        # Run CPU-heavy visualization + encoding off the event loop
-        jpeg = await loop.run_in_executor(None, _visualize_and_encode, output_data, visualizer, vis_info, quality)
+        # Visualize predictions onto the frame
+        rgb = visualizer.visualize(output_data=output_data, visualization_info=vis_info)
+        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        # Encode to JPEG off the event loop
+        jpeg = await loop.run_in_executor(None, _encode_jpeg, bgr, quality)
 
         yield (
             b"--" + boundary + b"\r\n"
