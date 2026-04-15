@@ -32,7 +32,7 @@ ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
 class BaseModelConfig(BaseModel):
     """Base configuration class with common validators for all model types."""
 
-    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_BASE)
+    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
 
@@ -66,7 +66,7 @@ class PerDinoConfig(BaseModelConfig):
             "example": {
                 "model_type": "perdino",
                 "encoder_model": "dinov3_small",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "num_foreground_points": 80,
                 "num_background_points": 2,
                 "num_grid_cells": 16,
@@ -93,7 +93,7 @@ class MatcherConfig(BaseModelConfig):
                 "num_background_points": 3,
                 "confidence_threshold": 0.38,
                 "precision": "bf16",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
             }
@@ -116,7 +116,7 @@ class SoftMatcherConfig(BaseModelConfig):
         "json_schema_extra": {
             "example": {
                 "model_type": "soft_matcher",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "num_foreground_points": 40,
                 "num_background_points": 2,

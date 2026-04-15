@@ -74,7 +74,7 @@ MODEL_CLASSES = {
 }
 
 # SAM models to test (SAM3 doesn't use SAM backend, will be handled separately)
-SAM_MODELS = [SAMModelName.SAM_HQ_BASE, SAMModelName.SAM2_TINY]
+SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
 
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]

@@ -122,7 +122,7 @@ MODEL_MAP = {
         "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_h.pth",
         "sha_sum": "a7ac14a085326d9fa6199c8c698c4f0e7280afdbb974d2c4660ec60877b45e35",
     },
-    SAMModelName.SAM_HQ_TINY: {  # 1024x1024 input resolution, TinyViT (~5M params) — deprecated
+    SAMModelName.SAM_HQ_TINY: {  # 1024x1024 input resolution, TinyViT (~5M params) — no OpenVINO export
         "registry_name": "vit_tiny",
         "local_filename": "sam_hq_vit_tiny.pth",
         "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_tiny.pth",

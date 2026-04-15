@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Benchmark SAM-HQ decoder x DINOv3 encoder variants: export, GPU/CPU inference, accuracy, determinism.

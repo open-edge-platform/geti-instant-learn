@@ -183,7 +183,7 @@ class Matcher(Model):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_BASE,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
@@ -392,8 +392,8 @@ class Matcher(Model):
 
         if Backend(backend) == Backend.OPENVINO and self.sam_predictor.sam_model_name == SAMModelName.SAM_HQ_TINY:
             msg = (
-                "SAM-HQ-Tiny is not compatible with OpenVINO export due to GPU non-determinism. "
-                "Use SAM_HQ_BASE or SAM_HQ_LARGE instead."
+                "SAM-HQ-Tiny is not supported for OpenVINO export. "
+                "Use SAM-HQ-base or SAM-HQ-large instead."
             )
             raise ValueError(msg)
 

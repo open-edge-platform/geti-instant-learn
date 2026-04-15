@@ -95,7 +95,7 @@ describe('ModelConfigurationDialog', () => {
                 num_foreground_points: 10,
                 num_background_points: 10,
                 confidence_threshold: 0.2,
-                sam_model: 'SAM-HQ-base',
+                sam_model: 'SAM-HQ-tiny',
                 encoder_model: 'dinov3_small',
                 use_mask_refinement: true,
                 precision: 'bf16',
@@ -126,7 +126,7 @@ describe('ModelConfigurationDialog', () => {
 
         await modelConfigurationDialogPage.changeDecoderModel('SAM2 Small');
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
-        await modelConfigurationDialogPage.changeDecoderModel('SAM-HQ Base');
+        await modelConfigurationDialogPage.changeDecoderModel('SAM-HQ Tiny');
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
 
         await modelConfigurationDialogPage.changePrecision('FP16');

@@ -72,7 +72,7 @@ class SoftMatcher(Matcher):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_BASE,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         confidence_threshold: float | None = 0.42,
