@@ -32,6 +32,7 @@ from runtime.core.components.validators.sink_connection import SinkConnectionVal
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService
+from runtime.services.mjpeg_stream import MjpegStreamService
 from runtime.services.source_type import SourceTypeService
 from settings import get_settings
 
@@ -186,6 +187,14 @@ def get_license_service() -> LicenseService:
     return LicenseService()
 
 
+def get_mjpeg_stream_service() -> MjpegStreamService:
+    """Dependency that provides an MjpegStreamService instance."""
+    return MjpegStreamService(
+        quality=settings.mjpeg_quality,
+        max_fps=settings.mjpeg_max_fps,
+    )
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
@@ -198,6 +207,7 @@ SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
+MjpegStreamServiceDep = Annotated[MjpegStreamService, Depends(get_mjpeg_stream_service)]
 DatasetPathDep = Annotated[Path, Depends(get_dataset_path_by_id)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
 AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]
