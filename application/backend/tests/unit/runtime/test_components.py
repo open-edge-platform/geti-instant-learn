@@ -42,13 +42,10 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
     )
 
     with (
-        patch("runtime.components.ProjectService") as svc_cls,
         patch("runtime.components.get_settings", return_value=settings),
         patch("runtime.components.Processor") as processor_cls,
     ):
-        svc_cls.return_value.get_pipeline_config.return_value = cfg
-
-        factory.create_processor(project_id, reference_batch)
+        factory.create_processor(cfg, reference_batch)
 
         factory._model_factory.create.assert_called_once_with(
             reference_batch=reference_batch,

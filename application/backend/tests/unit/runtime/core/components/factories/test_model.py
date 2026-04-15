@@ -7,9 +7,8 @@ from uuid import uuid4
 import pytest
 from instantlearn.utils.constants import SAMModelName
 
-from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
@@ -306,12 +305,13 @@ class TestModelFactory:
 
             model_factory.create(mock_reference_batch, config)
 
-            mock_sam3.assert_called_once_with(
-                confidence_threshold=0.5,
-                resolution=1008,
-                precision="fp32",
-                device="cpu",
-            )
+            # Verify config fields; prompt_mode is derived from reference_batch contents
+            call_kwargs = mock_sam3.call_args.kwargs
+            assert call_kwargs["confidence_threshold"] == 0.5
+            assert call_kwargs["resolution"] == 1008
+            assert call_kwargs["precision"] == "fp32"
+            assert call_kwargs["device"] == "cpu"
+            assert "prompt_mode" in call_kwargs
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
 
     def test_factory_returns_passthrough_for_none_reference_batch(self, model_factory):

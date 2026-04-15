@@ -60,7 +60,7 @@ class TestGetSupportedModels:
             ModelType.MATCHER,
             ModelType.PERDINO,
             ModelType.SOFT_MATCHER,
-            # ModelType.SAM3,
+            ModelType.SAM3,
         }
 
     def test_each_model_has_required_fields(self, client):
@@ -76,13 +76,13 @@ class TestGetSupportedModels:
         response = client.get("/api/v1/system/supported-models")
         body = response.json()
         assert "pagination" in body
-        assert body["pagination"]["total"] == 3
-        assert body["pagination"]["count"] == 3
+        assert body["pagination"]["total"] == 4
+        assert body["pagination"]["count"] == 4
 
     def test_response_is_parseable_by_schema(self, client):
         response = client.get("/api/v1/system/supported-models")
         parsed = SupportedModelsListSchema.model_validate(response.json())
-        assert len(parsed.models) == 3
+        assert len(parsed.models) == 4
 
 
 class TestMatcherModel:

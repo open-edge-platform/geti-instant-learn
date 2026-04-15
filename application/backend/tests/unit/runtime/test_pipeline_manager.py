@@ -17,6 +17,7 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.pipeline import PipelineConfig
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
@@ -84,11 +85,12 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
             patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
-            patch.object(PipelineManager, "get_reference_batch", return_value=None),
+            patch.object(PipelineManager, "_build_reference_batch", return_value=None),
             patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
+            svc_inst.get_pipeline_config.return_value = pipeline_cfg
             repo_inst = repo_cls.return_value
 
             # Configure the mock Pipeline to support method chaining
@@ -101,9 +103,9 @@ class TestPipelineManager:
             mgr.start()
 
             svc_inst.get_active_pipeline_config.assert_called_once()
-            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.project_id)
-            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg.project_id, None)
-            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.project_id)
+            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.reader)
+            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg, None)
+            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.writer)
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
@@ -142,10 +144,13 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
             patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
-            patch.object(PipelineManager, "get_reference_batch", return_value=None),
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls_act,
+            patch.object(PipelineManager, "_build_reference_batch", return_value=None),
             patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
         ):
             pid = uuid4()
+            pipeline_cfg_act = PipelineConfig(project_id=pid, reader=None, processor=None, writer=None)
+            svc_cls_act.return_value.get_pipeline_config.return_value = pipeline_cfg_act
             repo_inst = repo_cls.return_value
 
             # Configure the mock Pipeline to support method chaining
@@ -158,9 +163,9 @@ class TestPipelineManager:
             ev = ProjectActivationEvent(project_id=pid)
             mgr.on_config_change(ev)
 
-            mock_component_factory.create_source.assert_called_once_with(pid)
-            mock_component_factory.create_processor.assert_called_once_with(pid, None)
-            mock_component_factory.create_sink.assert_called_once_with(pid)
+            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg_act.reader)
+            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg_act, None)
+            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg_act.writer)
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
@@ -182,12 +187,15 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
             patch("runtime.pipeline_manager.FrameRepository"),
-            patch.object(PipelineManager, "get_reference_batch", return_value=None),
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls_rep,
+            patch.object(PipelineManager, "_build_reference_batch", return_value=None),
             patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
         ):
             # Existing pipeline
             old_pipeline = Mock()
             pid_new = uuid4()
+            pipeline_cfg_rep = PipelineConfig(project_id=pid_new, reader=None, processor=None, writer=None)
+            svc_cls_rep.return_value.get_pipeline_config.return_value = pipeline_cfg_rep
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -202,9 +210,9 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             old_pipeline.stop.assert_called_once()
-            mock_component_factory.create_source.assert_called_once_with(pid_new)
-            mock_component_factory.create_processor.assert_called_once_with(pid_new, None)
-            mock_component_factory.create_sink.assert_called_once_with(pid_new)
+            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg_rep.reader)
+            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg_rep, None)
+            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg_rep.writer)
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
@@ -274,11 +282,16 @@ class TestPipelineManager:
     def test_on_component_update_applies_config_for_matching_project(
         self, dispatcher, session_factory, mock_component_factory
     ):
-        with patch("runtime.pipeline_manager.Pipeline"):
+        with (
+            patch("runtime.pipeline_manager.Pipeline"),
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls_comp,
+        ):
             pid = uuid4()
             component_id = uuid4()
             running = Mock()
             running.project_id = pid
+            pipeline_cfg_comp = PipelineConfig(project_id=pid, reader=None, processor=None, writer=None)
+            svc_cls_comp.return_value.get_pipeline_config.return_value = pipeline_cfg_comp
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = running
@@ -288,7 +301,7 @@ class TestPipelineManager:
             )
             mgr.on_config_change(ev)
 
-            mock_component_factory.create_source.assert_called_once_with(pid)
+            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg_comp.reader)
             running.set_source.assert_called_once()
 
     def test_on_component_update_ignores_mismatch(self, dispatcher, session_factory):
@@ -325,9 +338,15 @@ class TestPipelineManager:
         mgr.stop()
         assert mgr._pipeline is None
 
-    def test_get_reference_batch_text_prompts_returns_none(self, dispatcher, session_factory) -> None:
+    def test_get_visual_reference_batch_no_prompts_returns_none(self, dispatcher, session_factory) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
-        assert mgr.get_reference_batch(uuid4(), PromptType.TEXT) is None
+        project_id = uuid4()
+
+        with patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls:
+            prompt_repo_cls.return_value.list_all_by_project.return_value = []
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
+
+        assert result is None
 
     def test_get_reference_batch_for_visual_prompts_returns_batch_and_mapping(
         self, dispatcher, session_factory
@@ -366,7 +385,7 @@ class TestPipelineManager:
                 category_id_to_label_id={0: str(label_id)},
             )
 
-            result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is not None
         batch, category_id_to_label_id = result
@@ -409,7 +428,7 @@ class TestPipelineManager:
                 category_id_to_label_id={0: str(label_id_a), 1: str(label_id_b)},
             )
 
-            result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is not None
         _, category_id_to_label_id = result
@@ -425,7 +444,7 @@ class TestPipelineManager:
         ):
             prompt_repo_cls.return_value.list_all_by_project.return_value = []
 
-            result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is None
 
@@ -446,7 +465,7 @@ class TestPipelineManager:
                 label_to_category_id={}, category_id_to_label_id={}
             )
 
-            result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is None
 
@@ -473,6 +492,6 @@ class TestPipelineManager:
                 label_to_category_id={}, category_id_to_label_id={}
             )
 
-            result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
+            result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is None
