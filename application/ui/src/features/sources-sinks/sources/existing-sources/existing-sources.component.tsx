@@ -22,7 +22,7 @@ import {
 } from '../utils';
 import { VideoFileCard } from '../video-file/video-file-card.component';
 
-const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boolean; isTestDataset: boolean }) => {
+const getMenuItems = ({ isActiveSource }: { isActiveSource: boolean }) => {
     const items = [
         {
             key: 'connect',
@@ -43,9 +43,6 @@ const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boole
             return false;
         }
 
-        if (item.key === 'edit' && isTestDataset) {
-            return false;
-        }
         return true;
     });
 };
@@ -96,7 +93,6 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
                 const menuItems = getMenuItems({
                     isActiveSource,
-                    isTestDataset: isTestDatasetSource(source),
                 });
 
                 if (isTestDatasetSource(source)) {
