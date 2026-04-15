@@ -835,7 +835,7 @@ class SAM3OpenVINO(Model):
                 )
                 all_masks.append(result[0]["masks"])
                 all_boxes.append(boxes_with_scores)
-                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id, dtype=torch.int64))
+                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id if cat_id is not None else 0, dtype=torch.int64))
 
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
@@ -918,7 +918,7 @@ class SAM3OpenVINO(Model):
                 )
                 all_masks.append(result[0]["masks"])
                 all_boxes.append(boxes_with_scores)
-                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id, dtype=torch.int64))
+                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id if cat_id is not None else 0, dtype=torch.int64))
 
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 

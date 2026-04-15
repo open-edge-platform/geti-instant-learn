@@ -33,10 +33,10 @@ def _make_vision_result() -> MagicMock:
     result = MagicMock()
     result.__getitem__ = MagicMock(
         side_effect=lambda k: {
-            "fpn_feat_0": _RNG.standard_normal((1, 256, 288, 288)).astype(np.float32),
-            "fpn_feat_1": _RNG.standard_normal((1, 256, 144, 144)).astype(np.float32),
-            "fpn_feat_2": _RNG.standard_normal((1, 256, 72, 72)).astype(np.float32),
-            "fpn_pos_2": _RNG.standard_normal((1, 256, 72, 72)).astype(np.float32),
+            "fpn_feat_0": _RNG.standard_normal((1, 256, 4, 4)).astype(np.float32),
+            "fpn_feat_1": _RNG.standard_normal((1, 256, 2, 2)).astype(np.float32),
+            "fpn_feat_2": _RNG.standard_normal((1, 256, 1, 1)).astype(np.float32),
+            "fpn_pos_2": _RNG.standard_normal((1, 256, 1, 1)).astype(np.float32),
         }[k],
     )
     return result
