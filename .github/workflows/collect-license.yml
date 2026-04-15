@@ -9,7 +9,7 @@ permissions: {} # No permissions by default
 jobs:
   collect-sbom-container-image:
     name: Generate SBOM with Syft
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       contents: read
     strategy:
@@ -91,7 +91,7 @@ jobs:
 
   collect-sbom-library:
     name: Collect Library Licenses
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:

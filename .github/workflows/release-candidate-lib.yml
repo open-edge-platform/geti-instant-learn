@@ -10,7 +10,7 @@ permissions: {} # No permissions by default
 jobs:
   build:
     name: Build distribution
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     environment: 'prod'
     permissions:
       contents: read

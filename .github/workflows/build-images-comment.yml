@@ -22,7 +22,7 @@ jobs:
     env:
       COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
     if: github.event.issue.pull_request && github.event.comment.body == '/build'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       pull-requests: write # to comment on a pull request
     outputs:
@@ -65,7 +65,7 @@ jobs:
   get-build-version:
     name: Generate build version
     needs: [get-sha-commit]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       contents: read
     outputs:
@@ -94,7 +94,7 @@ jobs:
   result-output:
     name: Check result and comment PR
     needs: [get-sha-commit, get-build-version, distrib]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       pull-requests: write # to comment on a pull request
     if: ${{ always() && !cancelled() }}
