@@ -133,9 +133,11 @@ class Settings(BaseSettings):
     # Inference visualization settings
     visualize_masks: bool = Field(default=False, alias="VISUALIZE_MASKS")
     visualize_boxes: bool = Field(default=True, alias="VISUALIZE_BOXES")
+    visualize_labels: bool = Field(default=True, alias="VISUALIZE_LABELS")
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
     box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
+    label_font_scale: float = Field(default=2.0, alias="LABEL_FONT_SCALE")
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:
