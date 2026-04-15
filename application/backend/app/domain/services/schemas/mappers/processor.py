@@ -5,9 +5,11 @@ from collections.abc import Iterable
 from uuid import UUID
 
 from domain.db.models import ProcessorDB
+from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
     MatcherConfig,
+    ModelType,
     PerDinoConfig,
     ProcessorCreateSchema,
     ProcessorListSchema,
@@ -89,3 +91,20 @@ SUPPORTED_MODELS_METADATA: list[SupportedModelMetadataSchema] = [
         supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
     ),
 ]
+
+PROMPT_TYPE_TO_ANNOTATION_TYPE: dict[SupportedPromptType, AnnotationType] = {
+    SupportedPromptType.VISUAL_POLYGON: AnnotationType.POLYGON,
+    SupportedPromptType.VISUAL_RECTANGLE: AnnotationType.RECTANGLE,
+}
+
+
+def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:
+    """Derive supported annotation types for a model from SUPPORTED_MODELS_METADATA."""
+    for metadata in SUPPORTED_MODELS_METADATA:
+        if metadata.default_config.model_type == model_type:
+            return {
+                PROMPT_TYPE_TO_ANNOTATION_TYPE[pt]
+                for pt in metadata.supported_prompt_types
+                if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
+            }
+    return set()

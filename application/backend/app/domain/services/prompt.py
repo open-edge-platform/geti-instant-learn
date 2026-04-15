@@ -25,10 +25,11 @@ from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.base import BaseService
-from domain.services.schemas.annotation import AnnotationSchema
+from domain.services.schemas.annotation import AnnotationSchema, AnnotationType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
+from domain.services.schemas.mappers.processor import get_supported_annotation_types, processor_db_to_schema
 from domain.services.schemas.mappers.prompt import (
     deduplicate_annotations,
     prompt_create_schema_to_db,
@@ -36,8 +37,11 @@ from domain.services.schemas.mappers.prompt import (
     prompt_update_schema_to_db,
     prompts_db_to_schemas,
 )
+from domain.services.schemas.processor import ModelType
+from domain.services.schemas.project import PromptMode
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
+    PromptListItemSchema,
     PromptSchema,
     PromptsListSchema,
     PromptUpdateSchema,
@@ -96,21 +100,41 @@ class PromptService(BaseService):
         Raises:
             ResourceNotFoundError: If the project does not exist.
         """
-        self._ensure_project(project_id)
-        db_prompts, total_count = self.prompt_repository.list_with_pagination_by_project(
-            project_id=project_id, offset=offset, limit=limit
-        )
-
+        project = self._ensure_project(project_id)
+        current_prompt_mode = PromptMode(project.prompt_mode)
+        db_prompt_type = PromptType.TEXT if current_prompt_mode == PromptMode.TEXT else PromptType.VISUAL
+        db_prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=db_prompt_type)
         prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
+        # for visual mode, filter further by the active model's supported annotation types
+        if current_prompt_mode == PromptMode.VISUAL:
+            active_model_db = self.processor_repository.get_active_in_project(project_id)
+            if active_model_db:
+                active_model = processor_db_to_schema(active_model_db)
+                supported_annotation_types = get_supported_annotation_types(ModelType(active_model.config.model_type))
+                prompts = self._filter_visual_prompts_by_annotation_type(prompts, supported_annotation_types)
+
+        result = prompts[offset : offset + limit]
+
         pagination = Pagination(
-            count=len(prompts),
-            total=total_count,
+            count=len(result),
+            total=len(prompts),
             offset=offset,
             limit=limit,
         )
 
-        return PromptsListSchema(prompts=prompts, pagination=pagination)
+        return PromptsListSchema(prompts=result, pagination=pagination)
+
+    @staticmethod
+    def _filter_visual_prompts_by_annotation_type(
+        prompts: list[PromptSchema | PromptListItemSchema], supported_types: set[AnnotationType]
+    ) -> list[PromptSchema | PromptListItemSchema]:
+        """Keep only visual prompts that have annotations matching supported types."""
+        filtered = []
+        for prompt in prompts:
+            if all(ann.config.type in supported_types for ann in prompt.annotations):
+                filtered.append(prompt)
+        return filtered
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
         """

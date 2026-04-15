@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
@@ -144,6 +144,20 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
     return prompt_db
 
 
+def filter_prompts_by_annotation_type(
+    prompts: Sequence[PromptDB], supported_types: set[AnnotationType]
+) -> list[PromptDB]:
+    """Return only prompts whose annotations match the supported annotation types."""
+    filtered_prompts = []
+    for prompt in prompts:
+        matching_annotations = [
+            ann for ann in prompt.annotations if AnnotationType(ann.config.get("type")) in supported_types
+        ]
+        if matching_annotations:
+            filtered_prompts.append(prompt)
+    return filtered_prompts
+
+
 @dataclass
 class _AnnotationGroupResult:
     """Intermediate result from processing a group of annotations by type."""
@@ -167,6 +181,7 @@ def _group_annotations_by_label(annotations: list[tuple[AnnotationSchema, Any]])
 def _process_polygon_groups(
     label_groups: dict[UUID, list[Any]],
     label_to_category_id: dict[UUID, int],
+    label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
     height: int,
     width: int,
@@ -196,7 +211,7 @@ def _process_polygon_groups(
         current_shot = label_shot_counts.get(label_id, 0)
 
         result.masks.append(semantic_mask)
-        result.categories.append(str(label_id))
+        result.categories.append(label_id_to_name.get(label_id, str(label_id)))
         result.category_ids.append(category_id)
         result.is_reference.append(True)
         result.n_shot.append(current_shot)
@@ -209,6 +224,7 @@ def _process_polygon_groups(
 def _process_rectangle_groups(
     label_groups: dict[UUID, list[RectangleAnnotation]],
     label_to_category_id: dict[UUID, int],
+    label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
 ) -> _AnnotationGroupResult:
     """Convert rectangle annotations grouped by label into bounding boxes with metadata.
@@ -232,7 +248,7 @@ def _process_rectangle_groups(
 
         for rect in rects:
             result.bboxes.append([rect.points[0].x, rect.points[0].y, rect.points[1].x, rect.points[1].y])
-            result.categories.append(str(label_id))
+            result.categories.append(label_id_to_name.get(label_id, str(label_id)))
             result.category_ids.append(category_id)
             result.is_reference.append(True)
             result.n_shot.append(current_shot)
@@ -246,7 +262,9 @@ def visual_prompt_to_sample(
     prompt: PromptDB,
     frame: np.ndarray,
     label_to_category_id: dict[UUID, int],
+    label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
+    supported_annotation_types: set[AnnotationType],
 ) -> Sample:
     """Convert a visual prompt to a Sample with masks and/or bounding boxes.
 
@@ -257,7 +275,9 @@ def visual_prompt_to_sample(
         prompt: Visual prompt with annotations
         frame: RGB image as numpy array (H, W, C)
         label_to_category_id: Mapping from label UUID to category ID (shared across batch)
+        label_id_to_name: Mapping from label UUID to label name
         label_shot_counts: Current shot count per label (modified in-place)
+        supported_annotation_types: Set of supported annotation types to include in the sample
 
     Returns:
         Sample with masks and/or bboxes, one entry per unique label in the prompt
@@ -277,11 +297,17 @@ def visual_prompt_to_sample(
             f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
         )
 
-    polygon_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.POLYGON]
-    rectangle_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.RECTANGLE]
+    supported_annotations = [ann for ann in annotations if ann.config.type in supported_annotation_types]
 
-    if not polygon_annotations and not rectangle_annotations:
+    if not supported_annotations:
         raise ServiceError("Cannot create training sample: visual prompt must have at least one annotation.")
+
+    polygon_annotations = [
+        (ann, ann.config) for ann in supported_annotations if ann.config.type == AnnotationType.POLYGON
+    ]
+    rectangle_annotations = [
+        (ann, ann.config) for ann in supported_annotations if ann.config.type == AnnotationType.RECTANGLE
+    ]
 
     # Convert frame: HWC numpy → CHW tensor
     frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
@@ -291,6 +317,7 @@ def visual_prompt_to_sample(
     polygon_result = _process_polygon_groups(
         _group_annotations_by_label(polygon_annotations),
         label_to_category_id,
+        label_id_to_name,
         label_shot_counts,
         height,
         width,
@@ -298,6 +325,7 @@ def visual_prompt_to_sample(
     rect_result = _process_rectangle_groups(
         _group_annotations_by_label(rectangle_annotations),
         label_to_category_id,
+        label_id_to_name,
         label_shot_counts,
     )
 
