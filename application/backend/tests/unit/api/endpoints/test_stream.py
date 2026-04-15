@@ -30,10 +30,10 @@ def mock_pipeline_manager():
 def mock_mjpeg_service():
     service = MagicMock()
 
-    async def _fake_frames(*args, **kwargs):
+    async def _fake_stream(*args, **kwargs):
         yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\nfake-jpeg\r\n"
 
-    service.generate_frames = MagicMock(side_effect=_fake_frames)
+    service.stream = MagicMock(side_effect=_fake_stream)
     return service
 
 
@@ -78,7 +78,7 @@ class TestStreamMjpegEndpoint:
     def test_stream_passes_output_slot_to_service(self, client, mock_pipeline_manager, mock_mjpeg_service):
         client.get(f"/api/v1/projects/{PROJECT_ID_STR}/stream")
 
-        args, _ = mock_mjpeg_service.generate_frames.call_args
+        args, _ = mock_mjpeg_service.stream.call_args
         assert args[0] is mock_pipeline_manager.get_output_slot.return_value
 
     def test_stream_invalid_project_id_returns_400(self, client):
