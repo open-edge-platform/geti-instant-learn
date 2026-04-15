@@ -4,10 +4,6 @@ import "../recipes.justfile"
 
 port := "9100"
 host := "0.0.0.0"
-enable-coturn := "false"
-host-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
-stun-server := ""
-coturn-port := "443"
 dataset-dir := justfile_directory() + "/.data/templates/datasets"
 
 uv_version := `grep -A 3 '\[tool\.uv\]' pyproject.toml | grep 'required-version' | sed 's/.*"[~=<>]*\([0-9][0-9.]*\)"/\1/'`
@@ -27,10 +23,7 @@ gen-openapi-md: gen-openapi
 
 # Start FastAPI development server with auto-reload
 dev: _venv (download-datasets dataset-dir)
-    {{ if enable-coturn == "true" { "COTURN_HOST='" + host-ip + "' COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
-    {{ if stun-server != "" { "STUN_SERVER='" + stun-server + "'" } else { "" } }} \
     CORS_ORIGINS='*' \
-    WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
     PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ port }}
 
 

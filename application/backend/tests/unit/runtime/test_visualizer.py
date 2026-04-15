@@ -9,7 +9,7 @@ import pytest
 
 from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.processor import OutputData
-from runtime.webrtc.visualizer import DEFAULT_FALLBACK_COLOR, InferenceVisualizer
+from runtime.visualizer import DEFAULT_FALLBACK_COLOR, InferenceVisualizer
 
 
 @pytest.fixture

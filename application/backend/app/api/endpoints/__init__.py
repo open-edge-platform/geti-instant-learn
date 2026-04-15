@@ -13,7 +13,7 @@ from . import (
     sinks,
     source_types,
     sources,
-    webrtc,
+    stream,
 )
 
 __all__ = [
@@ -28,5 +28,5 @@ __all__ = [
     "sinks",
     "source_types",
     "sources",
-    "webrtc",
+    "stream",
 ]

@@ -33,7 +33,6 @@ from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService
 from runtime.services.source_type import SourceTypeService
-from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -49,11 +48,6 @@ def get_pipeline_manager(request: Request) -> PipelineManager:
 def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
     """Dependency that provides access to the ConfigChangeDispatcher."""
     return request.app.state.config_dispatcher
-
-
-def get_webrtc_manager(request: Request) -> WebRTCManager:
-    """Provides the global WebRTCManager instance from FastAPI application's state."""
-    return request.app.state.webrtc_manager
 
 
 def get_dataset_paths(request: Request) -> dict[UUID, Path]:

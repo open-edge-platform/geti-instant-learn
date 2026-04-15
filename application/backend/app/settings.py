@@ -126,15 +126,9 @@ class Settings(BaseSettings):
     processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
     processor_openvino_enabled: bool = Field(default=False, alias="PROCESSOR_OPENVINO_ENABLED")
 
-    # WebRTC
-    webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
-
-    # Simplified WebRTC config
-    coturn_host: str | None = Field(default=None, alias="COTURN_HOST")
-    coturn_port: int = Field(default=3478, alias="COTURN_PORT")
-    coturn_username: str = Field(default="user", alias="COTURN_USERNAME")
-    coturn_password: str = Field(default="password", alias="COTURN_PASSWORD")
-    stun_server: str | None = Field(default=None, alias="STUN_SERVER")
+    # MJPEG streaming
+    mjpeg_quality: int = Field(default=80, ge=1, le=100, alias="MJPEG_QUALITY")
+    mjpeg_max_fps: int = Field(default=30, ge=1, le=60, alias="MJPEG_MAX_FPS")
 
     # Inference visualization settings
     visualize_masks: bool = Field(default=False, alias="VISUALIZE_MASKS")
@@ -142,24 +136,6 @@ class Settings(BaseSettings):
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
     box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
-
-    @property
-    def ice_servers(self) -> list[dict]:
-        """Compute ICE servers from coturn and STUN configuration."""
-        servers = []
-        if self.coturn_host:
-            servers.append(
-                {
-                    "urls": f"turn:{self.coturn_host}:{self.coturn_port}?transport=tcp",
-                    "username": self.coturn_username,
-                    "credential": self.coturn_password,
-                }
-            )
-
-        if self.stun_server:
-            servers.append({"urls": self.stun_server})
-
-        return servers
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:
@@ -176,7 +152,6 @@ class Settings(BaseSettings):
         """
         settings_dict = self.model_dump(
             mode="json",
-            exclude={"coturn_password"},  # Exclude sensitive data
         )
 
         settings_dict["computed"] = {
@@ -184,7 +159,6 @@ class Settings(BaseSettings):
             "template_dataset_dir": str(self.template_dataset_dir),
             "cors_allowed_origins": self.cors_allowed_origins,
             "log_file": self.log_file,
-            "ice_servers_count": len(self.ice_servers),
         }
 
         formatted_json = json.dumps(settings_dict, indent=2, sort_keys=False, default=str)

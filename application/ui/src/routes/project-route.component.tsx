@@ -16,7 +16,7 @@ import { Toolbar } from '../components/toolbar/toolbar.component';
 import { paths } from '../constants/paths';
 import { useActivateProject } from '../features/project/api/use-activate-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
-import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
+import { StreamConnectionProvider } from '../features/stream/mjpeg/stream-connection-provider';
 import { SelectedFrameProvider } from '../shared/selected-frame-provider.component';
 
 const MainLayout = () => {
@@ -59,7 +59,7 @@ export const ProjectRoute = () => {
     const { projectId } = useProjectIdentifier();
 
     return (
-        <WebRTCConnectionProvider key={projectId}>
+        <StreamConnectionProvider key={projectId}>
             <Grid areas={['header', 'main']} rows={['size-800', minmax(0, '1fr')]} columns={'1fr'} height={'100vh'}>
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
@@ -69,6 +69,6 @@ export const ProjectRoute = () => {
                     <MainLayout />
                 </SelectedFrameProvider>
             </Grid>
-        </WebRTCConnectionProvider>
+        </StreamConnectionProvider>
     );
 };

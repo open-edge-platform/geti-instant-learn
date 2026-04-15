@@ -9,11 +9,11 @@ import { useGetSources } from '@/hooks';
 import { Button, Flex, StatusLight, View } from '@geti/ui';
 
 import { SourcesSinks } from '../../features/sources-sinks/sources-sinks.component';
-import { useWebRTCConnection } from '../../features/stream/web-rtc/web-rtc-connection-provider';
+import { useStreamConnection } from '../../features/stream/mjpeg/stream-connection-provider';
 
 const StreamStatus = () => {
     const { data } = useGetSources();
-    const { status, stop } = useWebRTCConnection();
+    const { status, stop } = useStreamConnection();
 
     if (data === undefined || data.sources.length === 0) {
         return null;
