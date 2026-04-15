@@ -107,7 +107,7 @@ class TestMjpegStreamService:
         output1 = OutputData(frame=frame1, results=[])
         output_slot.update(output1)
 
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
         await gen.__anext__()
 
         frame2 = np.ones((10, 10, 3), dtype=np.uint8)
@@ -125,7 +125,7 @@ class TestMjpegStreamService:
         output1 = OutputData(frame=frame, results=[])
         output_slot.update(output1)
 
-        gen = service.generate_frames(output_slot, mock_visualizer, lambda: None)
+        gen = service.stream(output_slot, mock_visualizer, lambda: None)
         await gen.__anext__()
 
         # Push new frame immediately — should be throttled

@@ -35,6 +35,6 @@ async def stream_mjpeg(
             return None
 
     return StreamingResponse(
-        mjpeg_service.generate_frames(output_slot, visualizer, vis_info_provider),
+        mjpeg_service.stream(output_slot, visualizer, vis_info_provider),
         media_type=f"multipart/x-mixed-replace; boundary={BOUNDARY}",
     )

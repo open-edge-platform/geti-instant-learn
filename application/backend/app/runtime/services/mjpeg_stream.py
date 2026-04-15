@@ -35,7 +35,7 @@ class MjpegStreamService:
         self._quality = quality
         self._max_fps = max_fps
 
-    async def generate_frames(
+    async def stream(
         self,
         output_slot: FrameSlot[OutputData],
         visualizer: InferenceVisualizer,
