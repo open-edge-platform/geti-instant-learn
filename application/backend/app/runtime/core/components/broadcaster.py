@@ -134,7 +134,7 @@ class FrameBroadcaster[T]:
 
     def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
-        logger.warning(
+        logger.debug(
             "%s/%s full (%d/%d), dropping oldest frame", self.name, consumer_name, queue.qsize(), queue.maxsize
         )
         try:

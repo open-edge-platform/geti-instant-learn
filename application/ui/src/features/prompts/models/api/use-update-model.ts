@@ -15,6 +15,7 @@ const useUpdateModelMutation = (projectId: string) => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/models', { params: { path: { project_id: projectId } } }],
+                ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
             ],
             error: {
                 notify: true,

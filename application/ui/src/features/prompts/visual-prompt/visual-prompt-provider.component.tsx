@@ -11,6 +11,7 @@ import { useGetPrompt } from './api/use-get-prompt';
 import { useGetPrompts } from './api/use-get-prompts';
 import { useProjectLabels } from './use-project-labels.hook';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
+import { useSelectedFrame } from "../../../shared/selected-frame-provider.component";
 
 interface VisualPromptContextProps {
     promptId: string | null;
@@ -60,8 +61,20 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const { promptId, setPromptId } = usePromptIdFromUrl();
     const prompt = useGetPrompt(promptId);
     const prompts = useGetPrompts();
-
+    const { setSelectedFrameId } = useSelectedFrame();
     const { selectedLabel, selectedLabelId, setSelectedLabelId, labels } = useSelectedLabel(prompt);
+
+    // Clear selected prompt if it's no longer in the filtered prompts list
+    // (e.g. after switching to a model that doesn't support its annotation type)
+    useEffect(() => {
+        if (promptId === null) {
+            return;
+        }
+        if (!prompts.some((p) => p.id === promptId)) {
+            setPromptId(null);
+            setSelectedFrameId(null);
+        }
+    }, [promptId, prompts, setPromptId, setSelectedFrameId]);
 
     return (
         <VisualPromptContext

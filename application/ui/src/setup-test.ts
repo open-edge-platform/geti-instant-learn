@@ -187,7 +187,7 @@ const initialHandlers = [
         return HttpResponse.json(MOCKED_SINKS_RESPONSE);
     }),
 
-    http.get('/api/v1/supported-models', () => {
+    http.get('/api/v1/system/supported-models', () => {
         return HttpResponse.json(MOCKED_SUPPORTED_MODELS_RESPONSE);
     }),
 

@@ -6,7 +6,8 @@ from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
-
+from logging import getLogger
+from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from domain.services.schemas.device import AvailableDeviceSchema, Device
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
@@ -16,6 +17,9 @@ from runtime.core.components.models.passthrough_model import PassThroughModelHan
 from runtime.core.components.models.torch_model import TorchModelHandler
 from runtime.services.device import list_available_devices
 from settings import get_settings
+
+
+logger = getLogger(__name__)
 
 
 class DeviceResolver:
@@ -127,6 +131,8 @@ class ModelFactory:
                     device=selected_device,
                     prompt_mode=prompt_mode,
                 )
+                #todo rm logging or log debug batch
+                logger.info(f"Using SAM3 model with prompt mode: {prompt_mode}, reference batch: {reference_batch}")
                 return TorchModelHandler(model, reference_batch)
             case _:
                 return PassThroughModelHandler()

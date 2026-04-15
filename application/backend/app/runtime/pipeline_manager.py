@@ -167,8 +167,11 @@ class PipelineManager:
             logger.warning("No current pipeline config available to build a reference batch")
             return None
         cfg = self._current_config
-        model_type = ModelType(cfg.processor.model_type)
+        if cfg.processor is None:
+            logger.debug("No active processor configured, skipping reference batch: project_id=%s", cfg.project_id)
+            return None
 
+        model_type = ModelType(cfg.processor.model_type)
         # TODO For SAM3 with text prompt_mode, build a text-only batch - issue #758 enabling text prompts
         if model_type == ModelType.SAM3 and cfg.prompt_mode == PromptMode.TEXT:
             logger.warning("Text prompts are not supported yet for SAM3: project_id=%s", cfg.project_id)
