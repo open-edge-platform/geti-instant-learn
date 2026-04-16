@@ -343,7 +343,7 @@ class TestPipelineManager:
         project_id = uuid4()
 
         with patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls:
-            prompt_repo_cls.return_value.list_all_by_project.return_value = []
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = []
             result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
         assert result is None
@@ -379,7 +379,7 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.visual_prompt_to_sample", return_value=fake_sample),
             patch("runtime.pipeline_manager.Batch.collate", return_value=fake_batch),
         ):
-            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0},
                 category_id_to_label_id={0: str(label_id)},
@@ -392,7 +392,7 @@ class TestPipelineManager:
         assert batch is fake_batch
         assert category_id_to_label_id == {0: str(label_id)}
 
-        prompt_repo_cls.return_value.list_all_by_project.assert_called_once_with(
+        prompt_repo_cls.return_value.list_by_project_and_type.assert_called_once_with(
             project_id=project_id, prompt_type=PromptType.VISUAL
         )
         read_frame.assert_called_once_with(project_id, frame_id)
@@ -422,7 +422,7 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.visual_prompt_to_sample", return_value=fake_sample),
             patch("runtime.pipeline_manager.Batch.collate", return_value=fake_batch),
         ):
-            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id_a: 0, label_id_b: 1},
                 category_id_to_label_id={0: str(label_id_a), 1: str(label_id_b)},
@@ -442,7 +442,7 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
             patch("runtime.pipeline_manager.LabelService"),
         ):
-            prompt_repo_cls.return_value.list_all_by_project.return_value = []
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = []
 
             result = mgr.get_visual_reference_batch(project_id, {AnnotationType.POLYGON})
 
@@ -460,7 +460,7 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
             patch.object(mgr._frame_repository, "read_frame", return_value=None),
         ):
-            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={}, category_id_to_label_id={}
             )
@@ -487,7 +487,7 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch("runtime.pipeline_manager.visual_prompt_to_sample", side_effect=Exception("Mapper error")),
         ):
-            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={}, category_id_to_label_id={}
             )

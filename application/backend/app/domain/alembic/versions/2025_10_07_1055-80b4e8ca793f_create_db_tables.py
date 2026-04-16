@@ -31,7 +31,7 @@ def upgrade() -> None:
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('device', sa.String(), nullable=False, server_default='auto'),
-    sa.Column('prompt_mode', sa.String(), nullable=False, server_default='visual'),
+    sa.Column('prompt_mode', sa.String(), nullable=False, server_default='VISUAL'),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),

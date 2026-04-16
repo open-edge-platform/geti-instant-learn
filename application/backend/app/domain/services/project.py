@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
-from domain.db.models import ProjectDB
+from domain.db.models import ProjectDB, PromptType
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ComponentType,
@@ -39,7 +39,6 @@ from domain.services.schemas.project import (
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
-    PromptMode,
 )
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
@@ -281,7 +280,7 @@ class ProjectService(BaseService):
         return PipelineConfig(
             project_id=project.id,
             device=project_device,
-            prompt_mode=PromptMode(project.prompt_mode),
+            prompt_mode=PromptType(project.prompt_mode),
             reader=reader_cfg,
             processor=processor_cfg,
             writer=writer_cfg,

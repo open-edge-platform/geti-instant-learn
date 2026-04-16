@@ -33,7 +33,7 @@ from domain.services.schemas.prompt import (
 )
 
 
-def make_project(project_id=None, name="proj", prompt_mode="visual"):
+def make_project(project_id=None, name="proj", prompt_mode="VISUAL"):
     return SimpleNamespace(id=project_id or uuid.uuid4(), name=name, prompt_mode=prompt_mode)
 
 
@@ -161,10 +161,10 @@ def polygon_annotation(label_id):
 
 
 def test_list_prompts_success(service, mock_project, project_id, test_image):
-    # list_prompts routes by prompt_mode; mock_project has prompt_mode="visual"
+    # list_prompts routes by prompt_mode; mock_project has prompt_mode="VISUAL"
     visual_prompt = make_visual_prompt_db(project_id=project_id)
     visual_prompt2 = make_visual_prompt_db(project_id=project_id)
-    service.prompt_repository.list_all_by_project.return_value = [visual_prompt, visual_prompt2]
+    service.prompt_repository.list_by_project_and_type.return_value = [visual_prompt, visual_prompt2]
     service.processor_repository.get_active_in_project.return_value = None
 
     result = service.list_prompts(project_id, offset=0, limit=10)
@@ -174,11 +174,11 @@ def test_list_prompts_success(service, mock_project, project_id, test_image):
     assert result.pagination.count == 2
     assert result.pagination.offset == 0
     assert result.pagination.limit == 10
-    service.prompt_repository.list_all_by_project.assert_called_once()
+    service.prompt_repository.list_by_project_and_type.assert_called_once()
 
 
 def test_list_prompts_empty(service, mock_project, project_id):
-    service.prompt_repository.list_all_by_project.return_value = []
+    service.prompt_repository.list_by_project_and_type.return_value = []
     service.processor_repository.get_active_in_project.return_value = None
 
     result = service.list_prompts(project_id)

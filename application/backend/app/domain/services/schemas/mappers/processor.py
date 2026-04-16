@@ -74,23 +74,23 @@ def processors_db_to_list_items(
     return ProcessorListSchema(models=items, pagination=pagination)
 
 
-SUPPORTED_MODELS_METADATA: list[SupportedModelMetadataSchema] = [
-    SupportedModelMetadataSchema(
+SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
+    ModelType.MATCHER: SupportedModelMetadataSchema(
         default_config=MatcherConfig(), supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON]
     ),
-    SupportedModelMetadataSchema(
+    ModelType.PERDINO: SupportedModelMetadataSchema(
         default_config=PerDinoConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
     ),
-    SupportedModelMetadataSchema(
+    ModelType.SOFT_MATCHER: SupportedModelMetadataSchema(
         default_config=SoftMatcherConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
     ),
-    SupportedModelMetadataSchema(
+    ModelType.SAM3: SupportedModelMetadataSchema(
         default_config=Sam3Config(),
         supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
     ),
-]
+}
 
 PROMPT_TYPE_TO_ANNOTATION_TYPE: dict[SupportedPromptType, AnnotationType] = {
     SupportedPromptType.VISUAL_POLYGON: AnnotationType.POLYGON,
@@ -100,11 +100,11 @@ PROMPT_TYPE_TO_ANNOTATION_TYPE: dict[SupportedPromptType, AnnotationType] = {
 
 def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:
     """Derive supported annotation types for a model from SUPPORTED_MODELS_METADATA."""
-    for metadata in SUPPORTED_MODELS_METADATA:
-        if metadata.default_config.model_type == model_type:
-            return {
-                PROMPT_TYPE_TO_ANNOTATION_TYPE[pt]
-                for pt in metadata.supported_prompt_types
-                if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
-            }
-    return set()
+    metadata = SUPPORTED_MODELS_METADATA.get(model_type)
+    if metadata is None:
+        return set()
+    return {
+        PROMPT_TYPE_TO_ANNOTATION_TYPE[pt]
+        for pt in metadata.supported_prompt_types
+        if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
+    }
