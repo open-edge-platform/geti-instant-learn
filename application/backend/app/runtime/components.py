@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
 
 class ComponentFactory(ABC):
     @abstractmethod
-    def create_source(self, reader_cfg: ReaderConfig) -> Source: ...
+    def create_source(self, reader_cfg: ReaderConfig | None) -> Source: ...
 
     @abstractmethod
-    def create_processor(self, pipeline_cfg: PipelineConfig, reference_batch: Batch) -> Processor: ...
+    def create_processor(self, pipeline_cfg: PipelineConfig, reference_batch: Batch | None) -> Processor: ...
 
     @abstractmethod
-    def create_sink(self, writer_cfg: WriterConfig) -> Sink: ...
+    def create_sink(self, writer_cfg: WriterConfig | None) -> Sink: ...
 
 
 class DefaultComponentFactory(ComponentFactory):
@@ -42,10 +42,10 @@ class DefaultComponentFactory(ComponentFactory):
         self._session_factory = session_factory
         self._model_factory = ModelFactory(available_devices=available_devices)
 
-    def create_source(self, reader_cfg: ReaderConfig) -> Source:
+    def create_source(self, reader_cfg: ReaderConfig | None) -> Source:
         return Source(StreamReaderFactory.create(reader_cfg))
 
-    def create_processor(self, pipeline_cfg: PipelineConfig, reference_batch: Batch) -> Processor:
+    def create_processor(self, pipeline_cfg: PipelineConfig, reference_batch: Batch | None) -> Processor:
         logger.info("Creating processor with model config: %s", pipeline_cfg.processor)
         settings = get_settings()
         return Processor(
@@ -59,5 +59,5 @@ class DefaultComponentFactory(ComponentFactory):
             frame_skip_amount=settings.processor_frame_skip_amount,
         )
 
-    def create_sink(self, writer_cfg: WriterConfig) -> Sink:
+    def create_sink(self, writer_cfg: WriterConfig | None) -> Sink:
         return Sink(StreamWriterFactory.create(writer_cfg))
