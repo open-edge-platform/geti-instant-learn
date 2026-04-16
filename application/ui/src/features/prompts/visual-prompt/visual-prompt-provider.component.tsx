@@ -7,11 +7,11 @@ import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
 import { LabelType, VisualPromptListType, VisualPromptType } from '@/api';
 
+import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
 import { useGetPrompts } from './api/use-get-prompts';
 import { useProjectLabels } from './use-project-labels.hook';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
-import { useSelectedFrame } from "../../../shared/selected-frame-provider.component";
 
 interface VisualPromptContextProps {
     promptId: string | null;
