@@ -7,8 +7,6 @@ from abc import ABC, abstractmethod
 from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.services.dataset_discovery import DatasetResolver
-from domain.services.project import ProjectService
 from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import ReaderConfig
@@ -40,11 +38,9 @@ class DefaultComponentFactory(ComponentFactory):
         self,
         session_factory: sessionmaker[Session],
         available_devices: list[AvailableDeviceSchema] | None = None,
-        dataset_resolver: DatasetResolver | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._model_factory = ModelFactory(available_devices=available_devices)
-        self._reader_factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
     def create_source(self, reader_cfg: ReaderConfig) -> Source:
         return Source(StreamReaderFactory.create(reader_cfg))

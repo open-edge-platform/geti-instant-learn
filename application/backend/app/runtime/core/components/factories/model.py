@@ -10,8 +10,6 @@ from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
-from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
