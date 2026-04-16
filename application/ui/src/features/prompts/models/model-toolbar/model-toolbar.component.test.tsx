@@ -4,6 +4,7 @@
  */
 
 import { getMockedModel, getMockedSam3Model, render } from '@/test-utils';
+import type { MatcherModel } from '@/api';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
@@ -80,7 +81,7 @@ describe('ModelToolbar', () => {
                             id: 'matcher-1',
                             name: 'Matcher',
                             active: true,
-                            config: { ...getMockedModel().config, model_type: 'matcher' },
+                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
                         }),
                         getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
                     ],
@@ -110,7 +111,7 @@ describe('ModelToolbar', () => {
                             id: 'matcher-1',
                             name: 'Matcher',
                             active: true,
-                            config: { ...getMockedModel().config, model_type: 'matcher' },
+                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
                         }),
                         getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
                     ],

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType, ModelUpdateType } from '@/api';
+import { MatcherModel, ModelType, ModelUpdateType } from '@/api';
 import { getMockedModel, getMockedSam3Model, render } from '@/test-utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -90,11 +90,8 @@ describe('ModelConfigurationDialog', () => {
     });
 
     it('enables configure button when any of the parameters has been changes', async () => {
-        const mockedModel = getMockedModel();
-
         const model = getMockedModel({
             config: {
-                ...mockedModel.config,
                 model_type: 'matcher',
                 num_foreground_points: 10,
                 num_background_points: 10,
@@ -104,8 +101,8 @@ describe('ModelConfigurationDialog', () => {
                 use_mask_refinement: true,
                 precision: 'bf16',
                 num_grid_cells: 8,
-            },
-        });
+            } as MatcherModel['config'],
+        }) as MatcherModel;
 
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model });
 
