@@ -23,7 +23,7 @@ const ENCODER_MODELS = [
 // ATM backend does not provide a list of available models, so we have to hardcode them here.
 type EncoderModel = (typeof ENCODER_MODELS)[number]['value'];
 
-type DecoderModel = ModelType['config']['sam_model'];
+type DecoderModel = MatcherModel['config']['sam_model'];
 
 const DECODER_MODELS: { label: string; value: DecoderModel }[] = [
     {

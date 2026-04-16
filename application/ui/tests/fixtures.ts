@@ -71,7 +71,7 @@ const MOCK_SUPPORTED_MODELS = {
             supported_prompt_types: ['text', 'visual_rectangle'],
         },
     ],
-};
+} as const;
 const MOCK_DEFAULT_MODEL = {
     id: 'default-model-id',
     config: {
@@ -87,7 +87,7 @@ const MOCK_DEFAULT_MODEL = {
     },
     active: true,
     name: 'PerDINO',
-};
+} as const;
 
 interface Fixtures {
     network: NetworkFixture;
@@ -217,11 +217,11 @@ const test = testBase.extend<Fixtures>({
                 return HttpResponse.json({ id: promptId, ...body } as never);
             }),
             http.get('/api/v1/system/supported-models', ({ response }) => {
-                return response(200).json(MOCK_SUPPORTED_MODELS);
+                return response(200).json(MOCK_SUPPORTED_MODELS as never);
             }),
             http.get('/api/v1/projects/{project_id}/models', ({ response }) => {
                 return response(200).json({
-                    models: [MOCK_DEFAULT_MODEL],
+                    models: [MOCK_DEFAULT_MODEL as never],
                     pagination: {
                         total: 1,
                         count: 1,
