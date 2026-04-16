@@ -8,8 +8,8 @@ import { useCurrentProject } from '@/hooks';
 import { orderBy } from 'lodash-es';
 
 import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';
+import { useConnectSource } from '../api/use-connect-source';
 import { useDeleteSource } from '../api/use-delete-source';
-import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
 import { UsbCameraSourceCard } from '../usb-camera/usb-camera-source-card.component';
@@ -60,7 +60,7 @@ interface ExistingSourcesListProps {
 const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
 
-    const updateSource = useUpdateSource();
+    const connectSource = useConnectSource();
     const deleteSource = useDeleteSource();
 
     const handleAction = (source: Source) => (action: string) => {
@@ -68,7 +68,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
             onViewChange('edit');
             onSetSourceInEditionId(source.id);
         } else if (action === 'connect') {
-            updateSource.mutate(source.id, {
+            connectSource.mutate(source.id, {
                 config: source.config,
                 active: true,
             });
