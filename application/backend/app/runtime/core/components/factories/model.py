@@ -1,8 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from logging import getLogger
-
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
@@ -17,8 +15,6 @@ from runtime.core.components.models.passthrough_model import PassThroughModelHan
 from runtime.core.components.models.torch_model import TorchModelHandler
 from runtime.services.device import list_available_devices
 from settings import get_settings
-
-logger = getLogger(__name__)
 
 
 class DeviceResolver:
@@ -128,8 +124,6 @@ class ModelFactory:
                     device=selected_device,
                     prompt_mode=prompt_mode,
                 )
-                # todo rm logging or log debug batch
-                logger.info(f"Using SAM3 model with prompt mode: {prompt_mode}, reference batch: {reference_batch}")
                 return TorchModelHandler(model, reference_batch)
             case _:
                 return PassThroughModelHandler()
