@@ -55,12 +55,11 @@ class OpenVINOModelHandler(ModelHandler):
             masks = masks[0]
 
         if masks.ndim == 3 and (masks.shape[1] != frame_h or masks.shape[2] != frame_w):
-            resized = np.empty((masks.shape[0], frame_h, frame_w), dtype=np.float32)
-            for i in range(masks.shape[0]):
-                resized[i] = cv2.resize(
-                    masks[i].astype(np.float32, copy=False), (frame_w, frame_h), interpolation=cv2.INTER_NEAREST
-                )
-            masks = resized
+            # Nearest-neighbor resize via index mapping — no cv2 needed.
+            src_h, src_w = masks.shape[1], masks.shape[2]
+            row_idx = (np.arange(frame_h) * src_h // frame_h).clip(0, src_h - 1)
+            col_idx = (np.arange(frame_w) * src_w // frame_w).clip(0, src_w - 1)
+            masks = masks[:, row_idx][:, :, col_idx]
 
         return masks > 0.5
 
