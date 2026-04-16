@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedModel, getMockedSam3Model, render } from '@/test-utils';
 import type { MatcherModel } from '@/api';
+import { getMockedModel, getMockedSam3Model, render } from '@/test-utils';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 

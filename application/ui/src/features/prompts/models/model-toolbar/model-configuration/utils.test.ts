@@ -3,15 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedModel, getMockedSam3Model } from '@/test-utils';
 import type { MatcherModel, SoftMatcherModel } from '@/api';
+import { getMockedModel, getMockedSam3Model } from '@/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { isMatcherModel, isPerDINOModel, isSam3Model, isSoftMatcherModel } from './utils';
 
 describe('model type guards', () => {
     it('isMatcherModel returns true for matcher models', () => {
-        const model = getMockedModel({ config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'] });
+        const model = getMockedModel({
+            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
+        });
         expect(isMatcherModel(model)).toBe(true);
         expect(isPerDINOModel(model)).toBe(false);
         expect(isSoftMatcherModel(model)).toBe(false);
@@ -25,7 +27,9 @@ describe('model type guards', () => {
     });
 
     it('isSoftMatcherModel returns true for soft_matcher models', () => {
-        const model = getMockedModel({ config: { ...getMockedModel().config, model_type: 'soft_matcher' } as SoftMatcherModel['config'] });
+        const model = getMockedModel({
+            config: { ...getMockedModel().config, model_type: 'soft_matcher' } as SoftMatcherModel['config'],
+        });
         expect(isSoftMatcherModel(model)).toBe(true);
         expect(isMatcherModel(model)).toBe(false);
     });
