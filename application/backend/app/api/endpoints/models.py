@@ -36,7 +36,7 @@ def get_supported_models(
     offset: Annotated[int, Query(ge=0, le=1000)] = 0, limit: Annotated[int, Query(ge=0, le=1000)] = 20
 ) -> SupportedModelsListSchema:
     """Return all supported model types with default configs and accepted prompt types."""
-    all_models = SUPPORTED_MODELS_METADATA
+    all_models = list(SUPPORTED_MODELS_METADATA.values())
     paginated_models = all_models[offset : offset + limit]
     return SupportedModelsListSchema(
         models=paginated_models,

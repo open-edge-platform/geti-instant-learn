@@ -159,7 +159,7 @@ def filter_prompts_by_annotation_type(
 
 
 @dataclass
-class _AnnotationGroupResult:
+class AnnotationGroupResult:
     """Intermediate result from processing a group of annotations by type."""
 
     categories: list[str] = field(default_factory=list)
@@ -185,7 +185,7 @@ def _process_polygon_groups(
     label_shot_counts: dict[UUID, int],
     height: int,
     width: int,
-) -> _AnnotationGroupResult:
+) -> AnnotationGroupResult:
     """Convert polygon annotations grouped by label into masks with metadata.
 
     Args:
@@ -198,7 +198,7 @@ def _process_polygon_groups(
     Returns:
         Result containing masks and associated metadata
     """
-    result = _AnnotationGroupResult()
+    result = AnnotationGroupResult()
 
     for label_id, polygons in sorted(label_groups.items(), key=lambda x: str(x[0])):
         if not polygons:
@@ -226,7 +226,7 @@ def _process_rectangle_groups(
     label_to_category_id: dict[UUID, int],
     label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
-) -> _AnnotationGroupResult:
+) -> AnnotationGroupResult:
     """Convert rectangle annotations grouped by label into bounding boxes with metadata.
 
     Args:
@@ -237,7 +237,7 @@ def _process_rectangle_groups(
     Returns:
         Result containing bboxes and associated metadata
     """
-    result = _AnnotationGroupResult()
+    result = AnnotationGroupResult()
 
     for label_id, rects in sorted(label_groups.items(), key=lambda x: str(x[0])):
         if not rects:

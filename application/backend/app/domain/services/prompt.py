@@ -38,7 +38,6 @@ from domain.services.schemas.mappers.prompt import (
     prompts_db_to_schemas,
 )
 from domain.services.schemas.processor import ModelType
-from domain.services.schemas.project import PromptMode
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
     PromptListItemSchema,
@@ -101,13 +100,14 @@ class PromptService(BaseService):
             ResourceNotFoundError: If the project does not exist.
         """
         project = self._ensure_project(project_id)
-        current_prompt_mode = PromptMode(project.prompt_mode)
-        db_prompt_type = PromptType.TEXT if current_prompt_mode == PromptMode.TEXT else PromptType.VISUAL
-        db_prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=db_prompt_type)
+        current_prompt_type = PromptType(project.prompt_mode)
+        db_prompts = self.prompt_repository.list_by_project_and_type(
+            project_id=project_id, prompt_type=current_prompt_type
+        )
         prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
         # for visual mode, filter further by the active model's supported annotation types
-        if current_prompt_mode == PromptMode.VISUAL:
+        if current_prompt_type == PromptType.VISUAL:
             active_model_db = self.processor_repository.get_active_in_project(project_id)
             if active_model_db:
                 active_model = processor_db_to_schema(active_model_db)

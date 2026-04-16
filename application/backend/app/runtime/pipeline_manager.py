@@ -28,7 +28,6 @@ from domain.services.schemas.mappers.processor import get_supported_annotation_t
 from domain.services.schemas.mappers.prompt import filter_prompts_by_annotation_type, visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import InputData, ModelType, OutputData
-from domain.services.schemas.project import PromptMode
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
@@ -122,7 +121,7 @@ class PipelineManager:
             prompt_repo = PromptRepository(session=session)
 
             vis_labels = label_svc.get_visualization_labels(project_id)
-            prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=PromptType.VISUAL)
+            prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
             all_label_ids: set[UUID] = set()
             for prompt in prompts:
                 all_label_ids.update(ann.label_id for ann in prompt.annotations)
@@ -173,7 +172,7 @@ class PipelineManager:
 
         model_type = ModelType(cfg.processor.model_type)
         # TODO For SAM3 with text prompt_mode, build a text-only batch - issue #758 enabling text prompts
-        if model_type == ModelType.SAM3 and cfg.prompt_mode == PromptMode.TEXT:
+        if model_type == ModelType.SAM3 and cfg.prompt_mode == PromptType.TEXT:
             logger.warning("Text prompts are not supported yet for SAM3: project_id=%s", cfg.project_id)
             return None
         #     return self.get_text_reference_batch(project_id)
@@ -371,7 +370,7 @@ class PipelineManager:
             prompt_repo = PromptRepository(session=session)
             label_svc = LabelService(session=session)
 
-            db_prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=PromptType.VISUAL)
+            db_prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
             if not db_prompts:
                 logger.info("No visual prompts found for project_id=%s", project_id)
                 return None

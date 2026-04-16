@@ -148,7 +148,7 @@ def test_get_all_by_project(prompt_repo, fxt_session, clean_after):
     prompt_repo.add(other_prompt)
     fxt_session.commit()
 
-    result = prompt_repo.list_all_by_project(project_main.id)
+    result = prompt_repo.list_by_project_and_type(project_main.id)
     assert len(result) == 3
     assert {p.id for p in result} == {text_prompt.id, visual_prompt_1.id, visual_prompt_2.id}
 
@@ -166,15 +166,15 @@ def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_aft
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.list_all_by_project(project.id)
+    all_prompts = prompt_repo.list_by_project_and_type(project.id)
     assert len(all_prompts) == 3
 
-    text_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.TEXT)
+    text_prompts = prompt_repo.list_by_project_and_type(project.id, prompt_type=PromptType.TEXT)
     assert len(text_prompts) == 1
     assert text_prompts[0].id == text_prompt.id
     assert text_prompts[0].type == PromptType.TEXT
 
-    visual_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.VISUAL)
+    visual_prompts = prompt_repo.list_by_project_and_type(project.id, prompt_type=PromptType.VISUAL)
     assert len(visual_prompts) == 2
     assert {p.id for p in visual_prompts} == {visual_prompt_1.id, visual_prompt_2.id}
     assert all(p.type == PromptType.VISUAL for p in visual_prompts)
@@ -296,7 +296,7 @@ def test_multiple_visual_prompts_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(prompt)
     fxt_session.commit()
 
-    result = prompt_repo.list_all_by_project(project.id)
+    result = prompt_repo.list_by_project_and_type(project.id)
     assert len(result) == 5
     assert all(p.type == PromptType.VISUAL for p in result)
 
@@ -393,7 +393,7 @@ def test_unique_frame_id_constraint(prompt_repo, fxt_session, clean_after):
     fxt_session.rollback()
 
     # verify only first prompt exists
-    all_prompts = prompt_repo.list_all_by_project(project.id)
+    all_prompts = prompt_repo.list_by_project_and_type(project.id)
     assert len(all_prompts) == 1
     assert all_prompts[0].frame_id == frame_id
 
@@ -416,6 +416,6 @@ def test_different_frames_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.list_all_by_project(project.id)
+    all_prompts = prompt_repo.list_by_project_and_type(project.id)
     assert len(all_prompts) == 3
     assert {p.frame_id for p in all_prompts} == {frame_id_1, frame_id_2, frame_id_3}
