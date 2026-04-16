@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.services.project import ProjectService
 from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import ReaderConfig
