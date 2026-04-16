@@ -6,7 +6,7 @@
 import { $api, SourceConfig } from '@/api';
 import { useProjectIdentifier } from '@/hooks';
 
-export const useUpdateSource = () => {
+export const useUpdateSource = (sourceId: string) => {
     const { projectId } = useProjectIdentifier();
 
     const updateSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
@@ -23,6 +23,18 @@ export const useUpdateSource = () => {
                         },
                     },
                 ],
+                [
+                    'get',
+                    '/api/v1/projects/{project_id}/sources/{source_id}/frames',
+                    {
+                        params: {
+                            path: {
+                                project_id: projectId,
+                                source_id: sourceId,
+                            },
+                        },
+                    },
+                ],
             ],
             error: {
                 notify: true,
@@ -30,11 +42,7 @@ export const useUpdateSource = () => {
         },
     });
 
-    const updateSource = (
-        sourceId: string,
-        body: { config: SourceConfig; active: boolean },
-        onSuccess?: () => void
-    ) => {
+    const updateSource = (body: { config: SourceConfig; active: boolean }, onSuccess?: () => void) => {
         updateSourceMutation.mutate(
             {
                 body,

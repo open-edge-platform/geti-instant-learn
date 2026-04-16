@@ -27,7 +27,7 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
     const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
     const isActiveSource = source.active;
 
-    const updateSampleDatasetSource = useUpdateSource();
+    const updateSampleDatasetSource = useUpdateSource(source.id);
     const isButtonDisabled =
         selectedDatasetId === source.config.dataset_id || !selectedDatasetId || updateSampleDatasetSource.isPending;
 
@@ -37,7 +37,6 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
         }
 
         updateSampleDatasetSource.mutate(
-            source.id,
             {
                 config: {
                     source_type: 'sample_dataset',
