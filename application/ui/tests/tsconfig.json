@@ -3,19 +3,10 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
-            "@/api": [
-                "../src/api"
-            ],
-            "@/test-fixtures": [
-                "./fixtures"
-            ],
-            "@/api/*": [
-                "../src/api/*"
-            ]
+            "@/api": ["../src/api"],
+            "@/test-fixtures": ["./fixtures"],
+            "@/api/*": ["../src/api/*"]
         }
     },
-    "include": [
-        "./",
-        "../src/env.d.ts"
-    ]
+    "include": ["./", "../src/env.d.ts"]
 }

@@ -1,36 +1,16 @@
 {
     "extends": "@geti/config/typescript",
-    "include": [
-        "src",
-        "rsbuild.config.ts",
-        "vitest.config.ts",
-        "playwright.config.ts"
-    ],
+    "include": ["src", "rsbuild.config.ts", "vitest.config.ts", "playwright.config.ts"],
     "compilerOptions": {
-        "types": [
-            "vitest/globals",
-            "@testing-library/jest-dom"
-        ],
+        "types": ["vitest/globals", "@testing-library/jest-dom"],
         "baseUrl": ".",
         "paths": {
-            "@/test-utils": [
-                "./src/test-utils"
-            ],
-            "@/icons": [
-                "./src/assets/icons"
-            ],
-            "@/api": [
-                "./src/api"
-            ],
-            "@/hooks": [
-                "src/shared/hooks"
-            ],
-            "@/query-client": [
-                "./src/query-client/query-client"
-            ],
-            "@/api/*": [
-                "./src/api/*"
-            ]
+            "@/test-utils": ["./src/test-utils"],
+            "@/icons": ["./src/assets/icons"],
+            "@/api": ["./src/api"],
+            "@/hooks": ["src/shared/hooks"],
+            "@/query-client": ["./src/query-client/query-client"],
+            "@/api/*": ["./src/api/*"]
         }
     }
 }
