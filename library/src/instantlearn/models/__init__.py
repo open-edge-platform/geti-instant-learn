@@ -13,7 +13,7 @@ from .efficient_sam3 import EfficientSAM3
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
-from .sam3 import SAM3, Sam3PromptMode
+from .sam3 import SAM3, SAM3OpenVINO, SAM3OVVariant, Sam3PromptMode
 from .soft_matcher import SoftMatcher
 
 __all__ = [
@@ -24,6 +24,8 @@ __all__ = [
     "Matcher",
     "Model",
     "PerDino",
+    "SAM3OVVariant",
+    "SAM3OpenVINO",
     "Sam3PromptMode",
     "SoftMatcher",
 ]
