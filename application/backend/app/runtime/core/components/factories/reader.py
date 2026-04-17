@@ -2,11 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
-from collections.abc import Mapping
-from pathlib import Path
-from uuid import UUID
 
-from domain.services.dataset_discovery import resolve_dataset_path_from_cache
+from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
     ReaderConfig,
@@ -34,28 +31,43 @@ class StreamReaderFactory:
     based on the provided configuration.
     """
 
-    @classmethod
-    def create(
-        cls,
-        config: ReaderConfig | None,
-        dataset_paths: Mapping[UUID, Path] | None = None,
-    ) -> StreamReader:
+    def __init__(self, dataset_resolver: DatasetResolver | None = None) -> None:
+        """Initialize the factory with a dataset resolver.
+
+        Args:
+            dataset_resolver: Service for resolving dataset paths. Required for SampleDatasetConfig.
+        """
+        self._dataset_resolver = dataset_resolver
+
+    def create(self, config: ReaderConfig | None) -> StreamReader:
+        """Create a StreamReader instance based on the provided configuration.
+
+        Args:
+            config: Configuration specifying which reader type to create.
+
+        Returns:
+            A StreamReader instance configured according to the provided config.
+
+        Raises:
+            ValueError: If SampleDatasetConfig is used but no dataset resolver was provided.
+        """
         settings = get_settings()
-        cached_dataset_paths: Mapping[UUID, Path] = dataset_paths or {}
         match config:
             case UsbCameraConfig() as config:
                 return UsbCameraReader(config)
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
+                if self._dataset_resolver is None:
+                    logger.error("DatasetResolver is required for SampleDatasetConfig but was not provided.")
+                    raise ValueError("DatasetResolver is required for SampleDatasetConfig.")
+
                 if config.dataset_id is not None:
                     logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
                 else:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
-                dataset_path = resolve_dataset_path_from_cache(
-                    dataset_id=config.dataset_id,
-                    dataset_paths=cached_dataset_paths,
-                )
+
+                dataset_path = self._dataset_resolver.get_dataset_path(dataset_id=config.dataset_id)
 
                 logger.info("Using sample dataset path '%s'.", dataset_path)
 

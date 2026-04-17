@@ -26,7 +26,7 @@ from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from domain.errors import DatasetNotFoundError
-from domain.services.dataset_discovery import scan_datasets
+from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
@@ -39,8 +39,6 @@ from settings import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
-    from pathlib import Path
-    from uuid import UUID
 
     from starlette.requests import Request
     from starlette.responses import Response
@@ -71,30 +69,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     session_factory = get_session_factory()
 
     # Dataset cache is startup-static by design and refreshed only on app restart.
+    dataset_resolver: DatasetResolver | None = None
     datasets = DatasetsListSchema(
         datasets=[],
         pagination=Pagination(count=0, total=0, offset=0, limit=0),
     )
-    dataset_paths: dict[UUID, Path] = {}
     try:
-        datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
+        dataset_resolver = DatasetResolver(settings.template_dataset_dir)
+        datasets = dataset_resolver.get_datasets()
     except DatasetNotFoundError as e:
         logger.error("Dataset discovery failed during startup: %s", str(e))
 
     app.state.available_datasets = datasets
-    app.state.dataset_paths = dataset_paths
-    if dataset_paths:
-        dataset_lines = "\n".join(
-            f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets
-        )
-        logger.debug("Dataset cache entries:\n%s", dataset_lines)
-    logger.info("Cached %d dataset(s) during startup", len(dataset_paths))
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
     component_factory = DefaultComponentFactory(
         session_factory=session_factory,
         available_devices=app.state.available_devices,
-        dataset_paths=dataset_paths,
+        dataset_resolver=dataset_resolver,
     )
     app.state.pipeline_manager = PipelineManager(
         event_dispatcher=app.state.config_dispatcher,

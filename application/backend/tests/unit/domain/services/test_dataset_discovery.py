@@ -9,8 +9,8 @@ import pytest
 from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import (
     DATASET_NS,
+    DatasetResolver,
     _get_first_image,
-    resolve_dataset_path_from_cache,
     scan_datasets,
 )
 
@@ -37,38 +37,6 @@ class TestGetFirstImage:
         assert first_image is None
 
 
-class TestResolveDatasetPathFromCache:
-    def test_returns_matching_dataset_path_for_id(self, tmp_path: Path) -> None:
-        dataset_dir = tmp_path / "aquarium"
-        dataset_dir.mkdir()
-        dataset_id = uuid4()
-
-        result = resolve_dataset_path_from_cache(dataset_id=dataset_id, dataset_paths={dataset_id: dataset_dir})
-
-        assert result == dataset_dir
-
-    def test_returns_lexicographically_first_dataset_when_id_missing(self, tmp_path: Path) -> None:
-        first_dataset_dir = tmp_path / "aquarium"
-        first_dataset_dir.mkdir()
-        second_dataset_dir = tmp_path / "zebra"
-        second_dataset_dir.mkdir()
-
-        result = resolve_dataset_path_from_cache(
-            dataset_id=None,
-            dataset_paths={uuid4(): second_dataset_dir, uuid4(): first_dataset_dir},
-        )
-
-        assert result == first_dataset_dir
-
-    def test_raises_when_id_not_found(self) -> None:
-        with pytest.raises(DatasetNotFoundError, match="was not found"):
-            resolve_dataset_path_from_cache(dataset_id=uuid4(), dataset_paths={})
-
-    def test_raises_when_no_datasets_are_cached(self) -> None:
-        with pytest.raises(DatasetNotFoundError, match="No sample datasets available"):
-            resolve_dataset_path_from_cache(dataset_id=None, dataset_paths={})
-
-
 class TestScanDatasets:
     def test_builds_id_to_path_mapping_and_pagination(self, tmp_path: Path, monkeypatch) -> None:
         dataset_dir = tmp_path / "aquarium"
@@ -90,14 +58,18 @@ class TestScanDatasets:
     def test_default_cache_resolution_matches_sorted_scan_order(self, tmp_path: Path, monkeypatch) -> None:
         zebra_dir = tmp_path / "zebra"
         zebra_dir.mkdir()
+        (zebra_dir / "image.jpg").touch()
         aquarium_dir = tmp_path / "aquarium"
         aquarium_dir.mkdir()
+        (aquarium_dir / "image.jpg").touch()
         monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
 
-        datasets, dataset_paths = scan_datasets(tmp_path)
+        datasets, _ = scan_datasets(tmp_path)
+        resolver = DatasetResolver(tmp_path)
 
         assert [dataset.name for dataset in datasets.datasets] == ["Aquarium", "Zebra"]
-        assert resolve_dataset_path_from_cache(dataset_id=None, dataset_paths=dataset_paths) == aquarium_dir
+        assert resolver.get_dataset_path(dataset_id=None) == aquarium_dir
 
     def test_sets_thumbnail_from_first_supported_image(self, tmp_path: Path, monkeypatch) -> None:
         dataset_dir = tmp_path / "aquarium"
@@ -139,3 +111,78 @@ class TestScanDatasets:
 
         with pytest.raises(DatasetNotFoundError, match="is not a directory"):
             scan_datasets(file_path)
+
+
+class TestDatasetResolver:
+    def test_initializes_cache_from_datasets_root(self, tmp_path: Path, monkeypatch) -> None:
+        aquarium_dir = tmp_path / "aquarium"
+        aquarium_dir.mkdir()
+        (aquarium_dir / "image.jpg").touch()
+        zebra_dir = tmp_path / "zebra"
+        zebra_dir.mkdir()
+        (zebra_dir / "image.jpg").touch()
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
+
+        resolver = DatasetResolver(tmp_path)
+
+        # Verify that cache is built (we can test it by resolving paths)
+        aquarium_id = uuid5(DATASET_NS, "aquarium")
+        result = resolver.get_dataset_path(dataset_id=aquarium_id)
+        assert result == aquarium_dir
+
+    def test_get_dataset_path_returns_matching_dataset_for_id(self, tmp_path: Path, monkeypatch) -> None:
+        dataset_dir = tmp_path / "aquarium"
+        dataset_dir.mkdir()
+        (dataset_dir / "image.jpg").touch()
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
+
+        resolver = DatasetResolver(tmp_path)
+        dataset_id = uuid5(DATASET_NS, "aquarium")
+
+        result = resolver.get_dataset_path(dataset_id=dataset_id)
+
+        assert result == dataset_dir
+
+    def test_get_dataset_path_returns_first_dataset_when_id_is_none(self, tmp_path: Path, monkeypatch) -> None:
+        aquarium_dir = tmp_path / "aquarium"
+        aquarium_dir.mkdir()
+        (aquarium_dir / "image.jpg").touch()
+        zebra_dir = tmp_path / "zebra"
+        zebra_dir.mkdir()
+        (zebra_dir / "image.jpg").touch()
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
+
+        resolver = DatasetResolver(tmp_path)
+
+        result = resolver.get_dataset_path(dataset_id=None)
+
+        assert result == aquarium_dir
+
+    def test_get_dataset_path_raises_when_id_not_found(self, tmp_path: Path, monkeypatch) -> None:
+        dataset_dir = tmp_path / "aquarium"
+        dataset_dir.mkdir()
+        (dataset_dir / "image.jpg").touch()
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
+
+        resolver = DatasetResolver(tmp_path)
+        unknown_id = uuid4()
+
+        with pytest.raises(DatasetNotFoundError, match="was not found"):
+            resolver.get_dataset_path(dataset_id=unknown_id)
+
+    def test_raises_when_datasets_root_does_not_exist(self, tmp_path: Path) -> None:
+        missing_dir = tmp_path / "missing"
+
+        with pytest.raises(DatasetNotFoundError, match="does not exist"):
+            DatasetResolver(missing_dir)
+
+    def test_raises_when_datasets_root_is_not_directory(self, tmp_path: Path) -> None:
+        file_path = tmp_path / "datasets.txt"
+        file_path.write_text("not a directory")
+
+        with pytest.raises(DatasetNotFoundError, match="is not a directory"):
+            DatasetResolver(file_path)

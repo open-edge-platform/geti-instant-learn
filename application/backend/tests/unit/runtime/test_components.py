@@ -1,7 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -65,23 +64,23 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
         )
 
 
-def test_create_source_passes_dataset_paths_to_stream_reader_factory():
+def test_create_source_passes_dataset_resolver_to_stream_reader_factory():
     project_id = uuid4()
     reader_cfg = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
     cfg = PipelineConfig(project_id=project_id, device="xpu", reader=reader_cfg, processor=None, writer=None)
-    dataset_paths = {uuid4(): Path("/tmp/datasets/aquarium")}
+    dataset_resolver = Mock(name="dataset_resolver")
     source_reader = Mock(name="stream_reader")
 
-    factory = DefaultComponentFactory(session_factory=FakeSessionFactory(), dataset_paths=dataset_paths)
+    factory = DefaultComponentFactory(session_factory=FakeSessionFactory(), dataset_resolver=dataset_resolver)
 
     with (
         patch("runtime.components.ProjectService") as svc_cls,
-        patch("runtime.components.StreamReaderFactory.create", return_value=source_reader) as create_reader,
+        patch.object(factory._reader_factory, "create", return_value=source_reader) as create_reader,
         patch("runtime.components.Source") as source_cls,
     ):
         svc_cls.return_value.get_pipeline_config.return_value = cfg
 
         factory.create_source(project_id)
 
-        create_reader.assert_called_once_with(reader_cfg, dataset_paths=dataset_paths)
+        create_reader.assert_called_once_with(reader_cfg)
         source_cls.assert_called_once_with(source_reader)
