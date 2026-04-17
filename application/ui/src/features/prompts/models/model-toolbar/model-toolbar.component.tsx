@@ -22,7 +22,7 @@ const isModelCompatible = (
 ): boolean => {
     const supportedTypes = promptTypesMap.get(model.config.model_type) ?? [];
     if (promptMode === 'visual') {
-        return supportedTypes.some((t) => t === 'visual_polygon' || t === 'visual_rectangle');
+        return supportedTypes.some((t) => t.startsWith('visual'));
     }
     return supportedTypes.includes('text');
 };

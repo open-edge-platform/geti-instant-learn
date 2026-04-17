@@ -115,7 +115,7 @@ const test = testBase.extend<Fixtures>({
                             name: 'Project #1',
                             active: true,
                             device: 'cpu',
-                            prompt_mode: 'visual',
+                            prompt_mode: 'VISUAL',
                         },
                     ],
                     pagination: { total: 1, count: 1, offset: 0, limit: 10 },
@@ -127,7 +127,7 @@ const test = testBase.extend<Fixtures>({
                     name: 'Project #1',
                     active: true,
                     device: 'cpu',
-                    prompt_mode: 'visual',
+                    prompt_mode: 'VISUAL',
                 });
             }),
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {

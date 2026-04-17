@@ -33,7 +33,7 @@ export const useCreateProject = () => {
                     id: projectId,
                     name,
                     device: 'auto',
-                    prompt_mode: 'visual',
+                    prompt_mode: 'VISUAL',
                 },
             },
             {

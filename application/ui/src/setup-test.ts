@@ -29,7 +29,7 @@ const MOCKED_PROJECT_RESPONSE: ProjectType = {
     name: 'Project #1',
     active: true,
     device: 'cpu',
-    prompt_mode: 'visual',
+    prompt_mode: 'VISUAL',
 };
 const MOCKED_PROJECTS_LIST_RESPONSE: ProjectsListType = {
     projects: [MOCKED_PROJECT_RESPONSE],

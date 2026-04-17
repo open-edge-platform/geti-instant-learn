@@ -64,8 +64,9 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const { setSelectedFrameId } = useSelectedFrame();
     const { selectedLabel, selectedLabelId, setSelectedLabelId, labels } = useSelectedLabel(prompt);
 
-    // Clear selected prompt if it's no longer in the filtered prompts list
-    // (e.g. after switching to a model that doesn't support its annotation type)
+    // Clear selected prompt if it's no longer in the filtered prompts list.
+    // This reacts to the prompts query being invalidated after model activation,
+    // which may change the filtered set based on supported annotation types.
     useEffect(() => {
         if (promptId === null) {
             return;
