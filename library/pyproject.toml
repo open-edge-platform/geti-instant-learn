@@ -51,7 +51,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest~=8.3",
+    "pytest~=9.0",
     "pytest-assume>=2.4.3",
     "ruff==0.11.12",
     "pre-commit~=4.1",
@@ -90,7 +90,7 @@ demo = [
 dev = [
     "ruff==0.11.12",
     "pre-commit==4.2.0",
-    "pytest==8.4.0",
+    "pytest==9.0.3",
     "pytest-assume",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
