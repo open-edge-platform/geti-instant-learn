@@ -29,7 +29,7 @@ describe('Sidebar', () => {
     it('renders sidebar with prompt tab', async () => {
         renderSidebar();
 
-        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i }, { timeout: 5000 });
+        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
         expect(promptButton).toBeInTheDocument();
         expect(promptButton).toBeEnabled();
     });
@@ -37,7 +37,7 @@ describe('Sidebar', () => {
     it('expands sidebar content when tab is toggled', async () => {
         renderSidebar();
 
-        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i }, { timeout: 5000 });
+        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
 
         expect(promptButton).toHaveAttribute('aria-pressed', 'true');
         expect(await screen.findByRole('heading', { name: /prompt/i })).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('Sidebar', () => {
     it('collapses sidebar when same tab is clicked again', async () => {
         renderSidebar();
 
-        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i }, { timeout: 5000 });
+        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
 
         expect(promptButton).toHaveAttribute('aria-pressed', 'true');
         expect(await screen.findByRole('heading', { name: /prompt/i })).toBeInTheDocument();

@@ -135,7 +135,7 @@ describe('ModelConfigurationDialog', () => {
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
-    }, 15_000);
+    });
 
     it('configures the model', async () => {
         let body: ModelUpdateType;
@@ -186,7 +186,7 @@ describe('ModelConfigurationDialog', () => {
         });
 
         expect(mockOnClose).toHaveBeenCalled();
-    }, 15_000);
+    });
 
     it('closes the dialog', async () => {
         const onClose = vi.fn();

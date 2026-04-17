@@ -26,7 +26,7 @@ const useCreateProject = () => {
                     id: projectId,
                     name: projectName,
                     device: 'auto',
-                    prompt_mode: 'visual',
+                    prompt_mode: 'VISUAL',
                 },
             },
             {
