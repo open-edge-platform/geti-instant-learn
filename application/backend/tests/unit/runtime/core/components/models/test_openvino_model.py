@@ -90,7 +90,9 @@ class TestOpenVINOModelHandler:
         masks_port, scores_port, labels_port = MagicMock(), MagicMock(), MagicMock()
         handler._infer_request = MagicMock()
         handler._infer_request.infer.return_value = {
-            masks_port: masks, scores_port: scores, labels_port: labels,
+            masks_port: masks,
+            scores_port: scores,
+            labels_port: labels,
         }
         handler._compiled_model = MagicMock()
         handler._input_port = MagicMock()
