@@ -31,7 +31,9 @@ const NoSourcePlaceholder = () => {
 export const MainContent = () => {
     const { data: sourcesData } = useGetSources();
 
-    if (sourcesData.sources.length === 0) {
+    const hasActiveSource = sourcesData.sources.some((source) => source.active);
+
+    if (sourcesData.sources.length === 0 || !hasActiveSource) {
         return <NoSourcePlaceholder />;
     }
 

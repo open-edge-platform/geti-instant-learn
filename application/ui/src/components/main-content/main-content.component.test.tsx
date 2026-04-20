@@ -19,11 +19,31 @@ describe('MainContent', () => {
         expect(await screen.findByText(/Setup your input source/i)).toBeInTheDocument();
     });
 
+    it('renders NoSourcePlaceholder if there are sources but none are active', async () => {
+        server.use(
+            http.get('/api/v1/projects/{project_id}/sources', () => {
+                return HttpResponse.json({
+                    sources: [getMockedSource({ id: 'source-1', active: false })],
+                    pagination: {
+                        count: 1,
+                        total: 1,
+                        limit: 10,
+                        offset: 0,
+                    },
+                });
+            })
+        );
+
+        render(<MainContent />);
+
+        expect(await screen.findByText(/Setup your input source/i)).toBeInTheDocument();
+    });
+
     it('renders StreamContainer otherwise', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}/sources', () => {
                 return HttpResponse.json({
-                    sources: [getMockedSource({ id: 'source-1' })],
+                    sources: [getMockedSource({ id: 'source-1', active: true })],
                     pagination: {
                         count: 1,
                         total: 1,
