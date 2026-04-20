@@ -542,8 +542,8 @@ def test_update_source_activating_with_invalid_video_path(service, tmp_path):
     service.session.commit.assert_not_called()
 
 
-def test_update_source_already_active_skips_validation(service, tmp_path):
-    """Test that updating an already-active source path does not trigger validation."""
+def test_update_source_already_active_validates(service, tmp_path):
+    """Test that updating an already-active source with invalid path raises ValueError."""
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
@@ -559,13 +559,49 @@ def test_update_source_already_active_skips_validation(service, tmp_path):
     service.source_repository.get_by_id_and_project.return_value = existing
     service.source_repository.update.return_value = existing
 
-    # Update with a new invalid path - should NOT validate since already active
+    # Update with a new invalid path - should validate and raise ValueError
     update_schema = SourceUpdateSchema(
         active=True,  # Still active
         config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
     )
 
-    # Should not raise ValueError since validation is skipped
+    # Should raise ValueError since validation now runs for active sources
+    with pytest.raises(ValueError, match="Video file does not exist: /nonexistent/video.mp4"):
+        service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    service.source_repository.update.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_update_source_already_active_with_valid_path_succeeds(service, tmp_path):
+    """Test that updating an already-active source with a valid new path succeeds."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create valid video files
+    old_video = tmp_path / "old_video.mp4"
+    old_video.touch()
+    new_video = tmp_path / "new_video.mp4"
+    new_video.touch()
+
+    # Existing active source with valid path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(old_video)},
+        active=True,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.update.return_value = existing
+
+    # Update with a new valid path - should validate and succeed
+    update_schema = SourceUpdateSchema(
+        active=True,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(new_video)),
+    )
+
     result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
 
     assert result is not None

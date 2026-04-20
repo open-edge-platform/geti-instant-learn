@@ -175,9 +175,10 @@ class SourceService(BaseService):
 
         try:
             with self.db_transaction():
-                if update_data.active and not source.active:
+                if update_data.active:
                     self._validate_source_config(update_data)
-                    self._disconnect_existing_active_source(project_id=project_id)
+                    if not source.active:
+                        self._disconnect_existing_active_source(project_id=project_id)
                 source.active = update_data.active
                 source.config = update_data.config.model_dump(mode="json")
                 source = self.source_repository.update(source)
