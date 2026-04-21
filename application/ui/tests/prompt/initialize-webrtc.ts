@@ -41,7 +41,7 @@ export const initializeWebRTC = async ({
                 name: 'Cool project',
                 active: true,
                 device: 'cpu',
-                prompt_mode: 'visual',
+                prompt_mode: 'VISUAL',
             });
         }),
 

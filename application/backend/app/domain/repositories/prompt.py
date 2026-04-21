@@ -23,7 +23,7 @@ class PromptRepository(ProjectComponentRepository[PromptDB]):
         """Initialize the repository."""
         super().__init__(session=session, model=PromptDB)
 
-    def list_all_by_project(self, project_id: UUID, prompt_type: PromptType | None = None) -> Sequence[PromptDB]:
+    def list_by_project_and_type(self, project_id: UUID, prompt_type: PromptType | None = None) -> Sequence[PromptDB]:
         """
         Retrieve all prompts belonging to a project with optional filtering by prompt type.
         """

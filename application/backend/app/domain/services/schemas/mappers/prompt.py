@@ -1,10 +1,12 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from collections.abc import Iterable
 from typing import Any
 from uuid import UUID, uuid4
 
+import cv2
 import numpy as np
 from instantlearn.data.base.sample import Sample
 from torch import from_numpy
@@ -26,6 +28,8 @@ from domain.services.schemas.prompt import (
     VisualPromptListItemSchema,
     VisualPromptSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def prompt_db_to_schema(prompt: PromptDB, include_thumbnail: bool = False) -> PromptSchema | PromptListItemSchema:
@@ -147,28 +151,23 @@ def visual_prompt_to_sample(
     prompt: PromptDB,
     frame: np.ndarray,
     label_to_category_id: dict[UUID, int],
+    label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
 ) -> Sample:
-    """
-    Convert a visual prompt to a Sample with merged semantic masks.
+    """Convert a visual prompt to a Sample with merged semantic masks.
 
-    Multiple annotations of the same label are merged into a single semantic mask.
+    All visual prompts are stored as polygon annotations (masks).
     One image = one shot per category.
 
     Args:
         prompt: Visual prompt with annotations
         frame: RGB image as numpy array (H, W, C)
         label_to_category_id: Mapping from label UUID to category ID (shared across batch)
+        label_id_to_name: Mapping from label UUID to label name
         label_shot_counts: Current shot count per label (modified in-place)
 
     Returns:
         Sample with merged masks, one per unique label in the prompt
-
-    Example:
-        Prompt with 3 car annotations + 2 person annotations:
-        - Creates 2 masks (1 for cars, 1 for persons)
-        - n_shot = [current_car_shot, current_person_shot]
-        - Updates label_shot_counts for both labels
     """
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
@@ -209,7 +208,7 @@ def visual_prompt_to_sample(
         semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)  # (H, W) boolean
 
         category_id = label_to_category_id[label_id]
-        category_name = str(label_id)
+        category_name = label_id_to_name.get(label_id, str(label_id))
 
         # Get the current shot number for this label (from previous prompts)
         current_shot = label_shot_counts.get(label_id, 0)
@@ -242,14 +241,48 @@ def visual_prompt_to_sample(
     )
 
 
+def masks_to_bboxes_sample(sample: Sample) -> Sample:
+    """Convert mask-based sample to bounding-box-based sample.
+
+    For each mask in the sample, computes the tight bounding box using cv2.boundingRect
+    and produces an [x1, y1, x2, y2] float array. The resulting sample has bboxes set
+    and masks set to None.
+
+    Args:
+        sample: A Sample with masks (N, H, W)
+
+    Returns:
+        A new Sample with bboxes (N, 4) in [x1, y1, x2, y2] format and masks=None
+    """
+    if sample.masks is None:
+        logger.warning("Sample has no masks to convert to bboxes")
+        return sample
+
+    masks = sample.masks if isinstance(sample.masks, np.ndarray) else np.array(sample.masks)
+    bboxes = []
+    for mask in masks:
+        mask_uint8 = mask.astype(np.uint8)
+        x, y, w, h = cv2.boundingRect(mask_uint8)
+        bboxes.append([float(x), float(y), float(x + w), float(y + h)])
+
+    return Sample(
+        image=sample.image,
+        masks=None,
+        bboxes=np.array(bboxes, dtype=np.float32) if bboxes else None,
+        categories=sample.categories,
+        category_ids=sample.category_ids,
+        is_reference=sample.is_reference,
+        n_shot=sample.n_shot,
+        image_path=sample.image_path,
+    )
+
+
 def deduplicate_annotations(
     annotations: list[AnnotationSchema], image_height: int, image_width: int, iou_threshold: float = 0.9
 ) -> list[AnnotationSchema]:
-    """
-    Remove duplicate or highly overlapping annotations based on polygon similarity.
+    """Remove duplicate or highly overlapping annotations based on polygon similarity.
 
-    Uses IoU (Intersection over Union) to identify similar masks.
-    Keeps the first occurrence when duplicates are found.
+    Uses IoU to identify similar masks. Keeps the first occurrence when duplicates are found.
     Only processes polygon annotations; other types are kept as-is.
 
     Args:
