@@ -5,7 +5,6 @@ import logging
 import tempfile
 import time
 
-import cv2
 import numpy as np
 import openvino
 from instantlearn.data.base.batch import Batch
@@ -31,22 +30,6 @@ class OpenVINOModelHandler(ModelHandler):
         self._masks_output_port: openvino.ConstOutput | None = None
         self._scores_output_port: openvino.ConstOutput | None = None
         self._labels_output_port: openvino.ConstOutput | None = None
-
-    def _get_target_size(self) -> int | None:
-        """Return target square input size from wrapped model when available."""
-        encoder = getattr(self._model, "encoder", None)
-        input_size = getattr(encoder, "input_size", None)
-        if isinstance(input_size, int) and input_size > 0:
-            return input_size
-        return None
-
-    def _prepare_input(self, frame: np.ndarray) -> np.ndarray:
-        """Prepare frame as contiguous float32 NCHW with model input dimensions."""
-        target_size = self._get_target_size()
-        if target_size is not None and (frame.shape[0] != target_size or frame.shape[1] != target_size):
-            frame = cv2.resize(frame, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
-        image = np.expand_dims(frame.transpose(2, 0, 1), axis=0)
-        return np.ascontiguousarray(image, dtype=np.float32)
 
     @staticmethod
     def _resize_masks_to_frame(masks: np.ndarray, frame_h: int, frame_w: int) -> np.ndarray:
@@ -84,10 +67,10 @@ class OpenVINOModelHandler(ModelHandler):
                 logger.debug("Reading model %s...", path)
                 ov_model = core.read_model(str(path))
 
-                target_size = self._get_target_size()
-                if target_size is not None:
+                input_size = getattr(self._model, "input_size", None)
+                if input_size is not None:
                     input_name = ov_model.inputs[0].get_any_name()
-                    ov_model.reshape({input_name: [1, 3, target_size, target_size]})
+                    ov_model.reshape({input_name: [1, 3, input_size, input_size]})
 
                 logger.debug("Compiling model to %s (this may take a few minutes)...", ov_device)
 
@@ -112,17 +95,21 @@ class OpenVINOModelHandler(ModelHandler):
             self._model.to(original_device)
 
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
-        if self._compiled_model is None or self._infer_request is None:
-            raise RuntimeError("Model not initialised. Call initialise() first.")
+        if self._compiled_model is None:
+            msg = "Model not initialised. Call initialise() before predict()."
+            raise RuntimeError(msg)
 
         logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(inputs))
 
         results: list[dict[str, np.ndarray]] = []
 
         for input_data in inputs:
-            image = self._prepare_input(input_data.frame)
+            image = self._model.prepare_openvino_input(input_data.frame, self._model.input_size)
             output = self._infer_request.infer({self._input_port: image})
             pred_masks = np.asarray(output[self._masks_output_port])
+            # Resize masks from model input size back to original frame dimensions.
+            # Bounding boxes are derived from these resized masks below, so they
+            # are already in original frame coordinates — no separate box resize needed.
             pred_masks = self._resize_masks_to_frame(pred_masks, input_data.frame.shape[0], input_data.frame.shape[1])
             pred_scores = np.asarray(output[self._scores_output_port])
             boxes = _masks_to_boxes(pred_masks, pred_scores)
@@ -139,6 +126,7 @@ class OpenVINOModelHandler(ModelHandler):
     def close(self) -> None:
         logger.info("Closing OpenVINOModelHandler and releasing resources")
         self._compiled_model = None
+        self._infer_request = None
         self._model = None
         self._reference_batch = None
 

@@ -82,6 +82,7 @@ class TestOpenVINOModelHandler:
 
     def test_predict_formats_input_and_maps_outputs(self, mock_model, mock_reference_batch):
         handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
+        mock_model.input_size = 512  # Expose input_size at model level
 
         masks = np.array([[[1, 0, 1], [0, 1, 0]]], dtype=np.float32)  # [1, H, W] matches frame (H=2, W=3)
         scores = np.array([0.5], dtype=np.float32)
