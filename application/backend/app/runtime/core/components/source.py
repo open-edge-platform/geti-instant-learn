@@ -46,7 +46,16 @@ class Source(PipelineComponent):
         if not self._initialized or self._inbound_broadcaster is None:
             raise RuntimeError("The source should be initialized before being used")
 
-        self._reader.connect()
+        try:
+            self._reader.connect()
+        except Exception as e:
+            error_msg = f"Failed to connect to source: {e}"
+            logger.exception("Source connection failed")
+            self._inbound_broadcaster.slot.set_error(error_msg)
+            # Keep the thread alive but don't process frames
+            while not self._stop_event.is_set():
+                self._stop_event.wait(timeout=0.1)
+            return
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
         while not self._stop_event.is_set():

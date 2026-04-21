@@ -38,6 +38,9 @@ def mock_inbound_broadcaster() -> Mock:
     broadcaster.register = Mock(return_value=Queue())
     broadcaster.unregister = Mock()
     broadcaster.clear = Mock()
+    # Mock the slot with error attribute for error handling
+    broadcaster.slot = Mock()
+    broadcaster.slot.error = None
     return broadcaster
 
 
@@ -46,6 +49,10 @@ def mock_outbound_broadcaster() -> Mock:
     broadcaster = Mock(spec=FrameBroadcaster)
     broadcaster.broadcast = Mock()
     broadcaster.clear = Mock()
+    # Mock the slot with set_error method for error handling
+    broadcaster.slot = Mock()
+    broadcaster.slot.error = None
+    broadcaster.slot.set_error = Mock()
     return broadcaster
 
 
@@ -452,3 +459,84 @@ class TestProcessorRun:
         processor, queue = configured_processor
         self._run_processor_with_frames(processor, queue, [])
         mock_model_handler.close.assert_called_once()
+
+    def test_inbound_error_propagates_to_outbound(
+        self,
+        configured_processor: tuple[Processor, Queue],
+        mock_inbound_broadcaster: Mock,
+        mock_outbound_broadcaster: Mock,
+    ) -> None:
+        processor, queue = configured_processor
+        error_msg = "Source connection failed"
+        mock_inbound_broadcaster.slot.error = error_msg
+
+        self._run_processor_with_frames(processor, queue, [], stop_after=0.1)
+
+        mock_outbound_broadcaster.slot.set_error.assert_called_with(error_msg)
+
+    def test_model_initialization_error_sets_outbound_error(
+        self,
+        configured_processor: tuple[Processor, Queue],
+        mock_model_handler: Mock,
+        mock_outbound_broadcaster: Mock,
+    ) -> None:
+        processor, queue = configured_processor
+        mock_model_handler.initialise.side_effect = RuntimeError("Model load failed")
+
+        self._run_processor_with_frames(processor, queue, [], stop_after=0.3)
+
+        mock_outbound_broadcaster.slot.set_error.assert_called()
+        call_args = mock_outbound_broadcaster.slot.set_error.call_args[0][0]
+        assert "Failed to initialize model" in call_args
+
+    def test_error_state_prevents_frame_processing(
+        self,
+        configured_processor: tuple[Processor, Queue],
+        mock_model_handler: Mock,
+        mock_inbound_broadcaster: Mock,
+    ) -> None:
+        processor, queue = configured_processor
+        mock_inbound_broadcaster.slot.error = "Source error"
+        queue.put(make_input_data())
+
+        self._run_processor_with_frames(processor, queue, [], stop_after=0.2)
+
+        # Model should not be initialized and predict should not be called when in error state
+        mock_model_handler.initialise.assert_not_called()
+        mock_model_handler.predict.assert_not_called()
+
+    def test_error_breaks_batch_collection(
+        self,
+        mock_model_handler: Mock,
+        mock_inbound_broadcaster: Mock,
+        mock_outbound_broadcaster: Mock,
+    ) -> None:
+        queue: Queue = Queue()
+        mock_inbound_broadcaster.register.return_value = queue
+
+        processor = Processor(
+            model_handler=mock_model_handler,
+            batch_size=4,
+            frame_skip_interval=0,
+            frame_skip_amount=0,
+        )
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+
+        # Put multiple frames in queue
+        for _ in range(4):
+            queue.put(make_input_data())
+
+        # Start processor thread
+        thread = Thread(target=processor.run, daemon=True)
+        thread.start()
+        time.sleep(0.1)  # Let it start collecting batch
+
+        # Simulate error occurring while collecting batch
+        mock_inbound_broadcaster.slot.error = "Error during batch collection"
+
+        time.sleep(0.2)
+        processor.stop()
+        thread.join(timeout=2)
+
+        # Should have stopped collecting and propagated error
+        mock_outbound_broadcaster.slot.set_error.assert_called()

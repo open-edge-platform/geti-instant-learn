@@ -92,60 +92,120 @@ class Processor(PipelineComponent):
         self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
-    def run(self) -> None:  # noqa: C901
+    def run(self) -> None:
         if not self._initialized:
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        self._model_handler.initialise()
-        logger.info(
-            "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
-            self._batch_size,
-            self._skip_policy.interval,
-            self._skip_policy.skip_amount,
-        )
+        model_initialized = False
 
         while not self._stop_event.is_set():
+            if self._handle_upstream_error():
+                continue
+
+            if not model_initialized:
+                if not self._initialize_model():
+                    continue
+                model_initialized = True
+
             try:
-                batch_data: list[InputData] = []
-                while len(batch_data) < self._batch_size and not self._stop_event.is_set():
-                    try:
-                        input_data: InputData = self._in_queue.get(timeout=0.1)
-                        if input_data.trace:
-                            input_data.trace.record_start("processor")
-                    except Empty:
-                        if batch_data:  # if we have partial batch data, process what we have
-                            break
-                        continue
-
-                    is_manual = input_data.context.get("requires_manual_control", False)
-
-                    if not is_manual and self._skip_policy.should_skip():
-                        logger.debug("Frame skipped (timestamp=%s)", input_data.timestamp)
-                        continue
-
-                    batch_data.append(input_data)
-
-                    if is_manual:
-                        break
-
-                if not batch_data or self._stop_event.is_set():
+                batch_data = self._collect_batch_data()
+                if not batch_data:
                     continue
 
-                results = self._model_handler.predict(batch_data)
-
-                for i, data in enumerate(batch_data):
-                    result = results[i] if i < len(results) else EMPTY_RESULT
-                    if data.trace:
-                        data.trace.record_end("processor")
-                    output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
-                    self._outbound_broadcaster.broadcast(output_data)
+                self._process_batch(batch_data)
 
             except Exception as e:
                 logger.exception("Error in pipeline runner loop: %s", e)
                 continue
 
         logger.debug("Stopping the pipeline runner loop")
+
+    def _handle_upstream_error(self) -> bool:
+        """Check for errors from upstream and propagate to downstream.
+
+        Returns:
+            True if error was found and handled, False otherwise.
+        """
+        inbound_error = self._inbound_broadcaster.slot.error
+        if inbound_error:
+            # Silently propagate - error already logged by Source
+            self._outbound_broadcaster.slot.set_error(inbound_error)
+            self._stop_event.wait(timeout=0.5)
+            return True
+        return False
+
+    def _initialize_model(self) -> bool:
+        """Initialize the model handler.
+
+        Returns:
+            True if initialization succeeded, False otherwise.
+        """
+        try:
+            self._model_handler.initialise()
+            logger.info(
+                "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
+                self._batch_size,
+                self._skip_policy.interval,
+                self._skip_policy.skip_amount,
+            )
+            return True
+        except Exception as e:
+            error_msg = f"Failed to initialize model: {e}"
+            logger.exception("Model initialization failed")
+            self._outbound_broadcaster.slot.set_error(error_msg)
+            self._stop_event.wait(timeout=0.5)
+            return False
+
+    def _collect_batch_data(self) -> list[InputData]:
+        """Collect a batch of input data from the queue.
+
+        Returns:
+            List of InputData items, empty if no data available or error occurred.
+        """
+        batch_data: list[InputData] = []
+
+        while len(batch_data) < self._batch_size and not self._stop_event.is_set():
+            # Check for errors while collecting batch data
+            if self._inbound_broadcaster.slot.error:
+                break
+
+            try:
+                input_data: InputData = self._in_queue.get(timeout=0.1)
+                if input_data.trace:
+                    input_data.trace.record_start("processor")
+            except Empty:
+                if batch_data:  # if we have partial batch data, process what we have
+                    break
+                continue
+
+            is_manual = input_data.context.get("requires_manual_control", False)
+
+            if not is_manual and self._skip_policy.should_skip():
+                logger.debug("Frame skipped (timestamp=%s)", input_data.timestamp)
+                continue
+
+            batch_data.append(input_data)
+
+            if is_manual:
+                break
+
+        return batch_data if not self._stop_event.is_set() else []
+
+    def _process_batch(self, batch_data: list[InputData]) -> None:
+        """Process a batch of input data and broadcast results.
+
+        Args:
+            batch_data: List of InputData items to process.
+        """
+        results = self._model_handler.predict(batch_data)
+
+        for i, data in enumerate(batch_data):
+            result = results[i] if i < len(results) else EMPTY_RESULT
+            if data.trace:
+                data.trace.record_end("processor")
+            output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
+            self._outbound_broadcaster.broadcast(output_data)
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)
