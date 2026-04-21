@@ -11,6 +11,7 @@ from itertools import zip_longest
 
 import numpy as np
 import torch
+import torch.nn.functional as F  # noqa: N812
 from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
@@ -38,10 +39,14 @@ class Sam3PromptMode(str, Enum):
         VISUAL_EXEMPLAR: Cross-image visual query detection. Box prompts on a
             reference image are encoded during fit() and reused for all target
             images. Enables "draw box on image A → detect similar on images B, C, D".
+        CANVAS: FSS-SAM3 unified canvas approach. Stitches reference and target
+            images into a single canvas, runs CLASSIC mode with the reference bbox
+            mapped to canvas coordinates. Best visual-only performance.
     """
 
     CLASSIC = "classic"
     VISUAL_EXEMPLAR = "visual_exemplar"
+    CANVAS = "canvas"
 
 
 class SAM3(Model):
@@ -146,6 +151,9 @@ class SAM3(Model):
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
         postprocessor: PostProcessor | None = None,
+        canvas_split_ratio: float = 0.2,
+        canvas_layout: str = "vertical_crop",
+        canvas_crop_padding: float = 2.0,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -160,7 +168,8 @@ class SAM3(Model):
             post_processing: Optional post-processing configuration for NMS,
                 mask overlap removal, and non-overlapping pixel constraints.
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
-                behavior, 'visual_exemplar' for cross-image visual query detection.
+                behavior, 'visual_exemplar' for cross-image visual query detection,
+                'canvas' for FSS-SAM3 unified canvas approach.
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
@@ -168,6 +177,14 @@ class SAM3(Model):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
+            canvas_split_ratio: Fraction of canvas allocated to reference region
+                (CANVAS mode only). Lower values give more space to the target.
+                Default: 0.2.
+            canvas_layout: Layout for canvas construction ('vertical_crop',
+                'vertical', 'horizontal', 'horizontal_crop'). Default:
+                'vertical_crop' (cropped reference in bottom strip).
+            canvas_crop_padding: Padding factor around the reference bbox when
+                cropping (CANVAS mode with crop layouts). Default: 2.0.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
@@ -182,6 +199,11 @@ class SAM3(Model):
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
 
+        # Canvas mode parameters
+        self.canvas_split_ratio = canvas_split_ratio
+        self.canvas_layout = canvas_layout
+        self.canvas_crop_padding = canvas_crop_padding
+
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
 
@@ -191,6 +213,11 @@ class SAM3(Model):
         self.exemplar_text_features: list[torch.Tensor] | None = None
         self.exemplar_text_mask: list[torch.Tensor] | None = None
         self.exemplar_category_ids: list[int] | None = None
+
+        # Canvas mode cached reference data (set during fit in CANVAS mode)
+        self._canvas_ref_images: list[torch.Tensor] | None = None
+        self._canvas_ref_bboxes: list[np.ndarray] | None = None
+        self._canvas_ref_text: str | None = None
 
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
@@ -266,6 +293,8 @@ class SAM3(Model):
 
         if self.prompt_mode == Sam3PromptMode.CLASSIC:
             self._fit_classic(reference_batch)
+        elif self.prompt_mode == Sam3PromptMode.CANVAS:
+            self._fit_canvas(reference_batch)
         else:
             self._fit_visual_exemplar(reference_batch)
 
@@ -290,7 +319,105 @@ class SAM3(Model):
         """
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             return self.apply_postprocessing(self._predict_visual_exemplar(target))
+        if self.prompt_mode == Sam3PromptMode.CANVAS:
+            return self.apply_postprocessing(self._predict_canvas(target))
         return self.apply_postprocessing(self._predict_classic(target))
+
+    @torch.no_grad()
+    def export(
+        self,
+        export_dir: str = "./exports/sam3_canvas",
+        text: str = "visual",
+    ) -> str:
+        """Export the SAM3 canvas inference graph to ONNX and OpenVINO IR.
+
+        Creates a traceable inference graph with frozen text features and
+        exports via PyTorch → ONNX → OpenVINO. Canvas construction and
+        coordinate remapping stay in Python (not part of the exported model).
+
+        The exported model accepts:
+        - canvas_image: [1, 3, H, W] raw canvas image
+        - input_boxes: [1, N, 4] normalized bboxes (xyxy, [0,1] range)
+
+        And outputs: (scores, boxes, masks) for detections on the canvas.
+
+        Args:
+            export_dir: Directory to save exported model files.
+            text: Text prompt to bake into the model. Default: "visual".
+
+        Returns:
+            Path to the exported OpenVINO XML file.
+
+        Raises:
+            ImportError: If OpenVINO is not installed.
+        """
+        from pathlib import Path
+
+        from .inference_graph import Sam3CanvasInferenceGraph
+
+        export_path = Path(export_dir)
+        export_path.mkdir(parents=True, exist_ok=True)
+
+        # Pre-compute and freeze text features
+        text_inputs = self._tokenize([text])
+        text_input_ids = text_inputs["input_ids"].cpu()
+        text_attention_mask = text_inputs["attention_mask"].cpu()
+
+        # Build traceable inference graph on CPU for export
+        graph = Sam3CanvasInferenceGraph(
+            sam3_model=self.model.cpu(),
+            preprocessor=self.image_preprocessor.cpu(),
+            postprocessor=self.sam3_postprocessor.cpu(),
+            text_input_ids=text_input_ids,
+            text_attention_mask=text_attention_mask,
+        ).eval()
+
+        # Dummy inputs for tracing
+        dummy_image = torch.randn(1, 3, self.resolution, self.resolution)
+        dummy_boxes = torch.tensor([[[0.1, 0.2, 0.3, 0.4]]], dtype=torch.float32)
+
+        # Export to ONNX first (direct PyTorch → OpenVINO fails on many ops)
+        onnx_path = export_path / "sam3_canvas.onnx"
+        torch.onnx.export(
+            graph,
+            args=(dummy_image, dummy_boxes),
+            f=onnx_path,
+            input_names=["canvas_image", "input_boxes"],
+            output_names=["scores", "boxes", "masks"],
+            dynamic_axes={
+                "canvas_image": {2: "height", 3: "width"},
+                "input_boxes": {1: "num_boxes"},
+                "scores": {0: "num_detections"},
+                "boxes": {0: "num_detections"},
+                "masks": {0: "num_detections", 1: "mask_h", 2: "mask_w"},
+            },
+            opset_version=16,
+        )
+        logger.info("ONNX export saved to %s", onnx_path)
+
+        # Convert ONNX → OpenVINO IR
+        try:
+            import openvino  # noqa: PLC0415
+        except ImportError as e:
+            msg = "OpenVINO is required for IR export. Install with: pip install openvino"
+            raise ImportError(msg) from e
+
+        core = openvino.Core()
+        try:
+            ov_model = core.read_model(str(onnx_path))
+        except RuntimeError:
+            ov_model = openvino.convert_model(graph, example_input=(dummy_image, dummy_boxes))
+
+        xml_path = export_path / "sam3_canvas.xml"
+        openvino.save_model(ov_model, str(xml_path))
+        logger.info("OpenVINO IR saved to %s", xml_path)
+
+        # Move model back to original device
+        self.model.to(self.device)
+        self.image_preprocessor.to(self.device)
+        self.sam3_postprocessor.to(self.device)
+
+        return str(xml_path)
 
     # -- Fit internals --
 
@@ -690,6 +817,397 @@ class SAM3(Model):
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
         return results
+
+    # -- Canvas mode --
+
+    def _fit_canvas(self, reference_batch: Batch) -> None:
+        """Store reference images and bboxes for canvas-based prediction.
+
+        Args:
+            reference_batch: Batch of reference samples with images and bboxes.
+
+        Raises:
+            ValueError: If no reference samples contain bboxes.
+        """
+        ref_images: list[torch.Tensor] = []
+        ref_bboxes: list[np.ndarray] = []
+        ref_text = "visual"
+
+        for sample in reference_batch.samples:
+            if sample.bboxes is None or len(sample.bboxes) == 0:
+                continue
+            ref_images.append(sample.image)
+            ref_bboxes.append(np.asarray(sample.bboxes[0][:4], dtype=np.float32))
+            if sample.categories and sample.categories[0] != "visual":
+                ref_text = sample.categories[0]
+
+        if not ref_images:
+            msg = "CANVAS mode requires at least one reference sample with bboxes."
+            raise ValueError(msg)
+
+        self._canvas_ref_images = ref_images
+        self._canvas_ref_bboxes = ref_bboxes
+        self._canvas_ref_text = ref_text
+        self.category_mapping = self._build_category_mapping(reference_batch)
+
+        logger.info(
+            "Canvas mode: stored %d reference image(s), text=%r, layout=%s, ratio=%.2f",
+            len(ref_images), ref_text, self.canvas_layout, self.canvas_split_ratio,
+        )
+
+    def _predict_canvas(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+        """Canvas prediction: stitch reference+target, run CLASSIC, remap results.
+
+        For each target image, constructs a canvas with the reference region and
+        target region, runs the model in CLASSIC mode on the canvas, then extracts
+        and remaps predictions that fall within the target region.
+
+        Args:
+            target: Target data to infer.
+
+        Returns:
+            List of prediction dicts per image.
+        """
+        if self._canvas_ref_images is None:
+            msg = "Canvas mode requires fit() to be called first."
+            raise RuntimeError(msg)
+
+        target_batch = Batch.collate(target)
+        results = []
+
+        # Temporarily switch to classic prediction internals
+        saved_mode = self.prompt_mode
+        self.prompt_mode = Sam3PromptMode.CLASSIC
+
+        try:
+            for sample in target_batch.samples:
+                tgt_image = sample.image
+                tgt_h, tgt_w = tgt_image.shape[-2:]
+
+                # Construct canvas
+                if len(self._canvas_ref_images) > 1 and self.canvas_layout != "multishot":
+                    layout = "multishot"
+                else:
+                    layout = self.canvas_layout
+
+                if layout == "multishot":
+                    canvas, all_bboxes, tgt_region = self._build_canvas_multishot(
+                        self._canvas_ref_images, tgt_image, self._canvas_ref_bboxes,
+                    )
+                else:
+                    ref_image = self._canvas_ref_images[0]
+                    ref_bbox = self._canvas_ref_bboxes[0]
+
+                    if layout == "vertical":
+                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
+                            ref_image, tgt_image, ref_bbox,
+                        )
+                    elif layout == "vertical_crop":
+                        crop, adj_bbox = self._crop_around_bbox(ref_image, ref_bbox)
+                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
+                            crop, tgt_image, adj_bbox,
+                        )
+                    elif layout == "horizontal":
+                        canvas, cbbox, tgt_region = self._build_canvas_horizontal(
+                            ref_image, tgt_image, ref_bbox,
+                        )
+                    elif layout == "horizontal_crop":
+                        crop, adj_bbox = self._crop_around_bbox(ref_image, ref_bbox)
+                        canvas, cbbox, tgt_region = self._build_canvas_horizontal(
+                            crop, tgt_image, adj_bbox,
+                        )
+                    else:
+                        msg = f"Unknown canvas_layout: {layout}"
+                        raise ValueError(msg)
+                    all_bboxes = [cbbox]
+
+                # Build canvas sample for classic prediction
+                canvas_sample = Sample(
+                    image=canvas,
+                    bboxes=np.array(all_bboxes),
+                    categories=[self._canvas_ref_text] * len(all_bboxes),
+                    category_ids=np.array([0] * len(all_bboxes)),
+                )
+
+                self.category_mapping = None
+                preds = self._predict_classic(canvas_sample)
+                pred = preds[0]
+
+                # Extract and remap predictions from the target region
+                remapped = self._extract_target_predictions(
+                    pred, tgt_region, tgt_h, tgt_w,
+                )
+                results.append(remapped)
+        finally:
+            self.prompt_mode = saved_mode
+
+        return results
+
+    def _crop_around_bbox(
+        self,
+        image: torch.Tensor,
+        bbox: np.ndarray,
+    ) -> tuple[torch.Tensor, np.ndarray]:
+        """Crop image tightly around bbox with padding.
+
+        Args:
+            image: (C, H, W) image tensor.
+            bbox: [x1, y1, x2, y2] bounding box.
+
+        Returns:
+            (cropped_image, adjusted_bbox) in crop coordinates.
+        """
+        _C, H, W = image.shape
+        x1, y1, x2, y2 = bbox[:4].astype(float)
+        bw, bh = x2 - x1, y2 - y1
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+
+        half_w = bw * self.canvas_crop_padding / 2
+        half_h = bh * self.canvas_crop_padding / 2
+
+        crop_x1 = int(max(0, cx - half_w))
+        crop_y1 = int(max(0, cy - half_h))
+        crop_x2 = int(min(W, cx + half_w))
+        crop_y2 = int(min(H, cy + half_h))
+        crop_x2 = max(crop_x2, crop_x1 + 1)
+        crop_y2 = max(crop_y2, crop_y1 + 1)
+
+        crop = image[:, crop_y1:crop_y2, crop_x1:crop_x2]
+        adj_bbox = np.array([
+            x1 - crop_x1, y1 - crop_y1, x2 - crop_x1, y2 - crop_y1,
+        ], dtype=np.float32)
+        return crop, adj_bbox
+
+    def _build_canvas_vertical(
+        self,
+        ref_image: torch.Tensor,
+        tgt_image: torch.Tensor,
+        ref_bbox: np.ndarray,
+    ) -> tuple[torch.Tensor, np.ndarray, tuple[int, int, int, int]]:
+        """Build vertical canvas: target on top, reference on bottom.
+
+        Returns:
+            (canvas, canvas_bbox, tgt_region) where tgt_region is (x, y, w, h).
+        """
+        C = ref_image.shape[0]
+        ref_h, ref_w = ref_image.shape[1], ref_image.shape[2]
+        tgt_h, tgt_w = tgt_image.shape[1], tgt_image.shape[2]
+
+        canvas_w = max(ref_w, tgt_w)
+        canvas_h = canvas_w
+
+        ref_canvas_h = int(canvas_h * self.canvas_split_ratio)
+        tgt_canvas_h = canvas_h - ref_canvas_h
+
+        ref_resized = F.interpolate(
+            ref_image.unsqueeze(0).float(), size=(ref_canvas_h, canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        tgt_resized = F.interpolate(
+            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+
+        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=ref_resized.dtype)
+        canvas[:, :tgt_canvas_h, :canvas_w] = tgt_resized
+        canvas[:, tgt_canvas_h:, :canvas_w] = ref_resized
+
+        sx = canvas_w / ref_w
+        sy = ref_canvas_h / ref_h
+        x1, y1, x2, y2 = ref_bbox[:4]
+        canvas_bbox = np.array([
+            x1 * sx, y1 * sy + tgt_canvas_h,
+            x2 * sx, y2 * sy + tgt_canvas_h,
+        ], dtype=np.float32)
+
+        return canvas, canvas_bbox, (0, 0, canvas_w, tgt_canvas_h)
+
+    def _build_canvas_horizontal(
+        self,
+        ref_image: torch.Tensor,
+        tgt_image: torch.Tensor,
+        ref_bbox: np.ndarray,
+    ) -> tuple[torch.Tensor, np.ndarray, tuple[int, int, int, int]]:
+        """Build horizontal canvas: target on left, reference on right.
+
+        Returns:
+            (canvas, canvas_bbox, tgt_region) where tgt_region is (x, y, w, h).
+        """
+        C = ref_image.shape[0]
+        ref_h, ref_w = ref_image.shape[1], ref_image.shape[2]
+        tgt_h, tgt_w = tgt_image.shape[1], tgt_image.shape[2]
+
+        canvas_h = max(ref_h, tgt_h)
+        canvas_w = canvas_h
+
+        ref_canvas_w = int(canvas_w * self.canvas_split_ratio)
+        tgt_canvas_w = canvas_w - ref_canvas_w
+
+        ref_resized = F.interpolate(
+            ref_image.unsqueeze(0).float(), size=(canvas_h, ref_canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        tgt_resized = F.interpolate(
+            tgt_image.unsqueeze(0).float(), size=(canvas_h, tgt_canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+
+        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=ref_resized.dtype)
+        canvas[:, :, :tgt_canvas_w] = tgt_resized
+        canvas[:, :, tgt_canvas_w:] = ref_resized
+
+        sx = ref_canvas_w / ref_w
+        sy = canvas_h / ref_h
+        x1, y1, x2, y2 = ref_bbox[:4]
+        canvas_bbox = np.array([
+            x1 * sx + tgt_canvas_w, y1 * sy,
+            x2 * sx + tgt_canvas_w, y2 * sy,
+        ], dtype=np.float32)
+
+        return canvas, canvas_bbox, (0, 0, tgt_canvas_w, canvas_h)
+
+    def _build_canvas_multishot(
+        self,
+        ref_images: list[torch.Tensor],
+        tgt_image: torch.Tensor,
+        ref_bboxes: list[np.ndarray],
+    ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
+        """Build multi-shot canvas: multiple cropped references in a strip.
+
+        Returns:
+            (canvas, canvas_bboxes, tgt_region).
+        """
+        crops, adj_bboxes = [], []
+        for ref_img, ref_bbox in zip(ref_images, ref_bboxes, strict=True):
+            crop, adj_bbox = self._crop_around_bbox(ref_img, ref_bbox)
+            crops.append(crop)
+            adj_bboxes.append(adj_bbox)
+
+        C = tgt_image.shape[0]
+        canvas_w = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
+        canvas_h = canvas_w
+
+        ref_strip_h = int(canvas_h * self.canvas_split_ratio)
+        tgt_canvas_h = canvas_h - ref_strip_h
+
+        tgt_resized = F.interpolate(
+            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+
+        n_refs = len(crops)
+        crop_w = canvas_w // n_refs
+        remainder = canvas_w - crop_w * n_refs
+
+        ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+        canvas_bboxes: list[np.ndarray] = []
+        x_offset = 0
+        for i, (crop, adj_bbox) in enumerate(zip(crops, adj_bboxes, strict=True)):
+            this_w = crop_w + (remainder if i == n_refs - 1 else 0)
+            crop_resized = F.interpolate(
+                crop.unsqueeze(0).float(), size=(ref_strip_h, this_w),
+                mode="bilinear", align_corners=False,
+            ).squeeze(0)
+            ref_strip[:, :, x_offset:x_offset + this_w] = crop_resized
+
+            sx = this_w / crop.shape[2]
+            sy = ref_strip_h / crop.shape[1]
+            ax1, ay1, ax2, ay2 = adj_bbox[:4]
+            canvas_bboxes.append(np.array([
+                ax1 * sx + x_offset, ay1 * sy + tgt_canvas_h,
+                ax2 * sx + x_offset, ay2 * sy + tgt_canvas_h,
+            ], dtype=np.float32))
+            x_offset += this_w
+
+        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+        canvas[:, :tgt_canvas_h, :] = tgt_resized
+        canvas[:, tgt_canvas_h:, :] = ref_strip
+
+        return canvas, canvas_bboxes, (0, 0, canvas_w, tgt_canvas_h)
+
+    @staticmethod
+    def _extract_target_predictions(
+        pred: dict[str, torch.Tensor],
+        tgt_region: tuple[int, int, int, int],
+        tgt_h: int,
+        tgt_w: int,
+    ) -> dict[str, torch.Tensor]:
+        """Extract predictions from the target region and remap to original coords.
+
+        Args:
+            pred: Prediction dict with 'pred_boxes' and optionally 'pred_masks'.
+            tgt_region: (x, y, w, h) of target region on canvas.
+            tgt_h: Original target image height.
+            tgt_w: Original target image width.
+
+        Returns:
+            Prediction dict with boxes/masks remapped to original target coordinates.
+        """
+        tx, ty, tw, th = tgt_region
+        pred_boxes = pred["pred_boxes"][:, :4].cpu()
+
+        if pred_boxes.shape[0] == 0:
+            return {
+                "pred_boxes": torch.empty(0, 5),
+                "pred_masks": torch.empty(0, tgt_h, tgt_w),
+                "pred_labels": torch.empty(0, dtype=torch.int64),
+            }
+
+        cx = (pred_boxes[:, 0] + pred_boxes[:, 2]) / 2
+        cy = (pred_boxes[:, 1] + pred_boxes[:, 3]) / 2
+        in_target = (cx >= tx) & (cx < tx + tw) & (cy >= ty) & (cy < ty + th)
+
+        scores = (
+            pred["pred_boxes"][:, 4].cpu()
+            if pred["pred_boxes"].shape[1] > 4
+            else torch.ones(len(pred_boxes))
+        )
+        target_boxes = pred_boxes[in_target]
+        target_scores = scores[in_target]
+
+        result: dict[str, torch.Tensor] = {}
+
+        if target_boxes.shape[0] > 0:
+            scale_x = tgt_w / tw
+            scale_y = tgt_h / th
+            remapped = target_boxes.clone()
+            remapped[:, 0] = (target_boxes[:, 0] - tx) * scale_x
+            remapped[:, 1] = (target_boxes[:, 1] - ty) * scale_y
+            remapped[:, 2] = (target_boxes[:, 2] - tx) * scale_x
+            remapped[:, 3] = (target_boxes[:, 3] - ty) * scale_y
+            remapped[:, 0].clamp_(min=0)
+            remapped[:, 1].clamp_(min=0)
+            remapped[:, 2].clamp_(max=tgt_w)
+            remapped[:, 3].clamp_(max=tgt_h)
+            result["pred_boxes"] = torch.cat([remapped, target_scores.unsqueeze(1)], dim=1)
+        else:
+            result["pred_boxes"] = torch.empty(0, 5)
+
+        # Remap masks if present
+        if "pred_masks" in pred and pred["pred_masks"].shape[0] > 0:
+            canvas_masks = pred["pred_masks"].cpu()
+            target_masks = canvas_masks[in_target]
+            if target_masks.shape[0] > 0:
+                # Crop mask to target region, then resize to original target size
+                target_masks = target_masks[:, ty:ty + th, tx:tx + tw]
+                target_masks = F.interpolate(
+                    target_masks.unsqueeze(1).float(),
+                    size=(tgt_h, tgt_w),
+                    mode="bilinear",
+                    align_corners=False,
+                ).squeeze(1)
+                result["pred_masks"] = (target_masks > 0.5).to(torch.uint8)
+            else:
+                result["pred_masks"] = torch.empty(0, tgt_h, tgt_w)
+        else:
+            result["pred_masks"] = torch.empty(0, tgt_h, tgt_w)
+
+        if "pred_labels" in pred:
+            result["pred_labels"] = pred["pred_labels"][in_target].cpu()
+        else:
+            result["pred_labels"] = torch.zeros(result["pred_boxes"].shape[0], dtype=torch.int64)
+
+        return result
 
     # -- Utilities --
 

@@ -48,6 +48,12 @@ Phase 5 experiments (FSS-SAM3 unified canvas approach, arxiv:2604.05433):
   25. Canvas+real          — stitch ref+target, bbox prompt, real category name
   26. Canvas+text-only     — stitch ref+target, text prompt only (no bbox)
 
+Phase 6 experiments (canvas optimization — improve recall for small objects):
+  6a. Split ratio ablation  — test ratios 0.5, 0.4, 0.3, 0.2, 0.1 (vs 0.6 baseline)
+  6b. Cropped reference     — crop tightly around bbox (pad=1.5/2/3), target gets more space
+  6c. Horizontal layout     — reference as narrow column on right instead of bottom strip
+  6d. Multi-shot canvas     — multiple cropped references in a strip (needs n_refs > 1)
+
 Run:
     python sam3_mode_benchmark.py --dataset perseg
     python sam3_mode_benchmark.py --dataset lvis --categories cupcake sheep pastry doughnut
@@ -57,6 +63,7 @@ Run:
     python sam3_mode_benchmark.py --dataset both --phase3  # Run Phase 3 (drop_spatial_bias)
     python sam3_mode_benchmark.py --dataset both --phase4  # Run Phase 4 (multi-point, mask-pool, feat match)
     python sam3_mode_benchmark.py --dataset both --phase5  # Run Phase 5 (FSS-SAM3 canvas)
+    python sam3_mode_benchmark.py --dataset both --phase6  # Run Phase 6 (canvas optimization)
 """
 
 from __future__ import annotations
@@ -124,8 +131,9 @@ def get_reference_and_targets(
     shuffle: bool = False,
     seed: int = 42,
     ref_index: int = 0,
+    n_refs: int = 1,
 ):
-    """Get one reference sample and target samples for a category."""
+    """Get reference sample(s) and target samples for a category."""
     ref_ds = dataset.get_reference_dataset(category=category_name)
     tgt_ds = dataset.get_target_dataset(category=category_name)
 
@@ -138,10 +146,14 @@ def get_reference_and_targets(
     if shuffle:
         random.Random(seed).shuffle(ref_samples)
 
-    if ref_index < len(ref_samples):
-        ref_samples = [ref_samples[ref_index]]
-    elif ref_samples:
-        ref_samples = [ref_samples[0]]
+    if n_refs == 1:
+        if ref_index < len(ref_samples):
+            ref_samples = [ref_samples[ref_index]]
+        elif ref_samples:
+            ref_samples = [ref_samples[0]]
+    else:
+        start = min(ref_index, max(0, len(ref_samples) - 1))
+        ref_samples = ref_samples[start:start + n_refs]
 
     n_tgt = len(tgt_ds)
     if shuffle:
@@ -741,6 +753,307 @@ def _canvas_predict(
     return predictions
 
 
+# ── Phase 6: Canvas Optimization Experiments ──
+
+
+def _crop_reference_around_bbox(
+    ref_image: torch.Tensor,
+    ref_bbox: np.ndarray,
+    padding_factor: float = 2.0,
+) -> tuple[torch.Tensor, np.ndarray]:
+    """Crop the reference image tightly around the bbox with padding.
+
+    Args:
+        ref_image: (C, H, W) reference image tensor.
+        ref_bbox: [x1, y1, x2, y2] bounding box.
+        padding_factor: Multiply bbox dimensions by this to determine crop size.
+
+    Returns:
+        (cropped_image, adjusted_bbox) where adjusted_bbox is in crop coordinates.
+    """
+    _C, H, W = ref_image.shape
+    x1, y1, x2, y2 = ref_bbox[:4].astype(float)
+    bw, bh = x2 - x1, y2 - y1
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+
+    half_w = bw * padding_factor / 2
+    half_h = bh * padding_factor / 2
+
+    crop_x1 = int(max(0, cx - half_w))
+    crop_y1 = int(max(0, cy - half_h))
+    crop_x2 = int(min(W, cx + half_w))
+    crop_y2 = int(min(H, cy + half_h))
+
+    crop_x2 = max(crop_x2, crop_x1 + 1)
+    crop_y2 = max(crop_y2, crop_y1 + 1)
+
+    crop = ref_image[:, crop_y1:crop_y2, crop_x1:crop_x2]
+    adj_bbox = np.array([
+        x1 - crop_x1, y1 - crop_y1, x2 - crop_x1, y2 - crop_y1,
+    ], dtype=np.float32)
+    return crop, adj_bbox
+
+
+def _create_canvas_cropped_ref(
+    ref_image: torch.Tensor,
+    tgt_image: torch.Tensor,
+    ref_bbox: np.ndarray,
+    split_ratio: float = 0.2,
+    crop_padding: float = 2.0,
+) -> tuple[torch.Tensor, np.ndarray, tuple[int, int, int, int]]:
+    """Canvas with tightly-cropped reference image around the bbox.
+
+    Crops the reference around its bbox (with padding), then uses the crop
+    as the reference in a standard vertical canvas. This allows the reference
+    strip to be very thin while keeping high resolution on the object.
+    """
+    crop, adj_bbox = _crop_reference_around_bbox(ref_image, ref_bbox, crop_padding)
+    return _create_canvas(crop, tgt_image, adj_bbox, split_ratio=split_ratio)
+
+
+def _create_canvas_horizontal(
+    ref_image: torch.Tensor,
+    tgt_image: torch.Tensor,
+    ref_bbox: np.ndarray,
+    split_ratio: float = 0.2,
+) -> tuple[torch.Tensor, np.ndarray, tuple[int, int, int, int]]:
+    """Horizontal canvas: target on left, reference on right.
+
+    Args:
+        ref_image: (C, H_ref, W_ref) reference image tensor.
+        tgt_image: (C, H_tgt, W_tgt) target image tensor.
+        ref_bbox: [x1, y1, x2, y2] in reference pixel coords.
+        split_ratio: Fraction of canvas width for reference.
+
+    Returns:
+        (canvas, canvas_bbox, tgt_region).
+    """
+    C = ref_image.shape[0]
+    ref_h, ref_w = ref_image.shape[1], ref_image.shape[2]
+    tgt_h, tgt_w = tgt_image.shape[1], tgt_image.shape[2]
+
+    canvas_h = max(ref_h, tgt_h)
+    canvas_w = canvas_h  # Square canvas
+
+    ref_canvas_w = int(canvas_w * split_ratio)
+    tgt_canvas_w = canvas_w - ref_canvas_w
+
+    ref_resized = F.interpolate(
+        ref_image.unsqueeze(0).float(), size=(canvas_h, ref_canvas_w),
+        mode="bilinear", align_corners=False,
+    ).squeeze(0)
+    tgt_resized = F.interpolate(
+        tgt_image.unsqueeze(0).float(), size=(canvas_h, tgt_canvas_w),
+        mode="bilinear", align_corners=False,
+    ).squeeze(0)
+
+    canvas = torch.zeros(C, canvas_h, canvas_w, dtype=ref_resized.dtype)
+    canvas[:, :, :tgt_canvas_w] = tgt_resized
+    canvas[:, :, tgt_canvas_w:] = ref_resized
+
+    sx = ref_canvas_w / ref_w
+    sy = canvas_h / ref_h
+    x1, y1, x2, y2 = ref_bbox[:4]
+    canvas_bbox = np.array([
+        x1 * sx + tgt_canvas_w, y1 * sy,
+        x2 * sx + tgt_canvas_w, y2 * sy,
+    ], dtype=np.float32)
+
+    tgt_region = (0, 0, tgt_canvas_w, canvas_h)
+    return canvas, canvas_bbox, tgt_region
+
+
+def _create_canvas_multishot(
+    ref_images: list[torch.Tensor],
+    tgt_image: torch.Tensor,
+    ref_bboxes: list[np.ndarray],
+    split_ratio: float = 0.2,
+    crop_padding: float = 2.0,
+) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
+    """Multi-shot canvas: multiple cropped references in a strip at the bottom.
+
+    Each reference is cropped around its bbox and placed side-by-side
+    in a thin strip. Target fills the remaining canvas space.
+    """
+    crops, adj_bboxes = [], []
+    for ref_img, ref_bbox in zip(ref_images, ref_bboxes, strict=True):
+        crop, adj_bbox = _crop_reference_around_bbox(ref_img, ref_bbox, crop_padding)
+        crops.append(crop)
+        adj_bboxes.append(adj_bbox)
+
+    C = tgt_image.shape[0]
+    canvas_w = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
+    canvas_h = canvas_w  # Square
+
+    ref_strip_h = int(canvas_h * split_ratio)
+    tgt_canvas_h = canvas_h - ref_strip_h
+
+    tgt_resized = F.interpolate(
+        tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
+        mode="bilinear", align_corners=False,
+    ).squeeze(0)
+
+    n_refs = len(crops)
+    crop_w = canvas_w // n_refs
+    remainder = canvas_w - crop_w * n_refs
+
+    ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+    canvas_bboxes: list[np.ndarray] = []
+    x_offset = 0
+    for i, (crop, adj_bbox) in enumerate(zip(crops, adj_bboxes, strict=True)):
+        this_w = crop_w + (remainder if i == n_refs - 1 else 0)
+        crop_resized = F.interpolate(
+            crop.unsqueeze(0).float(), size=(ref_strip_h, this_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        ref_strip[:, :, x_offset:x_offset + this_w] = crop_resized
+
+        sx = this_w / crop.shape[2]
+        sy = ref_strip_h / crop.shape[1]
+        ax1, ay1, ax2, ay2 = adj_bbox[:4]
+        canvas_bboxes.append(np.array([
+            ax1 * sx + x_offset, ay1 * sy + tgt_canvas_h,
+            ax2 * sx + x_offset, ay2 * sy + tgt_canvas_h,
+        ], dtype=np.float32))
+        x_offset += this_w
+
+    canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+    canvas[:, :tgt_canvas_h, :] = tgt_resized
+    canvas[:, tgt_canvas_h:, :] = ref_strip
+
+    tgt_region = (0, 0, canvas_w, tgt_canvas_h)
+    return canvas, canvas_bboxes, tgt_region
+
+
+# Phase 6 experiment configurations
+PHASE6_CONFIGS: list[dict] = [
+    # 6a: Split ratio ablation (vertical, full reference, text="visual")
+    {"name": "Cnv@0.5", "layout": "vertical", "ratio": 0.5},
+    {"name": "Cnv@0.4", "layout": "vertical", "ratio": 0.4},
+    {"name": "Cnv@0.3", "layout": "vertical", "ratio": 0.3},
+    {"name": "Cnv@0.2", "layout": "vertical", "ratio": 0.2},
+    {"name": "Cnv@0.1", "layout": "vertical", "ratio": 0.1},
+    # 6b: Cropped reference (vertical, bbox crop with padding)
+    {"name": "CrpCnv@0.3", "layout": "vertical_crop", "ratio": 0.3, "crop_pad": 2.0},
+    {"name": "CrpCnv@0.2", "layout": "vertical_crop", "ratio": 0.2, "crop_pad": 2.0},
+    {"name": "CrpCnv@0.1", "layout": "vertical_crop", "ratio": 0.1, "crop_pad": 2.0},
+    {"name": "CrpCnv@.2p1.5", "layout": "vertical_crop", "ratio": 0.2, "crop_pad": 1.5},
+    {"name": "CrpCnv@.2p3", "layout": "vertical_crop", "ratio": 0.2, "crop_pad": 3.0},
+    # 6c: Horizontal layout
+    {"name": "HrzCnv@0.2", "layout": "horizontal", "ratio": 0.2},
+    {"name": "HrzCrpCnv@0.2", "layout": "horizontal_crop", "ratio": 0.2, "crop_pad": 2.0},
+    # 6d: Multi-shot (cropped references in strip, needs n_refs > 1)
+    {"name": "Multi2@0.2", "layout": "multishot", "ratio": 0.2, "crop_pad": 2.0, "n_shots": 2},
+    {"name": "Multi3@0.2", "layout": "multishot", "ratio": 0.2, "crop_pad": 2.0, "n_shots": 3},
+]
+
+
+def _canvas_predict_v2(
+    model: SAM3,
+    ref_samples: list[Sample],
+    target_samples: list[Sample],
+    text: str = "visual",
+    split_ratio: float = 0.2,
+    layout: str = "vertical",
+    crop_padding: float = 2.0,
+) -> list[dict]:
+    """Enhanced canvas prediction with layout and optimization options.
+
+    Supports vertical, horizontal, cropped-reference, and multi-shot layouts.
+    All layouts use SAM3 CLASSIC mode on the stitched canvas.
+    """
+    original_mode = model.prompt_mode
+    model.prompt_mode = Sam3PromptMode.CLASSIC
+
+    predictions = []
+    for tgt in target_samples:
+        tgt_image = tgt.image
+        tgt_h, tgt_w = tgt_image.shape[-2:]
+
+        if layout == "multishot":
+            ref_images = [s.image for s in ref_samples]
+            ref_bboxes = [s.bboxes[0] for s in ref_samples]
+            canvas, all_bboxes, tgt_region = _create_canvas_multishot(
+                ref_images, tgt_image, ref_bboxes,
+                split_ratio=split_ratio, crop_padding=crop_padding,
+            )
+        else:
+            ref_image = ref_samples[0].image
+            ref_bbox = ref_samples[0].bboxes[0]
+
+            if layout == "vertical":
+                canvas, cbbox, tgt_region = _create_canvas(
+                    ref_image, tgt_image, ref_bbox, split_ratio=split_ratio,
+                )
+            elif layout == "vertical_crop":
+                canvas, cbbox, tgt_region = _create_canvas_cropped_ref(
+                    ref_image, tgt_image, ref_bbox,
+                    split_ratio=split_ratio, crop_padding=crop_padding,
+                )
+            elif layout == "horizontal":
+                canvas, cbbox, tgt_region = _create_canvas_horizontal(
+                    ref_image, tgt_image, ref_bbox, split_ratio=split_ratio,
+                )
+            elif layout == "horizontal_crop":
+                crop, adj_bbox = _crop_reference_around_bbox(
+                    ref_image, ref_bbox, crop_padding,
+                )
+                canvas, cbbox, tgt_region = _create_canvas_horizontal(
+                    crop, tgt_image, adj_bbox, split_ratio=split_ratio,
+                )
+            else:
+                msg = f"Unknown layout: {layout}"
+                raise ValueError(msg)
+            all_bboxes = [cbbox]
+
+        # Build canvas sample with prompts
+        canvas_sample = Sample(image=canvas)
+        canvas_sample.bboxes = np.array(all_bboxes)
+        canvas_sample.categories = [text] * len(all_bboxes)
+        canvas_sample.category_ids = np.array([0] * len(all_bboxes))
+        model.category_mapping = None
+
+        preds = model.predict([canvas_sample])
+        pred = preds[0]
+
+        # Extract and remap predictions from target region
+        tx, ty, tw, th = tgt_region
+        pred_boxes = pred["pred_boxes"][:, :4].cpu()
+        if pred_boxes.shape[0] > 0:
+            cx = (pred_boxes[:, 0] + pred_boxes[:, 2]) / 2
+            cy = (pred_boxes[:, 1] + pred_boxes[:, 3]) / 2
+            in_target = (cx >= tx) & (cx < tx + tw) & (cy >= ty) & (cy < ty + th)
+            scores = (
+                pred["pred_boxes"][:, 4].cpu()
+                if pred["pred_boxes"].shape[1] > 4
+                else torch.ones(len(pred_boxes))
+            )
+            target_boxes = pred_boxes[in_target]
+            target_scores = scores[in_target]
+
+            if target_boxes.shape[0] > 0:
+                scale_x = tgt_w / tw
+                scale_y = tgt_h / th
+                remapped = target_boxes.clone()
+                remapped[:, 0] = (target_boxes[:, 0] - tx) * scale_x
+                remapped[:, 1] = (target_boxes[:, 1] - ty) * scale_y
+                remapped[:, 2] = (target_boxes[:, 2] - tx) * scale_x
+                remapped[:, 3] = (target_boxes[:, 3] - ty) * scale_y
+                remapped[:, 0].clamp_(min=0)
+                remapped[:, 1].clamp_(min=0)
+                remapped[:, 2].clamp_(max=tgt_w)
+                remapped[:, 3].clamp_(max=tgt_h)
+                pred_with_scores = torch.cat([remapped, target_scores.unsqueeze(1)], dim=1)
+                predictions.append({"pred_boxes": pred_with_scores})
+            else:
+                predictions.append({"pred_boxes": torch.empty(0, 5)})
+        else:
+            predictions.append({"pred_boxes": torch.empty(0, 5)})
+
+    model.prompt_mode = original_mode
+    return predictions
+
+
 def run_benchmark(
     dataset,
     dataset_name: str,
@@ -754,6 +1067,7 @@ def run_benchmark(
     phase3: bool = False,
     phase4: bool = False,
     phase5: bool = False,
+    phase6: bool = False,
     clip_encoder: CLIPCropEncoder | None = None,
     clip_encoder_aligned: CLIPCropEncoderAligned | None = None,
     model_dsb: SAM3 | None = None,
@@ -766,6 +1080,7 @@ def run_benchmark(
         phase3: If True, also run Phase 3 experiments (drop_spatial_bias).
         phase4: If True, also run Phase 4 experiments (multi-point, mask-pool, feat match).
         phase5: If True, also run Phase 5 experiments (FSS-SAM3 canvas).
+        phase6: If True, also run Phase 6 experiments (canvas optimization).
         clip_encoder: Pre-loaded CLIP ViT-B encoder for Exp 5.
         clip_encoder_aligned: Pre-loaded CLIP ViT-L aligned encoder for Exp 5b.
         model_dsb: SAM3 model with drop_spatial_bias=True for Phase 3.
@@ -775,6 +1090,7 @@ def run_benchmark(
     for cat in categories:
         ref_samples, tgt_samples = get_reference_and_targets(
             dataset, cat, max_targets=max_targets, shuffle=shuffle, seed=seed,
+            n_refs=3 if phase6 else 1,
         )
         if not ref_samples:
             print(f"  [{dataset_name}] {cat}: no reference samples, skipping")
@@ -940,6 +1256,52 @@ def run_benchmark(
                 "n_images": len(tgt_samples),
             })
 
+        # Phase 6: Canvas optimization experiments
+        if phase6:
+            for cfg in PHASE6_CONFIGS:
+                n_shots = cfg.get("n_shots", 1)
+                if n_shots > len(ref_samples):
+                    print(f"    Skipping {cfg['name']}: need {n_shots} refs, have {len(ref_samples)}")
+                    continue
+                refs = ref_samples[:n_shots]
+                preds = _canvas_predict_v2(
+                    model, refs, tgt_clean,
+                    text="visual",
+                    split_ratio=cfg["ratio"],
+                    layout=cfg["layout"],
+                    crop_padding=cfg.get("crop_pad", 2.0),
+                )
+
+                total_tp, total_fp, total_gt = 0, 0, 0
+                all_ious = []
+                for pred, sample in zip(preds, tgt_samples, strict=True):
+                    tp, fp, n_gt, miou = compute_tp_fp(pred, sample, cat)
+                    total_tp += tp
+                    total_fp += fp
+                    total_gt += n_gt
+                    if miou > 0:
+                        all_ious.append(miou)
+
+                total_det = total_tp + total_fp
+                prec = total_tp / max(total_det, 1)
+                rec = total_tp / max(total_gt, 1)
+                f1 = 2 * prec * rec / max(prec + rec, 1e-6)
+                avg_iou = float(np.mean(all_ious)) if all_ious else 0.0
+
+                rows.append({
+                    "dataset": dataset_name,
+                    "category": cat,
+                    "mode": cfg["name"],
+                    "tp": total_tp,
+                    "fp": total_fp,
+                    "gt": total_gt,
+                    "precision": prec,
+                    "recall": rec,
+                    "f1": f1,
+                    "iou": avg_iou,
+                    "n_images": len(tgt_samples),
+                })
+
     return rows
 
 
@@ -1001,6 +1363,7 @@ def main():
     parser.add_argument("--phase3", action="store_true", help="Run Phase 3 experiments (drop_spatial_bias)")
     parser.add_argument("--phase4", action="store_true", help="Run Phase 4 experiments (multi-point, mask-pool, feat match)")
     parser.add_argument("--phase5", action="store_true", help="Run Phase 5 experiments (FSS-SAM3 canvas)")
+    parser.add_argument("--phase6", action="store_true", help="Run Phase 6 experiments (canvas optimization: ratios, crop, layout, multi-shot)")
     args = parser.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -1042,7 +1405,7 @@ def main():
             perseg_ds, "PerSeg", perseg_ds.categories, model,
             max_targets=args.max_targets, shuffle=args.shuffle, seed=args.seed,
             phase1=args.phase1, phase2=args.phase2, phase3=args.phase3,
-            phase4=args.phase4, phase5=args.phase5,
+            phase4=args.phase4, phase5=args.phase5, phase6=args.phase6,
             clip_encoder=clip_encoder, clip_encoder_aligned=clip_encoder_aligned,
             model_dsb=model_dsb,
         )
@@ -1063,7 +1426,7 @@ def main():
             lvis_ds, "LVIS", lvis_ds.categories, model,
             max_targets=args.max_targets, shuffle=args.shuffle, seed=args.seed,
             phase1=args.phase1, phase2=args.phase2, phase3=args.phase3,
-            phase4=args.phase4, phase5=args.phase5,
+            phase4=args.phase4, phase5=args.phase5, phase6=args.phase6,
             clip_encoder=clip_encoder, clip_encoder_aligned=clip_encoder_aligned,
             model_dsb=model_dsb,
         )
