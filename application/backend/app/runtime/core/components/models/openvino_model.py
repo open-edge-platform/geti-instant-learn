@@ -99,6 +99,8 @@ class OpenVINOModelHandler(ModelHandler):
             msg = "Model not initialised. Call initialise() before predict()."
             raise RuntimeError(msg)
 
+        assert self._infer_request is not None, "InferRequest not created — initialise() must be called first"
+
         logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(inputs))
 
         results: list[dict[str, np.ndarray]] = []
