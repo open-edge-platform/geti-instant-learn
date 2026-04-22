@@ -7,7 +7,7 @@ import { getMockedSource, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
-import { WebRTCConnectionProvider } from '../../features/stream/web-rtc/web-rtc-connection-provider';
+import { StreamConnectionProvider } from '../../features/stream/mjpeg/stream-connection-provider';
 import { http, server } from '../../setup-test';
 import { Toolbar } from './toolbar.component';
 
@@ -15,9 +15,9 @@ describe('Toolbar', () => {
     it('does not render stream status when there are no sources', async () => {
         // Default mock returns empty sources array
         render(
-            <WebRTCConnectionProvider>
+            <StreamConnectionProvider>
                 <Toolbar />
-            </WebRTCConnectionProvider>
+            </StreamConnectionProvider>
         );
 
         expect(screen.queryByRole('status')).not.toBeInTheDocument();
@@ -44,9 +44,9 @@ describe('Toolbar', () => {
         );
 
         render(
-            <WebRTCConnectionProvider>
+            <StreamConnectionProvider>
                 <Toolbar />
-            </WebRTCConnectionProvider>
+            </StreamConnectionProvider>
         );
 
         expect(await screen.findByRole('status')).toBeInTheDocument();
@@ -54,9 +54,9 @@ describe('Toolbar', () => {
 
     it('always renders SourcesSinks button', async () => {
         render(
-            <WebRTCConnectionProvider>
+            <StreamConnectionProvider>
                 <Toolbar />
-            </WebRTCConnectionProvider>
+            </StreamConnectionProvider>
         );
 
         expect(await screen.findByRole('button', { name: 'Pipeline configuration' })).toBeInTheDocument();

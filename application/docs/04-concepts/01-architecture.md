@@ -18,7 +18,7 @@ The core of the application is the **Pipeline**, a multi-threaded streaming engi
 Data flows through the pipeline via **Broadcasters**, thread-safe intermediaries that allow multiple consumers to receive frames simultaneously. This architecture allows:
 
 - **High Performance**: Heavy inference tasks don't block frame acquisition.
-- **Real-time Visualization**: The frontend (via WebRTC) can subscribe to the processed video stream without slowing down the pipeline.
+- **Real-time Visualization**: The frontend (via MJPEG streaming) can subscribe to the processed video stream without slowing down the pipeline.
 
 ## Pipeline Components
 
@@ -33,7 +33,7 @@ The application abstracts input and output devices to make the system flexible a
 
   The application includes standard Reader implementations: `UsbCameraReader`, `VideoStreamReader`, `ImageFolderReader`. Users can extend the application by implementing their own `StreamReader`.
 
-- **Processor (Inference)**: Performs inference on incoming frames. The Processor subscribes to the Source's broadcast queue, pulls frames, batches them for efficiency, and runs them through the Zero-Shot Learning model. After inference, it broadcasts the results (original frame + predictions) to another queue where the Sink and WebRTC frontend pick them up.
+- **Processor (Inference)**: Performs inference on incoming frames. The Processor subscribes to the Source's broadcast queue, pulls frames, batches them for efficiency, and runs them through the Zero-Shot Learning model. After inference, it broadcasts the results (original frame + predictions) to another queue where the Sink and MJPEG streaming frontend pick them up.
 
   The Processor wraps a `ModelHandler`—an abstraction over the inference backend. The ModelHandler's `predict()` method takes a batch of frames and returns predictions (masks, scores, labels).
 

@@ -12,27 +12,35 @@ import { NetworkFixture } from '@msw/playwright';
 import { BrowserContext, Page } from '@playwright/test';
 import { HttpResponse } from 'msw';
 
-import { mockRTCPeerConnectionScript } from './mocks';
-
 const FRAME_ID = '1';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-export const initializeWebRTC = async ({
+const getTestImage = () => {
+    const testImagePath = path.resolve(dirname, '../../src/assets/test.webp');
+    return readFileSync(testImagePath);
+};
+
+export const initializeStream = async ({
     page,
-    context,
     network,
 }: {
     page: Page;
     network: NetworkFixture;
-    context: BrowserContext;
+    context?: BrowserContext;
 }) => {
     // Emulate prefers-reduced-motion to disable CSS animations
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
-    // Mock RTCPeerConnection to simulate a successful WebRTC connection
-    await context.addInitScript(mockRTCPeerConnectionScript);
+    // Intercept the MJPEG stream URL so the <img> element fires onLoad
+    await page.route('**/api/v1/projects/*/stream', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'image/jpeg',
+            body: getTestImage(),
+        });
+    });
 
     network.use(
         http.get('/api/v1/projects/{project_id}', ({ response }) => {
@@ -47,21 +55,12 @@ export const initializeWebRTC = async ({
 
         http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
         http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
-            const testImagePath = path.resolve(dirname, '../../src/assets/test.webp');
-            const buffer = readFileSync(testImagePath);
-
-            return new HttpResponse(buffer, {
+            return new HttpResponse(getTestImage(), {
                 status: 200,
                 headers: {
                     'Content-Type': 'image/jpeg',
                 },
             });
-        }),
-        http.post('/api/v1/projects/{project_id}/offer', ({ response }) =>
-            response(200).json({
-                type: 'answer',
-                sdp: 'some-sdp',
-            })
-        )
+        })
     );
 };

@@ -6,14 +6,14 @@
 import { expect, http, test } from '@/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
-import { initializeWebRTC } from '../prompt/initialize-webrtc';
+import { initializeStream } from '../prompt/initialize-stream';
 import { USB_CAMERA_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
+test(`Annotator`, async ({ network, page, streamPage, annotatorPage, labelsPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
-    await initializeWebRTC({ page, context, network });
+    await initializeStream({ page, network });
 
     registerApiLabels({ network, defaultLabels: [] });
 

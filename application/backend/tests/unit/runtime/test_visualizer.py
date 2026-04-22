@@ -14,8 +14,9 @@ from domain.services.schemas.label import (
     VisualizationLabel,
 )
 from domain.services.schemas.processor import OutputData
-from runtime.webrtc.visualizer import (
+from runtime.visualizer import (
     DEFAULT_FALLBACK_COLOR,
+    BoxRenderer,
     CategoryResolver,
     InferenceVisualizer,
     generate_deterministic_color,
@@ -35,7 +36,7 @@ def fxt_large_frame() -> np.ndarray:
 
 @pytest.fixture
 def fxt_visualizer() -> InferenceVisualizer:
-    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+    with patch("runtime.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = True
         mock_get_settings.return_value.visualize_boxes = False
         mock_get_settings.return_value.visualize_labels = False
@@ -49,7 +50,7 @@ def fxt_visualizer() -> InferenceVisualizer:
 @pytest.fixture
 def fxt_visualizer_boxes_only() -> InferenceVisualizer:
     """Visualizer configured to draw only boxes."""
-    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+    with patch("runtime.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = False
         mock_get_settings.return_value.visualize_boxes = True
         mock_get_settings.return_value.visualize_labels = False
@@ -63,7 +64,7 @@ def fxt_visualizer_boxes_only() -> InferenceVisualizer:
 @pytest.fixture
 def fxt_visualizer_both() -> InferenceVisualizer:
     """Visualizer configured to draw both masks and boxes."""
-    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+    with patch("runtime.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = True
         mock_get_settings.return_value.visualize_boxes = True
         mock_get_settings.return_value.visualize_labels = False
@@ -77,7 +78,7 @@ def fxt_visualizer_both() -> InferenceVisualizer:
 @pytest.fixture
 def fxt_visualizer_boxes_with_labels() -> InferenceVisualizer:
     """Visualizer configured to draw boxes with label captions."""
-    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+    with patch("runtime.visualizer.get_settings") as mock_get_settings:
         mock_get_settings.return_value.visualize_masks = False
         mock_get_settings.return_value.visualize_boxes = True
         mock_get_settings.return_value.visualize_labels = True
@@ -401,8 +402,6 @@ def test_visualize_both_masks_and_boxes(fxt_visualizer_both: InferenceVisualizer
 
 
 def test_box_renderer_draw(fxt_large_frame: np.ndarray) -> None:
-    from runtime.webrtc.visualizer import BoxRenderer
-
     label_id = "00000000-0000-0000-0000-000000000001"
     vis_info = _make_vis_info(
         category_id_to_label_id={0: label_id},

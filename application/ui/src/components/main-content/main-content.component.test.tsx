@@ -6,7 +6,7 @@
 import { getMockedSource, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
-import { WebRTCConnectionProvider } from 'src/features/stream/web-rtc/web-rtc-connection-provider';
+import { StreamConnectionProvider } from 'src/features/stream/mjpeg/stream-connection-provider';
 
 import { http, server } from '../../setup-test';
 import { MainContent } from './main-content.component';
@@ -35,9 +35,9 @@ describe('MainContent', () => {
         );
 
         render(
-            <WebRTCConnectionProvider>
+            <StreamConnectionProvider>
                 <MainContent />
-            </WebRTCConnectionProvider>
+            </StreamConnectionProvider>
         );
 
         expect(await screen.findByLabelText('Start stream')).toBeInTheDocument();

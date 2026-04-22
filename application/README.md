@@ -40,11 +40,6 @@ just device=xpu application/dev
 | `port` | `9100` | Backend API port |
 | `ui-port` | `3000` | UI development server port |
 | `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu128`) |
-| `enable-coturn` | `false` | Enable local TURN server for WebRTC |
-| `stun-server` | `""` | External STUN server URL |
-| `coturn-port` | `443` | Port for local TURN server |
-
-> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
 
 </details>
 
@@ -87,12 +82,6 @@ just device=xpu application/run-image
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `port` | `9100` | Port for serving UI and API |
-| `webrtc-ports` | `50000-51000` | UDP port range for WebRTC |
-| `stun-server` | `""` | External STUN server URL |
-| `enable-coturn` | `false` | Enable local TURN server |
-| `coturn-port` | `443` | Port for TURN server |
-
-> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
 
 *Hardware:*
 
@@ -123,5 +112,4 @@ just device=xpu application/run-image
 **Concepts:**
 
 - [Architecture](docs/04-concepts/01-architecture.md) - System design and components
-- [WebRTC Networking](docs/04-concepts/02-webrtc.md) - Video streaming configuration
 - [Storage](docs/04-concepts/03-storage.md) - Data persistence and Docker volumes

@@ -217,7 +217,7 @@ class PipelineManager:
     def get_output_slot(self, project_id: UUID) -> FrameSlot[OutputData]:
         """Get the shared output slot for reading the latest processed frame.
 
-        External consumers (e.g. WebRTC streams) can poll this slot without
+        External consumers (e.g. MJPEG streams) can poll this slot without
         registering or unregistering — they simply read ``slot.latest``.
         """
         if self._pipeline is None:

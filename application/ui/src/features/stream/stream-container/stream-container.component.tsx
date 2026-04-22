@@ -5,11 +5,11 @@
 
 import { ReactNode } from 'react';
 
-import { Button, Flex, Loading } from '@geti/ui';
+import { Button, Flex } from '@geti/ui';
 import { Play } from '@geti/ui/icons';
 
+import { useStreamConnection } from '../mjpeg/stream-connection-provider';
 import { Stream } from '../stream.component';
-import { useWebRTCConnection } from '../web-rtc/web-rtc-connection-provider';
 
 import styles from './stream-container.module.scss';
 
@@ -30,18 +30,10 @@ const Container = ({ children }: { children: ReactNode }) => {
 };
 
 export const StreamContainer = () => {
-    const { status, start } = useWebRTCConnection();
+    const { status, start } = useStreamConnection();
 
-    if (status === 'connected') {
+    if (status === 'connected' || status === 'connecting') {
         return <Stream />;
-    }
-
-    if (status === 'connecting') {
-        return (
-            <Container>
-                <Loading mode='inline' />
-            </Container>
-        );
     }
 
     if (status === 'idle') {

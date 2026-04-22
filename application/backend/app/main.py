@@ -33,8 +33,6 @@ from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.components import DefaultComponentFactory
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.device import list_available_devices
-from runtime.webrtc.manager import WebRTCManager
-from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
 settings = get_settings()
@@ -74,12 +72,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     app.state.pipeline_manager.start()
 
-    # Initialize WebRTC Manager
-    app.state.sdp_handler = SDPHandler()
-    app.state.webrtc_manager = WebRTCManager(
-        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
-    )
-
     # Dataset cache is startup-static by design and refreshed only on app restart.
     datasets = DatasetsListSchema(
         datasets=[],
@@ -106,7 +98,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
     app.state.config_dispatcher.shutdown()
-    await app.state.webrtc_manager.cleanup()
     app.state.pipeline_manager.stop()
 
 

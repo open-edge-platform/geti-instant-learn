@@ -11,14 +11,8 @@ port := "9100"
 ui-port := "3000"
 webcam-device := "/dev/video0"
 host := "0.0.0.0"
-enable-coturn := "false"
-stun-server := ""
-webrtc-ports := "50000-51000"
 device := "cpu"  # cpu, cu128, xpu
 render-node := ""  # override XPU render device node (e.g. /dev/dri/renderD128); auto-detected when empty
-
-# Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
-coturn-port := "443"
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image
@@ -33,9 +27,6 @@ image-name := container-registry / component-name / build-target + ":" + version
 source-dataset-dir := "backend/.data/templates/datasets"
 target-dataset-dir := "/instant_learn/data/templates/datasets"
 
-# Coturn settings
-coturn-image := "quay.io/coturn/coturn"
-
 host-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
 
 docker-build-args := "--build-arg http_proxy --build-arg https_proxy --build-arg no_proxy --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY"
@@ -49,11 +40,9 @@ dev:
 
     export PUBLIC_API_URL="http://{{ host-ip }}:{{ port }}"
 
-    {{ if enable-coturn == "true" { "just run-coturn" } else { "" } }}
+    trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
 
-    trap 'kill $(jobs -p) 2>/dev/null || true; {{ if enable-coturn == "true" { "just stop-coturn" } else { "" } }}' EXIT
-
-    (cd backend && just port={{ port }} host={{ host }} device={{ device }} enable-coturn={{ enable-coturn }} stun-server={{ stun-server }} coturn-port={{ coturn-port }} dev) &
+    (cd backend && just port={{ port }} host={{ host }} device={{ device }} dev) &
     (cd ui && npm install && PORT={{ ui-port }} npm start) &
 
     wait
@@ -115,39 +104,13 @@ run-image: build-image
     echo "Proxy args: {{ docker-run-args }}"
     docker run --rm \
         {{ docker-run-args }} \
-        --sysctl net.ipv4.ip_local_port_range="{{ replace(webrtc-ports, '-', ' ') }}" \
-        --publish {{ webrtc-ports }}:{{ webrtc-ports }}/udp \
         --publish {{ port }}:{{ port }} \
         --env PORT={{ port }} \
         --env HOST={{ host }} \
-        {{ if enable-coturn == "true" { "--env COTURN_HOST='" + host-ip + "' --env COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
-        {{ if stun-server != "" { "--env STUN_SERVER='" + stun-server + "'" } else { "" } }} \
-        --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         "${extra_render_args[@]}" \
         --name "{{ component-name }}-{{ version }}" \
         "{{ image-name }}"
-
-# run coturn server
-run-coturn:
-    @echo "Running coturn server on port {{ coturn-port }} with external IP {{ host-ip }}..."
-    @docker run --rm --detach \
-        --network=host \
-        --name coturn-server \
-        {{ coturn-image }} \
-        -n \
-        --listening-port={{ coturn-port }} \
-        --external-ip={{ host-ip }} \
-        --user=user:password \
-        --realm=my-realm \
-        --no-udp \
-        --log-file=stdout \
-        --verbose
-
-# stop coturn server
-stop-coturn:
-    @echo "Stopping coturn server..."
-    @docker stop coturn-server || true
 
 # show size of the built docker image
 show-size:

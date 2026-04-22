@@ -10,7 +10,7 @@ import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-promp
 import { PromptPage } from '../annotator/prompt-page';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { registerApiLabels } from '../labels/mocks';
-import { initializeWebRTC } from './initialize-webrtc';
+import { initializeStream } from './initialize-stream';
 import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, USB_CAMERA_SOURCE } from './mocks';
 
 const waitForSAM = async (page: Page) => {
@@ -23,9 +23,9 @@ const waitForSAM = async (page: Page) => {
 };
 
 test.describe('Prompt', () => {
-    test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage, labelsPage }) => {
+    test('Prompt flow', async ({ network, page, streamPage, annotatorPage, promptPage, labelsPage }) => {
         test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
-        await initializeWebRTC({ page, context, network });
+        await initializeStream({ page, network });
 
         const labels = registerApiLabels({ network });
 
@@ -205,12 +205,11 @@ test.describe('Prompt', () => {
     test('Shows captured frame when there is already a prompt in canvas', async ({
         network,
         page,
-        context,
         streamPage,
         promptPage,
         annotatorPage,
     }) => {
-        await initializeWebRTC({ page, context, network });
+        await initializeStream({ page, network });
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
