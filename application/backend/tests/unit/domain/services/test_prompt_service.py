@@ -33,8 +33,8 @@ from domain.services.schemas.prompt import (
 )
 
 
-def make_project(project_id=None, name="proj"):
-    return SimpleNamespace(id=project_id or uuid.uuid4(), name=name)
+def make_project(project_id=None, name="proj", prompt_mode="VISUAL"):
+    return SimpleNamespace(id=project_id or uuid.uuid4(), name=name, prompt_mode=prompt_mode)
 
 
 def make_text_prompt_db(prompt_id=None, project_id=None, text="test prompt"):
