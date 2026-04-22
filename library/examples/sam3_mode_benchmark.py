@@ -54,6 +54,25 @@ Phase 6 experiments (canvas optimization — improve recall for small objects):
   6c. Horizontal layout     — reference as narrow column on right instead of bottom strip
   6d. Multi-shot canvas     — multiple cropped references in a strip (needs n_refs > 1)
 
+Phase 7 experiments (SANSA-inspired dense feature matching):
+  Inspired by SANSA (arxiv:2505.21795, NeurIPS'25 Spotlight), which showed SAM2 encodes
+  latent semantic structure that can be leveraged for few-shot segmentation.
+  SAM3 lacks SAM2's memory-attention mechanism, so we replicate the core idea using
+  SAM3's ViT backbone for dense feature matching + point prompt generation.
+  7a. SANSA-ViT             — ViT features (1024-d), mask-pooled prototype, point prompts
+  7b. SANSA-FPN             — FPN features (256-d), mask-pooled prototype, point prompts
+  7c. SANSA-ViT-dense       — Dense patch matching instead of pooled prototype
+  7d. SANSA-multi           — Top-K matched points as multi-point prompts
+
+Phase 8 experiments (inverse L-shape layout for multi-shot):
+  Inspired by FSS-SAM3 (arxiv:2604.05433), which found that placing support images
+  along two borders (top + left) with query in bottom-right outperforms single-strip
+  layouts for 5-shot segmentation. We generalize to 1-10 shots:
+  - 1-shot: falls back to vertical (our proven best)
+  - N>=2: inverse L-shape with ceil(N/2) refs across top, floor(N/2) down left
+  8a. L-shape ratio ablation  — L2@0.3, L3@0.3, L5@0.3 (2/3/5 shot at ratio 0.3)
+  8b. L-shape vs multishot    — Compare L-shape to bottom-strip for 2 and 3 shots
+
 Run:
     python sam3_mode_benchmark.py --dataset perseg
     python sam3_mode_benchmark.py --dataset lvis --categories cupcake sheep pastry doughnut
@@ -64,12 +83,15 @@ Run:
     python sam3_mode_benchmark.py --dataset both --phase4  # Run Phase 4 (multi-point, mask-pool, feat match)
     python sam3_mode_benchmark.py --dataset both --phase5  # Run Phase 5 (FSS-SAM3 canvas)
     python sam3_mode_benchmark.py --dataset both --phase6  # Run Phase 6 (canvas optimization)
+    python sam3_mode_benchmark.py --dataset both --phase7  # Run Phase 7 (SANSA feature matching)
+    python sam3_mode_benchmark.py --dataset both --phase8  # Run Phase 8 (L-shape multi-shot)
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
+import math
 import random
 from pathlib import Path
 
@@ -85,8 +107,8 @@ from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 
 # ── Defaults ──
 
-PERSEG_ROOT = Path("/home/rgangire/workspace/data/prompt/PerSeg")
-LVIS_ROOT = Path("/home/rgangire/workspace/data/prompt/lvis")
+PERSEG_ROOT = Path.home() / "workspace/data/prompt/PerSeg"
+LVIS_ROOT = Path.home() / "workspace/data/prompt/lvis"
 
 PERSEG_CATEGORIES = [
     "dog", "cat", "backpack", "clock", "teddybear",
@@ -589,6 +611,337 @@ def _feature_match_predict(
     return predictions
 
 
+# ── Phase 7: SANSA-Inspired Dense Feature Matching (arxiv:2505.21795) ──
+#
+# SANSA showed SAM2 encodes latent semantic structure in its ViT features
+# that can be leveraged for few-shot segmentation via its Memory Attention.
+# SAM3 lacks Memory Attention, so we replicate the core idea:
+#   1. Extract dense ViT/FPN features from reference and target
+#   2. Establish feature correspondences (prototype or dense matching)
+#   3. Generate point prompts from high-similarity regions
+#   4. Feed points through SAM3's full detection pipeline
+
+
+def _sansa_extract_features(
+    model: SAM3,
+    image: torch.Tensor,
+    use_vit: bool = True,
+) -> tuple[torch.Tensor, int, int]:
+    """Extract dense spatial features from SAM3's vision encoder.
+
+    Args:
+        model: SAM3 model instance.
+        image: Image tensor (C, H, W) or (1, C, H, W).
+        use_vit: If True, use raw ViT features (1024-d). If False, use FPN (256-d).
+
+    Returns:
+        (features, H, W) where features is [1, C, H, W] spatial feature map.
+    """
+    img = image.unsqueeze(0) if image.ndim == 3 else image
+    with torch.no_grad():
+        pixel_values, _ = model.image_preprocessor(img.to(model.device))
+        vision_embeds = model.model.get_vision_features(pixel_values)
+
+    if use_vit:
+        # Raw ViT backbone features: [1, 5184, 1024] → [1, 1024, 72, 72]
+        hidden = vision_embeds["last_hidden_state"]  # [1, seq_len, 1024]
+        B = hidden.shape[0]
+        # Infer spatial dims from seq_len (72*72 = 5184 for 1008px input)
+        seq_len = hidden.shape[1]
+        H = W = int(seq_len**0.5)
+        feat = hidden.view(B, H, W, -1).permute(0, 3, 1, 2)  # [1, 1024, H, W]
+    else:
+        # FPN features at 1× scale: [1, 256, 72, 72]
+        feat = vision_embeds["fpn_hidden_states"][2]
+        H, W = feat.shape[2], feat.shape[3]
+
+    return feat, H, W
+
+
+def _sansa_prototype_match(
+    ref_feat: torch.Tensor,
+    tgt_feat: torch.Tensor,
+    mask_np: np.ndarray,
+    feat_h: int,
+    feat_w: int,
+    contrast: bool = False,
+) -> torch.Tensor:
+    """Compute similarity map using mask-pooled prototype matching.
+
+    Pools reference foreground features into a single prototype vector,
+    then computes cosine similarity against all target spatial positions.
+    When contrast=True, also computes a background prototype and returns
+    the FG-BG difference (much more discriminative).
+
+    Args:
+        ref_feat: Reference features [1, C, H, W].
+        tgt_feat: Target features [1, C, H, W].
+        mask_np: Reference mask (H_img, W_img) binary array.
+        feat_h: Feature map height.
+        feat_w: Feature map width.
+        contrast: If True, subtract background similarity for FG-BG contrast.
+
+    Returns:
+        Similarity map [H, W]. Range [-1, 1] (raw) or [-2, 2] (contrast).
+    """
+    # Resize mask to feature resolution
+    mask_t = torch.from_numpy(mask_np.astype(np.float32)).unsqueeze(0).unsqueeze(0)
+    mask_t = F.interpolate(mask_t, size=(feat_h, feat_w), mode="bilinear", align_corners=False)
+    mask_fg = (mask_t > 0.5).to(ref_feat.device)  # [1, 1, H, W]
+
+    # Pool foreground features → prototype
+    masked = ref_feat * mask_fg
+    n_fg = mask_fg.sum().clamp(min=1)
+    prototype = masked.sum(dim=(2, 3)) / n_fg  # [1, C]
+    prototype = F.normalize(prototype, dim=-1)
+
+    # Dense cosine similarity
+    tgt_norm = F.normalize(tgt_feat, dim=1)  # [1, C, H, W]
+    sim_fg = torch.einsum("bc,bchw->bhw", prototype, tgt_norm).squeeze(0)  # [H, W]
+
+    if not contrast:
+        return sim_fg
+
+    # Background prototype for FG-BG contrast
+    mask_bg = ~mask_fg.bool()
+    masked_bg = ref_feat * mask_bg.float()
+    n_bg = mask_bg.sum().clamp(min=1)
+    bg_prototype = masked_bg.sum(dim=(2, 3)) / n_bg
+    bg_prototype = F.normalize(bg_prototype, dim=-1)
+    sim_bg = torch.einsum("bc,bchw->bhw", bg_prototype, tgt_norm).squeeze(0)
+
+    return sim_fg - sim_bg
+
+
+def _sansa_dense_match(
+    ref_feat: torch.Tensor,
+    tgt_feat: torch.Tensor,
+    mask_np: np.ndarray,
+    feat_h: int,
+    feat_w: int,
+) -> torch.Tensor:
+    """Compute similarity map using dense patch-level matching.
+
+    Instead of pooling into a single prototype, matches each foreground patch
+    and takes the max similarity at each target position — capturing spatial
+    diversity in the reference object.
+
+    Args:
+        ref_feat: Reference features [1, C, H, W].
+        tgt_feat: Target features [1, C, H, W].
+        mask_np: Reference mask (H_img, W_img) binary array.
+        feat_h: Feature map height.
+        feat_w: Feature map width.
+
+    Returns:
+        Similarity map [H, W] in range [-1, 1].
+    """
+    # Resize mask to feature resolution
+    mask_t = torch.from_numpy(mask_np.astype(np.float32)).unsqueeze(0).unsqueeze(0)
+    mask_t = F.interpolate(mask_t, size=(feat_h, feat_w), mode="bilinear", align_corners=False)
+    mask_fg = (mask_t.squeeze() > 0.5)  # [H, W]
+
+    # Extract foreground feature vectors
+    ref_spatial = ref_feat.squeeze(0)  # [C, H, W]
+    fg_indices = mask_fg.nonzero(as_tuple=False)  # [N_fg, 2]
+    if fg_indices.shape[0] == 0:
+        return torch.zeros(feat_h, feat_w, device=ref_feat.device)
+
+    fg_feats = ref_spatial[:, fg_indices[:, 0], fg_indices[:, 1]]  # [C, N_fg]
+    fg_feats = F.normalize(fg_feats, dim=0)  # normalize along channel dim
+
+    # Limit to max 256 patches for memory efficiency
+    if fg_feats.shape[1] > 256:
+        idx = torch.randperm(fg_feats.shape[1], device=fg_feats.device)[:256]
+        fg_feats = fg_feats[:, idx]
+
+    # Dense matching: for each target position, take max similarity across all FG patches
+    tgt_spatial = F.normalize(tgt_feat.squeeze(0), dim=0)  # [C, H, W]
+    tgt_flat = tgt_spatial.reshape(tgt_spatial.shape[0], -1)  # [C, H*W]
+    sim_matrix = fg_feats.T @ tgt_flat  # [N_fg, H*W]
+    sim_map = sim_matrix.max(dim=0).values.reshape(feat_h, feat_w)  # [H, W]
+
+    return sim_map
+
+
+def _sansa_sim_to_points(
+    sim_map: torch.Tensor,
+    feat_h: int,
+    feat_w: int,
+    orig_h: int,
+    orig_w: int,
+    threshold: float = 0.5,
+    top_k: int = 10,
+    min_distance: int = 3,
+) -> np.ndarray:
+    """Convert similarity map to point prompts via peak detection.
+
+    Finds local maxima in the similarity map, selects top-K that exceed
+    the threshold, and maps them back to image coordinates.
+
+    Args:
+        sim_map: Similarity map [H, W].
+        feat_h: Feature map height.
+        feat_w: Feature map width.
+        orig_h: Original image height.
+        orig_w: Original image width.
+        threshold: Minimum similarity threshold.
+        top_k: Maximum number of points to generate.
+        min_distance: Minimum distance between peaks (in feature pixels).
+
+    Returns:
+        Point coordinates array (N, 2) in image pixel space [x, y], or empty (0, 2).
+    """
+    sim_np = sim_map.cpu().numpy()
+
+    # Apply threshold
+    sim_np[sim_np < threshold] = 0
+
+    if sim_np.max() == 0:
+        return np.empty((0, 2), dtype=np.float32)
+
+    # Simple peak detection: dilate and find positions that equal the dilated version
+    from scipy.ndimage import maximum_filter
+
+    dilated = maximum_filter(sim_np, size=min_distance * 2 + 1)
+    peaks = (sim_np == dilated) & (sim_np > threshold)
+
+    peak_coords = np.argwhere(peaks)  # (N, 2) in [row, col] = [y, x]
+    if len(peak_coords) == 0:
+        return np.empty((0, 2), dtype=np.float32)
+
+    # Sort by similarity (descending) and take top-K
+    peak_sims = sim_np[peak_coords[:, 0], peak_coords[:, 1]]
+    order = np.argsort(-peak_sims)[:top_k]
+    peak_coords = peak_coords[order]
+
+    # Map from feature space to image space
+    scale_y = orig_h / feat_h
+    scale_x = orig_w / feat_w
+    points_xy = np.stack([
+        peak_coords[:, 1] * scale_x + scale_x / 2,  # x (col)
+        peak_coords[:, 0] * scale_y + scale_y / 2,  # y (row)
+    ], axis=1).astype(np.float32)
+
+    return points_xy
+
+
+def _sansa_predict(
+    model: SAM3,
+    ref_sample: Sample,
+    target_samples: list[Sample],
+    text: str = "visual",
+    use_vit: bool = True,
+    dense: bool = False,
+    contrast: bool = False,
+    threshold: float = 0.5,
+    top_k: int = 10,
+) -> list[dict]:
+    """SANSA-inspired prediction using dense feature matching + point prompts.
+
+    Extracts ViT/FPN features from reference and target, establishes
+    correspondences, generates point prompts from similarity peaks, and
+    runs SAM3 CLASSIC mode with those prompts.
+
+    Args:
+        model: SAM3 model instance.
+        ref_sample: Reference sample with image, bboxes, and masks.
+        target_samples: Target samples to predict on.
+        text: Text prompt to combine with visual prompts.
+        use_vit: Use ViT features (True) or FPN features (False).
+        dense: Use dense patch matching (True) or prototype matching (False).
+        contrast: Use FG-BG contrast instead of raw FG similarity.
+        threshold: Similarity threshold for point generation.
+        top_k: Max number of point prompts per target.
+
+    Returns:
+        List of prediction dicts.
+    """
+    empty_pred = {"pred_boxes": torch.empty(0, 5)}
+
+    if ref_sample.masks is None:
+        return [empty_pred for _ in target_samples]
+
+    mask = ref_sample.masks[0]
+    mask_np = mask.cpu().numpy().squeeze() if isinstance(mask, torch.Tensor) else np.asarray(mask).squeeze()
+
+    if mask_np.sum() == 0:
+        return [empty_pred for _ in target_samples]
+
+    # Extract reference features
+    ref_feat, feat_h, feat_w = _sansa_extract_features(model, ref_sample.image, use_vit=use_vit)
+
+    # Save and set classic mode
+    original_mode = model.prompt_mode
+    model.prompt_mode = Sam3PromptMode.CLASSIC
+
+    predictions = []
+    for tgt in target_samples:
+        tgt_h, tgt_w = tgt.image.shape[-2:]
+
+        # Extract target features
+        tgt_feat, _, _ = _sansa_extract_features(model, tgt.image, use_vit=use_vit)
+
+        # Compute similarity map
+        if dense:
+            sim_map = _sansa_dense_match(ref_feat, tgt_feat, mask_np, feat_h, feat_w)
+        else:
+            sim_map = _sansa_prototype_match(ref_feat, tgt_feat, mask_np, feat_h, feat_w, contrast=contrast)
+
+        # Generate point prompts
+        points = _sansa_sim_to_points(
+            sim_map, feat_h, feat_w, tgt_h, tgt_w,
+            threshold=threshold, top_k=top_k,
+        )
+
+        if len(points) == 0:
+            predictions.append(empty_pred)
+            continue
+
+        # Run SAM3 CLASSIC with point prompts.
+        # Each point becomes a separate query — we must match categories/IDs count.
+        # Temporarily clear category_mapping so _predict_classic uses per-sample prompts.
+        saved_mapping = model.category_mapping
+        model.category_mapping = None
+        tgt_sample = Sample(
+            image=tgt.image,
+            categories=[text] * len(points),
+            category_ids=[0] * len(points),
+            points=points,
+        )
+
+        try:
+            preds = model.predict([tgt_sample])
+            predictions.append(preds[0])
+        except Exception:
+            predictions.append(empty_pred)
+        finally:
+            model.category_mapping = saved_mapping
+
+    model.prompt_mode = original_mode
+    return predictions
+
+
+SANSA_CONFIGS: list[dict] = [
+    # --- FG-BG Contrast matching (discriminative) ---
+    # 7a: Contrast-ViT with threshold tuning (contrast range is ~[-0.4, 0.3])
+    {"name": "SANSA-C-ViT@0.05", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.05, "top_k": 10},
+    {"name": "SANSA-C-ViT@0.10", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.10, "top_k": 10},
+    {"name": "SANSA-C-ViT@0.15", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.15, "top_k": 10},
+    # 7b: Contrast-FPN (256-d features, may be more spatially precise)
+    {"name": "SANSA-C-FPN@0.05", "use_vit": False, "dense": False, "contrast": True, "threshold": 0.05, "top_k": 10},
+    {"name": "SANSA-C-FPN@0.10", "use_vit": False, "dense": False, "contrast": True, "threshold": 0.10, "top_k": 10},
+    {"name": "SANSA-C-FPN@0.15", "use_vit": False, "dense": False, "contrast": True, "threshold": 0.15, "top_k": 10},
+    # 7c: Fewer/more points to see sensitivity
+    {"name": "SANSA-C-ViT-K5", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.10, "top_k": 5},
+    {"name": "SANSA-C-ViT-K3", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.10, "top_k": 3},
+    {"name": "SANSA-C-ViT-K1", "use_vit": True, "dense": False, "contrast": True, "threshold": 0.10, "top_k": 1},
+    # --- Raw prototype matching (baseline comparison, high threshold) ---
+    # 7d: Raw ViT at very high threshold to only get strongest peaks
+    {"name": "SANSA-ViT@0.65", "use_vit": True, "dense": False, "contrast": False, "threshold": 0.65, "top_k": 5},
+]
+
+
 # ── Phase 5: FSS-SAM3 Unified Canvas (arxiv:2604.05433) ──
 
 
@@ -925,6 +1278,124 @@ def _create_canvas_multishot(
     return canvas, canvas_bboxes, tgt_region
 
 
+def _create_canvas_lshape(
+    ref_images: list[torch.Tensor],
+    tgt_image: torch.Tensor,
+    ref_bboxes: list[np.ndarray],
+    split_ratio: float = 0.3,
+    crop_padding: float = 2.0,
+) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
+    """Inverse L-shape canvas: refs along top + left borders, query bottom-right.
+
+    Layout (5 refs example):
+    ┌───────────────────────────┐
+    │  ref_1 │ ref_2 │ ref_3   │  <- top strip (ceil(N/2) refs)
+    ├────────┬──────────────────┤
+    │ ref_4  │                  │
+    ├────────┤      QUERY       │  <- query region (bottom-right)
+    │ ref_5  │  (target image)  │
+    └────────┴──────────────────┘
+
+    split_ratio controls both borders: top height and left width.
+    Query area = (1-ratio)^2 of canvas.
+    """
+    crops, adj_bboxes = [], []
+    for ref_img, ref_bbox in zip(ref_images, ref_bboxes, strict=True):
+        crop, adj_bbox = _crop_reference_around_bbox(ref_img, ref_bbox, crop_padding)
+        crops.append(crop)
+        adj_bboxes.append(adj_bbox)
+
+    n_refs = len(crops)
+    n_top = math.ceil(n_refs / 2)
+    n_left = n_refs - n_top
+
+    C = tgt_image.shape[0]
+    canvas_size = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
+    canvas_h = canvas_size
+    canvas_w = canvas_size
+
+    top_h = int(canvas_h * split_ratio)
+    left_w = int(canvas_w * split_ratio)
+    query_h = canvas_h - top_h
+    query_w = canvas_w - left_w
+
+    canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_image.float().dtype)
+    canvas_bboxes: list[np.ndarray] = []
+
+    # Top strip: n_top refs side by side across full width
+    top_slot_w = canvas_w // n_top
+    top_remainder = canvas_w - top_slot_w * n_top
+    x_offset = 0
+    for i in range(n_top):
+        crop = crops[i]
+        adj_bbox = adj_bboxes[i]
+        this_w = top_slot_w + (top_remainder if i == n_top - 1 else 0)
+        crop_resized = F.interpolate(
+            crop.unsqueeze(0).float(), size=(top_h, this_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        canvas[:, :top_h, x_offset:x_offset + this_w] = crop_resized
+
+        sx = this_w / crop.shape[2]
+        sy = top_h / crop.shape[1]
+        ax1, ay1, ax2, ay2 = adj_bbox[:4]
+        canvas_bboxes.append(np.array([
+            ax1 * sx + x_offset, ay1 * sy,
+            ax2 * sx + x_offset, ay2 * sy,
+        ], dtype=np.float32))
+        x_offset += this_w
+
+    # Left strip: n_left refs stacked below top strip
+    if n_left > 0:
+        left_slot_h = query_h // n_left
+        left_remainder = query_h - left_slot_h * n_left
+        y_offset = top_h
+        for j in range(n_left):
+            idx = n_top + j
+            crop = crops[idx]
+            adj_bbox = adj_bboxes[idx]
+            this_h = left_slot_h + (left_remainder if j == n_left - 1 else 0)
+            crop_resized = F.interpolate(
+                crop.unsqueeze(0).float(), size=(this_h, left_w),
+                mode="bilinear", align_corners=False,
+            ).squeeze(0)
+            canvas[:, y_offset:y_offset + this_h, :left_w] = crop_resized
+
+            sx = left_w / crop.shape[2]
+            sy = this_h / crop.shape[1]
+            ax1, ay1, ax2, ay2 = adj_bbox[:4]
+            canvas_bboxes.append(np.array([
+                ax1 * sx, ay1 * sy + y_offset,
+                ax2 * sx, ay2 * sy + y_offset,
+            ], dtype=np.float32))
+            y_offset += this_h
+
+    # Query: bottom-right
+    tgt_resized = F.interpolate(
+        tgt_image.unsqueeze(0).float(), size=(query_h, query_w),
+        mode="bilinear", align_corners=False,
+    ).squeeze(0)
+    canvas[:, top_h:, left_w:] = tgt_resized
+
+    return canvas, canvas_bboxes, (left_w, top_h, query_w, query_h)
+
+
+# Phase 8 experiment configurations (L-shape multi-shot)
+PHASE8_CONFIGS: list[dict] = [
+    # 8a: L-shape at ratio 0.3 with increasing shot counts
+    {"name": "L2@0.3", "layout": "lshape", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 2},
+    {"name": "L3@0.3", "layout": "lshape", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 3},
+    {"name": "L5@0.3", "layout": "lshape", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 5},
+    # 8b: L-shape ratio ablation at 3-shot
+    {"name": "L3@0.2", "layout": "lshape", "ratio": 0.2, "crop_pad": 2.0, "n_shots": 3},
+    {"name": "L3@0.4", "layout": "lshape", "ratio": 0.4, "crop_pad": 2.0, "n_shots": 3},
+    # 8c: Comparison — same shots with bottom-strip multishot
+    {"name": "Multi2@0.3", "layout": "multishot", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 2},
+    {"name": "Multi3@0.3", "layout": "multishot", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 3},
+    {"name": "Multi5@0.3", "layout": "multishot", "ratio": 0.3, "crop_pad": 2.0, "n_shots": 5},
+]
+
+
 # Phase 6 experiment configurations
 PHASE6_CONFIGS: list[dict] = [
     # 6a: Split ratio ablation (vertical, full reference, text="visual")
@@ -959,7 +1430,7 @@ def _canvas_predict_v2(
 ) -> list[dict]:
     """Enhanced canvas prediction with layout and optimization options.
 
-    Supports vertical, horizontal, cropped-reference, and multi-shot layouts.
+    Supports vertical, horizontal, cropped-reference, multi-shot, and L-shape layouts.
     All layouts use SAM3 CLASSIC mode on the stitched canvas.
     """
     original_mode = model.prompt_mode
@@ -974,6 +1445,13 @@ def _canvas_predict_v2(
             ref_images = [s.image for s in ref_samples]
             ref_bboxes = [s.bboxes[0] for s in ref_samples]
             canvas, all_bboxes, tgt_region = _create_canvas_multishot(
+                ref_images, tgt_image, ref_bboxes,
+                split_ratio=split_ratio, crop_padding=crop_padding,
+            )
+        elif layout == "lshape":
+            ref_images = [s.image for s in ref_samples]
+            ref_bboxes = [s.bboxes[0] for s in ref_samples]
+            canvas, all_bboxes, tgt_region = _create_canvas_lshape(
                 ref_images, tgt_image, ref_bboxes,
                 split_ratio=split_ratio, crop_padding=crop_padding,
             )
@@ -1068,6 +1546,8 @@ def run_benchmark(
     phase4: bool = False,
     phase5: bool = False,
     phase6: bool = False,
+    phase7: bool = False,
+    phase8: bool = False,
     clip_encoder: CLIPCropEncoder | None = None,
     clip_encoder_aligned: CLIPCropEncoderAligned | None = None,
     model_dsb: SAM3 | None = None,
@@ -1081,6 +1561,8 @@ def run_benchmark(
         phase4: If True, also run Phase 4 experiments (multi-point, mask-pool, feat match).
         phase5: If True, also run Phase 5 experiments (FSS-SAM3 canvas).
         phase6: If True, also run Phase 6 experiments (canvas optimization).
+        phase7: If True, also run Phase 7 experiments (SANSA feature matching).
+        phase8: If True, also run Phase 8 experiments (L-shape multi-shot).
         clip_encoder: Pre-loaded CLIP ViT-B encoder for Exp 5.
         clip_encoder_aligned: Pre-loaded CLIP ViT-L aligned encoder for Exp 5b.
         model_dsb: SAM3 model with drop_spatial_bias=True for Phase 3.
@@ -1090,7 +1572,7 @@ def run_benchmark(
     for cat in categories:
         ref_samples, tgt_samples = get_reference_and_targets(
             dataset, cat, max_targets=max_targets, shuffle=shuffle, seed=seed,
-            n_refs=3 if phase6 else 1,
+            n_refs=5 if phase8 else (3 if phase6 else 1),
         )
         if not ref_samples:
             print(f"  [{dataset_name}] {cat}: no reference samples, skipping")
@@ -1302,6 +1784,95 @@ def run_benchmark(
                     "n_images": len(tgt_samples),
                 })
 
+        # Phase 7: SANSA-inspired feature matching experiments
+        if phase7:
+            for cfg in SANSA_CONFIGS:
+                preds = _sansa_predict(
+                    model, ref_sample, tgt_clean,
+                    text="visual",
+                    use_vit=cfg["use_vit"],
+                    dense=cfg["dense"],
+                    contrast=cfg.get("contrast", False),
+                    threshold=cfg["threshold"],
+                    top_k=cfg["top_k"],
+                )
+
+                total_tp, total_fp, total_gt = 0, 0, 0
+                all_ious = []
+                for pred, sample in zip(preds, tgt_samples, strict=True):
+                    tp, fp, n_gt, miou = compute_tp_fp(pred, sample, cat)
+                    total_tp += tp
+                    total_fp += fp
+                    total_gt += n_gt
+                    if miou > 0:
+                        all_ious.append(miou)
+
+                total_det = total_tp + total_fp
+                prec = total_tp / max(total_det, 1)
+                rec = total_tp / max(total_gt, 1)
+                f1 = 2 * prec * rec / max(prec + rec, 1e-6)
+                avg_iou = float(np.mean(all_ious)) if all_ious else 0.0
+
+                rows.append({
+                    "dataset": dataset_name,
+                    "category": cat,
+                    "mode": cfg["name"],
+                    "tp": total_tp,
+                    "fp": total_fp,
+                    "gt": total_gt,
+                    "precision": prec,
+                    "recall": rec,
+                    "f1": f1,
+                    "iou": avg_iou,
+                    "n_images": len(tgt_samples),
+                })
+
+        # Phase 8: Inverse L-shape multi-shot experiments
+        if phase8:
+            for cfg in PHASE8_CONFIGS:
+                n_shots = cfg.get("n_shots", 2)
+                if n_shots > len(ref_samples):
+                    print(f"    Skipping {cfg['name']}: need {n_shots} refs, have {len(ref_samples)}")
+                    continue
+                refs = ref_samples[:n_shots]
+                preds = _canvas_predict_v2(
+                    model, refs, tgt_clean,
+                    text="visual",
+                    split_ratio=cfg["ratio"],
+                    layout=cfg["layout"],
+                    crop_padding=cfg.get("crop_pad", 2.0),
+                )
+
+                total_tp, total_fp, total_gt = 0, 0, 0
+                all_ious = []
+                for pred, sample in zip(preds, tgt_samples, strict=True):
+                    tp, fp, n_gt, miou = compute_tp_fp(pred, sample, cat)
+                    total_tp += tp
+                    total_fp += fp
+                    total_gt += n_gt
+                    if miou > 0:
+                        all_ious.append(miou)
+
+                total_det = total_tp + total_fp
+                prec = total_tp / max(total_det, 1)
+                rec = total_tp / max(total_gt, 1)
+                f1 = 2 * prec * rec / max(prec + rec, 1e-6)
+                avg_iou = float(np.mean(all_ious)) if all_ious else 0.0
+
+                rows.append({
+                    "dataset": dataset_name,
+                    "category": cat,
+                    "mode": cfg["name"],
+                    "tp": total_tp,
+                    "fp": total_fp,
+                    "gt": total_gt,
+                    "precision": prec,
+                    "recall": rec,
+                    "f1": f1,
+                    "iou": avg_iou,
+                    "n_images": len(tgt_samples),
+                })
+
     return rows
 
 
@@ -1364,6 +1935,8 @@ def main():
     parser.add_argument("--phase4", action="store_true", help="Run Phase 4 experiments (multi-point, mask-pool, feat match)")
     parser.add_argument("--phase5", action="store_true", help="Run Phase 5 experiments (FSS-SAM3 canvas)")
     parser.add_argument("--phase6", action="store_true", help="Run Phase 6 experiments (canvas optimization: ratios, crop, layout, multi-shot)")
+    parser.add_argument("--phase7", action="store_true", help="Run Phase 7 experiments (SANSA-inspired dense feature matching)")
+    parser.add_argument("--phase8", action="store_true", help="Run Phase 8 experiments (inverse L-shape multi-shot layout)")
     args = parser.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -1406,6 +1979,7 @@ def main():
             max_targets=args.max_targets, shuffle=args.shuffle, seed=args.seed,
             phase1=args.phase1, phase2=args.phase2, phase3=args.phase3,
             phase4=args.phase4, phase5=args.phase5, phase6=args.phase6,
+            phase7=args.phase7, phase8=args.phase8,
             clip_encoder=clip_encoder, clip_encoder_aligned=clip_encoder_aligned,
             model_dsb=model_dsb,
         )
@@ -1415,9 +1989,10 @@ def main():
     # ── LVIS ──
     if args.dataset in ("lvis", "both"):
         lvis_cats = args.categories or LVIS_CATEGORIES
-        print(f"\nLoading LVIS ({len(lvis_cats)} categories, INSTANCE mode)...")
+        lvis_n_shots = 5 if args.phase8 else (3 if args.phase6 else 1)
+        print(f"\nLoading LVIS ({len(lvis_cats)} categories, INSTANCE mode, n_shots={lvis_n_shots})...")
         lvis_ds = LVISDataset(
-            root=args.lvis_root, categories=lvis_cats, n_shots=1,
+            root=args.lvis_root, categories=lvis_cats, n_shots=lvis_n_shots,
             annotation_mode=LVISAnnotationMode.INSTANCE,
         )
         print(f"  Available: {lvis_ds.categories}, total samples: {len(lvis_ds)}")
@@ -1427,6 +2002,7 @@ def main():
             max_targets=args.max_targets, shuffle=args.shuffle, seed=args.seed,
             phase1=args.phase1, phase2=args.phase2, phase3=args.phase3,
             phase4=args.phase4, phase5=args.phase5, phase6=args.phase6,
+            phase7=args.phase7, phase8=args.phase8,
             clip_encoder=clip_encoder, clip_encoder_aligned=clip_encoder_aligned,
             model_dsb=model_dsb,
         )

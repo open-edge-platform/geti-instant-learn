@@ -4,6 +4,7 @@
 """SAM3 model for text and visual prompting."""
 
 import logging
+import math
 from collections import defaultdict
 from contextlib import nullcontext
 from enum import Enum
@@ -151,8 +152,8 @@ class SAM3(Model):
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
         postprocessor: PostProcessor | None = None,
-        canvas_split_ratio: float = 0.2,
-        canvas_layout: str = "vertical_crop",
+        canvas_split_ratio: float = 0.3,
+        canvas_layout: str = "vertical",
         canvas_crop_padding: float = 2.0,
     ) -> None:
         """Initialize the SAM3 model.
@@ -179,10 +180,13 @@ class SAM3(Model):
                 (MaskIoMNMS + BoxIoMNMS).
             canvas_split_ratio: Fraction of canvas allocated to reference region
                 (CANVAS mode only). Lower values give more space to the target.
-                Default: 0.2.
-            canvas_layout: Layout for canvas construction ('vertical_crop',
-                'vertical', 'horizontal', 'horizontal_crop'). Default:
-                'vertical_crop' (cropped reference in bottom strip).
+                Default: 0.3.
+            canvas_layout: Layout for canvas construction ('vertical',
+                'vertical_crop', 'horizontal', 'horizontal_crop', 'lshape').
+                Default: 'vertical' (full reference image in bottom strip).
+                'lshape' uses an inverse-L layout (refs along top + left,
+                query bottom-right) which is optimal for multi-shot (2-10
+                refs). Falls back to vertical for single-ref.
             canvas_crop_padding: Padding factor around the reference bbox when
                 cropping (CANVAS mode with crop layouts). Default: 2.0.
         """
@@ -877,6 +881,7 @@ class SAM3(Model):
 
         # Temporarily switch to classic prediction internals
         saved_mode = self.prompt_mode
+        saved_mapping = self.category_mapping
         self.prompt_mode = Sam3PromptMode.CLASSIC
 
         try:
@@ -885,7 +890,8 @@ class SAM3(Model):
                 tgt_h, tgt_w = tgt_image.shape[-2:]
 
                 # Construct canvas
-                if len(self._canvas_ref_images) > 1 and self.canvas_layout != "multishot":
+                n_refs = len(self._canvas_ref_images)
+                if n_refs > 1 and self.canvas_layout not in ("multishot", "lshape"):
                     layout = "multishot"
                 else:
                     layout = self.canvas_layout
@@ -894,6 +900,19 @@ class SAM3(Model):
                     canvas, all_bboxes, tgt_region = self._build_canvas_multishot(
                         self._canvas_ref_images, tgt_image, self._canvas_ref_bboxes,
                     )
+                elif layout == "lshape":
+                    if n_refs == 1:
+                        # Single ref: fall back to vertical (proven best)
+                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
+                            self._canvas_ref_images[0], tgt_image,
+                            self._canvas_ref_bboxes[0],
+                        )
+                        all_bboxes = [cbbox]
+                    else:
+                        canvas, all_bboxes, tgt_region = self._build_canvas_lshape(
+                            self._canvas_ref_images, tgt_image,
+                            self._canvas_ref_bboxes,
+                        )
                 else:
                     ref_image = self._canvas_ref_images[0]
                     ref_bbox = self._canvas_ref_bboxes[0]
@@ -940,6 +959,7 @@ class SAM3(Model):
                 results.append(remapped)
         finally:
             self.prompt_mode = saved_mode
+            self.category_mapping = saved_mapping
 
         return results
 
@@ -1124,6 +1144,119 @@ class SAM3(Model):
         canvas[:, tgt_canvas_h:, :] = ref_strip
 
         return canvas, canvas_bboxes, (0, 0, canvas_w, tgt_canvas_h)
+
+    def _build_canvas_lshape(
+        self,
+        ref_images: list[torch.Tensor],
+        tgt_image: torch.Tensor,
+        ref_bboxes: list[np.ndarray],
+    ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
+        """Build inverse L-shape canvas: refs along top + left, query bottom-right.
+
+        Layout (example with 5 refs):
+        ┌──────────────────────────┐
+        │  ref_1  │ ref_2 │ ref_3  │  <- top strip (ceil(N/2) refs)
+        ├────────┬─────────────────┤
+        │ ref_4  │                 │
+        ├────────┤     QUERY       │  <- query region (bottom-right)
+        │ ref_5  │  (target image) │
+        └────────┴─────────────────┘
+          left      query area
+          strip
+
+        For N=1, callers should fall back to vertical layout instead.
+        Top strip spans full canvas width; left strip sits below it.
+        References are cropped around their bboxes before placement.
+
+        Args:
+            ref_images: Reference image tensors (C, H, W).
+            tgt_image: Target image tensor (C, H, W).
+            ref_bboxes: Reference bounding boxes [x1, y1, x2, y2].
+
+        Returns:
+            (canvas, canvas_bboxes, tgt_region) where tgt_region is (x, y, w, h).
+        """
+        # Crop all references around their bboxes
+        crops, adj_bboxes = [], []
+        for ref_img, ref_bbox in zip(ref_images, ref_bboxes, strict=True):
+            crop, adj_bbox = self._crop_around_bbox(ref_img, ref_bbox)
+            crops.append(crop)
+            adj_bboxes.append(adj_bbox)
+
+        n_refs = len(crops)
+        n_top = math.ceil(n_refs / 2)
+        n_left = n_refs - n_top
+
+        C = tgt_image.shape[0]
+        canvas_size = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
+        canvas_h = canvas_size
+        canvas_w = canvas_size
+
+        # Strip dimensions
+        top_h = int(canvas_h * self.canvas_split_ratio)
+        left_w = int(canvas_w * self.canvas_split_ratio)
+        query_h = canvas_h - top_h
+        query_w = canvas_w - left_w
+
+        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_image.float().dtype)
+        canvas_bboxes: list[np.ndarray] = []
+
+        # --- Top strip: n_top refs side by side across full width ---
+        top_slot_w = canvas_w // n_top
+        top_remainder = canvas_w - top_slot_w * n_top
+        x_offset = 0
+        for i in range(n_top):
+            crop = crops[i]
+            adj_bbox = adj_bboxes[i]
+            this_w = top_slot_w + (top_remainder if i == n_top - 1 else 0)
+            crop_resized = F.interpolate(
+                crop.unsqueeze(0).float(), size=(top_h, this_w),
+                mode="bilinear", align_corners=False,
+            ).squeeze(0)
+            canvas[:, :top_h, x_offset:x_offset + this_w] = crop_resized
+
+            sx = this_w / crop.shape[2]
+            sy = top_h / crop.shape[1]
+            ax1, ay1, ax2, ay2 = adj_bbox[:4]
+            canvas_bboxes.append(np.array([
+                ax1 * sx + x_offset, ay1 * sy,
+                ax2 * sx + x_offset, ay2 * sy,
+            ], dtype=np.float32))
+            x_offset += this_w
+
+        # --- Left strip: n_left refs stacked vertically below top strip ---
+        if n_left > 0:
+            left_slot_h = query_h // n_left
+            left_remainder = query_h - left_slot_h * n_left
+            y_offset = top_h
+            for j in range(n_left):
+                idx = n_top + j
+                crop = crops[idx]
+                adj_bbox = adj_bboxes[idx]
+                this_h = left_slot_h + (left_remainder if j == n_left - 1 else 0)
+                crop_resized = F.interpolate(
+                    crop.unsqueeze(0).float(), size=(this_h, left_w),
+                    mode="bilinear", align_corners=False,
+                ).squeeze(0)
+                canvas[:, y_offset:y_offset + this_h, :left_w] = crop_resized
+
+                sx = left_w / crop.shape[2]
+                sy = this_h / crop.shape[1]
+                ax1, ay1, ax2, ay2 = adj_bbox[:4]
+                canvas_bboxes.append(np.array([
+                    ax1 * sx, ay1 * sy + y_offset,
+                    ax2 * sx, ay2 * sy + y_offset,
+                ], dtype=np.float32))
+                y_offset += this_h
+
+        # --- Query region: bottom-right ---
+        tgt_resized = F.interpolate(
+            tgt_image.unsqueeze(0).float(), size=(query_h, query_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        canvas[:, top_h:, left_w:] = tgt_resized
+
+        return canvas, canvas_bboxes, (left_w, top_h, query_w, query_h)
 
     @staticmethod
     def _extract_target_predictions(
