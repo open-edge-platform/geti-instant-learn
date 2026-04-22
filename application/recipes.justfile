@@ -1,26 +1,51 @@
 dataset-base-url := "https://storage.geti.intel.com/instant-learn/datasets/"
-dataset-names := "led aquarium candies cards nuts potatoes"
 
-download-datasets target_dir:
+# Dynamically discover and download all zip files from the dataset URL
+download-all-datasets target_dir:
     #!/usr/bin/env bash
+    BASE_URL="{{ dataset-base-url }}"
     DATASET_DIR="{{ target_dir }}"
 
-    mkdir -p $DATASET_DIR
-    for filename in {{ dataset-names }}; do
-        dataset_subdir="$DATASET_DIR/$filename"
+    mkdir -p "$DATASET_DIR"
+
+    echo "Fetching dataset listing from $BASE_URL"
+
+    # Fetch directory listing and extract .zip file names
+    zip_files=$(wget -q -O - "$BASE_URL" | grep -oP 'href=\K[^>]*\.zip' | sort -u)
+
+    if [ -z "$zip_files" ]; then
+        echo "No zip files found at $BASE_URL"
+        exit 1
+    fi
+
+    echo "Found zip files:"
+    echo "$zip_files"
+    echo ""
+
+    # Download and extract each zip file
+    for zipfile in $zip_files; do
+        dataset_name="${zipfile%.zip}"
+        dataset_subdir="$DATASET_DIR/$dataset_name"
+
         if [ -d "$dataset_subdir" ] && [ "$(ls -A "$dataset_subdir")" ]; then
-            echo "Dataset subdirectory $dataset_subdir already exists and is not empty. Skipping download."
+            echo "Dataset $dataset_name already exists and is not empty. Skipping."
             continue
         fi
+
         mkdir -p "$dataset_subdir"
-        url="{{ dataset-base-url }}$filename.zip"
-        echo "Downloading dataset from $url"
-        if ! curl -s "$url" -o "$filename.zip"; then
-            echo "Error: Failed to download dataset from $url"
-            continue  # proceed with next archive
+        echo "Downloading $zipfile from ${BASE_URL}${zipfile}"
+
+        if ! wget -q -O "$zipfile" "${BASE_URL}${zipfile}"; then
+            echo "Error: Failed to download $zipfile"
+            continue
         fi
-        echo "Unpacking $filename to $DATASET_DIR"
-        unzip -j -q -o "$filename.zip" -d "$dataset_subdir"
-        echo "Removing downloaded archive $filename.zip"
-        rm "$filename.zip"
+
+        echo "Extracting $zipfile to $dataset_subdir"
+        unzip -j -q -o "$zipfile" -d "$dataset_subdir"
+
+        echo "Removing archive $zipfile"
+        rm "$zipfile"
+        echo ""
     done
+
+    echo "All datasets downloaded successfully!"
