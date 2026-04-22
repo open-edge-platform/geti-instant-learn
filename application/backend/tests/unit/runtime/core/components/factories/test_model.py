@@ -8,7 +8,7 @@ import pytest
 from instantlearn.utils.constants import SAMModelName
 
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
@@ -281,6 +281,37 @@ class TestModelFactory:
                 precision="bf16",
                 device="cpu",
             )
+            mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+
+    def test_factory_creates_sam3_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
+        config = Sam3Config(
+            confidence_threshold=0.5,
+            resolution=1008,
+            precision="fp32",
+        )
+
+        with patch.multiple(
+            "runtime.core.components.factories.model",
+            get_settings=DEFAULT,
+            SAM3=DEFAULT,
+            TorchModelHandler=DEFAULT,
+        ) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mock_sam3 = mocks["SAM3"]
+            mock_handler = mocks["TorchModelHandler"]
+
+            mock_model_instance = MagicMock()
+            mock_sam3.return_value = mock_model_instance
+
+            model_factory.create(mock_reference_batch, config)
+
+            # Verify config fields; prompt_mode is derived from reference_batch contents
+            call_kwargs = mock_sam3.call_args.kwargs
+            assert call_kwargs["confidence_threshold"] == 0.5
+            assert call_kwargs["resolution"] == 1008
+            assert call_kwargs["precision"] == "fp32"
+            assert call_kwargs["device"] == "cpu"
+            assert "prompt_mode" in call_kwargs
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
 
     def test_factory_returns_passthrough_for_none_reference_batch(self, model_factory):

@@ -22,10 +22,12 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
+from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.label import VisualizationInfo
-from domain.services.schemas.mappers.prompt import visual_prompt_to_sample
+from domain.services.schemas.mappers.processor import get_supported_annotation_types
+from domain.services.schemas.mappers.prompt import filter_prompts_by_annotation_type, visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import InputData, ModelType, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
@@ -65,7 +67,7 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
-        self._visualization_lock = threading.Lock()
+        self._lock = threading.Lock()
 
     def start(self) -> None:
         """
@@ -75,10 +77,11 @@ class PipelineManager:
             svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
             cfg = svc.get_active_pipeline_config()
         if cfg:
-            self._current_config = cfg
-            self._pipeline = self._create_pipeline(cfg.project_id)
-            self._refresh_visualization_info(cfg.project_id)
-            self._pipeline.start()
+            with self._lock:
+                self._current_config = cfg
+                self._pipeline = self._create_pipeline(cfg.project_id)
+                self._refresh_visualization_info(cfg.project_id)
+                self._pipeline.start()
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
@@ -88,91 +91,112 @@ class PipelineManager:
         """
         Stop and dispose the running pipeline.
         """
-        if self._pipeline:
-            self._pipeline.stop()
-            self._pipeline = None
-        self._current_config = None
+        with self._lock:
+            if self._pipeline:
+                self._pipeline.stop()
+                self._pipeline = None
+            self._current_config = None
+            self._visualization_info = None
 
     def get_visualization_info(self, project_id: UUID) -> VisualizationInfo | None:
         """
         Get cached visualization info for the active pipeline.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID."
-            )
-        with self._visualization_lock:
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError(
+                    f"Project ID {project_id} does not match the active pipeline's project ID."
+                )
             return self._visualization_info
 
     def _refresh_visualization_info(self, project_id: UUID) -> None:
         """
         Refresh cached visualization info from a database.
-
-        Called when a pipeline starts or prompts/labels change.
+        Called when a pipeline starts or prompts/labels change. Must be called while self._lock is held.
         """
         with self._session_factory() as session:
             label_svc = LabelService(session=session)
             prompt_repo = PromptRepository(session=session)
 
             vis_labels = label_svc.get_visualization_labels(project_id)
-            prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=PromptType.VISUAL)
+            prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
             all_label_ids: set[UUID] = set()
             for prompt in prompts:
                 all_label_ids.update(ann.label_id for ann in prompt.annotations)
 
             category_mappings = label_svc.build_category_mappings(all_label_ids)
 
-        with self._visualization_lock:
-            self._visualization_info = VisualizationInfo(
-                label_colors=vis_labels,
-                category_mappings=category_mappings,
-            )
+        self._visualization_info = VisualizationInfo(label_colors=vis_labels, category_mappings=category_mappings)
         logger.debug("Refreshed visualization info for project %s", project_id)
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
         React to configuration change events.
         """
-        match event:
-            case ProjectActivationEvent() as e:
-                if self._pipeline:
-                    self._pipeline.stop()
-                self._pipeline = self._create_pipeline(e.project_id)
-                self._refresh_visualization_info(e.project_id)
-                self._pipeline.start()
-                logger.info("Pipeline started for activated project %s", e.project_id)
+        with self._lock:
+            match event:
+                case ProjectActivationEvent() as e:
+                    if self._pipeline:
+                        self._pipeline.stop()
+                    self._pipeline = self._create_pipeline(e.project_id)
+                    self._refresh_visualization_info(e.project_id)
+                    self._pipeline.start()
+                    logger.info("Pipeline started for activated project %s", e.project_id)
 
-            case ProjectDeactivationEvent() as e:
-                if self._pipeline and self._pipeline.project_id == e.project_id:
-                    self._pipeline.stop()
-                    self._current_config = None
-                    with self._visualization_lock:
+                case ProjectDeactivationEvent() as e:
+                    if self._pipeline and self._pipeline.project_id == e.project_id:
+                        self._pipeline.stop()
+                        self._pipeline = None
+                        self._current_config = None
                         self._visualization_info = None
-                    logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
+                        logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
-            case ComponentConfigChangeEvent() as e:
-                if self._pipeline and self._pipeline.project_id == e.project_id:
-                    self._update_pipeline_components(e.project_id, e.component_type)
-                    if e.component_type == ComponentType.PROCESSOR:
-                        self._refresh_visualization_info(e.project_id)
-                    logger.info("Pipeline components updated for project %s", e.project_id)
+                case ComponentConfigChangeEvent() as e:
+                    if self._pipeline and self._pipeline.project_id == e.project_id:
+                        self._update_pipeline_components(e.project_id, e.component_type)
+                        if e.component_type == ComponentType.PROCESSOR:
+                            self._refresh_visualization_info(e.project_id)
+                        logger.info("Pipeline components updated for project %s", e.project_id)
+
+    def _build_reference_batch(self) -> tuple[Batch, dict[int, str]] | None:
+        """Build the appropriate reference batch based on project config."""
+        if self._current_config is None:
+            logger.warning("No current pipeline config available to build a reference batch")
+            return None
+        cfg = self._current_config
+        if cfg.processor is None:
+            logger.debug("No active processor configured, skipping reference batch: project_id=%s", cfg.project_id)
+            return None
+
+        model_type = ModelType(cfg.processor.model_type)
+        # TODO For SAM3 with text prompt_mode, build a text-only batch - issue #758 enabling text prompts
+        if model_type == ModelType.SAM3 and cfg.prompt_mode == PromptType.TEXT:
+            logger.warning("Text prompts are not supported yet for SAM3: project_id=%s", cfg.project_id)
+            return None
+        #     return self.get_text_reference_batch(project_id)
+
+        # all other models (and SAM3 with visual prompts) use visual batch
+        supported_types = get_supported_annotation_types(model_type)
+        return self.get_visual_reference_batch(cfg.project_id, supported_types)
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
-        Create a new Pipeline instance with components built from the given configuration.
-
-        Args:
-            config: The pipeline configuration.
+        Create a new Pipeline instance with components from the given configuration.
+        Must be called while self._lock is held.
 
         Returns:
             A fully initialized Pipeline instance (not yet started).
         """
-        source = self._component_factory.create_source(project_id)
-        reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (None, {})
-        processor = self._component_factory.create_processor(project_id, reference_batch)
-        sink = self._component_factory.create_sink(project_id)
+        with self._session_factory() as session:
+            svc = ProjectService(session=session)
+            cfg = svc.get_pipeline_config(project_id)
+        self._current_config = cfg
+        source = self._component_factory.create_source(cfg.reader)
+        reference_batch, category_id_to_label_id = self._build_reference_batch() or (None, {})
+        processor = self._component_factory.create_processor(cfg, reference_batch)
+        sink = self._component_factory.create_sink(cfg.writer)
 
         return (
             Pipeline(
@@ -197,19 +221,24 @@ class PipelineManager:
         if not self._pipeline:
             return
 
+        with self._session_factory() as session:
+            svc = ProjectService(session=session)
+            cfg = svc.get_pipeline_config(project_id)
+        self._current_config = cfg
+
         match component_type:
             case ComponentType.SOURCE:
-                source = self._component_factory.create_source(project_id)
+                source = self._component_factory.create_source(cfg.reader)
                 self._pipeline.set_source(source, True)
             case ComponentType.PROCESSOR:
-                reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (
+                reference_batch, category_id_to_label_id = self._build_reference_batch() or (
                     None,
                     {},
                 )
-                processor = self._component_factory.create_processor(project_id, reference_batch)
+                processor = self._component_factory.create_processor(cfg, reference_batch)
                 self._pipeline.set_processor(processor, True)
             case ComponentType.SINK:
-                sink = self._component_factory.create_sink(project_id)
+                sink = self._component_factory.create_sink(cfg.writer)
                 self._pipeline.set_sink(sink, True)
             case _ as unknown:
                 logger.error(f"Unknown component type {unknown}")
@@ -220,11 +249,12 @@ class PipelineManager:
         External consumers (e.g. WebRTC streams) can poll this slot without
         registering or unregistering — they simply read ``slot.latest``.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline.outbound_slot
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+            return self._pipeline.outbound_slot
 
     def seek(self, project_id: UUID, index: int) -> None:
         """
@@ -240,12 +270,13 @@ class PipelineManager:
             SourceNotSeekableError: If the source doesn't support seeking.
             IndexError: If index is out of bounds.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID."
-            )
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError(
+                    f"Project ID {project_id} does not match the active pipeline's project ID."
+                )
         try:
             self._pipeline.seek(index)
         except UnsupportedOperationError:
@@ -266,12 +297,13 @@ class PipelineManager:
             PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
             SourceNotSeekableError: If the source doesn't support indexing.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID."
-            )
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError(
+                    f"Project ID {project_id} does not match the active pipeline's project ID."
+                )
         try:
             return self._pipeline.get_frame_index()
         except UnsupportedOperationError:
@@ -294,12 +326,13 @@ class PipelineManager:
             PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
             SourceNotSeekableError: If the source doesn't support frame listing.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID."
-            )
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError(
+                    f"Project ID {project_id} does not match the active pipeline's project ID."
+                )
         try:
             return self._pipeline.list_frames(offset, limit)
         except UnsupportedOperationError:
@@ -315,45 +348,47 @@ class PipelineManager:
         Returns:
             UUID of the captured frame.
         """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID."
-            )
+        with self._lock:
+            if self._pipeline is None:
+                raise PipelineNotActiveError("No active pipeline.")
+            if project_id != self._pipeline.project_id:
+                raise PipelineProjectMismatchError(
+                    f"Project ID {project_id} does not match the active pipeline's project ID."
+                )
         return self._pipeline.capture_frame()
 
-    def get_reference_batch(self, project_id: UUID, prompt_type: PromptType) -> tuple[Batch, dict[int, str]] | None:
+    def get_visual_reference_batch(
+        self, project_id: UUID, supported_annotation_types: set[AnnotationType]
+    ) -> tuple[Batch, dict[int, str]] | None:
         """
         Get all prompts of a specific type for a project, formatted for model training.
 
         Returns:
             Tuple of (Batch, category_id_to_label_id mapping), or None if no valid samples were found.
         """
-        if prompt_type == PromptType.TEXT:
-            logger.warning("Text prompts not supported for training data generation: project_id=%s", project_id)
-            return None
-
         with self._session_factory() as session:
             prompt_repo = PromptRepository(session=session)
             label_svc = LabelService(session=session)
 
-            db_prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
+            db_prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
             if not db_prompts:
-                logger.info("No prompts found for project_id=%s, prompt_type=%s", project_id, prompt_type)
+                logger.info("No visual prompts found for project_id=%s", project_id)
                 return None
 
+            filtered_prompts = filter_prompts_by_annotation_type(db_prompts, supported_annotation_types)
+
             all_label_ids: set[UUID] = set()
-            for prompt in db_prompts:
+            for prompt in filtered_prompts:
                 all_label_ids.update(ann.label_id for ann in prompt.annotations)
 
             category_mappings = label_svc.build_category_mappings(all_label_ids)
+            label_id_to_name = label_svc.get_label_names(all_label_ids)
 
             # track shot counts across prompts
             label_shot_counts: dict[UUID, int] = {}
             samples = []
 
-            for prompt in db_prompts:
+            for prompt in filtered_prompts:
                 if not prompt.frame_id:
                     logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
                     continue
@@ -366,7 +401,12 @@ class PipelineManager:
 
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     sample = visual_prompt_to_sample(
-                        prompt, frame_rgb, category_mappings.label_to_category_id, label_shot_counts
+                        prompt,
+                        frame_rgb,
+                        category_mappings.label_to_category_id,
+                        label_id_to_name,
+                        label_shot_counts,
+                        supported_annotation_types,
                     )
                     samples.append(sample)
 

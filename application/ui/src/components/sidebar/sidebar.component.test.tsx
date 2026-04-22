@@ -7,8 +7,13 @@ import { render } from '@/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 import { Group } from 'react-resizable-panels';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
+import { vi } from 'vitest';
 
 import { Sidebar } from './sidebar.component';
+
+vi.mock('../../features/prompts/prompt.component', () => ({
+    Prompt: () => <h2>Prompt</h2>,
+}));
 
 const renderSidebar = () => {
     return render(

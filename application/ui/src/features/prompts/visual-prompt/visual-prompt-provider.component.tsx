@@ -7,6 +7,7 @@ import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
 import { LabelType, VisualPromptListType, VisualPromptType } from '@/api';
 
+import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
 import { useGetPrompts } from './api/use-get-prompts';
 import { useProjectLabels } from './use-project-labels.hook';
@@ -60,8 +61,21 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const { promptId, setPromptId } = usePromptIdFromUrl();
     const prompt = useGetPrompt(promptId);
     const prompts = useGetPrompts();
-
+    const { setSelectedFrameId } = useSelectedFrame();
     const { selectedLabel, selectedLabelId, setSelectedLabelId, labels } = useSelectedLabel(prompt);
+
+    // Clear selected prompt if it's no longer in the filtered prompts list.
+    // This reacts to the prompts query being invalidated after model activation,
+    // which may change the filtered set based on supported annotation types.
+    useEffect(() => {
+        if (promptId === null) {
+            return;
+        }
+        if (!prompts.some((p) => p.id === promptId)) {
+            setPromptId(null);
+            setSelectedFrameId(null);
+        }
+    }, [promptId, prompts, setPromptId, setSelectedFrameId]);
 
     return (
         <VisualPromptContext

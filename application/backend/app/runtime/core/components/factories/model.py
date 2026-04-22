@@ -4,10 +4,11 @@
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
+from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
@@ -111,6 +112,17 @@ class ModelFactory:
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     precision=config.precision,
                     device=selected_device,
+                )
+                return TorchModelHandler(model, reference_batch)
+            case Sam3Config() as config:
+                has_bboxes = any(s.bboxes is not None for s in reference_batch.samples)
+                prompt_mode = Sam3PromptMode.VISUAL_EXEMPLAR if has_bboxes else Sam3PromptMode.CLASSIC
+                model = SAM3(
+                    confidence_threshold=config.confidence_threshold,
+                    resolution=config.resolution,
+                    precision=config.precision,
+                    device=selected_device,
+                    prompt_mode=prompt_mode,
                 )
                 return TorchModelHandler(model, reference_batch)
             case _:

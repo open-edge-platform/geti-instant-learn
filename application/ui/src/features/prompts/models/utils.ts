@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType } from '@/api';
+import type { SupportedPromptType } from './api/use-get-supported-models';
 
 export type AnnotationType = 'polygon' | 'rectangle';
 
-// TODO: replace with a real mapping once the backend exposes annotation_type on ModelSchema
-export const getAnnotationTypeForModel = (_model: ModelType): AnnotationType => {
+export const getAnnotationTypeFromPromptTypes = (supportedTypes: SupportedPromptType[]): AnnotationType => {
+    if (supportedTypes.includes('visual_rectangle')) {
+        return 'rectangle';
+    }
     return 'polygon';
 };

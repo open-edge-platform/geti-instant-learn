@@ -138,7 +138,7 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.8)])
         color = (0, 0, 255)
 
-        result = _draw_filled_rectangle(overlay, rect, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_rectangle(overlay, rect, color, scale_x=200, scale_y=200, border_thickness=2)
 
         center_pixel = result[100, 100]
         np.testing.assert_array_equal(center_pixel, color)
@@ -148,7 +148,7 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
         color = (255, 0, 0)
 
-        result = _draw_filled_rectangle(overlay, rect, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_rectangle(overlay, rect, color, scale_x=100, scale_y=100, border_thickness=1)
 
         assert np.any(result[10, 10] == color)
         assert np.any(result[50, 50] == color)
@@ -158,7 +158,7 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.2, y=0.2), Point(x=0.6, y=0.6)])
         color = (0, 255, 0)
 
-        result = _draw_filled_rectangle(original, rect, color, image_width=100, image_height=100, border_thickness=2)
+        result = _draw_filled_rectangle(original, rect, color, scale_x=100, scale_y=100, border_thickness=2)
 
         assert result is original
         assert np.any(result[40, 40] == color)
@@ -172,7 +172,7 @@ class TestDrawPolygon:
         )
         color = (0, 255, 0)
 
-        result = _draw_filled_polygon(overlay, polygon, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_polygon(overlay, polygon, color, scale_x=200, scale_y=200, border_thickness=2)
 
         center_pixel = result[120, 100]
         np.testing.assert_array_equal(center_pixel, color)
@@ -185,7 +185,7 @@ class TestDrawPolygon:
         )
         color = (0, 0, 255)
 
-        result = _draw_filled_polygon(overlay, polygon, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_polygon(overlay, polygon, color, scale_x=100, scale_y=100, border_thickness=1)
 
         assert np.any(result[50, 50] == color)
 
@@ -197,7 +197,7 @@ class TestDrawPolygon:
         )
         color = (128, 128, 128)
 
-        result = _draw_filled_polygon(original, polygon, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_polygon(original, polygon, color, scale_x=100, scale_y=100, border_thickness=1)
 
         assert result is original
 
@@ -314,9 +314,7 @@ class TestGenerateThumbnail:
         frame = create_test_frame(width=400, height=400, color=(100, 100, 100))
         label_id = uuid4()
         annotation = AnnotationSchema(
-            config=RectangleAnnotation(
-                type=AnnotationType.RECTANGLE, points=[Point(x=0.0, y=0.0), Point(x=1.0, y=1.0)]
-            ),
+            config=RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0, y=0), Point(x=400, y=400)]),
             label_id=label_id,
         )
         label = make_label(color="#FF0000")
@@ -327,6 +325,7 @@ class TestGenerateThumbnail:
         decoded_bytes = base64.b64decode(b64_data)
         decoded_img = cv2.imdecode(np.frombuffer(decoded_bytes, np.uint8), cv2.IMREAD_COLOR)
 
-        center_pixel = decoded_img[200, 200]
+        center_h, center_w = decoded_img.shape[0] // 2, decoded_img.shape[1] // 2
+        center_pixel = decoded_img[center_h, center_w]
         assert not np.array_equal(center_pixel, [0, 0, 255])
         assert not np.array_equal(center_pixel, [100, 100, 100])
