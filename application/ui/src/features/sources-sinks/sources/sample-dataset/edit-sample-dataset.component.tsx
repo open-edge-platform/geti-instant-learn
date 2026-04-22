@@ -22,7 +22,7 @@ interface EditSampleDatasetContentProps {
 }
 
 const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentProps) => {
-    const [selectedDatasetId, setSelectedDatasetId] = useState<string>(source.config.dataset_id ?? '');
+    const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(source.config.dataset_id ?? null);
     const { data: datasets = [] } = useAvailableDatasets();
     const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
     const isActiveSource = source.active;
@@ -83,7 +83,7 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
                                 label={'Dataset'}
                                 selectedKey={selectedDatasetId ?? undefined}
                                 items={datasets}
-                                onSelectionChange={(key) => !isNull(key) && setSelectedDatasetId(key as string)}
+                                onSelectionChange={(key) => setSelectedDatasetId(isNull(key) ? null : (key as string))}
                             >
                                 {(item) => <Item key={item.id}>{item.name}</Item>}
                             </Picker>
