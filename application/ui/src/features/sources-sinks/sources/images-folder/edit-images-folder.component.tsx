@@ -50,6 +50,16 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
                 queryClient.invalidateQueries({
                     queryKey: getQueryKey([
                         'get',
+                        '/api/v1/projects/{project_id}/sources/{source_id}/frames',
+                        {
+                            params,
+                        },
+                    ]),
+                });
+
+                queryClient.invalidateQueries({
+                    queryKey: getQueryKey([
+                        'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                         {
                             params,

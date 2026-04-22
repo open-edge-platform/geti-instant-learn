@@ -29,7 +29,10 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
 
     const updateSampleDatasetSource = useUpdateSource(source.id);
     const isButtonDisabled =
-        selectedDatasetId === source.config.dataset_id || !selectedDatasetId || updateSampleDatasetSource.isPending;
+        selectedDatasetId === source.config.dataset_id ||
+        !selectedDatasetId ||
+        datasets.length === 0 ||
+        updateSampleDatasetSource.isPending;
 
     const handleUpdateSampleDataset = (active: boolean) => {
         if (!selectedDatasetId) {
@@ -85,7 +88,13 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
                                 {(item) => <Item key={item.id}>{item.name}</Item>}
                             </Picker>
                         ) : (
-                            <Text>No sample datasets are available.</Text>
+                            <Flex direction={'column'} gap={'size-100'}>
+                                <Text>No sample datasets are available.</Text>
+                                <Text>
+                                    This source cannot be edited without available datasets. Please delete this source
+                                    or ensure datasets are available.
+                                </Text>
+                            </Flex>
                         )}
 
                         <EditSourceButtons
