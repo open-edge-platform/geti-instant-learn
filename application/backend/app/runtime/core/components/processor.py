@@ -168,7 +168,7 @@ class Processor(PipelineComponent):
         while len(batch_data) < self._batch_size and not self._stop_event.is_set():
             # Check for errors while collecting batch data
             if self._inbound_broadcaster.slot.error:
-                break
+                return []  # Don't process any frames if error detected
 
             try:
                 input_data: InputData = self._in_queue.get(timeout=0.1)

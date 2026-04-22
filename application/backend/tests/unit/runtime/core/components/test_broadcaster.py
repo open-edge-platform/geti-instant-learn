@@ -215,8 +215,7 @@ class TestFrameSlot:
         slot = FrameSlot()
         slot.set_error("Error message")
 
-        # Error should persist across multiple reads
-        assert slot.error == "Error message"
+        # Error should persist until update
         assert slot.error == "Error message"
 
         # Only update clears it

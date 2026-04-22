@@ -128,8 +128,9 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
                 if output_data.trace:
                     output_data.trace.record_end("webrtc")
                     logger.info(output_data.trace.format_log())
-
-            np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
+            else:
+                # Use cached frame or fallback only when no new output
+                np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
 
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts

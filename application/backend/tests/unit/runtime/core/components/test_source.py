@@ -120,13 +120,17 @@ class TestSource:
         """Test that Source sets error on broadcaster slot when connect fails."""
         self.mock_stream_reader.connect.side_effect = RuntimeError("File not found")
 
-        # Start source in a thread since it will loop waiting
         import time
         from threading import Thread
 
         thread = Thread(target=self.source.run, daemon=True)
         thread.start()
-        time.sleep(0.2)  # Let it process the error
+
+        # Poll for set_error to be called with a timeout
+        max_wait = 2.0
+        start_time = time.time()
+        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+            time.sleep(0.01)
 
         self.source.stop()
         thread.join(timeout=2)
@@ -145,7 +149,12 @@ class TestSource:
 
         thread = Thread(target=self.source.run, daemon=True)
         thread.start()
-        time.sleep(0.2)  # Let it handle the error
+
+        # Poll for set_error to be called (indicates error was handled)
+        max_wait = 2.0
+        start_time = time.time()
+        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+            time.sleep(0.01)
 
         # Thread should still be alive, waiting
         assert thread.is_alive()
