@@ -32,6 +32,7 @@ from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.mappers.processor import get_supported_annotation_types
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelType
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ def visual_prompt_to_sample(  # noqa: C901
     label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
     output_bboxes: bool = False,
+    use_label_names: bool = True,
 ) -> Sample:
     """Convert a visual prompt to a Sample with merged semantic masks.
 
@@ -56,6 +58,9 @@ def visual_prompt_to_sample(  # noqa: C901
         label_id_to_name: Mapping from label UUID to label name
         label_shot_counts: Current shot count per label (modified in-place)
         output_bboxes: If True, produce bboxes from polygon vertices instead of masks
+        use_label_names: If True, use real label names as category names; if False,
+            use the placeholder ``"visual"`` (relevant for SAM3 visual-exemplar mode
+            where passing real names enables hybrid text+visual prompting)
 
     Returns:
         Sample with either masks (N, H, W) or bboxes (N, 4) in [x1, y1, x2, y2] format.
@@ -96,7 +101,7 @@ def visual_prompt_to_sample(  # noqa: C901
             continue
 
         category_id = label_to_category_id[label_id]
-        category_name = label_id_to_name.get(label_id, str(label_id))
+        category_name = label_id_to_name.get(label_id, str(label_id)) if use_label_names else "visual"
         current_shot = label_shot_counts.get(label_id, 0)
 
         if output_bboxes:
@@ -168,16 +173,21 @@ class ReferenceBatchService:
 
         supported_types = get_supported_annotation_types(model_type)
         needs_bboxes = AnnotationType.RECTANGLE in supported_types
-        return self._build_visual_batch(project_id=config.project_id, output_bboxes=needs_bboxes)
+        use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
+        return self._build_visual_batch(
+            project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
+        )
 
     def _build_visual_batch(
-        self, project_id: UUID, *, output_bboxes: bool = False
+        self, project_id: UUID, *, output_bboxes: bool = False, use_label_names: bool = True
     ) -> tuple[Batch, dict[int, str]] | None:
         """Query prompts, load frames, convert to samples, and collate.
 
         Args:
             project_id: Project to build the batch for.
             output_bboxes: Produce bboxes instead of masks.
+            use_label_names: Pass real label names to samples; when False, ``"visual"``
+                placeholder is used instead.
 
         Returns:
             (Batch, category_id → label_id mapping) or None if no valid samples.
@@ -219,6 +229,7 @@ class ReferenceBatchService:
                     label_id_to_name=label_id_to_name,
                     label_shot_counts=label_shot_counts,
                     output_bboxes=output_bboxes,
+                    use_label_names=use_label_names,
                 )
                 samples.append(sample)
             except Exception:

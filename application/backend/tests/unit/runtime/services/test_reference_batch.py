@@ -242,6 +242,113 @@ class TestVisualPromptToSample:
                 label_shot_counts=label_shot_counts,
             )
 
+    def test_use_label_names_true_uses_real_names(self, sample_frame: np.ndarray) -> None:
+        """When use_label_names=True (default), category names come from label_id_to_name."""
+        label_id = uuid.uuid4()
+        prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
+        label_id_to_name = {label_id: "car"}
+        label_shot_counts: dict[uuid.UUID, int] = {}
+
+        result = visual_prompt_to_sample(
+            prompt_db,
+            frame=sample_frame,
+            label_to_category_id=label_to_category_id,
+            label_id_to_name=label_id_to_name,
+            label_shot_counts=label_shot_counts,
+            output_bboxes=True,
+            use_label_names=True,
+        )
+
+        assert result.categories == ["car"]
+
+    def test_use_label_names_false_uses_visual_placeholder(self, sample_frame: np.ndarray) -> None:
+        """When use_label_names=False, all categories are set to ``"visual"``."""
+        label_id = uuid.uuid4()
+        prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
+        label_id_to_name = {label_id: "car"}
+        label_shot_counts: dict[uuid.UUID, int] = {}
+
+        result = visual_prompt_to_sample(
+            prompt_db,
+            frame=sample_frame,
+            label_to_category_id=label_to_category_id,
+            label_id_to_name=label_id_to_name,
+            label_shot_counts=label_shot_counts,
+            output_bboxes=True,
+            use_label_names=False,
+        )
+
+        assert result.categories == ["visual"]
+
+    def test_use_label_names_false_with_multiple_labels(self, sample_frame: np.ndarray) -> None:
+        """All categories become ``"visual"`` regardless of how many labels exist."""
+        label_id_1 = uuid.uuid4()
+        label_id_2 = uuid.uuid4()
+        prompt_id = uuid.uuid4()
+
+        config_1 = PolygonAnnotation(
+            type=AnnotationType.POLYGON,
+            points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+        )
+        config_2 = PolygonAnnotation(
+            type=AnnotationType.POLYGON,
+            points=[Point(x=100, y=100), Point(x=200, y=100), Point(x=200, y=200), Point(x=100, y=200)],
+        )
+
+        prompt_db = SimpleNamespace(
+            id=prompt_id,
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=uuid.uuid4(),
+            project_id=uuid.uuid4(),
+            annotations=[
+                SimpleNamespace(
+                    id=uuid.uuid4(), config=config_1.model_dump(), label_id=label_id_1, prompt_id=prompt_id
+                ),
+                SimpleNamespace(
+                    id=uuid.uuid4(), config=config_2.model_dump(), label_id=label_id_2, prompt_id=prompt_id
+                ),
+            ],
+        )
+
+        label_to_category_id = {label_id_1: 0, label_id_2: 1}
+        label_id_to_name = {label_id_1: "car", label_id_2: "person"}
+        label_shot_counts: dict[uuid.UUID, int] = {}
+
+        result = visual_prompt_to_sample(
+            prompt_db,
+            frame=sample_frame,
+            label_to_category_id=label_to_category_id,
+            label_id_to_name=label_id_to_name,
+            label_shot_counts=label_shot_counts,
+            output_bboxes=True,
+            use_label_names=False,
+        )
+
+        assert all(c == "visual" for c in result.categories)
+        assert len(result.categories) == 2
+
+
+def _make_single_polygon_prompt(
+    label_id: uuid.UUID,
+) -> tuple[SimpleNamespace, dict[uuid.UUID, int]]:
+    """Helper: one prompt with a single polygon annotation."""
+    prompt_id = uuid.uuid4()
+    config = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
+    )
+    annotation_db = SimpleNamespace(id=uuid.uuid4(), config=config.model_dump(), label_id=label_id, prompt_id=prompt_id)
+    prompt_db = SimpleNamespace(
+        id=prompt_id,
+        type=PromptType.VISUAL,
+        text=None,
+        frame_id=uuid.uuid4(),
+        project_id=uuid.uuid4(),
+        annotations=[annotation_db],
+    )
+    return prompt_db, {label_id: 0}
+
 
 class TestReferenceBatchServiceBuild:
     def test_build_returns_none_when_no_processor(self, service):
@@ -348,3 +455,165 @@ class TestReferenceBatchServiceBuild:
             result = service.build(cfg)
 
         assert result is None
+
+    def test_build_sam3_visual_hybrid_mode_disabled_passes_use_label_names_false(self, service, frame_repository):
+        """With sam3_hybrid_mode=False (default), SAM3 visual batches use ``"visual"`` placeholder."""
+        cfg = PipelineConfig(project_id=uuid.uuid4(), processor=Sam3Config(), prompt_mode=PromptType.VISUAL)
+
+        fake_sample = MagicMock(name="Sample")
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [fake_sample]
+
+        label_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
+        prompt_db = SimpleNamespace(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=frame_id,
+            project_id=cfg.project_id,
+            annotations=[
+                SimpleNamespace(
+                    id=uuid.uuid4(),
+                    config={"type": "polygon", "points": [{"x": 10, "y": 10}, {"x": 50, "y": 50}]},
+                    label_id=label_id,
+                )
+            ],
+        )
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        fake_settings = SimpleNamespace(sam3_hybrid_mode=False)
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
+            patch(
+                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+            ) as mock_to_sample,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+            patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
+            )
+            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+
+            result = service.build(cfg)
+
+        assert result is not None
+        # use_label_names should be False when hybrid mode is disabled
+        call_kwargs = mock_to_sample.call_args.kwargs
+        assert call_kwargs["use_label_names"] is False
+        assert call_kwargs["output_bboxes"] is True
+
+    def test_build_sam3_visual_hybrid_mode_enabled_passes_use_label_names_true(self, service, frame_repository):
+        """With sam3_hybrid_mode=True, SAM3 visual batches pass real label names."""
+        cfg = PipelineConfig(project_id=uuid.uuid4(), processor=Sam3Config(), prompt_mode=PromptType.VISUAL)
+
+        fake_sample = MagicMock(name="Sample")
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [fake_sample]
+
+        label_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
+        prompt_db = SimpleNamespace(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=frame_id,
+            project_id=cfg.project_id,
+            annotations=[
+                SimpleNamespace(
+                    id=uuid.uuid4(),
+                    config={"type": "polygon", "points": [{"x": 10, "y": 10}, {"x": 50, "y": 50}]},
+                    label_id=label_id,
+                )
+            ],
+        )
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        fake_settings = SimpleNamespace(sam3_hybrid_mode=True)
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
+            patch(
+                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+            ) as mock_to_sample,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+            patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
+            )
+            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+
+            result = service.build(cfg)
+
+        assert result is not None
+        call_kwargs = mock_to_sample.call_args.kwargs
+        assert call_kwargs["use_label_names"] is True
+        assert call_kwargs["output_bboxes"] is True
+
+    def test_build_matcher_always_uses_label_names(self, service, frame_repository):
+        """Non-bbox models (Matcher) always use real label names regardless of hybrid mode."""
+        cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)
+
+        fake_sample = MagicMock(name="Sample")
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [fake_sample]
+
+        label_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
+        prompt_db = SimpleNamespace(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=frame_id,
+            project_id=cfg.project_id,
+            annotations=[
+                SimpleNamespace(
+                    id=uuid.uuid4(),
+                    config={"type": "polygon", "points": [{"x": 10, "y": 10}, {"x": 50, "y": 50}]},
+                    label_id=label_id,
+                )
+            ],
+        )
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        # hybrid mode disabled — but Matcher doesn't use bboxes, so use_label_names is irrelevant
+        # (it defaults to True since needs_bboxes is False → use_label_names = False and False = False)
+        fake_settings = SimpleNamespace(sam3_hybrid_mode=False)
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
+            patch(
+                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+            ) as mock_to_sample,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+            patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
+            )
+            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+
+            service.build(cfg)
+
+        call_kwargs = mock_to_sample.call_args.kwargs
+        # Matcher doesn't need bboxes, so use_label_names = needs_bboxes and hybrid = False
+        assert call_kwargs["output_bboxes"] is False
+        assert call_kwargs["use_label_names"] is False
