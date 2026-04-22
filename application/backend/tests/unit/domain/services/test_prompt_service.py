@@ -562,7 +562,6 @@ def test_project_not_found(service):
     assert exc_info.value.resource_type == ResourceType.PROJECT
 
 
-
 def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(
     service, setup_visual_prompt_test, label_id, caplog
 ):

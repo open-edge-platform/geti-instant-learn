@@ -2,9 +2,11 @@
  * Copyright (C) 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
+
 import type { MatcherModel, SoftMatcherModel } from '@/api';
 import { getMockedModel, getMockedSam3Model } from '@/test-utils';
 import { describe, expect, it } from 'vitest';
+
 import { isMatcherModel, isPerDINOModel, isSam3Model, isSoftMatcherModel } from './utils';
 
 describe('model type guards', () => {

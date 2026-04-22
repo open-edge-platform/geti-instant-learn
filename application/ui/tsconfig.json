@@ -9,7 +9,8 @@
             "@/icons": ["./src/assets/icons"],
             "@/api": ["./src/api"],
             "@/hooks": ["src/shared/hooks"],
-            "@/query-client": ["./src/query-client/query-client"]
+            "@/query-client": ["./src/query-client/query-client"],
+            "@/api/*": ["./src/api/*"]
         }
     }
 }

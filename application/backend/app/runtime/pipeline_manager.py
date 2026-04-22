@@ -5,8 +5,6 @@ import logging
 import threading
 from uuid import UUID
 
-import cv2
-from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.db.models import PromptType
@@ -22,18 +20,16 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
-from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.label import VisualizationInfo
-from domain.services.schemas.mappers.processor import get_supported_annotation_types
-from domain.services.schemas.mappers.prompt import masks_to_bboxes_sample, visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import InputData, ModelType, OutputData
+from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+from runtime.services.reference_batch import ReferenceBatchService
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +59,7 @@ class PipelineManager:
         self._session_factory = session_factory
         self._frame_repository = FrameRepository()
         self._component_factory = component_factory or DefaultComponentFactory(session_factory)
+        self._batch_service = ReferenceBatchService(session_factory, self._frame_repository)
         # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
@@ -154,33 +151,6 @@ class PipelineManager:
                             self._refresh_visualization_info(e.project_id)
                         logger.info("Pipeline components updated for project %s", e.project_id)
 
-    def _build_reference_batch(self) -> tuple[Batch, dict[int, str]] | None:
-        """Build the appropriate reference batch based on project config.
-
-        For models expecting bounding boxes (e.g. SAM3),
-        mask-based samples are automatically converted to bbox-based samples.
-        """
-        if self._current_config is None:
-            logger.warning("No current pipeline config available to build a reference batch")
-            return None
-        cfg = self._current_config
-        if cfg.processor is None:
-            logger.debug("No active processor configured, skipping reference batch: project_id=%s", cfg.project_id)
-            return None
-
-        model_type = ModelType(cfg.processor.model_type)
-
-        # TODO: For SAM3 with text prompt_mode, build a text-only batch - issue #758 enabling text prompts
-        if model_type == ModelType.SAM3 and cfg.prompt_mode == PromptType.TEXT:
-            logger.warning("Text prompts are not supported yet for SAM3: project_id=%s", cfg.project_id)
-            # return self.get_text_reference_batch(project_id)
-            return None
-
-        # All models use visual batch with masks; convert to bboxes if needed
-        supported_types = get_supported_annotation_types(model_type)
-        needs_bboxes = AnnotationType.RECTANGLE in supported_types  # todo clean up rectangles completely later
-        return self.get_visual_reference_batch(project_id=cfg.project_id, convert_to_bboxes=needs_bboxes)
-
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
         Create a new Pipeline instance with components from the given configuration.
@@ -194,7 +164,7 @@ class PipelineManager:
             cfg = svc.get_pipeline_config(project_id)
         self._current_config = cfg
         source = self._component_factory.create_source(cfg.reader)
-        reference_batch, category_id_to_label_id = self._build_reference_batch() or (None, {})
+        reference_batch, _ = self._batch_service.build(cfg) or (None, {})
         processor = self._component_factory.create_processor(cfg, reference_batch)
         sink = self._component_factory.create_sink(cfg.writer)
 
@@ -232,10 +202,7 @@ class PipelineManager:
                 source = self._component_factory.create_source(cfg.reader)
                 self._pipeline.set_source(source, True)
             case ComponentType.PROCESSOR:
-                reference_batch, category_id_to_label_id = self._build_reference_batch() or (
-                    None,
-                    {},
-                )
+                reference_batch, _ = self._batch_service.build(cfg) or (None, {})
                 processor = self._component_factory.create_processor(cfg, reference_batch)
                 self._pipeline.set_processor(processor, True)
             case ComponentType.SINK:
@@ -353,84 +320,3 @@ class PipelineManager:
                 f"Project ID {project_id} does not match the active pipeline's project ID."
             )
         return self._pipeline.capture_frame()
-
-    def get_visual_reference_batch(
-        self, project_id: UUID, convert_to_bboxes: bool = False
-    ) -> tuple[Batch, dict[int, str]] | None:
-        """Get all visual prompts for a project, formatted for model training.
-
-        Creates mask-based samples from polygon annotations. If the model
-        needs bounding boxes (convert_to_bboxes=True), polygons are converted to
-        tight bounding boxes via cv2.boundingRect.
-
-        Returns:
-            Tuple of (Batch, category_id_to_label_id mapping), or None if no valid samples.
-        """
-        with self._session_factory() as session:
-            prompt_repo = PromptRepository(session=session)
-            label_svc = LabelService(session=session)
-
-            db_prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
-            if not db_prompts:
-                logger.info("No visual prompts found for project_id=%s", project_id)
-                return None
-
-            all_label_ids: set[UUID] = set()
-            for prompt in db_prompts:
-                all_label_ids.update(ann.label_id for ann in prompt.annotations)
-
-            category_mappings = label_svc.build_category_mappings(all_label_ids)
-            label_id_to_name = label_svc.get_label_names(all_label_ids)
-
-            # track shot counts across prompts
-            label_shot_counts: dict[UUID, int] = {}
-            samples = []
-
-            for prompt in db_prompts:
-                if not prompt.frame_id:
-                    logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
-                    continue
-
-                try:
-                    frame = self._frame_repository.read_frame(project_id, prompt.frame_id)
-                    if frame is None:
-                        logger.warning("Frame not found: prompt_id=%s, frame_id=%s", prompt.id, prompt.frame_id)
-                        continue
-
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    sample = visual_prompt_to_sample(
-                        prompt,
-                        frame_rgb,
-                        category_mappings.label_to_category_id,
-                        label_id_to_name,
-                        label_shot_counts,
-                    )
-
-                    # Convert masks → bboxes if the model needs bounding boxes
-                    if convert_to_bboxes:
-                        sample = masks_to_bboxes_sample(sample)  # todo CHECK ??? polygons -> bboxes
-
-                    samples.append(sample)
-
-                except Exception as e:
-                    logger.warning("Failed to convert prompt: prompt_id=%s, error=%s", prompt.id, e)
-                    continue
-
-            if not samples:
-                logger.info("No valid samples generated: project_id=%s", project_id)
-                return None
-
-            batch = Batch.collate(samples)
-            logger.debug("Reference batch: %s", batch)
-            shots_per_category = {
-                category_id: label_shot_counts.get(label_id, 0)
-                for label_id, category_id in category_mappings.label_to_category_id.items()
-            }
-            logger.info(
-                "Created reference batch: project_id=%s, samples=%d, categories=%d, shots_per_category=%s",
-                project_id,
-                len(batch.samples),
-                len(category_mappings.label_to_category_id),
-                shots_per_category,
-            )
-            return batch, category_mappings.category_id_to_label_id

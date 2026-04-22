@@ -405,7 +405,9 @@ class TestPipelineManager:
         )
         read_frame.assert_called_once_with(project_id, frame_id)
 
-    def test_get_visual_reference_batch_category_mapping_sorted_by_label_id_string(self, dispatcher, session_factory) -> None:
+    def test_get_visual_reference_batch_category_mapping_sorted_by_label_id_string(
+        self, dispatcher, session_factory
+    ) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
         project_id = uuid4()
         frame_id = uuid4()
@@ -457,15 +459,19 @@ class TestPipelineManager:
 
         assert result is None
 
-    def test_get_visual_reference_batch_visual_prompt_frame_not_found_returns_none(self, dispatcher, session_factory) -> None:
+    def test_get_visual_reference_batch_visual_prompt_frame_not_found_returns_none(
+        self, dispatcher, session_factory
+    ) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
         project_id = uuid4()
         frame_id = uuid4()
         label_id = uuid4()
 
-        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[
-            SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id)
-        ])
+        visual_prompt = SimpleNamespace(
+            id=uuid4(),
+            frame_id=frame_id,
+            annotations=[SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id)],
+        )
 
         with (
             patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
@@ -490,9 +496,11 @@ class TestPipelineManager:
         frame_id = uuid4()
         label_id = uuid4()
 
-        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[
-            SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id)
-        ])
+        visual_prompt = SimpleNamespace(
+            id=uuid4(),
+            frame_id=frame_id,
+            annotations=[SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id)],
+        )
 
         frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
 

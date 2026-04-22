@@ -4,11 +4,11 @@
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
-from instantlearn.models.soft_matcher import SoftMatcher
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig, Sam3Config
+from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler

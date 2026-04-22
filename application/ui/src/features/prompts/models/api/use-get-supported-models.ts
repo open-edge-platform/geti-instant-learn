@@ -16,4 +16,3 @@ export const useGetSupportedModels = () => {
 
     return data.models;
 };
-
