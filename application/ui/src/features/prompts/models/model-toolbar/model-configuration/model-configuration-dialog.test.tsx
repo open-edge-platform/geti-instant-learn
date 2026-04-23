@@ -100,6 +100,7 @@ describe('ModelConfigurationDialog', () => {
                 encoder_model: 'dinov3_small',
                 use_mask_refinement: true,
                 precision: 'bf16',
+                num_grid_cells: 8,
             } as MatcherModel['config'],
         }) as MatcherModel;
 

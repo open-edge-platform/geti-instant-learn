@@ -148,6 +148,7 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
                 sam_model: 'SAM-HQ-tiny',
                 encoder_model: 'dinov3_large',
                 use_mask_refinement: false,
+                num_grid_cells: 8,
             },
             active: true,
             name: 'Mega model',
