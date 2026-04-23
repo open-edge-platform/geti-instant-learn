@@ -1,12 +1,10 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
 import logging
 import os
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
 
 import uvicorn
 from fastapi import FastAPI
@@ -15,6 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
@@ -36,12 +36,6 @@ from runtime.services.device import list_available_devices
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable
-
-    from starlette.requests import Request
-    from starlette.responses import Response
 
 settings = get_settings()
 settings.logs_dir.mkdir(parents=True, exist_ok=True)
