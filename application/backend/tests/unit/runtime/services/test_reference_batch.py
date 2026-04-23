@@ -243,7 +243,7 @@ class TestVisualPromptToSample:
             )
 
     def test_use_label_names_true_uses_real_names(self, sample_frame: np.ndarray) -> None:
-        """When use_label_names=True (default), category names come from label_id_to_name."""
+        """When label_id_to_name has real names, category names come from label_id_to_name."""
         label_id = uuid.uuid4()
         prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
         label_id_to_name = {label_id: "car"}
@@ -256,16 +256,15 @@ class TestVisualPromptToSample:
             label_id_to_name=label_id_to_name,
             label_shot_counts=label_shot_counts,
             output_bboxes=True,
-            use_label_names=True,
         )
 
         assert result.categories == ["car"]
 
     def test_use_label_names_false_uses_visual_placeholder(self, sample_frame: np.ndarray) -> None:
-        """When use_label_names=False, all categories are set to ``"visual"``."""
+        """When label_id_to_name maps to ``"visual"``, categories use the placeholder."""
         label_id = uuid.uuid4()
         prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
-        label_id_to_name = {label_id: "car"}
+        label_id_to_name = {label_id: "visual"}
         label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
@@ -275,13 +274,12 @@ class TestVisualPromptToSample:
             label_id_to_name=label_id_to_name,
             label_shot_counts=label_shot_counts,
             output_bboxes=True,
-            use_label_names=False,
         )
 
         assert result.categories == ["visual"]
 
     def test_use_label_names_false_with_multiple_labels(self, sample_frame: np.ndarray) -> None:
-        """All categories become ``"visual"`` regardless of how many labels exist."""
+        """All categories become ``"visual"`` when label_id_to_name maps all to ``"visual"``."""
         label_id_1 = uuid.uuid4()
         label_id_2 = uuid.uuid4()
         prompt_id = uuid.uuid4()
@@ -312,7 +310,7 @@ class TestVisualPromptToSample:
         )
 
         label_to_category_id = {label_id_1: 0, label_id_2: 1}
-        label_id_to_name = {label_id_1: "car", label_id_2: "person"}
+        label_id_to_name = {label_id_1: "visual", label_id_2: "visual"}
         label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
@@ -322,7 +320,6 @@ class TestVisualPromptToSample:
             label_id_to_name=label_id_to_name,
             label_shot_counts=label_shot_counts,
             output_bboxes=True,
-            use_label_names=False,
         )
 
         assert all(c == "visual" for c in result.categories)
@@ -505,9 +502,9 @@ class TestReferenceBatchServiceBuild:
             result = service.build(cfg)
 
         assert result is not None
-        # use_label_names should be False when hybrid mode is disabled
+        # hybrid mode disabled: label_id_to_name should map to "visual" placeholder
         call_kwargs = mock_to_sample.call_args.kwargs
-        assert call_kwargs["use_label_names"] is False
+        assert call_kwargs["label_id_to_name"] == {label_id: "visual"}
         assert call_kwargs["output_bboxes"] is True
 
     def test_build_sam3_visual_hybrid_mode_enabled_passes_use_label_names_true(self, service, frame_repository):
@@ -559,12 +556,13 @@ class TestReferenceBatchServiceBuild:
             result = service.build(cfg)
 
         assert result is not None
+        # hybrid mode enabled: label_id_to_name should have real names
         call_kwargs = mock_to_sample.call_args.kwargs
-        assert call_kwargs["use_label_names"] is True
+        assert call_kwargs["label_id_to_name"] == {label_id: "car"}
         assert call_kwargs["output_bboxes"] is True
 
-    def test_build_matcher_always_uses_label_names(self, service, frame_repository):
-        """Non-bbox models (Matcher) always use real label names regardless of hybrid mode."""
+    def test_build_matcher_does_not_use_label_names(self, service, frame_repository):
+        """Non-bbox models (Matcher) use ``"visual"`` placeholder since use_label_names = needs_bboxes AND hybrid."""
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)
 
         fake_sample = MagicMock(name="Sample")
@@ -614,6 +612,6 @@ class TestReferenceBatchServiceBuild:
             service.build(cfg)
 
         call_kwargs = mock_to_sample.call_args.kwargs
-        # Matcher doesn't need bboxes, so use_label_names = needs_bboxes and hybrid = False
+        # Matcher doesn't need bboxes, so use_label_names = False → "visual" placeholder
         assert call_kwargs["output_bboxes"] is False
-        assert call_kwargs["use_label_names"] is False
+        assert call_kwargs["label_id_to_name"] == {label_id: "visual"}

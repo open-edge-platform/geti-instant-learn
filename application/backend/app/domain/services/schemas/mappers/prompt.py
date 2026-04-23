@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from collections.abc import Iterable
 from uuid import UUID, uuid4
 
@@ -21,8 +20,6 @@ from domain.services.schemas.prompt import (
     VisualPromptListItemSchema,
     VisualPromptSchema,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def prompt_db_to_schema(prompt: PromptDB, include_thumbnail: bool = False) -> PromptSchema | PromptListItemSchema:

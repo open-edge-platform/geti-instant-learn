@@ -81,9 +81,12 @@ export default [
                 'error',
                 {
                     source: 'string',
-                    content: 'Copyright (C) {year} Intel Corporation\nSPDX-License-Identifier: Apache-2.0',
-                    variables: {
-                        year: '2025',
+                    content: 'Copyright (C) (year) Intel Corporation\nSPDX-License-Identifier: Apache-2.0',
+                    patterns: {
+                        year: {
+                            pattern: '\\d{4}',
+                            defaultValue: String(new Date().getFullYear()),
+                        },
                     },
                 },
             ],

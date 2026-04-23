@@ -1,12 +1,8 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Reference batch construction for the inference pipeline.
-
-Public functions (`prompt_to_sample`, `polygons_to_bboxes`) are pure
-converters with no I/O — easy to unit-test.
-`ReferenceBatchService` orchestrates DB access, frame loading, conversion,
-and collation.
+"""
+Reference batch construction for the inference pipeline.
 """
 
 import logging
@@ -44,7 +40,6 @@ def visual_prompt_to_sample(  # noqa: C901
     label_id_to_name: dict[UUID, str],
     label_shot_counts: dict[UUID, int],
     output_bboxes: bool = False,
-    use_label_names: bool = True,
 ) -> Sample:
     """Convert a visual prompt to a Sample with merged semantic masks.
 
@@ -58,9 +53,6 @@ def visual_prompt_to_sample(  # noqa: C901
         label_id_to_name: Mapping from label UUID to label name
         label_shot_counts: Current shot count per label (modified in-place)
         output_bboxes: If True, produce bboxes from polygon vertices instead of masks
-        use_label_names: If True, use real label names as category names; if False,
-            use the placeholder ``"visual"`` (relevant for SAM3 visual-exemplar mode
-            where passing real names enables hybrid text+visual prompting)
 
     Returns:
         Sample with either masks (N, H, W) or bboxes (N, 4) in [x1, y1, x2, y2] format.
@@ -101,7 +93,7 @@ def visual_prompt_to_sample(  # noqa: C901
             continue
 
         category_id = label_to_category_id[label_id]
-        category_name = label_id_to_name.get(label_id, str(label_id)) if use_label_names else "visual"
+        category_name = label_id_to_name.get(label_id, str(label_id))
         current_shot = label_shot_counts.get(label_id, 0)
 
         if output_bboxes:
@@ -206,7 +198,9 @@ class ReferenceBatchService:
                 all_label_ids.update(ann.label_id for ann in prompt.annotations)
 
             category_mappings = label_svc.build_category_mappings(all_label_ids)
-            label_id_to_name = label_svc.get_label_names(all_label_ids)
+            label_id_to_name = (
+                label_svc.get_label_names(all_label_ids) if use_label_names else dict.fromkeys(all_label_ids, "visual")
+            )
 
         label_shot_counts: dict[UUID, int] = {}
         samples: list[Sample] = []
@@ -229,7 +223,6 @@ class ReferenceBatchService:
                     label_id_to_name=label_id_to_name,
                     label_shot_counts=label_shot_counts,
                     output_bboxes=output_bboxes,
-                    use_label_names=use_label_names,
                 )
                 samples.append(sample)
             except Exception:
