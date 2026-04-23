@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, Suspense, useEffect, useRef } from 'react';
+import { Key, Suspense, useEffect } from 'react';
 
 import { ModelType } from '@/api';
 import { usePromptMode, type PromptMode } from '@/hooks';
@@ -42,33 +42,31 @@ const ModelToolbarContent = () => {
     const updateModel = useUpdateModel();
     const [promptMode] = usePromptMode();
     const promptTypesMap = useSupportedPromptTypesMap();
-    const previousPromptMode = useRef(promptMode);
 
     // Filter models compatible with the current prompt mode
     const models = allModels.filter((model) => isModelCompatible(model, promptMode, promptTypesMap));
 
     const activeModel = models.find((m) => m.active) ?? models[0];
 
-    // Auto-select first compatible model when prompt mode changes
-    // and the currently active model is not compatible
+    // Auto-select the first compatible model when the active model is
+    // incompatible with the current prompt mode. Covers both prompt-mode
+    // switches and initial mount where the backend may have stored an
+    // incompatible model as active.
     useEffect(() => {
-        if (previousPromptMode.current === promptMode) {
-            return;
-        }
-        previousPromptMode.current = promptMode;
-
         if (models.length === 0) {
             return;
         }
 
         const currentActiveModel = allModels.find((m) => m.active);
 
-        // If the active model is already compatible, no action needed
         if (currentActiveModel && isModelCompatible(currentActiveModel, promptMode, promptTypesMap)) {
             return;
         }
 
-        // Activate the first compatible model
+        if (updateModel.isPending) {
+            return;
+        }
+
         updateModel.mutate({ ...models[0], active: true });
     }, [promptMode, models, allModels, promptTypesMap, updateModel]);
 

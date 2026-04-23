@@ -130,4 +130,40 @@ describe('ModelToolbar', () => {
 
         expect(await screen.findByRole('button', { name: /SAM3/i })).toBeVisible();
     });
+
+    it('activates a compatible model on mount when the backend active model is incompatible', async () => {
+        let activatedModelId: string | null = null;
+
+        server.use(
+            http.get('/api/v1/projects/{project_id}/models', () => {
+                return HttpResponse.json({
+                    models: [
+                        // Matcher is marked active but is incompatible with text mode
+                        getMockedModel({
+                            id: 'matcher-1',
+                            name: 'Matcher',
+                            active: true,
+                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
+                        }),
+                        getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
+                    ],
+                    pagination: { total: 2, count: 2, offset: 0, limit: 10 },
+                });
+            }),
+            http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request, params }) => {
+                activatedModelId = params.model_id as string;
+                const body = await request.json();
+                return HttpResponse.json(body);
+            })
+        );
+
+        // Text mode — Matcher is active but incompatible, SAM3 should be auto-activated
+        renderToolbar('/projects/1?mode=text');
+
+        await waitFor(() => {
+            expect(activatedModelId).toBe('sam3-1');
+        });
+
+        expect(await screen.findByRole('button', { name: /SAM3/i })).toBeVisible();
+    });
 });
