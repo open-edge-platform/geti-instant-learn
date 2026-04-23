@@ -193,6 +193,8 @@ class Matcher(Model):
         compile_models: bool = False,
         device: str = "cuda",
         postprocessor: PostProcessor | None = None,
+        similarity_threshold: float | None = None,
+        num_grid_cells: int = 8,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -210,6 +212,13 @@ class Matcher(Model):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
+            similarity_threshold: When set, supplement bidirectional-matched points with
+                additional target patches exceeding this similarity to the reference.
+                Helps detect more objects when reference masks cover few patches.
+                Set to None to disable. Default: None.
+            num_grid_cells: Grid cells per dimension for spatial diversity filtering.
+                When > 0, foreground points are deduplicated per grid cell before top-k
+                selection, preventing point clustering on large objects. Default: 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
@@ -245,6 +254,8 @@ class Matcher(Model):
             encoder_feature_size=self.encoder.feature_size,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
+            similarity_threshold=similarity_threshold,
+            num_grid_cells=num_grid_cells,
         )
 
         # SAM decoder

@@ -1072,8 +1072,6 @@ class Sam3Model(nn.Module):
     ) -> "Sam3Model":
         """Load a pretrained SAM3 model from HuggingFace Hub or local path.
 
-        Loads from sam3.pt (original Facebook format) and converts to HuggingFace format.
-
         Args:
             pretrained_model_name_or_path: HuggingFace model ID or local path.
             device: Device to load the model on.
@@ -1085,39 +1083,41 @@ class Sam3Model(nn.Module):
         Returns:
             Loaded Sam3Model instance.
 
+        Raises:
+            FileNotFoundError: If checkpoint file not found at local path.
+
         Example:
-            >>> model = Sam3Model.from_pretrained("facebook/sam3")
-            >>> model = Sam3Model.from_pretrained("facebook/sam3", device="cuda", dtype=torch.bfloat16)
+            >>> model = Sam3Model.from_pretrained("facebook/sam3.1")
+            >>> model = Sam3Model.from_pretrained("facebook/sam3.1", device="cuda", dtype=torch.bfloat16)
         """
-        # Handle dtype aliases
         if torch_dtype is not None and dtype is None:
             dtype = torch_dtype
 
-        filename = "sam3.pt"
+        checkpoint_filename = "sam3.1_multiplex.pt"
 
-        # Determine if local path or HuggingFace Hub
         path = Path(pretrained_model_name_or_path)
         if path.exists():
-            # Local path - check if it's a file or directory
-            model_path = path if path.is_file() else path / filename
+            if path.is_file():
+                model_path = path
+            else:
+                model_path = path / checkpoint_filename
+                if not model_path.exists():
+                    msg = f"No checkpoint found in {path}. Expected: {checkpoint_filename}"
+                    raise FileNotFoundError(msg)
         else:
             model_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path,
-                filename=filename,
+                filename=checkpoint_filename,
             )
 
-        # Load state dict from .pt file
         # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
         state_dict = torch.load(model_path, map_location="cpu", weights_only=True)  # nosec: B614
-        # Handle wrapped checkpoint formats
         if "model" in state_dict:
             state_dict = state_dict["model"]
         elif "state_dict" in state_dict:
             state_dict = state_dict["state_dict"]
-        # Convert sam3.pt format to HuggingFace format
         state_dict = convert_sam3_pt_to_hf_format(state_dict)
 
-        # Apply any additional key mapping if provided
         if key_mapping:
             mapped_state_dict = {}
             for key, value in state_dict.items():
@@ -1127,24 +1127,19 @@ class Sam3Model(nn.Module):
                 mapped_state_dict[new_key] = value
             state_dict = mapped_state_dict
 
-        # Create model with default args (can be overridden via kwargs)
         model = cls(**kwargs)
 
-        # Load weights
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
 
-        # Filter out expected missing/unexpected keys
-        # - tracker* keys are from the SAM2 video tracker (not used in detection)
-        # - sam2_convs keys are SAM2-specific FPN convolutions
-        # - rotary_emb.rope_embeddings are registered buffers, not parameters
-        _expected_unexpected = re.compile(
-            r"^("
-            r"tracker_model\.|tracker_neck\.|tracker\."
-            r"|backbone\.vision_backbone\.sam2_convs\."
-            r"|vision_encoder\.backbone\.layers\.\d+\.rotary_emb\.rope_embeddings"
-            r")",
+        expected_unexpected = re.compile(
+            r"^(tracker_model\.|tracker_neck\.|tracker\."
+            r"|backbone\.vision_backbone\.(sam2_convs|interactive_convs|propagation_convs)\."
+            r"|vision_encoder\.backbone\.layers\.\d+\.rotary_emb\.)",
         )
-        unexpected_keys = [k for k in unexpected_keys if not _expected_unexpected.match(k)]
+        unexpected_keys = [k for k in unexpected_keys if not expected_unexpected.match(k)]
+
+        expected_missing = re.compile(r"^vision_encoder\.neck\.fpn_layers\.3\.")
+        missing_keys = [k for k in missing_keys if not expected_missing.match(k)]
 
         if missing_keys:
             msg = f"Missing keys when loading SAM3 model: {missing_keys}"
@@ -1153,7 +1148,6 @@ class Sam3Model(nn.Module):
             msg = f"Unexpected keys when loading SAM3 model: {unexpected_keys}"
             logger.warning(msg)
 
-        # Move to device/dtype if specified
         if device is not None:
             model = model.to(device)
         if dtype is not None:

@@ -11,6 +11,8 @@ import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-c
 import { useAvailableDatasets } from './api/use-available-datasets';
 import { SampleDatasetTitle } from './create-sample-dataset.component';
 
+import styles from './sample-dataset.module.scss';
+
 interface SampleDatasetCardProps {
     source: SampleDatasetSourceType;
     menuItems: { key: string; label: string }[];
@@ -31,9 +33,7 @@ export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDataset
     return (
         <PipelineEntityCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Sample dataset'}>
             <Flex direction={'column'} gap={'size-200'}>
-                {thumbnail && (
-                    <img src={thumbnail} alt={selectedDataset.name} style={{ display: 'block', width: '100%' }} />
-                )}
+                {thumbnail && <img src={thumbnail} alt={selectedDataset.name} className={styles.img} />}
                 <Flex justifyContent={'space-between'} alignItems={'end'} gap={'size-100'}>
                     <SampleDatasetTitle text={selectedDataset.name} />
                     <View alignSelf={'end'}>
