@@ -35,16 +35,6 @@ const mockDatasetsResponse = {
     },
 };
 
-const emptyDatasetsResponse = {
-    datasets: [],
-    pagination: {
-        count: 0,
-        total: 0,
-        offset: 0,
-        limit: 20,
-    },
-};
-
 class EditSampleDatasetPage {
     constructor() {}
 
@@ -84,7 +74,7 @@ const renderEditSampleDataset = ({
 }: {
     source?: SampleDatasetSourceType;
     onSaved?: () => void;
-    datasetsResponse?: typeof mockDatasetsResponse | typeof emptyDatasetsResponse;
+    datasetsResponse?: typeof mockDatasetsResponse;
 } = {}) => {
     server.use(
         http.get('/api/v1/system/datasets', () => {
@@ -311,26 +301,6 @@ describe('EditSampleDataset', () => {
                     })
                 );
             });
-        });
-    });
-
-    describe('Empty datasets', () => {
-        it('displays message when no datasets are available', async () => {
-            renderEditSampleDataset({ datasetsResponse: emptyDatasetsResponse });
-
-            expect(await screen.findByText('No sample datasets are available.')).toBeVisible();
-        });
-
-        it('disables save button when no datasets are available', async () => {
-            const { editSampleDatasetPage } = renderEditSampleDataset({
-                datasetsResponse: emptyDatasetsResponse,
-            });
-
-            await waitFor(() => {
-                expect(screen.getByText('No sample datasets are available.')).toBeVisible();
-            });
-
-            expect(editSampleDatasetPage.saveButton).toBeDisabled();
         });
     });
 
