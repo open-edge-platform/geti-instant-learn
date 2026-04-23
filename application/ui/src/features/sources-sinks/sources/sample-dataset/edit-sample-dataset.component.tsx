@@ -6,7 +6,7 @@
 import { FormEvent, useState } from 'react';
 
 import { SampleDatasetSourceType } from '@/api';
-import { Flex, Form, Item, Picker, Text, View } from '@geti/ui';
+import { Flex, Form, Item, Picker, View } from '@geti/ui';
 import { isNull } from 'lodash-es';
 
 import { useUpdateSource } from '../api/use-update-source';
@@ -29,10 +29,7 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
 
     const updateSampleDatasetSource = useUpdateSource(source.id);
     const isButtonDisabled =
-        selectedDatasetId === source.config.dataset_id ||
-        !selectedDatasetId ||
-        datasets.length === 0 ||
-        updateSampleDatasetSource.isPending;
+        selectedDatasetId === source.config.dataset_id || !selectedDatasetId || updateSampleDatasetSource.isPending;
 
     const handleUpdateSampleDataset = (active: boolean) => {
         if (!selectedDatasetId) {
@@ -78,24 +75,14 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
                     <Flex direction={'column'} gap={'size-200'}>
                         <SampleDatasetTitle text={selectedDataset?.name} />
 
-                        {datasets.length > 0 ? (
-                            <Picker
-                                label={'Dataset'}
-                                selectedKey={selectedDatasetId ?? undefined}
-                                items={datasets}
-                                onSelectionChange={(key) => setSelectedDatasetId(isNull(key) ? null : (key as string))}
-                            >
-                                {(item) => <Item key={item.id}>{item.name}</Item>}
-                            </Picker>
-                        ) : (
-                            <Flex direction={'column'} gap={'size-100'}>
-                                <Text>No sample datasets are available.</Text>
-                                <Text>
-                                    This source cannot be edited without available datasets. Please delete this source
-                                    or ensure datasets are available.
-                                </Text>
-                            </Flex>
-                        )}
+                        <Picker
+                            label={'Dataset'}
+                            selectedKey={selectedDatasetId ?? undefined}
+                            items={datasets}
+                            onSelectionChange={(key) => setSelectedDatasetId(isNull(key) ? null : (key as string))}
+                        >
+                            {(item) => <Item key={item.id}>{item.name}</Item>}
+                        </Picker>
 
                         <EditSourceButtons
                             isActiveSource={isActiveSource}
