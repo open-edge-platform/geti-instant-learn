@@ -10,9 +10,19 @@ import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Hook for updating/connecting sources.
- * Can be used in two ways:
- * 1. With sourceId at hook creation: `useUpdateSource(sourceId)` - for editing specific sources
- * 2. Without sourceId: `useUpdateSource()` - for dynamically connecting sources, pass sourceId to mutate()
+ *
+ * @param sourceId - Optional sourceId to bind at hook creation.
+ *                   If not provided, sourceId must be passed in the body parameter when calling mutate.
+ *
+ * @example
+ * // For editing a specific source (sourceId known at hook creation)
+ * const updateSource = useUpdateSource(sourceId);
+ * updateSource.mutate({ config, active }, onSuccess);
+ *
+ * @example
+ * // For dynamically updating sources (sourceId not known until mutation time)
+ * const updateSource = useUpdateSource();
+ * updateSource.mutate({ sourceId, config, active }, onSuccess);
  */
 export const useUpdateSource = (sourceId?: string) => {
     const { projectId } = useProjectIdentifier();
@@ -40,33 +50,21 @@ export const useUpdateSource = (sourceId?: string) => {
     });
 
     const updateSource = (
-        bodyOrSourceId: { config: SourceConfig; active: boolean } | string,
-        bodyOrOnSuccess?: { config: SourceConfig; active: boolean } | (() => void),
-        onSuccessParam?: () => void
+        body: { config: SourceConfig; active: boolean; sourceId?: string },
+        onSuccess?: () => void
     ) => {
-        // Handle overloaded parameters
-        let finalSourceId: string;
-        let finalBody: { config: SourceConfig; active: boolean };
-        let finalOnSuccess: (() => void) | undefined;
+        const finalSourceId = body.sourceId ?? sourceId;
 
-        if (typeof bodyOrSourceId === 'string') {
-            // Called as: mutate(sourceId, body, onSuccess)
-            finalSourceId = bodyOrSourceId;
-            finalBody = bodyOrOnSuccess as { config: SourceConfig; active: boolean };
-            finalOnSuccess = onSuccessParam;
-        } else {
-            // Called as: mutate(body, onSuccess)
-            if (!sourceId) {
-                throw new Error('sourceId must be provided either at hook creation or mutation time');
-            }
-            finalSourceId = sourceId;
-            finalBody = bodyOrSourceId;
-            finalOnSuccess = bodyOrOnSuccess as (() => void) | undefined;
+        if (!finalSourceId) {
+            throw new Error('sourceId must be provided either at hook creation or in the body parameter');
         }
 
         updateSourceMutation.mutate(
             {
-                body: finalBody,
+                body: {
+                    config: body.config,
+                    active: body.active,
+                },
                 params: {
                     path: {
                         project_id: projectId,
@@ -91,7 +89,7 @@ export const useUpdateSource = (sourceId?: string) => {
                             },
                         ]),
                     });
-                    finalOnSuccess?.();
+                    onSuccess?.();
                 },
             }
         );

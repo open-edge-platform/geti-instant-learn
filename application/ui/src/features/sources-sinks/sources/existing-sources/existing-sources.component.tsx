@@ -68,7 +68,8 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
             onViewChange('edit');
             onSetSourceInEditionId(source.id);
         } else if (action === 'connect') {
-            updateSource.mutate(source.id, {
+            updateSource.mutate({
+                sourceId: source.id,
                 config: source.config,
                 active: true,
             });
