@@ -80,8 +80,12 @@ class MatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
     num_foreground_points: int = Field(default=5, gt=0, le=300)
     num_background_points: int = Field(default=3, ge=0, le=10)
-    confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
+    # Optimal threshold varies by encoder: ~0.50 for dinov3_large, ~0.75 for dinov3_small.
+    # Using 0.75 as a safe universal default that minimizes cross-class false positives.
+    confidence_threshold: float = Field(default=0.75, gt=0.0, lt=1.0)
     use_mask_refinement: bool = Field(default=False)
+    similarity_threshold: float | None = Field(default=None, gt=0.0, lt=1.0)
+    num_grid_cells: int = Field(default=8, ge=0, le=100)
 
     model_config = {
         "json_schema_extra": {
@@ -89,11 +93,13 @@ class MatcherConfig(BaseModelConfig):
                 "model_type": "matcher",
                 "num_foreground_points": 5,
                 "num_background_points": 3,
-                "confidence_threshold": 0.38,
+                "confidence_threshold": 0.75,
                 "precision": "bf16",
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
+                "similarity_threshold": None,
+                "num_grid_cells": 8,
             }
         }
     }

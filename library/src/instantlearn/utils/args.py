@@ -74,8 +74,14 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--num_grid_cells",
         type=int,
-        default=16,
+        default=8,
         help="Number of grid cells to use for the grid prompt generator",
+    )
+    parser.add_argument(
+        "--similarity_threshold",
+        type=float,
+        default=None,
+        help="Similarity threshold for supplementary foreground points. Set to None to disable.",
     )
     parser.add_argument(
         "--overwrite",

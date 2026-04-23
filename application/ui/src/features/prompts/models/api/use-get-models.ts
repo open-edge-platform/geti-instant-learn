@@ -28,7 +28,7 @@ const getDefaultMatcherModel = (id: string): MatcherModel => {
     return {
         id,
         config: {
-            confidence_threshold: 0.38,
+            confidence_threshold: 0.75,
             model_type: 'matcher',
             num_background_points: 2,
             num_foreground_points: 40,
@@ -36,6 +36,8 @@ const getDefaultMatcherModel = (id: string): MatcherModel => {
             sam_model: 'SAM-HQ-tiny',
             encoder_model: 'dinov3_small',
             use_mask_refinement: false,
+            similarity_threshold: null,
+            num_grid_cells: 8,
         },
         active: false,
         name: `Matcher`,
