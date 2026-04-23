@@ -353,10 +353,65 @@ class TestReferenceBatchServiceBuild:
         result = service.build(cfg)
         assert result is None
 
-    def test_build_returns_none_for_sam3_text_mode(self, service):
+    def test_build_returns_none_for_sam3_text_mode_no_prompts(self, service):
+        """Text mode returns None when no text prompts exist."""
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=Sam3Config(), prompt_mode=PromptType.TEXT)
-        result = service.build(cfg)
+        with patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls:
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = []
+            result = service.build(cfg)
         assert result is None
+
+    def test_build_returns_batch_for_sam3_text_mode(self, service):
+        """Text mode builds a batch with categories from text prompts."""
+        project_id = uuid.uuid4()
+        cfg = PipelineConfig(project_id=project_id, processor=Sam3Config(), prompt_mode=PromptType.TEXT)
+
+        prompt_cat = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text="cat", frame_id=None, annotations=[])
+        prompt_dog = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text="dog", frame_id=None, annotations=[])
+
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [MagicMock()]
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch) as mock_collate,
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_cat, prompt_dog]
+            result = service.build(cfg)
+
+        assert result is not None
+        batch, cat_id_to_text = result
+        assert batch is fake_batch
+        assert cat_id_to_text == {0: "cat", 1: "dog"}
+
+        # Verify the sample passed to collate has correct categories
+        collated_samples = mock_collate.call_args[0][0]
+        assert len(collated_samples) == 1
+        sample = collated_samples[0]
+        assert sample.categories == ["cat", "dog"]
+        assert list(sample.category_ids) == [0, 1]
+        assert sample.image is None
+
+    def test_build_text_mode_skips_prompts_with_empty_text(self, service):
+        """Text mode skips prompts with no text content."""
+        cfg = PipelineConfig(project_id=uuid.uuid4(), processor=Sam3Config(), prompt_mode=PromptType.TEXT)
+
+        prompt_valid = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text="cat", frame_id=None, annotations=[])
+        prompt_empty = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text=None, frame_id=None, annotations=[])
+
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [MagicMock()]
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_valid, prompt_empty]
+            result = service.build(cfg)
+
+        assert result is not None
+        _, cat_id_to_text = result
+        assert cat_id_to_text == {0: "cat"}
 
     def test_build_returns_none_when_no_prompts(self, service):
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)

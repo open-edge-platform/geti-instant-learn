@@ -615,3 +615,44 @@ class TestCategoryResolver:
 
     def test_extract_category_id_none_labels(self) -> None:
         assert CategoryResolver.extract_category_id(None, 0) is None
+
+    def test_resolve_text_category_returns_deterministic_color_and_name(self) -> None:
+        vis_info = VisualizationInfo(
+            label_colors=[],
+            category_mappings=CategoryMappings(label_to_category_id={}, category_id_to_label_id={}),
+            text_categories={0: "cat", 1: "dog"},
+        )
+        resolver = CategoryResolver(vis_info)
+
+        info_0 = resolver.resolve(0)
+        assert info_0.color.to_tuple() == generate_deterministic_color(0)
+        assert info_0.object_name == "cat"
+
+        info_1 = resolver.resolve(1)
+        assert info_1.color.to_tuple() == generate_deterministic_color(1)
+        assert info_1.object_name == "dog"
+
+    def test_resolve_text_category_takes_priority_over_label_fallback(self) -> None:
+        """Text categories are checked before the label_id lookup chain."""
+        vis_info = VisualizationInfo(
+            label_colors=[],
+            category_mappings=CategoryMappings(label_to_category_id={}, category_id_to_label_id={}),
+            text_categories={0: "shoe"},
+        )
+        resolver = CategoryResolver(vis_info)
+
+        info = resolver.resolve(0)
+        assert info.object_name == "shoe"
+
+    def test_resolve_falls_through_when_no_text_categories(self) -> None:
+        """Without text_categories, resolver uses normal label lookup chain."""
+        vis_info = VisualizationInfo(
+            label_colors=[],
+            category_mappings=CategoryMappings(label_to_category_id={}, category_id_to_label_id={}),
+            text_categories=None,
+        )
+        resolver = CategoryResolver(vis_info)
+
+        info = resolver.resolve(5)
+        assert info.color.to_tuple() == generate_deterministic_color(5)
+        assert info.object_name is None

@@ -4,7 +4,7 @@
 from collections.abc import Iterable
 from uuid import UUID
 
-from domain.db.models import ProcessorDB
+from domain.db.models import ProcessorDB, PromptType
 from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
@@ -108,3 +108,26 @@ def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]
         for pt in metadata.supported_prompt_types
         if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
     }
+
+
+_VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_RECTANGLE}
+
+
+def model_type_supports_prompt_mode(model_type: ModelType, prompt_mode: PromptType) -> bool:
+    """Check if a model type supports the given prompt mode.
+
+    Args:
+        model_type: The model type to check.
+        prompt_mode: The prompt mode to filter by.
+
+    Returns:
+        True if the model type supports the prompt mode.
+    """
+    metadata = SUPPORTED_MODELS_METADATA.get(model_type)
+    if metadata is None:
+        return False
+    if prompt_mode == PromptType.VISUAL:
+        return bool(_VISUAL_PROMPT_TYPES & set(metadata.supported_prompt_types))
+    if prompt_mode == PromptType.TEXT:
+        return SupportedPromptType.TEXT in metadata.supported_prompt_types
+    return False

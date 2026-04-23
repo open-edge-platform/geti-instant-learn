@@ -31,15 +31,27 @@ class CategoryResolver:
     def __init__(self, visualization_info: VisualizationInfo | None = None) -> None:
         self._category_id_to_label_id: dict[int, str] = {}
         self._label_id_to_vis: dict[str, VisualizationLabel] = {}
+        self._text_categories: dict[int, str] = {}
 
         if visualization_info is not None:
             self._category_id_to_label_id = visualization_info.category_mappings.category_id_to_label_id
             self._label_id_to_vis = {str(item.id): item for item in visualization_info.label_colors}
+            if visualization_info.text_categories is not None:
+                self._text_categories = visualization_info.text_categories
 
     def resolve(self, category_id: int | None) -> VisualizationLabel:
         """Return visualization label for a predicted category."""
         if category_id is None:
             return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR))
+
+        # Check text category mapping first (text prompt mode)
+        text_name = self._text_categories.get(category_id)
+        if text_name is not None:
+            return VisualizationLabel(
+                id=_FALLBACK_ID,
+                color=RGBColor(*generate_deterministic_color(category_id)),
+                object_name=text_name,
+            )
 
         label_id = self._category_id_to_label_id.get(category_id)
         if label_id is None:
