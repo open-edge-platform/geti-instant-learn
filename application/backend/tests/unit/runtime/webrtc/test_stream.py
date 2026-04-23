@@ -131,3 +131,50 @@ class TestInferenceVideoStreamTrack:
         await track.recv()
 
         provider.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_recv_with_error_in_slot_returns_error_frame(self, fxt_output_slot):
+        error_msg = "Source connection failed: file not found"
+        fxt_output_slot.set_error(error_msg)
+
+        track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
+        frame = await track.recv()
+
+        # Error frame should be 1280x720
+        assert isinstance(frame, VideoFrame)
+        assert frame.width == 1280
+        assert frame.height == 720
+
+    @pytest.mark.asyncio
+    async def test_error_frame_cleared_when_new_data_arrives(self, fxt_output_slot, fxt_output_data):
+        fxt_output_slot.set_error("Temporary error")
+
+        track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
+
+        # First frame should be error frame
+        error_frame = await track.recv()
+        assert error_frame.width == 1280
+        assert error_frame.height == 720
+
+        # Update with new data (which clears error)
+        fxt_output_slot.update(fxt_output_data)
+
+        # Next frame should be normal frame with visualization
+        with patch("runtime.webrtc.stream.InferenceVisualizer.visualize") as mock_viz:
+            mock_viz.return_value = fxt_output_data.frame
+            normal_frame = await track.recv()
+            assert normal_frame.width == 640
+            assert normal_frame.height == 480
+            mock_viz.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_error_frame_persists_until_data_update(self, fxt_output_slot):
+        fxt_output_slot.set_error("Persistent error")
+
+        track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
+
+        # Multiple recv calls should all return error frames
+        for _ in range(3):
+            frame = await track.recv()
+            assert frame.width == 1280
+            assert frame.height == 720

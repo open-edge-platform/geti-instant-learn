@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -25,6 +26,7 @@ from domain.services.schemas.mappers.source import (
     source_schema_to_db,
     sources_db_to_list_items,
 )
+from domain.services.schemas.reader import SourceType
 from domain.services.schemas.source import (
     SourceCreateSchema,
     SourceSchema,
@@ -118,6 +120,7 @@ class SourceService(BaseService):
         try:
             with self.db_transaction():
                 if create_data.active:
+                    self._validate_source_config(create_data)
                     self._disconnect_existing_active_source(project_id=project_id)
                 new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
                 self.source_repository.add(new_source)
@@ -172,8 +175,10 @@ class SourceService(BaseService):
 
         try:
             with self.db_transaction():
-                if update_data.active and not source.active:
-                    self._disconnect_existing_active_source(project_id=project_id)
+                if update_data.active:
+                    self._validate_source_config(update_data)
+                    if not source.active:
+                        self._disconnect_existing_active_source(project_id=project_id)
                 source.active = update_data.active
                 source.config = update_data.config.model_dump(mode="json")
                 source = self.source_repository.update(source)
@@ -213,6 +218,56 @@ class SourceService(BaseService):
             self.source_repository.delete(source.id)
             self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
+
+    def _validate_video_path(self, path: str) -> None:
+        """
+        Validate that the video file exists and is a file.
+
+        Args:
+            path: Path to the video file.
+
+        Raises:
+            ValueError: If the path does not exist or is not a file.
+        """
+        video_path = Path(path)
+        if not video_path.exists():
+            raise ValueError(f"Video file does not exist: {path}")
+        if not video_path.is_file():
+            raise ValueError(f"Path is not a file: {path}")
+
+    def _validate_images_folder_path(self, path: str) -> None:
+        """
+        Validate that the folder path exists and is a directory.
+
+        Args:
+            path: Path to the images folder.
+
+        Raises:
+            ValueError: If the path does not exist, is not a directory, or is empty.
+        """
+        folder_path = Path(path)
+        if not folder_path.exists():
+            raise ValueError(f"Images folder does not exist: {path}")
+        if not folder_path.is_dir():
+            raise ValueError(f"Path is not a directory: {path}")
+        if next(folder_path.iterdir(), None) is None:
+            raise ValueError(f"Images folder is empty: {path}")
+
+    def _validate_source_config(self, config: SourceCreateSchema | SourceUpdateSchema) -> None:
+        """
+        Validate source configuration based on source type.
+
+        Args:
+            config: The source configuration schema to validate.
+
+        Raises:
+            ValueError: If validation fails for the specific source type.
+        """
+        source_config = config.config
+        if source_config.source_type == SourceType.VIDEO_FILE:
+            self._validate_video_path(source_config.video_path)
+        elif source_config.source_type == SourceType.IMAGES_FOLDER:
+            self._validate_images_folder_path(source_config.images_folder_path)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

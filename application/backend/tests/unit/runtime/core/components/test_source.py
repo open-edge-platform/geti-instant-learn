@@ -41,6 +41,10 @@ class TestSource:
         self.mock_stream_reader = MagicMock(spec=StreamReader)
         self.mock_stream_reader.requires_manual_control = False
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
+        # Mock the slot with set_error method for error handling
+        self.mock_broadcaster.slot = MagicMock()
+        self.mock_broadcaster.slot.error = None
+        self.mock_broadcaster.slot.set_error = MagicMock()
         self.source = Source(self.mock_stream_reader)
         self.source.setup(self.mock_broadcaster)
 
@@ -111,3 +115,50 @@ class TestSource:
 
         self.source.run()
         self.mock_stream_reader.connect.assert_called_once()
+
+    def test_source_connect_error_sets_slot_error(self):
+        """Test that Source sets error on broadcaster slot when connect fails."""
+        self.mock_stream_reader.connect.side_effect = RuntimeError("File not found")
+
+        import time
+        from threading import Thread
+
+        thread = Thread(target=self.source.run, daemon=True)
+        thread.start()
+
+        # Poll for set_error to be called with a timeout
+        max_wait = 2.0
+        start_time = time.time()
+        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+            time.sleep(0.01)
+
+        self.source.stop()
+        thread.join(timeout=2)
+
+        # Should have called set_error on the slot
+        self.mock_broadcaster.slot.set_error.assert_called_once()
+        call_args = self.mock_broadcaster.slot.set_error.call_args[0][0]
+        assert "Failed to connect to source" in call_args
+
+    def test_source_connect_error_does_not_crash_thread(self):
+        """Test that Source thread keeps running even when connect fails."""
+        self.mock_stream_reader.connect.side_effect = RuntimeError("Connection error")
+
+        import time
+        from threading import Thread
+
+        thread = Thread(target=self.source.run, daemon=True)
+        thread.start()
+
+        # Poll for set_error to be called (indicates error was handled)
+        max_wait = 2.0
+        start_time = time.time()
+        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+            time.sleep(0.01)
+
+        # Thread should still be alive, waiting
+        assert thread.is_alive()
+
+        self.source.stop()
+        thread.join(timeout=2)
+        assert not thread.is_alive()

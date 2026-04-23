@@ -13,19 +13,31 @@ class FrameSlot[T]:
 
     def __init__(self) -> None:
         self._frame: T | None = None
+        self._error: str | None = None
 
     @property
     def latest(self) -> T | None:
         """The most recently published frame, or None if nothing has been published."""
         return self._frame
 
+    @property
+    def error(self) -> str | None:
+        """The current error message, or None if no error."""
+        return self._error
+
     def update(self, frame: T) -> None:
-        """Publish a new frame, replacing any previously held value."""
+        """Publish a new frame, replacing any previously held value and clearing errors."""
         self._frame = frame
+        self._error = None
+
+    def set_error(self, error_message: str) -> None:
+        """Set an error state with a message."""
+        self._error = error_message
 
     def clear(self) -> None:
-        """Discard the held frame."""
+        """Discard the held frame and error."""
         self._frame = None
+        self._error = None
 
 
 class FrameBroadcaster[T]:

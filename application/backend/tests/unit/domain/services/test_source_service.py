@@ -15,7 +15,7 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
-from domain.services.schemas.reader import SourceType, UsbCameraConfig, VideoFileConfig
+from domain.services.schemas.reader import ImagesFolderConfig, SourceType, UsbCameraConfig, VideoFileConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
 
@@ -400,3 +400,240 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     assert ev.project_id == project_id
     assert ev.component_type == ComponentType.SOURCE
     assert ev.component_id == source_id
+
+
+# ============================================================================
+# Path Validation Tests
+# ============================================================================
+
+
+def test_create_source_with_invalid_video_path_not_exists(service):
+    """Test that creating a source with a non-existent video path raises ValueError."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        active=True,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
+    )
+
+    with pytest.raises(ValueError, match="Video file does not exist: /nonexistent/video.mp4"):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+    service.source_repository.add.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_create_source_with_invalid_video_path_is_directory(service, tmp_path):
+    """Test that creating a source with a directory as video path raises ValueError."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Create a directory instead of a file
+    dir_path = tmp_path / "not_a_video"
+    dir_path.mkdir()
+
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        active=True,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(dir_path)),
+    )
+
+    with pytest.raises(ValueError, match=f"Path is not a file: {dir_path}"):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+    service.source_repository.add.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_create_source_with_invalid_images_folder_not_exists(service):
+    """Test that creating a source with a non-existent images folder raises ValueError."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        active=True,
+        config=ImagesFolderConfig(source_type=SourceType.IMAGES_FOLDER, images_folder_path="/nonexistent/images"),
+    )
+
+    with pytest.raises(ValueError, match="Images folder does not exist: /nonexistent/images"):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+    service.source_repository.add.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_create_source_with_invalid_images_folder_is_file(service, tmp_path):
+    """Test that creating a source with a file as images folder raises ValueError."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Create a file instead of a directory
+    file_path = tmp_path / "not_a_folder.txt"
+    file_path.write_text("test")
+
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        active=True,
+        config=ImagesFolderConfig(source_type=SourceType.IMAGES_FOLDER, images_folder_path=str(file_path)),
+    )
+
+    with pytest.raises(ValueError, match=f"Path is not a directory: {file_path}"):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+    service.source_repository.add.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_create_source_with_empty_images_folder(service, tmp_path):
+    """Test that creating a source with an empty images folder raises ValueError."""
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Create an empty directory
+    empty_dir = tmp_path / "empty_folder"
+    empty_dir.mkdir()
+
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        active=True,
+        config=ImagesFolderConfig(source_type=SourceType.IMAGES_FOLDER, images_folder_path=str(empty_dir)),
+    )
+
+    with pytest.raises(ValueError, match=f"Images folder is empty: {empty_dir}"):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+    service.source_repository.add.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_update_source_activating_with_invalid_video_path(service, tmp_path):
+    """Test that activating a source with invalid video path raises ValueError."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Existing inactive source with invalid path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/nonexistent/video.mp4"},
+        active=False,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+
+    update_schema = SourceUpdateSchema(
+        active=True,  # Activating the source
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
+    )
+
+    with pytest.raises(ValueError, match="Video file does not exist: /nonexistent/video.mp4"):
+        service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    service.source_repository.update.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_update_source_already_active_validates(service, tmp_path):
+    """Test that updating an already-active source with invalid path raises ValueError."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Existing active source
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/old/path/video.mp4"},
+        active=True,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.update.return_value = existing
+
+    # Update with a new invalid path - should validate and raise ValueError
+    update_schema = SourceUpdateSchema(
+        active=True,  # Still active
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
+    )
+
+    # Should raise ValueError since validation now runs for active sources
+    with pytest.raises(ValueError, match="Video file does not exist: /nonexistent/video.mp4"):
+        service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    service.source_repository.update.assert_not_called()
+    service.session.commit.assert_not_called()
+
+
+def test_update_source_already_active_with_valid_path_succeeds(service, tmp_path):
+    """Test that updating an already-active source with a valid new path succeeds."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create valid video files
+    old_video = tmp_path / "old_video.mp4"
+    old_video.touch()
+    new_video = tmp_path / "new_video.mp4"
+    new_video.touch()
+
+    # Existing active source with valid path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(old_video)},
+        active=True,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.update.return_value = existing
+
+    # Update with a new valid path - should validate and succeed
+    update_schema = SourceUpdateSchema(
+        active=True,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(new_video)),
+    )
+
+    result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    assert result is not None
+    service.source_repository.update.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_create_source_inactive_with_invalid_video_path_succeeds(service):
+    """Test that creating an inactive source with invalid path succeeds (no validation)."""
+    project_id = uuid.uuid4()
+    new_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    new_source = make_source(
+        source_id=new_id,
+        project_id=project_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/nonexistent/video.mp4"},
+        active=False,
+    )
+    service.source_repository.add.return_value = new_source
+
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        active=False,  # Inactive, so validation should NOT run
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
+    )
+
+    # Should not raise ValueError - validation only runs when active=True
+    result = service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert result is not None
+    service.source_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
