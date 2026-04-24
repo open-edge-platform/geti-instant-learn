@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from typing import TypeVar, cast
 from uuid import UUID
@@ -46,6 +46,14 @@ class BaseRepository[ModelType: Base]:
     def get_by_id(self, object_id: UUID) -> ModelType | None:
         """Retrieve an item by its ID."""
         return self.session.get(self.model, object_id)
+
+    def get_by_ids(self, object_ids: Iterable[UUID]) -> Sequence[ModelType]:
+        """Retrieve items by a collection of IDs in a single query."""
+        ids = list(object_ids)
+        if not ids:
+            return []
+        stmt = select(self.model).where(self.model.id.in_(ids))
+        return self.session.execute(stmt).scalars().all()
 
     def exists(self, object_id: UUID) -> bool:
         """Check if an item exists by its ID."""

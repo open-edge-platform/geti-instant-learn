@@ -135,30 +135,30 @@ class TestEncodeToBase64:
 class TestDrawRectangle:
     def test_draw_rectangle_basic(self):
         overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.8)])
+        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=40, y=40), Point(x=160, y=160)])
         color = (0, 0, 255)
 
-        result = _draw_filled_rectangle(overlay, rect, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_rectangle(overlay, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
 
         center_pixel = result[100, 100]
         np.testing.assert_array_equal(center_pixel, color)
 
     def test_draw_rectangle_coordinates(self):
         overlay = np.zeros((100, 100, 3), dtype=np.uint8)
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
+        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=10, y=10), Point(x=50, y=50)])
         color = (255, 0, 0)
 
-        result = _draw_filled_rectangle(overlay, rect, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_rectangle(overlay, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=1)
 
         assert np.any(result[10, 10] == color)
         assert np.any(result[50, 50] == color)
 
     def test_draw_rectangle_returns_modified_overlay(self):
         original = create_test_frame(width=100, height=100, color=(255, 255, 255))
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.2, y=0.2), Point(x=0.6, y=0.6)])
+        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=20, y=20), Point(x=60, y=60)])
         color = (0, 255, 0)
 
-        result = _draw_filled_rectangle(original, rect, color, image_width=100, image_height=100, border_thickness=2)
+        result = _draw_filled_rectangle(original, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
 
         assert result is original
         assert np.any(result[40, 40] == color)
@@ -168,11 +168,11 @@ class TestDrawPolygon:
     def test_draw_triangle(self):
         overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
         polygon = PolygonAnnotation(
-            type=AnnotationType.POLYGON, points=[Point(x=0.5, y=0.1), Point(x=0.1, y=0.9), Point(x=0.9, y=0.9)]
+            type=AnnotationType.POLYGON, points=[Point(x=100, y=20), Point(x=20, y=180), Point(x=180, y=180)]
         )
         color = (0, 255, 0)
 
-        result = _draw_filled_polygon(overlay, polygon, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_polygon(overlay, polygon, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
 
         center_pixel = result[120, 100]
         np.testing.assert_array_equal(center_pixel, color)
@@ -181,11 +181,11 @@ class TestDrawPolygon:
         overlay = np.zeros((100, 100, 3), dtype=np.uint8)
         polygon = PolygonAnnotation(
             type=AnnotationType.POLYGON,
-            points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.2), Point(x=0.8, y=0.8), Point(x=0.2, y=0.8)],
+            points=[Point(x=20, y=20), Point(x=80, y=20), Point(x=80, y=80), Point(x=20, y=80)],
         )
         color = (0, 0, 255)
 
-        result = _draw_filled_polygon(overlay, polygon, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_polygon(overlay, polygon, color, scale_x=1.0, scale_y=1.0, border_thickness=1)
 
         assert np.any(result[50, 50] == color)
 
@@ -193,11 +193,11 @@ class TestDrawPolygon:
         original = np.zeros((100, 100, 3), dtype=np.uint8)
         polygon = PolygonAnnotation(
             type=AnnotationType.POLYGON,
-            points=[Point(x=0.3, y=0.3), Point(x=0.7, y=0.3), Point(x=0.5, y=0.7)],
+            points=[Point(x=30, y=30), Point(x=70, y=30), Point(x=50, y=70)],
         )
         color = (128, 128, 128)
 
-        result = _draw_filled_polygon(original, polygon, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_polygon(original, polygon, color, scale_x=1.0, scale_y=1.0, border_thickness=1)
 
         assert result is original
 
@@ -207,9 +207,7 @@ class TestGenerateThumbnail:
         frame = create_test_frame(width=800, height=600)
         label_id = uuid4()
         annotation = AnnotationSchema(
-            config=RectangleAnnotation(
-                type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]
-            ),
+            config=RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=80, y=60), Point(x=400, y=300)]),
             label_id=label_id,
         )
         label = make_label(color="#FF0000")
@@ -225,7 +223,7 @@ class TestGenerateThumbnail:
         annotation = AnnotationSchema(
             config=PolygonAnnotation(
                 type=AnnotationType.POLYGON,
-                points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.2), Point(x=0.8, y=0.8), Point(x=0.2, y=0.8)],
+                points=[Point(x=120, y=80), Point(x=480, y=80), Point(x=480, y=320), Point(x=120, y=320)],
             ),
             label_id=label_id,
         )
@@ -243,7 +241,7 @@ class TestGenerateThumbnail:
             (
                 AnnotationSchema(
                     config=RectangleAnnotation(
-                        type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.3, y=0.3)]
+                        type=AnnotationType.RECTANGLE, points=[Point(x=100, y=80), Point(x=300, y=240)]
                     ),
                     label_id=label_id_1,
                 ),
@@ -253,7 +251,7 @@ class TestGenerateThumbnail:
                 AnnotationSchema(
                     config=PolygonAnnotation(
                         type=AnnotationType.POLYGON,
-                        points=[Point(x=0.5, y=0.5), Point(x=0.9, y=0.5), Point(x=0.7, y=0.9)],
+                        points=[Point(x=500, y=400), Point(x=900, y=400), Point(x=700, y=720)],
                     ),
                     label_id=label_id_2,
                 ),
@@ -270,7 +268,7 @@ class TestGenerateThumbnail:
         label_id = uuid4()
         annotation = AnnotationSchema(
             config=RectangleAnnotation(
-                type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]
+                type=AnnotationType.RECTANGLE, points=[Point(x=200, y=150), Point(x=1000, y=750)]
             ),
             label_id=label_id,
         )
@@ -299,7 +297,7 @@ class TestGenerateThumbnail:
             label_id = uuid4()
             annotation = AnnotationSchema(
                 config=RectangleAnnotation(
-                    type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.3, y=0.3)]
+                    type=AnnotationType.RECTANGLE, points=[Point(x=50, y=50), Point(x=150, y=150)]
                 ),
                 label_id=label_id,
             )
@@ -314,9 +312,7 @@ class TestGenerateThumbnail:
         frame = create_test_frame(width=400, height=400, color=(100, 100, 100))
         label_id = uuid4()
         annotation = AnnotationSchema(
-            config=RectangleAnnotation(
-                type=AnnotationType.RECTANGLE, points=[Point(x=0.0, y=0.0), Point(x=1.0, y=1.0)]
-            ),
+            config=RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0, y=0), Point(x=400, y=400)]),
             label_id=label_id,
         )
         label = make_label(color="#FF0000")

@@ -5,12 +5,12 @@
 
 import { FormEvent, useState } from 'react';
 
-import { MatcherModel, ModelType, PerDINOModel, SoftMatcherModel } from '@/api';
+import { MatcherModel, ModelType, PerDINOModel, Sam3Model, SoftMatcherModel } from '@/api';
 import { Button, ButtonGroup, Content, Dialog, Divider, Flex, Form, Heading, Item, Picker, Switch } from '@geti/ui';
 
 import { useUpdateModel } from '../../api/use-update-model';
 import { NumberField } from './number-field.component';
-import { isMatcherModel, isPerDINOModel, isSoftMatcherModel } from './utils';
+import { isMatcherModel, isPerDINOModel, isSam3Model, isSoftMatcherModel } from './utils';
 
 const ENCODER_MODELS = [
     { label: 'DINOv3 Small', value: 'dinov3_small' },
@@ -23,7 +23,7 @@ const ENCODER_MODELS = [
 // ATM backend does not provide a list of available models, so we have to hardcode them here.
 type EncoderModel = (typeof ENCODER_MODELS)[number]['value'];
 
-type DecoderModel = ModelType['config']['sam_model'];
+type DecoderModel = MatcherModel['config']['sam_model'];
 
 const DECODER_MODELS: { label: string; value: DecoderModel }[] = [
     {
@@ -487,6 +487,80 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
     );
 };
 
+interface Sam3ConfigurationProps {
+    model: Sam3Model;
+    onClose: () => void;
+}
+
+const Sam3Configuration = ({ model, onClose }: Sam3ConfigurationProps) => {
+    const [confidenceThreshold, setConfidenceThreshold] = useState<number>(model.config.confidence_threshold);
+    const [resolution, setResolution] = useState<number>(model.config.resolution);
+    const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
+
+    const updateModelMutation = useUpdateModel();
+
+    const isConfigureButtonDisabled =
+        confidenceThreshold === model.config.confidence_threshold &&
+        resolution === model.config.resolution &&
+        precision === model.config.precision;
+
+    const updateModel = (event: FormEvent) => {
+        event.preventDefault();
+
+        updateModelMutation.mutate(
+            {
+                active: model.active,
+                name: model.name,
+                id: model.id,
+                config: {
+                    model_type: model.config.model_type,
+                    confidence_threshold: confidenceThreshold,
+                    resolution,
+                    precision,
+                },
+            },
+            onClose
+        );
+    };
+
+    return (
+        <Form onSubmit={updateModel}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <NumberField
+                    label={'Confidence threshold'}
+                    minValue={0}
+                    maxValue={1}
+                    step={0.01}
+                    onChange={setConfidenceThreshold}
+                    value={confidenceThreshold}
+                />
+                <NumberField
+                    label={'Resolution'}
+                    minValue={224}
+                    maxValue={2048}
+                    step={16}
+                    onChange={setResolution}
+                    value={resolution}
+                />
+                <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <ButtonGroup align={'end'}>
+                    <Button variant={'secondary'} onPress={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        type={'submit'}
+                        variant={'primary'}
+                        isPending={updateModelMutation.isPending}
+                        isDisabled={isConfigureButtonDisabled}
+                    >
+                        Configure
+                    </Button>
+                </ButtonGroup>
+            </Flex>
+        </Form>
+    );
+};
+
 interface ModelConfigurationDialogProps {
     model: ModelType;
     onClose: () => void;
@@ -504,6 +578,8 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
                     <PerDINOConfiguration model={model} onClose={onClose} />
                 ) : isSoftMatcherModel(model) ? (
                     <SoftMatcherConfiguration model={model} onClose={onClose} />
+                ) : isSam3Model(model) ? (
+                    <Sam3Configuration model={model} onClose={onClose} />
                 ) : null}
             </Content>
         </Dialog>

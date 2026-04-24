@@ -78,7 +78,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
     component_factory = DefaultComponentFactory(
-        session_factory=session_factory,
         available_devices=app.state.available_devices,
         dataset_resolver=dataset_resolver,
     )

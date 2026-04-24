@@ -141,7 +141,7 @@ class Batch:
         """Get all bboxes as list of tensors.
 
         Each tensor has shape (N, 4) where N is the number of instances.
-        Bounding boxes are in [x, y, w, h] format.
+        Bounding boxes are in [x1, y1, x2, y2] format.
 
         Returns:
             list[torch.Tensor | None]: List of bbox tensors or None.

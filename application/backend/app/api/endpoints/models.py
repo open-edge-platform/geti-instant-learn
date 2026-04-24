@@ -8,9 +8,8 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from api.routers import projects_router, system_router
-from dependencies import ModelServiceDep
+from dependencies import ModelServiceDep, SupportedModelRepoDep
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.mappers.processor import SUPPORTED_MODELS_METADATA
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
@@ -33,10 +32,12 @@ logger = logging.getLogger(__name__)
     },
 )
 def get_supported_models(
-    offset: Annotated[int, Query(ge=0, le=1000)] = 0, limit: Annotated[int, Query(ge=0, le=1000)] = 20
+    supported_model_repo: SupportedModelRepoDep,
+    offset: Annotated[int, Query(ge=0, le=1000)] = 0,
+    limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> SupportedModelsListSchema:
     """Return all supported model types with default configs and accepted prompt types."""
-    all_models = SUPPORTED_MODELS_METADATA
+    all_models = supported_model_repo.get_all()
     paginated_models = all_models[offset : offset + limit]
     return SupportedModelsListSchema(
         models=paginated_models,

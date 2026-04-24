@@ -60,6 +60,14 @@ class CategoryMappings:
 
 
 @dataclass(frozen=True)
+class LabelInfo:
+    """Bundled label context for batch construction."""
+
+    category_mappings: CategoryMappings
+    label_id_to_name: dict[UUID, str]
+
+
+@dataclass(frozen=True)
 class VisualizationInfo:
     """Complete visualization metadata for a pipeline."""
 

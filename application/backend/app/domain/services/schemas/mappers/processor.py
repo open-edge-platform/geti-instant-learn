@@ -6,16 +6,7 @@ from uuid import UUID
 
 from domain.db.models import ProcessorDB
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.processor import (
-    MatcherConfig,
-    PerDinoConfig,
-    ProcessorCreateSchema,
-    ProcessorListSchema,
-    ProcessorSchema,
-    SoftMatcherConfig,
-    SupportedModelMetadataSchema,
-    SupportedPromptType,
-)
+from domain.services.schemas.processor import ProcessorCreateSchema, ProcessorListSchema, ProcessorSchema
 
 
 def processor_db_to_schema(processor: ProcessorDB) -> ProcessorSchema:
@@ -69,22 +60,3 @@ def processors_db_to_list_items(
     )
 
     return ProcessorListSchema(models=items, pagination=pagination)
-
-
-SUPPORTED_MODELS_METADATA: list[SupportedModelMetadataSchema] = [
-    SupportedModelMetadataSchema(
-        default_config=MatcherConfig(), supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON]
-    ),
-    SupportedModelMetadataSchema(
-        default_config=PerDinoConfig(),
-        supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
-    ),
-    SupportedModelMetadataSchema(
-        default_config=SoftMatcherConfig(),
-        supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
-    ),
-    # SupportedModelMetadataSchema(  #todo will be enabled in the following tasks
-    #     default_config=Sam3Config(),
-    #     supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
-    # ),
-]
