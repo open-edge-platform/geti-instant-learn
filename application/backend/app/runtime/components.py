@@ -5,7 +5,6 @@ import logging
 from abc import ABC, abstractmethod
 
 from instantlearn.data.base.batch import Batch
-from sqlalchemy.orm import Session, sessionmaker
 
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.device import AvailableDeviceSchema
@@ -37,11 +36,9 @@ class ComponentFactory(ABC):
 class DefaultComponentFactory(ComponentFactory):
     def __init__(
         self,
-        session_factory: sessionmaker[Session],
         available_devices: list[AvailableDeviceSchema] | None = None,
         dataset_resolver: DatasetResolver | None = None,
     ) -> None:
-        self._session_factory = session_factory
         self._model_factory = ModelFactory(available_devices=available_devices)
         self._reader_factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
