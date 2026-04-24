@@ -12,9 +12,10 @@ from instantlearn.data.base.sample import Sample
 from domain.db.models import PromptType
 from domain.errors import ServiceError
 from domain.services.schemas.annotation import AnnotationType, Point, PolygonAnnotation, RectangleAnnotation
+from domain.services.schemas.label import CategoryMappings, LabelInfo
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import MatcherConfig, Sam3Config
-from runtime.services.reference_batch import ReferenceBatchService, visual_prompt_to_sample
+from runtime.services.reference_batch import ReferenceBatchService
 
 
 class FakeSessionCtx:
@@ -50,6 +51,22 @@ def sample_frame() -> np.ndarray:
     return np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
 
 
+def _make_label_info(
+    label_ids_to_names: dict[uuid.UUID, str],
+) -> LabelInfo:
+    """Helper to build a LabelInfo from a label_id→name mapping."""
+    sorted_ids = sorted(label_ids_to_names.keys(), key=str)
+    label_to_category_id = {lid: idx for idx, lid in enumerate(sorted_ids)}
+    category_id_to_label_id = {idx: str(lid) for lid, idx in label_to_category_id.items()}
+    return LabelInfo(
+        category_mappings=CategoryMappings(
+            label_to_category_id=label_to_category_id,
+            category_id_to_label_id=category_id_to_label_id,
+        ),
+        label_id_to_name=label_ids_to_names,
+    )
+
+
 class TestVisualPromptToSample:
     def test_with_frame(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -78,16 +95,12 @@ class TestVisualPromptToSample:
             annotations=[annotation_db],
         )
 
-        label_to_category_id = {label_id: 0}
-        label_id_to_name = {label_id: "car"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({label_id: "car"})
 
-        result = visual_prompt_to_sample(
+        result = ReferenceBatchService.visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-            label_id_to_name=label_id_to_name,
-            label_shot_counts=label_shot_counts,
+            label_info=label_info,
         )
 
         assert result is not None
@@ -95,7 +108,6 @@ class TestVisualPromptToSample:
         assert np.array_equal(result.image.permute(1, 2, 0).numpy(), sample_frame)
         assert len(result.categories) == 1
         assert result.categories[0] == "car"
-        assert label_shot_counts[label_id] == 1
 
     def test_raises_error_without_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -120,17 +132,13 @@ class TestVisualPromptToSample:
             annotations=[annotation_db],
         )
 
-        label_to_category_id = {label_id: 0}
-        label_id_to_name = {label_id: "car"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({label_id: "car"})
 
         with pytest.raises(ServiceError, match="must have at least one polygon annotation"):
-            visual_prompt_to_sample(
+            ReferenceBatchService.visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-                label_id_to_name=label_id_to_name,
-                label_shot_counts=label_shot_counts,
+                label_info=label_info,
             )
 
     def test_with_multiple_polygons(self, sample_frame: np.ndarray) -> None:
@@ -170,16 +178,12 @@ class TestVisualPromptToSample:
             annotations=[annotation_db_1, annotation_db_2],
         )
 
-        label_to_category_id = {label_id_1: 0, label_id_2: 1}
-        label_id_to_name = {label_id_1: "car", label_id_2: "person"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({label_id_1: "car", label_id_2: "person"})
 
-        result = visual_prompt_to_sample(
+        result = ReferenceBatchService.visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-            label_id_to_name=label_id_to_name,
-            label_shot_counts=label_shot_counts,
+            label_info=label_info,
         )
 
         assert result is not None
@@ -187,8 +191,6 @@ class TestVisualPromptToSample:
         assert len(result.categories) == 2
         assert "car" in result.categories
         assert "person" in result.categories
-        assert label_shot_counts[label_id_1] == 1
-        assert label_shot_counts[label_id_2] == 1
 
     def test_raises_error_for_text_prompt(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -203,17 +205,13 @@ class TestVisualPromptToSample:
             annotations=[],
         )
 
-        label_to_category_id: dict[uuid.UUID, int] = {}
-        label_id_to_name: dict[uuid.UUID, str] = {}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({})
 
         with pytest.raises(ServiceError, match="Cannot convert non-visual prompt"):
-            visual_prompt_to_sample(
+            ReferenceBatchService.visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-                label_id_to_name=label_id_to_name,
-                label_shot_counts=label_shot_counts,
+                label_info=label_info,
             )
 
     def test_raises_error_without_annotations(self, sample_frame: np.ndarray) -> None:
@@ -229,32 +227,25 @@ class TestVisualPromptToSample:
             annotations=[],
         )
 
-        label_to_category_id: dict[uuid.UUID, int] = {}
-        label_id_to_name: dict[uuid.UUID, str] = {}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({})
 
         with pytest.raises(ServiceError, match="has no valid annotations"):
-            visual_prompt_to_sample(
+            ReferenceBatchService.visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-                label_id_to_name=label_id_to_name,
-                label_shot_counts=label_shot_counts,
+                label_info=label_info,
             )
 
     def test_use_label_names_true_uses_real_names(self, sample_frame: np.ndarray) -> None:
         """When label_id_to_name has real names, category names come from label_id_to_name."""
         label_id = uuid.uuid4()
-        prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
-        label_id_to_name = {label_id: "car"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        prompt_db, _ = _make_single_polygon_prompt(label_id)
+        label_info = _make_label_info({label_id: "car"})
 
-        result = visual_prompt_to_sample(
+        result = ReferenceBatchService.visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-            label_id_to_name=label_id_to_name,
-            label_shot_counts=label_shot_counts,
+            label_info=label_info,
             output_bboxes=True,
         )
 
@@ -263,16 +254,13 @@ class TestVisualPromptToSample:
     def test_use_label_names_false_uses_visual_placeholder(self, sample_frame: np.ndarray) -> None:
         """When label_id_to_name maps to ``"visual"``, categories use the placeholder."""
         label_id = uuid.uuid4()
-        prompt_db, label_to_category_id = _make_single_polygon_prompt(label_id)
-        label_id_to_name = {label_id: "visual"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        prompt_db, _ = _make_single_polygon_prompt(label_id)
+        label_info = _make_label_info({label_id: "visual"})
 
-        result = visual_prompt_to_sample(
+        result = ReferenceBatchService.visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-            label_id_to_name=label_id_to_name,
-            label_shot_counts=label_shot_counts,
+            label_info=label_info,
             output_bboxes=True,
         )
 
@@ -309,16 +297,12 @@ class TestVisualPromptToSample:
             ],
         )
 
-        label_to_category_id = {label_id_1: 0, label_id_2: 1}
-        label_id_to_name = {label_id_1: "visual", label_id_2: "visual"}
-        label_shot_counts: dict[uuid.UUID, int] = {}
+        label_info = _make_label_info({label_id_1: "visual", label_id_2: "visual"})
 
-        result = visual_prompt_to_sample(
+        result = ReferenceBatchService.visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-            label_id_to_name=label_id_to_name,
-            label_shot_counts=label_shot_counts,
+            label_info=label_info,
             output_bboxes=True,
         )
 
@@ -405,7 +389,10 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
-            patch("runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample),
+            patch(
+                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                return_value=fake_sample,
+            ),
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
         ):
             prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
@@ -413,7 +400,7 @@ class TestReferenceBatchServiceBuild:
                 label_to_category_id={label_id: 0},
                 category_id_to_label_id={0: str(label_id)},
             )
-            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+            label_svc_cls.return_value.get_labels_by_ids.return_value = []
 
             result = service.build(cfg)
 
@@ -447,7 +434,7 @@ class TestReferenceBatchServiceBuild:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={}, category_id_to_label_id={}
             )
-            label_svc_cls.return_value.get_label_names.return_value = {}
+            label_svc_cls.return_value.get_labels_by_ids.return_value = []
 
             result = service.build(cfg)
 
@@ -488,7 +475,8 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
             patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
@@ -497,14 +485,13 @@ class TestReferenceBatchServiceBuild:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
             )
-            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+            label_svc_cls.return_value.get_labels_by_ids.return_value = []
 
             result = service.build(cfg)
 
         assert result is not None
-        # hybrid mode disabled: label_id_to_name should map to "visual" placeholder
         call_kwargs = mock_to_sample.call_args.kwargs
-        assert call_kwargs["label_id_to_name"] == {label_id: "visual"}
+        assert call_kwargs["label_info"].label_id_to_name == {label_id: "visual"}
         assert call_kwargs["output_bboxes"] is True
 
     def test_build_sam3_visual_hybrid_mode_enabled_passes_use_label_names_true(self, service, frame_repository):
@@ -537,12 +524,15 @@ class TestReferenceBatchServiceBuild:
 
         fake_settings = SimpleNamespace(sam3_hybrid_mode=True)
 
+        fake_label = SimpleNamespace(id=label_id, name="car")
+
         with (
             patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
             patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
@@ -551,14 +541,13 @@ class TestReferenceBatchServiceBuild:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
             )
-            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+            label_svc_cls.return_value.get_labels_by_ids.return_value = [fake_label]
 
             result = service.build(cfg)
 
         assert result is not None
-        # hybrid mode enabled: label_id_to_name should have real names
         call_kwargs = mock_to_sample.call_args.kwargs
-        assert call_kwargs["label_id_to_name"] == {label_id: "car"}
+        assert call_kwargs["label_info"].label_id_to_name == {label_id: "car"}
         assert call_kwargs["output_bboxes"] is True
 
     def test_build_matcher_does_not_use_label_names(self, service, frame_repository):
@@ -589,8 +578,6 @@ class TestReferenceBatchServiceBuild:
         frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
         frame_repository.read_frame.return_value = frame_bgr
 
-        # hybrid mode disabled — but Matcher doesn't use bboxes, so use_label_names is irrelevant
-        # (it defaults to True since needs_bboxes is False → use_label_names = False and False = False)
         fake_settings = SimpleNamespace(sam3_hybrid_mode=False)
 
         with (
@@ -598,7 +585,8 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.visual_prompt_to_sample", return_value=fake_sample
+                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
             patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
@@ -607,11 +595,10 @@ class TestReferenceBatchServiceBuild:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
             )
-            label_svc_cls.return_value.get_label_names.return_value = {label_id: "car"}
+            label_svc_cls.return_value.get_labels_by_ids.return_value = []
 
             service.build(cfg)
 
         call_kwargs = mock_to_sample.call_args.kwargs
-        # Matcher doesn't need bboxes, so use_label_names = False → "visual" placeholder
         assert call_kwargs["output_bboxes"] is False
-        assert call_kwargs["label_id_to_name"] == {label_id: "visual"}
+        assert call_kwargs["label_info"].label_id_to_name == {label_id: "visual"}

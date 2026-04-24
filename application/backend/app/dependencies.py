@@ -18,6 +18,7 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
+from domain.repositories.supported_model import SupportedModelRepository
 from domain.services import (
     LabelService,
     ModelService,
@@ -120,6 +121,11 @@ def get_sink_repository(session: SessionDep) -> SinkRepository:
     return SinkRepository(session)
 
 
+def get_supported_model_repository() -> SupportedModelRepository:
+    """Provides a SupportedModelRepository instance."""
+    return SupportedModelRepository()
+
+
 # --- Service providers ---
 def get_project_service(
     session: SessionDep,
@@ -207,3 +213,4 @@ LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
 DatasetPathDep = Annotated[Path, Depends(get_dataset_path_by_id)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
 AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]
+SupportedModelRepoDep = Annotated[SupportedModelRepository, Depends(get_supported_model_repository)]
