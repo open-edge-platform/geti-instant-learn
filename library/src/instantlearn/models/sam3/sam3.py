@@ -4,9 +4,9 @@
 """SAM3 model for text and visual prompting."""
 
 import logging
-import math
 from collections import defaultdict
 from contextlib import nullcontext
+from dataclasses import dataclass
 from enum import Enum
 from itertools import zip_longest
 
@@ -29,6 +29,54 @@ logger = logging.getLogger(__name__)
 
 SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
 SAM3_APPLICATION_MODEL_ID = "research21/sam3.1"
+
+
+@dataclass
+class CanvasConfig:
+    """Configuration for SAM3 canvas mode.
+
+    Canvas mode stitches reference and target images into a single canvas,
+    runs detection, and extracts predictions from the target region.
+
+    Args:
+        split_ratio: Fraction of the canvas allocated to the reference strip.
+            Lower values give more space to the target image. Must be in
+            (0, 1). Default: 0.3.
+        crop_padding: Padding factor around the reference bounding box when
+            cropping. A factor of 2.0 means the crop region is 2x the bbox
+            size. Must be positive. Default: 2.0.
+        cache_text: Cache text embeddings across canvas forward passes to
+            avoid redundant CLIP encoding. Default: True.
+        share_vision: Vision sharing strategy for multi-category canvas mode.
+            - ``"auto"``: Groups same-category refs together with gaps between
+              categories (equivalent to ``"grouped"``).
+            - ``"grouped"``: Same-category refs packed side-by-side, gaps only
+              between category groups.
+            - ``"spaced"``: Each ref in its own slot with gaps between all refs.
+            - ``False``: Sequential per-category canvases (no sharing).
+
+    Examples:
+        Use defaults:
+
+        >>> config = CanvasConfig()
+
+        Tune split ratio for small reference objects:
+
+        >>> config = CanvasConfig(split_ratio=0.25, crop_padding=3.0)
+    """
+
+    split_ratio: float = 0.3
+    crop_padding: float = 2.0
+    cache_text: bool = True
+    share_vision: bool | str = "auto"
+
+    def __post_init__(self) -> None:
+        if not 0 < self.split_ratio < 1:
+            msg = f"split_ratio must be in (0, 1), got {self.split_ratio}"
+            raise ValueError(msg)
+        if self.crop_padding <= 0:
+            msg = f"crop_padding must be positive, got {self.crop_padding}"
+            raise ValueError(msg)
 
 
 class Sam3PromptMode(str, Enum):
@@ -152,9 +200,7 @@ class SAM3(Model):
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
         postprocessor: PostProcessor | None = None,
-        canvas_split_ratio: float = 0.3,
-        canvas_layout: str = "vertical",
-        canvas_crop_padding: float = 2.0,
+        canvas_config: CanvasConfig | None = None,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -178,17 +224,9 @@ class SAM3(Model):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
-            canvas_split_ratio: Fraction of canvas allocated to reference region
-                (CANVAS mode only). Lower values give more space to the target.
-                Default: 0.3.
-            canvas_layout: Layout for canvas construction ('vertical',
-                'vertical_crop', 'horizontal', 'horizontal_crop', 'lshape').
-                Default: 'vertical' (full reference image in bottom strip).
-                'lshape' uses an inverse-L layout (refs along top + left,
-                query bottom-right) which is optimal for multi-shot (2-10
-                refs). Falls back to vertical for single-ref.
-            canvas_crop_padding: Padding factor around the reference bbox when
-                cropping (CANVAS mode with crop layouts). Default: 2.0.
+            canvas_config: Configuration for canvas mode (split ratio, crop
+                padding, text caching, vision sharing). See :class:`CanvasConfig`.
+                Default: ``None`` (uses ``CanvasConfig()`` defaults).
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
@@ -202,11 +240,7 @@ class SAM3(Model):
         self.model_id = model_id
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
-
-        # Canvas mode parameters
-        self.canvas_split_ratio = canvas_split_ratio
-        self.canvas_layout = canvas_layout
-        self.canvas_crop_padding = canvas_crop_padding
+        self.canvas_config = canvas_config or CanvasConfig()
 
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
@@ -222,6 +256,8 @@ class SAM3(Model):
         self._canvas_ref_images: list[torch.Tensor] | None = None
         self._canvas_ref_bboxes: list[np.ndarray] | None = None
         self._canvas_ref_text: str | None = None
+        self._canvas_refs_by_category: dict[int, dict] | None = None
+        self._canvas_text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
 
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
@@ -827,44 +863,84 @@ class SAM3(Model):
     def _fit_canvas(self, reference_batch: Batch) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
+        References are grouped by category so that each category gets its own
+        canvas at prediction time, enabling multi-category detection.
+
         Args:
             reference_batch: Batch of reference samples with images and bboxes.
 
         Raises:
             ValueError: If no reference samples contain bboxes.
         """
-        ref_images: list[torch.Tensor] = []
-        ref_bboxes: list[np.ndarray] = []
-        ref_text = "visual"
+        # Per-category storage: {cat_id: {"images": [...], "bboxes": [...], "text": str}}
+        refs_by_category: dict[int, dict] = {}
 
         for sample in reference_batch.samples:
             if sample.bboxes is None or len(sample.bboxes) == 0:
                 continue
-            ref_images.append(sample.image)
-            ref_bboxes.append(np.asarray(sample.bboxes[0][:4], dtype=np.float32))
-            if sample.categories and sample.categories[0] != "visual":
-                ref_text = sample.categories[0]
+            bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
+            cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
+            cat_text = (
+                sample.categories[0]
+                if sample.categories and sample.categories[0] != "visual"
+                else "visual"
+            )
 
-        if not ref_images:
+            if cat_id not in refs_by_category:
+                refs_by_category[cat_id] = {"images": [], "bboxes": [], "text": cat_text}
+            refs_by_category[cat_id]["images"].append(sample.image)
+            refs_by_category[cat_id]["bboxes"].append(bbox)
+            # Keep the most specific (non-"visual") text for this category
+            if cat_text != "visual":
+                refs_by_category[cat_id]["text"] = cat_text
+
+        if not refs_by_category:
             msg = "CANVAS mode requires at least one reference sample with bboxes."
             raise ValueError(msg)
 
-        self._canvas_ref_images = ref_images
-        self._canvas_ref_bboxes = ref_bboxes
-        self._canvas_ref_text = ref_text
+        self._canvas_refs_by_category = refs_by_category
+        # Legacy single-category attrs for backward compatibility
+        all_images = [img for g in refs_by_category.values() for img in g["images"]]
+        all_bboxes = [bb for g in refs_by_category.values() for bb in g["bboxes"]]
+        self._canvas_ref_images = all_images
+        self._canvas_ref_bboxes = all_bboxes
+        self._canvas_ref_text = next(iter(refs_by_category.values()))["text"]
         self.category_mapping = self._build_category_mapping(reference_batch)
 
+        # Pre-cache text features (T4 optimization)
+        self._canvas_text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        for cat_refs in refs_by_category.values():
+            text = cat_refs["text"]
+            if text not in self._canvas_text_cache:
+                tokenized = self._tokenize([text])
+                with torch.no_grad(), self._get_autocast_context():
+                    text_outputs = self.model.get_text_features(
+                        input_ids=tokenized["input_ids"],
+                        attention_mask=tokenized["attention_mask"],
+                    )
+                self._canvas_text_cache[text] = (
+                    text_outputs.pooler_output,
+                    tokenized["attention_mask"],
+                )
+
         logger.info(
-            "Canvas mode: stored %d reference image(s), text=%r, layout=%s, ratio=%.2f",
-            len(ref_images), ref_text, self.canvas_layout, self.canvas_split_ratio,
+            "Canvas mode: stored %d reference(s) across %d category(ies), "
+            "ratio=%.2f, cached %d text embeddings",
+            len(all_images), len(refs_by_category),
+            self.canvas_config.split_ratio,
+            len(self._canvas_text_cache),
         )
 
     def _predict_canvas(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
-        """Canvas prediction: stitch reference+target, run CLASSIC, remap results.
+        """Canvas prediction with shared vision encoder and cached text features.
 
-        For each target image, constructs a canvas with the reference region and
-        target region, runs the model in CLASSIC mode on the canvas, then extracts
-        and remaps predictions that fall within the target region.
+        Routing (multi-category):
+        - share_vision='auto'/'grouped'/'spaced': Shared canvas with
+          1 ViT pass and per-category decoder passes. Spacing strategy
+          controls reference layout in the strip.
+        - share_vision=False: Sequential per-category canvases.
+
+        For single-category, builds one canvas and runs once.
 
         Args:
             target: Target data to infer.
@@ -878,90 +954,569 @@ class SAM3(Model):
 
         target_batch = Batch.collate(target)
         results = []
+        n_categories = len(self._canvas_refs_by_category)
 
-        # Temporarily switch to classic prediction internals
-        saved_mode = self.prompt_mode
-        saved_mapping = self.category_mapping
-        self.prompt_mode = Sam3PromptMode.CLASSIC
+        for sample in target_batch.samples:
+            tgt_image = sample.image
+            tgt_h, tgt_w = tgt_image.shape[-2:]
 
-        try:
-            for sample in target_batch.samples:
-                tgt_image = sample.image
-                tgt_h, tgt_w = tgt_image.shape[-2:]
-
-                # Construct canvas
-                n_refs = len(self._canvas_ref_images)
-                if n_refs > 1 and self.canvas_layout not in ("multishot", "lshape"):
-                    layout = "multishot"
-                else:
-                    layout = self.canvas_layout
-
-                if layout == "multishot":
-                    canvas, all_bboxes, tgt_region = self._build_canvas_multishot(
-                        self._canvas_ref_images, tgt_image, self._canvas_ref_bboxes,
-                    )
-                elif layout == "lshape":
-                    if n_refs == 1:
-                        # Single ref: fall back to vertical (proven best)
-                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
-                            self._canvas_ref_images[0], tgt_image,
-                            self._canvas_ref_bboxes[0],
-                        )
-                        all_bboxes = [cbbox]
-                    else:
-                        canvas, all_bboxes, tgt_region = self._build_canvas_lshape(
-                            self._canvas_ref_images, tgt_image,
-                            self._canvas_ref_bboxes,
-                        )
-                else:
-                    ref_image = self._canvas_ref_images[0]
-                    ref_bbox = self._canvas_ref_bboxes[0]
-
-                    if layout == "vertical":
-                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
-                            ref_image, tgt_image, ref_bbox,
-                        )
-                    elif layout == "vertical_crop":
-                        crop, adj_bbox = self._crop_around_bbox(ref_image, ref_bbox)
-                        canvas, cbbox, tgt_region = self._build_canvas_vertical(
-                            crop, tgt_image, adj_bbox,
-                        )
-                    elif layout == "horizontal":
-                        canvas, cbbox, tgt_region = self._build_canvas_horizontal(
-                            ref_image, tgt_image, ref_bbox,
-                        )
-                    elif layout == "horizontal_crop":
-                        crop, adj_bbox = self._crop_around_bbox(ref_image, ref_bbox)
-                        canvas, cbbox, tgt_region = self._build_canvas_horizontal(
-                            crop, tgt_image, adj_bbox,
-                        )
-                    else:
-                        msg = f"Unknown canvas_layout: {layout}"
-                        raise ValueError(msg)
-                    all_bboxes = [cbbox]
-
-                # Build canvas sample for classic prediction
-                canvas_sample = Sample(
-                    image=canvas,
-                    bboxes=np.array(all_bboxes),
-                    categories=[self._canvas_ref_text] * len(all_bboxes),
-                    category_ids=np.array([0] * len(all_bboxes)),
+            if n_categories == 1:
+                result = self._predict_canvas_single_category(tgt_image, tgt_h, tgt_w)
+            elif isinstance(self.canvas_config.share_vision, str):
+                result = self._predict_canvas_shared_spaced(
+                    tgt_image, tgt_h, tgt_w,
+                    spacing=self.canvas_config.share_vision,
                 )
-
-                self.category_mapping = None
-                preds = self._predict_classic(canvas_sample)
-                pred = preds[0]
-
-                # Extract and remap predictions from the target region
-                remapped = self._extract_target_predictions(
-                    pred, tgt_region, tgt_h, tgt_w,
-                )
-                results.append(remapped)
-        finally:
-            self.prompt_mode = saved_mode
-            self.category_mapping = saved_mapping
+            else:
+                result = self._predict_canvas_sequential(tgt_image, tgt_h, tgt_w)
+            results.append(result)
 
         return results
+
+    def _predict_canvas_single_category(
+        self,
+        tgt_image: torch.Tensor,
+        tgt_h: int,
+        tgt_w: int,
+    ) -> dict[str, torch.Tensor]:
+        """Canvas prediction for single category — direct model call with T4.
+
+        Args:
+            tgt_image: Target image tensor (C, H, W).
+            tgt_h: Original target height.
+            tgt_w: Original target width.
+
+        Returns:
+            Prediction dict.
+        """
+        cat_id, cat_refs = next(iter(self._canvas_refs_by_category.items()))
+        cat_images = cat_refs["images"]
+        cat_bboxes = cat_refs["bboxes"]
+        cat_text = cat_refs["text"]
+
+        canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
+            cat_images, tgt_image, cat_bboxes,
+        )
+
+        pred = self._run_canvas_forward(canvas, canvas_bboxes, cat_text, (tgt_h, tgt_w))
+        remapped = self._extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
+
+        boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+        if boxes.shape[0] > 0:
+            remapped["pred_labels"] = torch.full(
+                (boxes.shape[0],), cat_id, dtype=torch.int64,
+            )
+        else:
+            remapped["pred_labels"] = torch.empty(0, dtype=torch.int64)
+
+        return remapped
+
+    def _predict_canvas_shared_spaced(
+        self,
+        tgt_image: torch.Tensor,
+        tgt_h: int,
+        tgt_w: int,
+        spacing: str = "auto",
+    ) -> dict[str, torch.Tensor]:
+        """Shared canvas with spaced-apart references (1 ViT, per-cat decoder).
+
+        Builds ONE canvas with all category references placed in the
+        reference strip according to the spacing strategy. Runs a single
+        ViT pass, then per-category decoder passes — each decoder call
+        only gets the bboxes for its own category's reference region.
+
+        Args:
+            tgt_image: Target image tensor (C, H, W).
+            tgt_h: Original target height.
+            tgt_w: Original target width.
+            spacing: Layout strategy ('auto', 'grouped', or 'spaced').
+
+        Returns:
+            Merged prediction dict with cross-category NMS.
+        """
+        canvas, per_cat_bboxes, tgt_region = self._build_canvas_shared_spaced(
+            tgt_image, spacing=spacing,
+        )
+
+        # Single ViT pass on the shared canvas
+        img_tensor = canvas.unsqueeze(0) if canvas.ndim == 3 else canvas
+        with torch.no_grad(), self._get_autocast_context():
+            pixel_values, original_sizes = self.image_preprocessor(
+                img_tensor.to(self.device),
+            )
+            vision_embeds = self.model.get_vision_features(pixel_values)
+
+        # Per-category decoder pass using shared vision embeddings
+        all_boxes_list: list[torch.Tensor] = []
+        all_masks_list: list[torch.Tensor] = []
+        all_labels_list: list[torch.Tensor] = []
+
+        for cat_id, cat_refs in self._canvas_refs_by_category.items():
+            cat_bboxes = per_cat_bboxes[cat_id]
+            pred = self._run_canvas_forward_with_vision(
+                vision_embeds, original_sizes,
+                canvas.shape[-2:], cat_bboxes, cat_refs["text"],
+            )
+            remapped = self._extract_target_predictions(
+                pred, tgt_region, tgt_h, tgt_w,
+            )
+            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            if boxes.shape[0] > 0:
+                all_boxes_list.append(boxes)
+                all_masks_list.append(
+                    remapped.get("pred_masks", torch.empty(0, tgt_h, tgt_w)),
+                )
+                all_labels_list.append(
+                    torch.full((boxes.shape[0],), cat_id, dtype=torch.int64),
+                )
+
+        if all_boxes_list:
+            return self._merge_cross_category(
+                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+            )
+        return {
+            "pred_boxes": torch.empty(0, 5),
+            "pred_masks": torch.empty(0, tgt_h, tgt_w),
+            "pred_labels": torch.empty(0, dtype=torch.int64),
+        }
+
+    def _build_canvas_shared_spaced(
+        self,
+        tgt_image: torch.Tensor,
+        spacing: str = "auto",
+    ) -> tuple[torch.Tensor, dict[int, list[np.ndarray]], tuple[int, int, int, int]]:
+        """Build a single canvas with all categories' refs in the reference strip.
+
+        Layout: target on top (1-split_ratio), reference strip on bottom.
+
+        Spacing strategies:
+        - "auto": Selects the best layout automatically. Uses "grouped"
+          for multi-category scenarios (experimentally optimal).
+        - "grouped": Same-category refs packed side-by-side in one group,
+          gaps between category groups. E.g. for 2 categories, 2-shot:
+          [cat1_ref1 cat1_ref2] [gap] [cat2_ref1 cat2_ref2]
+        - "spaced": Every ref gets its own slot with gaps between all.
+          E.g. [ref1] [gap] [ref2] [gap] [ref3] [gap] [ref4]
+
+        Each ref uses the FULL reference image (not cropped), resized
+        to fit its slot. Bboxes are remapped to canvas coordinates.
+
+        Args:
+            tgt_image: Target image tensor (C, H, W).
+            spacing: Layout strategy. Default: 'auto'.
+
+        Returns:
+            (canvas, per_cat_bboxes, tgt_region) where per_cat_bboxes
+            maps cat_id -> list of canvas bboxes for that category.
+        """
+        if spacing == "auto":
+            spacing = "grouped"
+
+        C = tgt_image.shape[0]
+        canvas_w = tgt_image.shape[2]
+        for cat_refs in self._canvas_refs_by_category.values():
+            for img in cat_refs["images"]:
+                canvas_w = max(canvas_w, img.shape[2])
+        canvas_h = canvas_w
+
+        ref_strip_h = int(canvas_h * self.canvas_config.split_ratio)
+        tgt_canvas_h = canvas_h - ref_strip_h
+
+        tgt_resized = F.interpolate(
+            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+
+        cat_items = list(self._canvas_refs_by_category.items())
+        n_cats = len(cat_items)
+
+        ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+        per_cat_bboxes: dict[int, list[np.ndarray]] = {}
+
+        if spacing == "grouped":
+            # [cat1_refs] [gap] [cat2_refs] ... — 2K-1 slots
+            n_slots = 2 * n_cats - 1
+            slot_w = canvas_w // n_slots
+
+            for cat_idx, (cat_id, cat_refs) in enumerate(cat_items):
+                group_x = cat_idx * 2 * slot_w
+                group_w = slot_w if cat_idx < n_cats - 1 else canvas_w - group_x
+
+                n_refs = len(cat_refs["images"])
+                cat_bboxes: list[np.ndarray] = []
+
+                for ref_idx, (ref_img, ref_bbox) in enumerate(zip(
+                    cat_refs["images"], cat_refs["bboxes"], strict=True,
+                )):
+                    sub_x = group_x + ref_idx * (group_w // n_refs)
+                    sub_w = (
+                        group_w // n_refs
+                        if ref_idx < n_refs - 1
+                        else group_w - ref_idx * (group_w // n_refs)
+                    )
+
+                    ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
+                    ref_resized = F.interpolate(
+                        ref_img.unsqueeze(0).float(),
+                        size=(ref_strip_h, sub_w),
+                        mode="bilinear", align_corners=False,
+                    ).squeeze(0)
+                    ref_strip[:, :, sub_x:sub_x + sub_w] = ref_resized
+
+                    sx = sub_w / ref_w
+                    sy = ref_strip_h / ref_h
+                    x1, y1, x2, y2 = ref_bbox[:4]
+                    cat_bboxes.append(np.array([
+                        x1 * sx + sub_x,
+                        y1 * sy + tgt_canvas_h,
+                        x2 * sx + sub_x,
+                        y2 * sy + tgt_canvas_h,
+                    ], dtype=np.float32))
+
+                per_cat_bboxes[cat_id] = cat_bboxes
+
+        else:  # "spaced" — every ref individually separated
+            all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
+            for cat_id, cat_refs in cat_items:
+                for ref_img, ref_bbox in zip(
+                    cat_refs["images"], cat_refs["bboxes"], strict=True,
+                ):
+                    all_refs.append((cat_id, ref_img, ref_bbox))
+
+            n_total = len(all_refs)
+            n_slots = max(2 * n_total - 1, 1)
+            slot_w = canvas_w // n_slots
+
+            for cat_id, _ in cat_items:
+                per_cat_bboxes[cat_id] = []
+
+            for ref_idx, (cat_id, ref_img, ref_bbox) in enumerate(all_refs):
+                slot_x = ref_idx * 2 * slot_w
+                this_w = slot_w if ref_idx < n_total - 1 else canvas_w - slot_x
+
+                ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
+                ref_resized = F.interpolate(
+                    ref_img.unsqueeze(0).float(),
+                    size=(ref_strip_h, this_w),
+                    mode="bilinear", align_corners=False,
+                ).squeeze(0)
+                ref_strip[:, :, slot_x:slot_x + this_w] = ref_resized
+
+                sx = this_w / ref_w
+                sy = ref_strip_h / ref_h
+                x1, y1, x2, y2 = ref_bbox[:4]
+                per_cat_bboxes[cat_id].append(np.array([
+                    x1 * sx + slot_x,
+                    y1 * sy + tgt_canvas_h,
+                    x2 * sx + slot_x,
+                    y2 * sy + tgt_canvas_h,
+                ], dtype=np.float32))
+
+        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+        canvas[:, :tgt_canvas_h, :] = tgt_resized
+        canvas[:, tgt_canvas_h:, :] = ref_strip
+
+        return canvas, per_cat_bboxes, (0, 0, canvas_w, tgt_canvas_h)
+
+    def _predict_canvas_sequential(
+        self,
+        tgt_image: torch.Tensor,
+        tgt_h: int,
+        tgt_w: int,
+    ) -> dict[str, torch.Tensor]:
+        """Multi-category canvas: sequential ViT per category (T4 only).
+
+        Builds separate per-category canvases and processes each sequentially.
+        Only T4 (cached text) optimization is applied.
+
+        Args:
+            tgt_image: Target image tensor (C, H, W).
+            tgt_h: Original target height.
+            tgt_w: Original target width.
+
+        Returns:
+            Merged prediction dict with cross-category NMS.
+        """
+        all_boxes_list: list[torch.Tensor] = []
+        all_masks_list: list[torch.Tensor] = []
+        all_labels_list: list[torch.Tensor] = []
+
+        for cat_id, cat_refs in self._canvas_refs_by_category.items():
+            canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
+                cat_refs["images"], tgt_image, cat_refs["bboxes"],
+            )
+            pred = self._run_canvas_forward(
+                canvas, canvas_bboxes, cat_refs["text"], (tgt_h, tgt_w),
+            )
+            remapped = self._extract_target_predictions(
+                pred, tgt_region, tgt_h, tgt_w,
+            )
+            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            if boxes.shape[0] > 0:
+                all_boxes_list.append(boxes)
+                all_masks_list.append(
+                    remapped.get("pred_masks", torch.empty(0, tgt_h, tgt_w)),
+                )
+                all_labels_list.append(
+                    torch.full((boxes.shape[0],), cat_id, dtype=torch.int64),
+                )
+
+        if all_boxes_list:
+            return self._merge_cross_category(
+                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+            )
+        return {
+            "pred_boxes": torch.empty(0, 5),
+            "pred_masks": torch.empty(0, tgt_h, tgt_w),
+            "pred_labels": torch.empty(0, dtype=torch.int64),
+        }
+
+    def _run_canvas_forward_with_vision(
+        self,
+        vision_embeds: dict[str, torch.Tensor],
+        original_sizes: torch.Tensor,
+        canvas_size: tuple[int, int],
+        canvas_bboxes: list[np.ndarray],
+        text: str,
+    ) -> dict[str, torch.Tensor]:
+        """Run decoder on pre-computed vision embeddings with cached text.
+
+        Args:
+            vision_embeds: Pre-computed vision features from ViT.
+            original_sizes: Original image sizes from preprocessor.
+            canvas_size: (H, W) of the canvas.
+            canvas_bboxes: Bounding boxes on the canvas for this category.
+            text: Text prompt for this category.
+
+        Returns:
+            Prediction dict with pred_boxes and pred_masks.
+        """
+        with torch.no_grad(), self._get_autocast_context():
+            # T4: use pre-cached text embeddings if available
+            text_embeds, attention_mask = (None, None)
+            if self.canvas_config.cache_text:
+                text_embeds, attention_mask = self._canvas_text_cache.get(
+                    text, (None, None),
+                )
+
+            all_masks: list[torch.Tensor] = []
+            all_boxes: list[torch.Tensor] = []
+
+            for bbox in canvas_bboxes:
+                input_boxes, _ = self.prompt_preprocessor(
+                    original_sizes, input_boxes=bbox,
+                )
+                input_boxes_labels = torch.ones(
+                    (1, 1), dtype=torch.long, device=self.device,
+                )
+
+                if text_embeds is not None:
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        text_embeds=text_embeds,
+                        attention_mask=attention_mask,
+                        input_boxes=input_boxes,
+                        input_boxes_labels=input_boxes_labels,
+                    )
+                else:
+                    tokenized = self._tokenize([text])
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        input_ids=tokenized["input_ids"],
+                        attention_mask=tokenized["attention_mask"],
+                        input_boxes=input_boxes,
+                        input_boxes_labels=input_boxes_labels,
+                    )
+
+                result = self.sam3_postprocessor(
+                    outputs, target_sizes=[canvas_size],
+                )
+                boxes_with_scores = torch.cat(
+                    [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
+                    dim=1,
+                )
+                all_masks.append(result[0]["masks"].cpu())
+                all_boxes.append(boxes_with_scores.cpu())
+
+        if all_boxes:
+            return {
+                "pred_boxes": torch.cat(all_boxes, dim=0),
+                "pred_masks": torch.cat(all_masks, dim=0),
+            }
+        return {
+            "pred_boxes": torch.empty(0, 5),
+            "pred_masks": torch.empty(0, *canvas_size),
+        }
+
+    def _build_category_canvas(
+        self,
+        cat_images: list[torch.Tensor],
+        tgt_image: torch.Tensor,
+        cat_bboxes: list[np.ndarray],
+    ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
+        """Build canvas for a single category's references.
+
+        Args:
+            cat_images: Reference images for this category.
+            tgt_image: Target image tensor.
+            cat_bboxes: Reference bounding boxes.
+
+        Returns:
+            (canvas, canvas_bboxes, tgt_region).
+        """
+        n_refs = len(cat_images)
+        if n_refs == 1:
+            canvas, cbbox, tgt_region = self._build_canvas_vertical(
+                cat_images[0], tgt_image, cat_bboxes[0],
+            )
+            return canvas, [cbbox], tgt_region
+        return self._build_canvas_multishot(cat_images, tgt_image, cat_bboxes)
+
+    def _run_canvas_forward(
+        self,
+        canvas: torch.Tensor,
+        canvas_bboxes: list[np.ndarray],
+        text: str,
+        target_size: tuple[int, int],
+        vision_embeds: dict[str, torch.Tensor] | None = None,
+    ) -> dict[str, torch.Tensor]:
+        """Run model forward on canvas with cached text features.
+
+        This replaces the _predict_classic delegation with a direct model call,
+        using pre-cached text embeddings (T4) and optional pre-cached vision
+        embeddings (T2).
+
+        Args:
+            canvas: Canvas image tensor (C, H, W).
+            canvas_bboxes: Bounding boxes on the canvas.
+            text: Text prompt for this category.
+            target_size: (height, width) of original target image.
+            vision_embeds: Pre-computed vision embeddings to reuse. If None,
+                computes them from the canvas.
+
+        Returns:
+            Prediction dict with pred_boxes, pred_masks, and _vision_embeds
+            (for caching by caller).
+        """
+        img_size = canvas.shape[-2:]
+        image_tensor = canvas.unsqueeze(0) if canvas.ndim == 3 else canvas
+
+        with torch.no_grad(), self._get_autocast_context():
+            pixel_values, original_sizes = self.image_preprocessor(
+                image_tensor.to(self.device),
+            )
+
+            # T2: reuse vision embeddings if provided
+            if vision_embeds is None:
+                vision_embeds = self.model.get_vision_features(pixel_values)
+
+            # T4: use pre-cached text embeddings if available and enabled
+            text_embeds, attention_mask = (None, None)
+            if self.canvas_config.cache_text:
+                text_embeds, attention_mask = self._canvas_text_cache.get(
+                    text, (None, None),
+                )
+
+            all_masks: list[torch.Tensor] = []
+            all_boxes: list[torch.Tensor] = []
+
+            for bbox in canvas_bboxes:
+                input_boxes, _ = self.prompt_preprocessor(
+                    original_sizes, input_boxes=bbox,
+                )
+                input_boxes_labels = torch.ones(
+                    (1, 1), dtype=torch.long, device=self.device,
+                )
+
+                if text_embeds is not None:
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        text_embeds=text_embeds,
+                        attention_mask=attention_mask,
+                        input_boxes=input_boxes,
+                        input_boxes_labels=input_boxes_labels,
+                    )
+                else:
+                    # Fallback: tokenize on the fly
+                    tokenized = self._tokenize([text])
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        input_ids=tokenized["input_ids"],
+                        attention_mask=tokenized["attention_mask"],
+                        input_boxes=input_boxes,
+                        input_boxes_labels=input_boxes_labels,
+                    )
+
+                result = self.sam3_postprocessor(
+                    outputs, target_sizes=[img_size],
+                )
+                boxes_with_scores = torch.cat(
+                    [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
+                    dim=1,
+                )
+                all_masks.append(result[0]["masks"].cpu())
+                all_boxes.append(boxes_with_scores.cpu())
+
+        # Aggregate per-bbox results
+        if all_boxes:
+            merged_boxes = torch.cat(all_boxes, dim=0)
+            merged_masks = torch.cat(all_masks, dim=0)
+        else:
+            merged_boxes = torch.empty(0, 5)
+            merged_masks = torch.empty(0, *img_size)
+
+        return {
+            "pred_boxes": merged_boxes,
+            "pred_masks": merged_masks,
+            "_vision_embeds": vision_embeds,
+        }
+
+    @staticmethod
+    def _merge_cross_category(
+        boxes_list: list[torch.Tensor],
+        masks_list: list[torch.Tensor],
+        labels_list: list[torch.Tensor],
+        img_size: tuple[int, int],
+        iou_threshold: float = 0.5,
+    ) -> dict[str, torch.Tensor]:
+        """Merge per-category predictions with cross-category NMS.
+
+        When the same object is detected by multiple category canvases,
+        keeps only the highest-confidence prediction.
+
+        Args:
+            boxes_list: Per-category box tensors [N_k, 5] (x1,y1,x2,y2,score).
+            masks_list: Per-category mask tensors [N_k, H, W].
+            labels_list: Per-category label tensors [N_k].
+            img_size: (height, width) of the target image.
+            iou_threshold: IoU threshold for cross-category NMS.
+
+        Returns:
+            Merged prediction dict.
+        """
+        from torchvision.ops import nms as torchvision_nms
+
+        all_boxes = torch.cat(boxes_list, dim=0)
+        all_masks = torch.cat(masks_list, dim=0) if masks_list else torch.empty(0, *img_size)
+        all_labels = torch.cat(labels_list, dim=0)
+
+        if all_boxes.shape[0] == 0:
+            return {
+                "pred_boxes": torch.empty(0, 5),
+                "pred_masks": torch.empty(0, *img_size),
+                "pred_labels": torch.empty(0, dtype=torch.int64),
+            }
+
+        # Cross-category NMS: treat all detections as one pool
+        coords = all_boxes[:, :4]
+        scores = all_boxes[:, 4]
+        keep = torchvision_nms(coords, scores, iou_threshold)
+
+        return {
+            "pred_boxes": all_boxes[keep],
+            "pred_masks": all_masks[keep] if all_masks.shape[0] > 0 else torch.empty(0, *img_size),
+            "pred_labels": all_labels[keep],
+        }
 
     def _crop_around_bbox(
         self,
@@ -982,8 +1537,8 @@ class SAM3(Model):
         bw, bh = x2 - x1, y2 - y1
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
 
-        half_w = bw * self.canvas_crop_padding / 2
-        half_h = bh * self.canvas_crop_padding / 2
+        half_w = bw * self.canvas_config.crop_padding / 2
+        half_h = bh * self.canvas_config.crop_padding / 2
 
         crop_x1 = int(max(0, cx - half_w))
         crop_y1 = int(max(0, cy - half_h))
@@ -1016,7 +1571,7 @@ class SAM3(Model):
         canvas_w = max(ref_w, tgt_w)
         canvas_h = canvas_w
 
-        ref_canvas_h = int(canvas_h * self.canvas_split_ratio)
+        ref_canvas_h = int(canvas_h * self.canvas_config.split_ratio)
         tgt_canvas_h = canvas_h - ref_canvas_h
 
         ref_resized = F.interpolate(
@@ -1042,50 +1597,6 @@ class SAM3(Model):
 
         return canvas, canvas_bbox, (0, 0, canvas_w, tgt_canvas_h)
 
-    def _build_canvas_horizontal(
-        self,
-        ref_image: torch.Tensor,
-        tgt_image: torch.Tensor,
-        ref_bbox: np.ndarray,
-    ) -> tuple[torch.Tensor, np.ndarray, tuple[int, int, int, int]]:
-        """Build horizontal canvas: target on left, reference on right.
-
-        Returns:
-            (canvas, canvas_bbox, tgt_region) where tgt_region is (x, y, w, h).
-        """
-        C = ref_image.shape[0]
-        ref_h, ref_w = ref_image.shape[1], ref_image.shape[2]
-        tgt_h, tgt_w = tgt_image.shape[1], tgt_image.shape[2]
-
-        canvas_h = max(ref_h, tgt_h)
-        canvas_w = canvas_h
-
-        ref_canvas_w = int(canvas_w * self.canvas_split_ratio)
-        tgt_canvas_w = canvas_w - ref_canvas_w
-
-        ref_resized = F.interpolate(
-            ref_image.unsqueeze(0).float(), size=(canvas_h, ref_canvas_w),
-            mode="bilinear", align_corners=False,
-        ).squeeze(0)
-        tgt_resized = F.interpolate(
-            tgt_image.unsqueeze(0).float(), size=(canvas_h, tgt_canvas_w),
-            mode="bilinear", align_corners=False,
-        ).squeeze(0)
-
-        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=ref_resized.dtype)
-        canvas[:, :, :tgt_canvas_w] = tgt_resized
-        canvas[:, :, tgt_canvas_w:] = ref_resized
-
-        sx = ref_canvas_w / ref_w
-        sy = canvas_h / ref_h
-        x1, y1, x2, y2 = ref_bbox[:4]
-        canvas_bbox = np.array([
-            x1 * sx + tgt_canvas_w, y1 * sy,
-            x2 * sx + tgt_canvas_w, y2 * sy,
-        ], dtype=np.float32)
-
-        return canvas, canvas_bbox, (0, 0, tgt_canvas_w, canvas_h)
-
     def _build_canvas_multishot(
         self,
         ref_images: list[torch.Tensor],
@@ -1107,7 +1618,7 @@ class SAM3(Model):
         canvas_w = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
         canvas_h = canvas_w
 
-        ref_strip_h = int(canvas_h * self.canvas_split_ratio)
+        ref_strip_h = int(canvas_h * self.canvas_config.split_ratio)
         tgt_canvas_h = canvas_h - ref_strip_h
 
         tgt_resized = F.interpolate(
@@ -1144,119 +1655,6 @@ class SAM3(Model):
         canvas[:, tgt_canvas_h:, :] = ref_strip
 
         return canvas, canvas_bboxes, (0, 0, canvas_w, tgt_canvas_h)
-
-    def _build_canvas_lshape(
-        self,
-        ref_images: list[torch.Tensor],
-        tgt_image: torch.Tensor,
-        ref_bboxes: list[np.ndarray],
-    ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
-        """Build inverse L-shape canvas: refs along top + left, query bottom-right.
-
-        Layout (example with 5 refs):
-        ┌──────────────────────────┐
-        │  ref_1  │ ref_2 │ ref_3  │  <- top strip (ceil(N/2) refs)
-        ├────────┬─────────────────┤
-        │ ref_4  │                 │
-        ├────────┤     QUERY       │  <- query region (bottom-right)
-        │ ref_5  │  (target image) │
-        └────────┴─────────────────┘
-          left      query area
-          strip
-
-        For N=1, callers should fall back to vertical layout instead.
-        Top strip spans full canvas width; left strip sits below it.
-        References are cropped around their bboxes before placement.
-
-        Args:
-            ref_images: Reference image tensors (C, H, W).
-            tgt_image: Target image tensor (C, H, W).
-            ref_bboxes: Reference bounding boxes [x1, y1, x2, y2].
-
-        Returns:
-            (canvas, canvas_bboxes, tgt_region) where tgt_region is (x, y, w, h).
-        """
-        # Crop all references around their bboxes
-        crops, adj_bboxes = [], []
-        for ref_img, ref_bbox in zip(ref_images, ref_bboxes, strict=True):
-            crop, adj_bbox = self._crop_around_bbox(ref_img, ref_bbox)
-            crops.append(crop)
-            adj_bboxes.append(adj_bbox)
-
-        n_refs = len(crops)
-        n_top = math.ceil(n_refs / 2)
-        n_left = n_refs - n_top
-
-        C = tgt_image.shape[0]
-        canvas_size = max(tgt_image.shape[2], max(c.shape[2] for c in crops))
-        canvas_h = canvas_size
-        canvas_w = canvas_size
-
-        # Strip dimensions
-        top_h = int(canvas_h * self.canvas_split_ratio)
-        left_w = int(canvas_w * self.canvas_split_ratio)
-        query_h = canvas_h - top_h
-        query_w = canvas_w - left_w
-
-        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_image.float().dtype)
-        canvas_bboxes: list[np.ndarray] = []
-
-        # --- Top strip: n_top refs side by side across full width ---
-        top_slot_w = canvas_w // n_top
-        top_remainder = canvas_w - top_slot_w * n_top
-        x_offset = 0
-        for i in range(n_top):
-            crop = crops[i]
-            adj_bbox = adj_bboxes[i]
-            this_w = top_slot_w + (top_remainder if i == n_top - 1 else 0)
-            crop_resized = F.interpolate(
-                crop.unsqueeze(0).float(), size=(top_h, this_w),
-                mode="bilinear", align_corners=False,
-            ).squeeze(0)
-            canvas[:, :top_h, x_offset:x_offset + this_w] = crop_resized
-
-            sx = this_w / crop.shape[2]
-            sy = top_h / crop.shape[1]
-            ax1, ay1, ax2, ay2 = adj_bbox[:4]
-            canvas_bboxes.append(np.array([
-                ax1 * sx + x_offset, ay1 * sy,
-                ax2 * sx + x_offset, ay2 * sy,
-            ], dtype=np.float32))
-            x_offset += this_w
-
-        # --- Left strip: n_left refs stacked vertically below top strip ---
-        if n_left > 0:
-            left_slot_h = query_h // n_left
-            left_remainder = query_h - left_slot_h * n_left
-            y_offset = top_h
-            for j in range(n_left):
-                idx = n_top + j
-                crop = crops[idx]
-                adj_bbox = adj_bboxes[idx]
-                this_h = left_slot_h + (left_remainder if j == n_left - 1 else 0)
-                crop_resized = F.interpolate(
-                    crop.unsqueeze(0).float(), size=(this_h, left_w),
-                    mode="bilinear", align_corners=False,
-                ).squeeze(0)
-                canvas[:, y_offset:y_offset + this_h, :left_w] = crop_resized
-
-                sx = left_w / crop.shape[2]
-                sy = this_h / crop.shape[1]
-                ax1, ay1, ax2, ay2 = adj_bbox[:4]
-                canvas_bboxes.append(np.array([
-                    ax1 * sx, ay1 * sy + y_offset,
-                    ax2 * sx, ay2 * sy + y_offset,
-                ], dtype=np.float32))
-                y_offset += this_h
-
-        # --- Query region: bottom-right ---
-        tgt_resized = F.interpolate(
-            tgt_image.unsqueeze(0).float(), size=(query_h, query_w),
-            mode="bilinear", align_corners=False,
-        ).squeeze(0)
-        canvas[:, top_h:, left_w:] = tgt_resized
-
-        return canvas, canvas_bboxes, (left_w, top_h, query_w, query_h)
 
     @staticmethod
     def _extract_target_predictions(
