@@ -14,9 +14,9 @@ from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigC
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
+from domain.repositories.supported_model import SupportedModelRepository
 from domain.services.base import BaseService
 from domain.services.schemas.mappers.processor import (
-    model_type_supports_prompt_mode,
     processor_db_to_schema,
     processor_schema_to_db,
     processors_db_to_list_items,
