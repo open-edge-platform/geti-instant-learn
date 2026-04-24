@@ -58,7 +58,7 @@ class PipelineManager:
         self._event_dispatcher = event_dispatcher
         self._session_factory = session_factory
         self._frame_repository = FrameRepository()
-        self._component_factory = component_factory or DefaultComponentFactory(session_factory)
+        self._component_factory = component_factory or DefaultComponentFactory()
         self._batch_service = ReferenceBatchService(session_factory, self._frame_repository)
         # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None

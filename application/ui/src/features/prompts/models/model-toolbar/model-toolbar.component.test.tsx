@@ -30,7 +30,7 @@ describe('ModelToolbar', () => {
     it('renders models correctly', async () => {
         renderToolbar();
 
-        const pickerButton = await screen.findByRole('button', { name: /Mega model/i }, { timeout: 5000 });
+        const pickerButton = await screen.findByRole('button', { name: /Mega model/i });
         fireEvent.click(pickerButton);
 
         const listbox = screen.getByRole('listbox');

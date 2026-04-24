@@ -79,6 +79,8 @@ class ModelFactory:
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
                     use_mask_refinement=config.use_mask_refinement,
+                    similarity_threshold=config.similarity_threshold,
+                    num_grid_cells=config.num_grid_cells,
                     precision=precision,
                     device=selected_device,
                 )
