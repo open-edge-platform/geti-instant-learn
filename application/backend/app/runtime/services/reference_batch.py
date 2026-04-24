@@ -82,13 +82,13 @@ class ReferenceBatchService:
         Returns:
             (Batch, category_id → label_id mapping) or None if no valid samples.
         """
-        result = self._query_prompts_and_labels(project_id, use_label_names=use_label_names)
+        result = self._query_prompts_and_labels(project_id, use_label_names)
         if result is None:
             return None
 
         db_prompts, label_info = result
         category_mappings = label_info.category_mappings
-        samples = self._convert_prompts_to_samples(db_prompts, project_id, label_info, output_bboxes=output_bboxes)
+        samples = self._convert_prompts_to_samples(db_prompts, project_id, label_info, output_bboxes)
 
         if not samples:
             logger.info("No valid samples generated: project_id=%s", project_id)
@@ -104,7 +104,7 @@ class ReferenceBatchService:
         return batch, category_mappings.category_id_to_label_id
 
     def _query_prompts_and_labels(
-        self, project_id: UUID, *, use_label_names: bool
+        self, project_id: UUID, use_label_names: bool
     ) -> tuple[Sequence[PromptDB], LabelInfo] | None:
         """Fetch visual prompts and build label info inside a DB session.
 
@@ -140,7 +140,6 @@ class ReferenceBatchService:
         db_prompts: Sequence[PromptDB],
         project_id: UUID,
         label_info: LabelInfo,
-        *,
         output_bboxes: bool,
     ) -> list[Sample]:
         """Load frames and convert each prompt to a Sample."""
