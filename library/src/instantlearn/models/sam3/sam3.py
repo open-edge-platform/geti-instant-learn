@@ -240,7 +240,7 @@ class SAM3(Model):
         Returns:
             Tokenizer output dict with input_ids and attention_mask on device.
         """
-        text_inputs = self.tokenizer(texts, return_tensors="pt", padding="max_length", max_length=32)
+        text_inputs = self.tokenizer(texts, return_tensors="pt", padding="max_length", truncation=True, max_length=32)
         return {
             "input_ids": text_inputs.input_ids.to(self.device),
             "attention_mask": text_inputs.attention_mask.to(self.device),
