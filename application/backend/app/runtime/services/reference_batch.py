@@ -155,7 +155,7 @@ class ReferenceBatchService:
                     continue
 
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                sample = self.visual_prompt_to_sample(
+                sample = self._visual_prompt_to_sample(
                     prompt=prompt,
                     frame=frame_rgb,
                     label_info=label_info,
@@ -168,7 +168,7 @@ class ReferenceBatchService:
         return samples
 
     @staticmethod
-    def visual_prompt_to_sample(  # noqa: C901
+    def _visual_prompt_to_sample(  # noqa: C901
         prompt: PromptDB,
         frame: np.ndarray,
         label_info: LabelInfo,

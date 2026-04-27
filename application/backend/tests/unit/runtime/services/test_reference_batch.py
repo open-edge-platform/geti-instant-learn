@@ -97,7 +97,7 @@ class TestVisualPromptToSample:
 
         label_info = _make_label_info({label_id: "car"})
 
-        result = ReferenceBatchService.visual_prompt_to_sample(
+        result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_info=label_info,
@@ -135,7 +135,7 @@ class TestVisualPromptToSample:
         label_info = _make_label_info({label_id: "car"})
 
         with pytest.raises(ServiceError, match="must have at least one polygon annotation"):
-            ReferenceBatchService.visual_prompt_to_sample(
+            ReferenceBatchService._visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_info=label_info,
@@ -180,7 +180,7 @@ class TestVisualPromptToSample:
 
         label_info = _make_label_info({label_id_1: "car", label_id_2: "person"})
 
-        result = ReferenceBatchService.visual_prompt_to_sample(
+        result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_info=label_info,
@@ -208,7 +208,7 @@ class TestVisualPromptToSample:
         label_info = _make_label_info({})
 
         with pytest.raises(ServiceError, match="Cannot convert non-visual prompt"):
-            ReferenceBatchService.visual_prompt_to_sample(
+            ReferenceBatchService._visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_info=label_info,
@@ -230,7 +230,7 @@ class TestVisualPromptToSample:
         label_info = _make_label_info({})
 
         with pytest.raises(ServiceError, match="has no valid annotations"):
-            ReferenceBatchService.visual_prompt_to_sample(
+            ReferenceBatchService._visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_info=label_info,
@@ -242,7 +242,7 @@ class TestVisualPromptToSample:
         prompt_db, _ = _make_single_polygon_prompt(label_id)
         label_info = _make_label_info({label_id: "car"})
 
-        result = ReferenceBatchService.visual_prompt_to_sample(
+        result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_info=label_info,
@@ -257,7 +257,7 @@ class TestVisualPromptToSample:
         prompt_db, _ = _make_single_polygon_prompt(label_id)
         label_info = _make_label_info({label_id: "visual"})
 
-        result = ReferenceBatchService.visual_prompt_to_sample(
+        result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_info=label_info,
@@ -299,7 +299,7 @@ class TestVisualPromptToSample:
 
         label_info = _make_label_info({label_id_1: "visual", label_id_2: "visual"})
 
-        result = ReferenceBatchService.visual_prompt_to_sample(
+        result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_info=label_info,
@@ -390,7 +390,7 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
                 return_value=fake_sample,
             ),
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
@@ -475,7 +475,7 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
                 return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
@@ -531,7 +531,7 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
                 return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
@@ -585,7 +585,7 @@ class TestReferenceBatchServiceBuild:
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch(
-                "runtime.services.reference_batch.ReferenceBatchService.visual_prompt_to_sample",
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
                 return_value=fake_sample,
             ) as mock_to_sample,
             patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
