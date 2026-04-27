@@ -20,7 +20,7 @@ interface EditVideoFileProps {
 
 export const EditVideoFile = ({ source, onSaved }: EditVideoFileProps) => {
     const [filePath, setFilePath] = useState<string>(source.config.video_path);
-    const updateVideoFileSource = useUpdateSource(source.id);
+    const updateVideoFileSource = useUpdateSource();
 
     const isSubmitDisabled =
         updateVideoFileSource.isPending || filePath === source.config.video_path || !isVideoFilePathValid(filePath);
@@ -28,6 +28,7 @@ export const EditVideoFile = ({ source, onSaved }: EditVideoFileProps) => {
     const handleUpdateVideoFileSource = (active: boolean) => {
         updateVideoFileSource.mutate(
             {
+                sourceId: source.id,
                 config: {
                     ...source.config,
                     video_path: filePath.trim(),

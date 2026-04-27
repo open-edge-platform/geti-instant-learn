@@ -11,20 +11,11 @@ import { useQueryClient } from '@tanstack/react-query';
 /**
  * Hook for updating/connecting sources.
  *
- * @param sourceId - Optional sourceId to bind at hook creation.
- *                   If not provided, sourceId must be passed in the body parameter when calling mutate.
- *
  * @example
- * // For editing a specific source (sourceId known at hook creation)
- * const updateSource = useUpdateSource(sourceId);
- * updateSource.mutate({ config, active }, onSuccess);
- *
- * @example
- * // For dynamically updating sources (sourceId not known until mutation time)
  * const updateSource = useUpdateSource();
  * updateSource.mutate({ sourceId, config, active }, onSuccess);
  */
-export const useUpdateSource = (sourceId?: string) => {
+export const useUpdateSource = () => {
     const { projectId } = useProjectIdentifier();
     const queryClient = useQueryClient();
 
@@ -50,15 +41,9 @@ export const useUpdateSource = (sourceId?: string) => {
     });
 
     const updateSource = (
-        body: { config: SourceConfig; active: boolean; sourceId?: string },
+        body: { config: SourceConfig; active: boolean; sourceId: string },
         onSuccess?: () => void
     ) => {
-        const finalSourceId = body.sourceId ?? sourceId;
-
-        if (!finalSourceId) {
-            throw new Error('sourceId must be provided either at hook creation or in the body parameter');
-        }
-
         updateSourceMutation.mutate(
             {
                 body: {
@@ -68,7 +53,7 @@ export const useUpdateSource = (sourceId?: string) => {
                 params: {
                     path: {
                         project_id: projectId,
-                        source_id: finalSourceId,
+                        source_id: body.sourceId,
                     },
                 },
             },
@@ -83,7 +68,7 @@ export const useUpdateSource = (sourceId?: string) => {
                                 params: {
                                     path: {
                                         project_id: projectId,
-                                        source_id: finalSourceId,
+                                        source_id: body.sourceId,
                                     },
                                 },
                             },

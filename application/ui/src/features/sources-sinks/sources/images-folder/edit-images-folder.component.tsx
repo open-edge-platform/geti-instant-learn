@@ -22,7 +22,7 @@ interface EditImagesFolderProps {
 }
 
 const useUpdateImagesFolderSource = (sourceId: string) => {
-    const updateSource = useUpdateSource(sourceId);
+    const updateSource = useUpdateSource();
     const queryClient = useQueryClient();
     const { projectId } = useProjectIdentifier();
 
@@ -32,6 +32,7 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
     ) => {
         updateSource.mutate(
             {
+                sourceId,
                 config: {
                     source_type: 'images_folder',
                     seekable: true,

@@ -16,18 +16,18 @@ import { SampleDatasetTitle } from './create-sample-dataset.component';
 
 import styles from './sample-dataset.module.scss';
 
-interface EditSampleDatasetContentProps {
+interface EditSampleDatasetProps {
     source: SampleDatasetSourceType;
     onSaved: () => void;
 }
 
-const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentProps) => {
+export const EditSampleDataset = ({ source, onSaved }: EditSampleDatasetProps) => {
     const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(source.config.dataset_id ?? null);
     const { data: datasets = [] } = useAvailableDatasets();
     const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
     const isActiveSource = source.active;
 
-    const updateSampleDatasetSource = useUpdateSource(source.id);
+    const updateSampleDatasetSource = useUpdateSource();
     const isButtonDisabled =
         selectedDatasetId === source.config.dataset_id || !selectedDatasetId || updateSampleDatasetSource.isPending;
 
@@ -38,6 +38,7 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
 
         updateSampleDatasetSource.mutate(
             {
+                sourceId: source.id,
                 config: {
                     source_type: 'sample_dataset',
                     seekable: true,
@@ -96,13 +97,4 @@ const EditSampleDatasetContent = ({ source, onSaved }: EditSampleDatasetContentP
             </View>
         </View>
     );
-};
-
-interface EditSampleDatasetProps {
-    source: SampleDatasetSourceType;
-    onSaved: () => void;
-}
-
-export const EditSampleDataset = ({ source, onSaved }: EditSampleDatasetProps) => {
-    return <EditSampleDatasetContent source={source} onSaved={onSaved} />;
 };
