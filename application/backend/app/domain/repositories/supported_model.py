@@ -42,24 +42,21 @@ _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
 _VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_RECTANGLE}
 
 
-
-
-
 class SupportedModelRepository:
     """Read-only repository exposing supported model metadata."""
 
     @staticmethod
-    def get_all(self) -> list[SupportedModelMetadataSchema]:
+    def get_all() -> list[SupportedModelMetadataSchema]:
         """Return metadata for all supported models."""
         return list(_SUPPORTED_MODELS_METADATA.values())
 
     @staticmethod
-    def get_by_model_type(self, model_type: ModelType) -> SupportedModelMetadataSchema | None:
+    def get_by_model_type(model_type: ModelType) -> SupportedModelMetadataSchema | None:
         """Return metadata for a single model type, or None if unknown."""
         return _SUPPORTED_MODELS_METADATA.get(model_type)
 
     @staticmethod
-    def get_supported_annotation_types(self, model_type: ModelType) -> set[AnnotationType]:
+    def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:
         """Derive supported annotation types for a model."""
         metadata = _SUPPORTED_MODELS_METADATA.get(model_type)
         if metadata is None:

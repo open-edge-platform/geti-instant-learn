@@ -104,7 +104,9 @@ class ModelService(BaseService):
         filtered = [
             m
             for m in all_models
-            if model_type_supports_prompt_mode(ModelType(m.config.get("model_type", "")), prompt_mode)
+            if SupportedModelRepository.model_type_supports_prompt_mode(
+                ModelType(m.config.get("model_type", "")), prompt_mode
+            )
         ]
         total = len(filtered)
         paginated = filtered[offset : offset + limit]
