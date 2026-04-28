@@ -17,16 +17,14 @@ from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
 from domain.repositories.supported_model import SupportedModelRepository
-from domain.services import (
-    LabelService,
-    ModelService,
-    ProjectService,
-    PromptService,
-    SinkService,
-    SourceService,
-)
+from domain.services.label import LabelService
+from domain.services.model import ModelService
+from domain.services.project import ProjectService
+from domain.services.prompt import PromptService
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
+from domain.services.sink import SinkService
+from domain.services.source import SourceService
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
