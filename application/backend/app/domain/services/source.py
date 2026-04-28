@@ -221,7 +221,7 @@ class SourceService(BaseService):
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
 
     def _validate_source_config(self, config: SourceCreateSchema | SourceUpdateSchema) -> None:
-        """Validate source configuration by delegating to the reader factory.
+        """Validate source configuration by delegating to the reader instance.
 
         Args:
             config: The source configuration schema to validate.
@@ -229,7 +229,8 @@ class SourceService(BaseService):
         Raises:
             ValueError: If validation fails for the specific source type.
         """
-        self.reader_factory.validate_config(config.config)
+        reader = self.reader_factory.create(config.config)
+        reader.validate_config()
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

@@ -65,6 +65,40 @@ def service(dispatcher_mock):
     )
 
 
+def test_create_active_source_validates_via_created_reader(dispatcher_mock):
+    session = MagicMock(name="SessionMock")
+    project_repo = MagicMock(name="ProjectRepositoryMock")
+    source_repo = MagicMock(name="SourceRepositoryMock")
+    reader_factory = MagicMock(name="StreamReaderFactoryMock")
+    reader = MagicMock(name="StreamReaderMock")
+    reader_factory.create.return_value = reader
+
+    project_id = uuid.uuid4()
+    new_id = uuid.uuid4()
+    project_repo.get_by_id.return_value = make_project(project_id)
+    source_repo.get_active_in_project.return_value = None
+    source_repo.add.return_value = make_source(source_id=new_id, project_id=project_id, active=True)
+
+    service = SourceService(
+        session=session,
+        project_repository=project_repo,
+        source_repository=source_repo,
+        config_change_dispatcher=dispatcher_mock,
+        reader_factory=reader_factory,
+    )
+
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        active=True,
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="Webcam A", device_id=2),
+    )
+
+    service.create_source(project_id=project_id, create_data=create_schema)
+
+    reader_factory.create.assert_called_once_with(create_schema.config)
+    reader.validate_config.assert_called_once_with()
+
+
 def test_list_sources_success(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
