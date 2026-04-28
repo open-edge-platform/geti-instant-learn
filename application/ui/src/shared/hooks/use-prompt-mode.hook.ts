@@ -3,42 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
-import { useSearchParams } from 'react-router-dom';
+import { useUpdateProject } from '../../features/project/api/use-update-project.hook';
+import { useCurrentProject } from './use-current-project.hook';
 
 export type PromptMode = 'visual' | 'text';
 
-const getSelectedPromptMode = (mode: string): PromptMode => {
-    if (mode.toLocaleLowerCase().includes('visual')) {
-        return 'visual';
+const toLocalMode = (backendMode: string): PromptMode => {
+    return backendMode === 'TEXT' ? 'text' : 'visual';
+};
+
+const toBackendMode = (mode: string): 'TEXT' | 'VISUAL' => {
+    if (mode.toLocaleLowerCase().includes('text')) {
+        return 'TEXT';
     }
-    return 'text';
+    return 'VISUAL';
 };
 
 export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const { data: project } = useCurrentProject();
+    const updateProject = useUpdateProject();
 
     const handleModeChange = useCallback(
         (option: string) => {
-            const newMode = getSelectedPromptMode(option);
+            const backendMode = toBackendMode(option);
 
-            setSearchParams((previousSearchParams) => {
-                previousSearchParams.set('mode', newMode);
+            if (backendMode === project.prompt_mode) return;
 
-                return previousSearchParams;
-            });
+            updateProject.mutate(project.id, { prompt_mode: backendMode });
         },
-        [setSearchParams]
+        [project.id, project.prompt_mode, updateProject]
     );
 
-    const mode = searchParams.get('mode');
-
-    useEffect(() => {
-        if (mode === null) {
-            handleModeChange('visual');
-        }
-    }, [mode, handleModeChange]);
-
-    return [(mode ?? 'visual') as PromptMode, handleModeChange] as const;
+    return [toLocalMode(project.prompt_mode), handleModeChange] as const;
 };

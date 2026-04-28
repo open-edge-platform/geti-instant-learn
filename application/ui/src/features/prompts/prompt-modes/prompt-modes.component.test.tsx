@@ -5,71 +5,82 @@
 
 import { usePromptMode } from '@/hooks';
 import { render } from '@/test-utils';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { HttpResponse } from 'msw';
 
+import { http, server } from '../../../setup-test';
 import { PromptModes } from './prompt-modes.component';
 
+const mockProjectWithMode = (promptMode: 'TEXT' | 'VISUAL') => {
+    server.use(
+        http.get('/api/v1/projects/{project_id}', () => {
+            return HttpResponse.json({
+                id: '1',
+                name: 'Project #1',
+                active: true,
+                device: 'cpu',
+                prompt_mode: promptMode,
+            });
+        })
+    );
+};
+
 describe('PromptModes', () => {
-    it('renders prompt mode toggle buttons', () => {
+    it('renders prompt mode toggle buttons', async () => {
         render(<PromptModes />);
 
-        expect(screen.getByText('Prompt Mode')).toBeInTheDocument();
+        expect(await screen.findByText('Prompt Mode')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Visual Prompt' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Text Prompt' })).toBeInTheDocument();
     });
 
-    it('defaults to visual mode when no mode is set', () => {
+    it('defaults to visual mode from project data', async () => {
         render(<PromptModes />);
 
-        const visualButton = screen.getByRole('button', { name: 'Visual Prompt' });
+        const visualButton = await screen.findByRole('button', { name: 'Visual Prompt' });
         expect(visualButton).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('shows visual mode as selected when mode=visual in URL', () => {
-        render(<PromptModes />, { route: '/prompts?mode=visual', path: '/prompts' });
+    it('shows text mode as selected when project prompt_mode is TEXT', async () => {
+        mockProjectWithMode('TEXT');
+        render(<PromptModes />);
 
-        const visualButton = screen.getByRole('button', { name: 'Visual Prompt' });
-        expect(visualButton).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    it('shows text mode as selected when mode=text in URL', () => {
-        render(<PromptModes />, { route: '/prompts?mode=text', path: '/prompts' });
-
-        const textButton = screen.getByRole('button', { name: 'Text Prompt' });
+        const textButton = await screen.findByRole('button', { name: 'Text Prompt' });
         expect(textButton).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('updates URL when switching from visual to text mode', async () => {
-        render(<PromptModes />, { route: '/prompts?mode=visual', path: '/prompts' });
+    it('shows visual mode as selected when project prompt_mode is VISUAL', async () => {
+        mockProjectWithMode('VISUAL');
+        render(<PromptModes />);
 
-        const visualButton = screen.getByRole('button', { name: 'Visual Prompt' });
+        const visualButton = await screen.findByRole('button', { name: 'Visual Prompt' });
         expect(visualButton).toHaveAttribute('aria-pressed', 'true');
+    });
 
-        const textButton = screen.getByRole('button', { name: 'Text Prompt' });
+    it('calls PUT to update project when switching mode', async () => {
+        let capturedBody: Record<string, unknown> | undefined;
+
+        server.use(
+            http.put('/api/v1/projects/{project_id}', async ({ request }) => {
+                capturedBody = (await request.json()) as Record<string, unknown>;
+                return HttpResponse.json({
+                    id: '1',
+                    name: 'Project #1',
+                    active: true,
+                    device: 'cpu',
+                    prompt_mode: 'TEXT',
+                });
+            })
+        );
+
+        render(<PromptModes />);
+
+        const textButton = await screen.findByRole('button', { name: 'Text Prompt' });
         fireEvent.click(textButton);
 
-        expect(textButton).toHaveAttribute('aria-pressed', 'true');
-        expect(visualButton).toHaveAttribute('aria-pressed', 'false');
-    });
-
-    it('updates URL when switching from text to visual mode', async () => {
-        render(<PromptModes />, { route: '/prompts?mode=text', path: '/prompts' });
-
-        const textButton = screen.getByRole('button', { name: 'Text Prompt' });
-        expect(textButton).toHaveAttribute('aria-pressed', 'true');
-
-        const visualButton = screen.getByRole('button', { name: 'Visual Prompt' });
-        fireEvent.click(visualButton);
-
-        expect(visualButton).toHaveAttribute('aria-pressed', 'true');
-        expect(textButton).toHaveAttribute('aria-pressed', 'false');
-    });
-
-    it('sets visual mode in URL on initial render when no mode is present', () => {
-        render(<PromptModes />);
-
-        const visualButton = screen.getByRole('button', { name: 'Visual Prompt' });
-        expect(visualButton).toHaveAttribute('aria-pressed', 'true');
+        await waitFor(() => {
+            expect(capturedBody).toEqual(expect.objectContaining({ prompt_mode: 'TEXT' }));
+        });
     });
 });
 
@@ -80,21 +91,16 @@ describe('usePromptMode', () => {
         return <div aria-label='mode'>{mode}</div>;
     };
 
-    it('returns visual as default mode', () => {
-        render(<TestComponent />, { route: '/prompts', path: '/prompts' });
+    it('returns visual when project prompt_mode is VISUAL', async () => {
+        render(<TestComponent />);
 
-        expect(screen.getByLabelText('mode')).toHaveTextContent('visual');
+        expect(await screen.findByLabelText('mode')).toHaveTextContent('visual');
     });
 
-    it('returns visual when mode=visual in URL', () => {
-        render(<TestComponent />, { route: '/prompts?mode=visual', path: '/prompts' });
+    it('returns text when project prompt_mode is TEXT', async () => {
+        mockProjectWithMode('TEXT');
+        render(<TestComponent />);
 
-        expect(screen.getByLabelText('mode')).toHaveTextContent('visual');
-    });
-
-    it('returns text when mode=text in URL', () => {
-        render(<TestComponent />, { route: '/prompts?mode=text', path: '/prompts' });
-
-        expect(screen.getByLabelText('mode')).toHaveTextContent('text');
+        expect(await screen.findByLabelText('mode')).toHaveTextContent('text');
     });
 });
