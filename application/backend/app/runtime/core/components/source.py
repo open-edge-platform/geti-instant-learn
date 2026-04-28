@@ -6,7 +6,7 @@ import time
 from threading import Condition
 
 from domain.services.schemas.frame_trace import FrameTrace
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import ErrorData, InputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -33,12 +33,12 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._initialized = False
-        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+        self._inbound_broadcaster: FrameBroadcaster[InputData | ErrorData] | None = None
         self._manual_mode = self._reader.requires_manual_control
         self._next_frame_condition = Condition()
         self._next_frame_requested = True
 
-    def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
+    def setup(self, inbound_broadcaster: FrameBroadcaster[InputData | ErrorData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._initialized = True
 
@@ -51,7 +51,7 @@ class Source(PipelineComponent):
         except Exception as e:
             error_msg = f"Failed to connect to source: {e}"
             logger.exception("Source connection failed")
-            self._inbound_broadcaster.slot.set_error(error_msg)
+            self._inbound_broadcaster.broadcast(ErrorData(message=error_msg))
             # Keep the thread alive but don't process frames
             while not self._stop_event.is_set():
                 self._stop_event.wait(timeout=0.1)

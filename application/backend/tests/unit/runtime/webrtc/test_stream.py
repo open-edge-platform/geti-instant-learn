@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from av import VideoFrame
 
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.broadcaster import FrameSlot
 from runtime.webrtc.stream import InferenceVideoStreamTrack
 
@@ -135,7 +135,7 @@ class TestInferenceVideoStreamTrack:
     @pytest.mark.asyncio
     async def test_recv_with_error_in_slot_returns_error_frame(self, fxt_output_slot):
         error_msg = "Source connection failed: file not found"
-        fxt_output_slot.set_error(error_msg)
+        fxt_output_slot.update(ErrorData(message=error_msg))
 
         track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
         frame = await track.recv()
@@ -147,7 +147,7 @@ class TestInferenceVideoStreamTrack:
 
     @pytest.mark.asyncio
     async def test_error_frame_cleared_when_new_data_arrives(self, fxt_output_slot, fxt_output_data):
-        fxt_output_slot.set_error("Temporary error")
+        fxt_output_slot.update(ErrorData(message="Temporary error"))
 
         track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
 
@@ -169,7 +169,7 @@ class TestInferenceVideoStreamTrack:
 
     @pytest.mark.asyncio
     async def test_error_frame_persists_until_data_update(self, fxt_output_slot):
-        fxt_output_slot.set_error("Persistent error")
+        fxt_output_slot.update(ErrorData(message="Persistent error"))
 
         track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
 

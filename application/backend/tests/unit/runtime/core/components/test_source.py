@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import ErrorData, InputData
 from runtime.core.components.base import StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.source import Source
@@ -41,10 +41,6 @@ class TestSource:
         self.mock_stream_reader = MagicMock(spec=StreamReader)
         self.mock_stream_reader.requires_manual_control = False
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
-        # Mock the slot with set_error method for error handling
-        self.mock_broadcaster.slot = MagicMock()
-        self.mock_broadcaster.slot.error = None
-        self.mock_broadcaster.slot.set_error = MagicMock()
         self.source = Source(self.mock_stream_reader)
         self.source.setup(self.mock_broadcaster)
 
@@ -117,7 +113,7 @@ class TestSource:
         self.mock_stream_reader.connect.assert_called_once()
 
     def test_source_connect_error_sets_slot_error(self):
-        """Test that Source sets error on broadcaster slot when connect fails."""
+        """Test that Source broadcasts ErrorData when connect fails."""
         self.mock_stream_reader.connect.side_effect = RuntimeError("File not found")
 
         import time
@@ -126,19 +122,19 @@ class TestSource:
         thread = Thread(target=self.source.run, daemon=True)
         thread.start()
 
-        # Poll for set_error to be called with a timeout
+        # Poll for broadcast to be called with a timeout
         max_wait = 2.0
         start_time = time.time()
-        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+        while not self.mock_broadcaster.broadcast.called and (time.time() - start_time) < max_wait:
             time.sleep(0.01)
 
         self.source.stop()
         thread.join(timeout=2)
 
-        # Should have called set_error on the slot
-        self.mock_broadcaster.slot.set_error.assert_called_once()
-        call_args = self.mock_broadcaster.slot.set_error.call_args[0][0]
-        assert "Failed to connect to source" in call_args
+        self.mock_broadcaster.broadcast.assert_called_once()
+        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
+        assert isinstance(error_data, ErrorData)
+        assert "Failed to connect to source" in error_data.message
 
     def test_source_connect_error_does_not_crash_thread(self):
         """Test that Source thread keeps running even when connect fails."""
@@ -150,10 +146,10 @@ class TestSource:
         thread = Thread(target=self.source.run, daemon=True)
         thread.start()
 
-        # Poll for set_error to be called (indicates error was handled)
+        # Poll for broadcast to be called (indicates error was handled)
         max_wait = 2.0
         start_time = time.time()
-        while not self.mock_broadcaster.slot.set_error.called and (time.time() - start_time) < max_wait:
+        while not self.mock_broadcaster.broadcast.called and (time.time() - start_time) < max_wait:
             time.sleep(0.01)
 
         # Thread should still be alive, waiting

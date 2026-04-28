@@ -6,7 +6,7 @@ from queue import Empty, Queue
 
 import numpy as np
 
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
 
@@ -85,11 +85,13 @@ class Processor(PipelineComponent):
         self._initialized = False
 
     def setup(
-        self, inbound_broadcaster: FrameBroadcaster[InputData], outbound_broadcaster: FrameBroadcaster[OutputData]
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData | ErrorData],
+        outbound_broadcaster: FrameBroadcaster[OutputData | ErrorData],
     ) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
-        self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
+        self._in_queue: Queue[InputData | ErrorData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
     def run(self) -> None:
@@ -108,13 +110,10 @@ class Processor(PipelineComponent):
         except Exception as e:
             error_msg = f"Failed to initialize model: {e}"
             logger.exception("Model initialization failed")
-            self._outbound_broadcaster.slot.set_error(error_msg)
+            self._outbound_broadcaster.broadcast(ErrorData(message=error_msg))
             return
 
         while not self._stop_event.is_set():
-            if self._handle_upstream_error():
-                continue
-
             try:
                 batch_data = self._collect_batch_data()
                 if not batch_data:
@@ -128,20 +127,6 @@ class Processor(PipelineComponent):
 
         logger.debug("Stopping the pipeline runner loop")
 
-    def _handle_upstream_error(self) -> bool:
-        """Check for errors from upstream and propagate to downstream.
-
-        Returns:
-            True if error was found and handled, False otherwise.
-        """
-        inbound_error = self._inbound_broadcaster.slot.error
-        if inbound_error:
-            # Silently propagate - error already logged by Source
-            self._outbound_broadcaster.slot.set_error(inbound_error)
-            self._stop_event.wait(timeout=0.5)
-            return True
-        return False
-
     def _collect_batch_data(self) -> list[InputData]:
         """Collect a batch of input data from the queue.
 
@@ -151,12 +136,11 @@ class Processor(PipelineComponent):
         batch_data: list[InputData] = []
 
         while len(batch_data) < self._batch_size and not self._stop_event.is_set():
-            # Check for errors while collecting batch data
-            if self._inbound_broadcaster.slot.error:
-                return []  # Don't process any frames if error detected
-
             try:
-                input_data: InputData = self._in_queue.get(timeout=0.1)
+                input_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
+                if isinstance(input_data, ErrorData):
+                    self._outbound_broadcaster.broadcast(input_data)
+                    return []
                 if input_data.trace:
                     input_data.trace.record_start("processor")
             except Empty:

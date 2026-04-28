@@ -11,7 +11,7 @@ from aiortc import VideoStreamTrack
 from av import VideoFrame
 
 from domain.services.schemas.label import VisualizationInfo
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.broadcaster import FrameSlot
 from runtime.webrtc.visualizer import InferenceVisualizer
 
@@ -79,7 +79,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
     def __init__(
         self,
-        output_slot: FrameSlot[OutputData],
+        output_slot: FrameSlot[OutputData | ErrorData],
         enable_visualization: bool = True,
         visualization_info_provider: Callable[[], VisualizationInfo | None] | None = None,
     ):
@@ -105,32 +105,30 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         pts, time_base = await self.next_timestamp()
 
         # Check for error state first
-        if self._slot.error:
-            np_frame = create_error_frame(self._slot.error)
-        else:
-            output_data = self._slot.latest
+        output_data = self._slot.latest
+        if isinstance(output_data, ErrorData):
+            np_frame = create_error_frame(output_data.message)
+        elif output_data is not None and output_data is not self._last_output:
+            # New frame from the pipeline — visualize and cache
+            self._last_output = output_data
 
-            if output_data is not None and output_data is not self._last_output:
-                # New frame from the pipeline — visualize and cache
-                self._last_output = output_data
+            if output_data.trace:
+                output_data.trace.record_start("webrtc")
 
-                if output_data.trace:
-                    output_data.trace.record_start("webrtc")
-
-                if self._enable_visualization and self._visualizer:
-                    vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
-                    np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
-                else:
-                    np_frame = output_data.frame
-
-                self._last_frame = np_frame
-
-                if output_data.trace:
-                    output_data.trace.record_end("webrtc")
-                    logger.info(output_data.trace.format_log())
+            if self._enable_visualization and self._visualizer:
+                vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
+                np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
             else:
-                # Use cached frame or fallback only when no new output
-                np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
+                np_frame = output_data.frame
+
+            self._last_frame = np_frame
+
+            if output_data.trace:
+                output_data.trace.record_end("webrtc")
+                logger.info(output_data.trace.format_log())
+        else:
+            # Use cached frame or fallback only when no new output
+            np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
 
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts

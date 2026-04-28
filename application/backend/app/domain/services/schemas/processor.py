@@ -197,6 +197,11 @@ class OutputData:
         return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
 
 
+@dataclass
+class ErrorData:
+    message: str
+
+
 class ProcessorSchema(BaseIDSchema):
     config: ModelConfig
     active: bool

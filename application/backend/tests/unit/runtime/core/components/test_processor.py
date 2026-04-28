@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.processor import FrameSkipPolicy, Processor
@@ -38,9 +38,6 @@ def mock_inbound_broadcaster() -> Mock:
     broadcaster.register = Mock(return_value=Queue())
     broadcaster.unregister = Mock()
     broadcaster.clear = Mock()
-    # Mock the slot with error attribute for error handling
-    broadcaster.slot = Mock()
-    broadcaster.slot.error = None
     return broadcaster
 
 
@@ -49,10 +46,6 @@ def mock_outbound_broadcaster() -> Mock:
     broadcaster = Mock(spec=FrameBroadcaster)
     broadcaster.broadcast = Mock()
     broadcaster.clear = Mock()
-    # Mock the slot with set_error method for error handling
-    broadcaster.slot = Mock()
-    broadcaster.slot.error = None
-    broadcaster.slot.set_error = Mock()
     return broadcaster
 
 
@@ -463,16 +456,16 @@ class TestProcessorRun:
     def test_inbound_error_propagates_to_outbound(
         self,
         configured_processor: tuple[Processor, Queue],
-        mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        error_msg = "Source connection failed"
-        mock_inbound_broadcaster.slot.error = error_msg
+        error = ErrorData(message="Source connection failed")
+        queue.put(error)
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.1)
 
-        mock_outbound_broadcaster.slot.set_error.assert_called_with(error_msg)
+        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
+        assert any(isinstance(a, ErrorData) and a.message == "Source connection failed" for a in broadcast_args)
 
     def test_model_initialization_error_sets_outbound_error(
         self,
@@ -485,24 +478,24 @@ class TestProcessorRun:
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.3)
 
-        mock_outbound_broadcaster.slot.set_error.assert_called()
-        call_args = mock_outbound_broadcaster.slot.set_error.call_args[0][0]
-        assert "Failed to initialize model" in call_args
+        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
+        assert any(isinstance(a, ErrorData) and "Failed to initialize model" in a.message for a in broadcast_args)
 
     def test_error_state_prevents_frame_processing(
         self,
         configured_processor: tuple[Processor, Queue],
         mock_model_handler: Mock,
-        mock_inbound_broadcaster: Mock,
+        mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        mock_inbound_broadcaster.slot.error = "Source error"
-        queue.put(make_input_data())
+        queue.put(ErrorData(message="Source error"))
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.2)
 
-        # predict should not be called when in error state
+        # ErrorData is forwarded downstream, not passed to predict
         mock_model_handler.predict.assert_not_called()
+        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
+        assert any(isinstance(a, ErrorData) for a in broadcast_args)
 
     def test_error_breaks_batch_collection(
         self,
@@ -521,21 +514,13 @@ class TestProcessorRun:
         )
         processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
 
-        # Put multiple frames in queue
-        for _ in range(4):
+        # Put a few frames then an ErrorData
+        for _ in range(2):
             queue.put(make_input_data())
+        queue.put(ErrorData(message="Error during batch collection"))
 
-        # Start processor thread
-        thread = Thread(target=processor.run, daemon=True)
-        thread.start()
-        time.sleep(0.1)  # Let it start collecting batch
+        self._run_processor_with_frames(processor, queue, [], stop_after=0.3)
 
-        # Simulate error occurring while collecting batch
-        mock_inbound_broadcaster.slot.error = "Error during batch collection"
-
-        time.sleep(0.2)
-        processor.stop()
-        thread.join(timeout=2)
-
-        # Should have stopped collecting and propagated error
-        mock_outbound_broadcaster.slot.set_error.assert_called()
+        # ErrorData should have been forwarded to outbound
+        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
+        assert any(isinstance(a, ErrorData) for a in broadcast_args)

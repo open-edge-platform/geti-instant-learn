@@ -4,7 +4,7 @@
 import logging
 from queue import Empty
 
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.base import PipelineComponent, StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 
@@ -19,7 +19,7 @@ class Sink(PipelineComponent):
         self._writer = stream_writer
         self._initialized = False
 
-    def setup(self, outbound_broadcaster: FrameBroadcaster[OutputData]) -> None:
+    def setup(self, outbound_broadcaster: FrameBroadcaster[OutputData | ErrorData]) -> None:
         self._out_queue = outbound_broadcaster.register(self.__class__.__name__)
         self._outbound_broadcaster = outbound_broadcaster
         self._initialized = True
@@ -33,6 +33,9 @@ class Sink(PipelineComponent):
             while not self._stop_event.is_set():
                 try:
                     data = self._out_queue.get(timeout=0.1)
+
+                    if isinstance(data, ErrorData):
+                        continue
 
                     if data.trace:
                         data.trace.record_start("sink")

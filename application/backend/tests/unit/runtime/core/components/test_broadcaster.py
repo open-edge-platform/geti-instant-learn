@@ -181,43 +181,23 @@ class TestFrameBroadcaster:
 
 
 class TestFrameSlot:
-    """Tests for FrameSlot error handling functionality."""
-
-    def test_frame_slot_initial_error_state(self):
+    def test_initial_state_is_empty(self):
         slot = FrameSlot()
-        assert slot.error is None
         assert slot.latest is None
 
-    def test_set_error_stores_error_message(self):
+    def test_update_stores_frame(self):
         slot = FrameSlot()
-        error_msg = "Connection failed"
-        slot.set_error(error_msg)
-        assert slot.error == error_msg
+        slot.update("frame_a")
+        assert slot.latest == "frame_a"
 
-    def test_update_clears_error_state(self):
+    def test_update_replaces_previous_frame(self):
         slot = FrameSlot()
-        slot.set_error("Some error")
-        assert slot.error is not None
+        slot.update("frame_a")
+        slot.update("frame_b")
+        assert slot.latest == "frame_b"
 
-        slot.update("new_frame")
-        assert slot.error is None
-        assert slot.latest == "new_frame"
-
-    def test_multiple_set_error_calls_update_message(self):
+    def test_clear_resets_to_none(self):
         slot = FrameSlot()
-        slot.set_error("First error")
-        assert slot.error == "First error"
-
-        slot.set_error("Second error")
-        assert slot.error == "Second error"
-
-    def test_error_persists_until_update(self):
-        slot = FrameSlot()
-        slot.set_error("Error message")
-
-        # Error should persist until update
-        assert slot.error == "Error message"
-
-        # Only update clears it
-        slot.update("frame")
-        assert slot.error is None
+        slot.update("frame_a")
+        slot.clear()
+        assert slot.latest is None
