@@ -501,8 +501,7 @@ class TestProcessorRun:
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.2)
 
-        # Model should not be initialized and predict should not be called when in error state
-        mock_model_handler.initialise.assert_not_called()
+        # predict should not be called when in error state
         mock_model_handler.predict.assert_not_called()
 
     def test_error_breaks_batch_collection(

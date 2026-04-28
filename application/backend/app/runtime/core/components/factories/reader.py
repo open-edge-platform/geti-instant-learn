@@ -39,6 +39,18 @@ class StreamReaderFactory:
         """
         self._dataset_resolver = dataset_resolver
 
+    def validate_config(self, config: ReaderConfig) -> None:
+        """Validate a reader configuration by delegating to the reader instance.
+
+        Args:
+            config: Configuration to validate.
+
+        Raises:
+            ValueError: If the configuration is invalid for the reader type.
+        """
+        reader = self.create(config)
+        reader.validate_config()
+
     def create(self, config: ReaderConfig | None) -> StreamReader:
         """Create a StreamReader instance based on the provided configuration.
 

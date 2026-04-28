@@ -97,16 +97,23 @@ class Processor(PipelineComponent):
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        model_initialized = False
+        try:
+            self._model_handler.initialise()
+            logger.info(
+                "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
+                self._batch_size,
+                self._skip_policy.interval,
+                self._skip_policy.skip_amount,
+            )
+        except Exception as e:
+            error_msg = f"Failed to initialize model: {e}"
+            logger.exception("Model initialization failed")
+            self._outbound_broadcaster.slot.set_error(error_msg)
+            return
 
         while not self._stop_event.is_set():
             if self._handle_upstream_error():
                 continue
-
-            if not model_initialized:
-                if not self._initialize_model():
-                    continue
-                model_initialized = True
 
             try:
                 batch_data = self._collect_batch_data()
@@ -134,28 +141,6 @@ class Processor(PipelineComponent):
             self._stop_event.wait(timeout=0.5)
             return True
         return False
-
-    def _initialize_model(self) -> bool:
-        """Initialize the model handler.
-
-        Returns:
-            True if initialization succeeded, False otherwise.
-        """
-        try:
-            self._model_handler.initialise()
-            logger.info(
-                "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
-                self._batch_size,
-                self._skip_policy.interval,
-                self._skip_policy.skip_amount,
-            )
-            return True
-        except Exception as e:
-            error_msg = f"Failed to initialize model: {e}"
-            logger.exception("Model initialization failed")
-            self._outbound_broadcaster.slot.set_error(error_msg)
-            self._stop_event.wait(timeout=0.5)
-            return False
 
     def _collect_batch_data(self) -> list[InputData]:
         """Collect a batch of input data from the queue.
