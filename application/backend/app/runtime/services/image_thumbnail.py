@@ -23,8 +23,8 @@ def generate_image_thumbnail(
 
     Args:
         image_path: Path to the image file
-        max_size: Maximum dimension for thumbnail
-        jpeg_quality: JPEG quality 0-100
+        max_size: Maximum dimension for thumbnail. If None, use the configured setting.
+        jpeg_quality: JPEG quality 0-100. If None, use the configured setting.
 
     Returns:
         Base64-encoded data URI string or None if generation fails
@@ -39,9 +39,17 @@ def generate_image_thumbnail(
             return None
 
         height, width = image.shape[:2]
-        scale = min(max_size / width, max_size / height)
-        new_width, new_height = int(width * scale), int(height * scale)
-        thumbnail = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        # Cap scale at 1.0 to prevent upscaling small images
+        scale = min(1.0, max_size / width, max_size / height)
+        # Ensure dimensions are at least 1px to avoid cv2.resize errors
+        new_width = max(1, int(width * scale))
+        new_height = max(1, int(height * scale))
+
+        # Only resize if needed (scale < 1.0)
+        if scale < 1.0:
+            thumbnail = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        else:
+            thumbnail = image
 
         success, buffer = cv2.imencode(".jpg", thumbnail, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
         if not success:

@@ -54,8 +54,8 @@ class ImageFolderReader(StreamReader):
 
         Args:
             image_path: Path to the image file
-            max_size: Maximum dimension for thumbnail
-            jpeg_quality: JPEG quality 0-100
+            max_size: Maximum dimension for thumbnail. If None, use the configured setting.
+            jpeg_quality: JPEG quality 0-100. If None, use the configured setting.
         Returns:
             Base64-encoded data URI string or None if generation fails
         """
