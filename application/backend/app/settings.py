@@ -118,7 +118,9 @@ class Settings(BaseSettings):
         default=0.005, ge=0.0, le=1.0, alias="THUMBNAIL_LINE_THICKNESS_RATIO"
     )  # 0.5% of smaller image dimension
     thumbnail_min_line_thickness: int = Field(default=2, ge=0, alias="THUMBNAIL_MIN_LINE_THICKNESS")
-    thumbnail_fill_opacity: float = Field(default=0.5, ge=0.0, le=1.0, alias="THUMBNAIL_FILL_OPACITY")
+    thumbnail_fill_opacity: float = Field(
+        default=0.5, ge=0.0, le=1.0, alias="THUMBNAIL_FILL_OPACITY"
+    )  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = Field(default=85, ge=0, le=100, alias="THUMBNAIL_JPEG_QUALITY")
 
     # Processor configuration
