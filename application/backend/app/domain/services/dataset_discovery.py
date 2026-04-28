@@ -18,28 +18,6 @@ settings = get_settings()
 DATASET_NS = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
 
-def resolve_dataset_path(dataset_id: UUID, template_dataset_dir: Path) -> Path | None:
-    """Resolve stable dataset ID to a directory path under template datasets."""
-    if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
-        logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
-        return None
-
-    for entry in sorted(template_dataset_dir.iterdir()):
-        if entry.is_dir() and uuid5(DATASET_NS, entry.name) == dataset_id:
-            logger.debug("Resolved sample dataset id '%s' to '%s'.", dataset_id, entry)
-            return entry
-
-    return None
-
-
-def get_first_dataset_path(template_dataset_dir: Path) -> Path | None:
-    """Return the first available dataset directory under template datasets."""
-    if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
-        logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
-        return None
-    return next((entry for entry in sorted(template_dataset_dir.iterdir()) if entry.is_dir()), None)
-
-
 def _get_first_image(dataset_dir: Path) -> Path | None:
     for entry in sorted(dataset_dir.iterdir()):
         if entry.is_file() and entry.suffix.lower() in settings.supported_extensions:
@@ -89,3 +67,62 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
         ),
         dataset_paths,
     )
+
+
+class DatasetResolver:
+    """Service for resolving dataset paths from a cached dataset mapping.
+
+    This class owns the dataset cache and provides methods to resolve dataset paths.
+    The cache is built during initialization and remains static for the lifetime of the instance.
+    """
+
+    def __init__(self, datasets_root: Path) -> None:
+        """Initialize the resolver by scanning the dataset root directory.
+
+        Args:
+            datasets_root: Root directory containing dataset subdirectories.
+
+        Raises:
+            DatasetNotFoundError: If the datasets root does not exist or is not a directory.
+        """
+        logger.info("Initializing DatasetResolver")
+        self._datasets_schema, self._dataset_paths = scan_datasets(datasets_root)
+        if self._dataset_paths:
+            dataset_lines = "\n".join(
+                f"- {dataset_id}: {path}" for dataset_id, path in sorted(self._dataset_paths.items())
+            )
+            logger.debug("Cached dataset paths:\n%s", dataset_lines)
+        logger.info("Cached %d dataset(s)", len(self._dataset_paths))
+
+    def get_datasets(self) -> DatasetsListSchema:
+        """Get the list of available datasets.
+
+        Returns:
+            Schema containing all discovered datasets with metadata.
+        """
+        return self._datasets_schema
+
+    def get_dataset_path(self, dataset_id: UUID | None = None) -> Path:
+        """Resolve a dataset path from the cache.
+
+        Args:
+            dataset_id: Dataset UUID, or None to use the lexicographically first cached dataset.
+
+        Returns:
+            Resolved dataset path.
+
+        Raises:
+            DatasetNotFoundError: If the dataset id is not found in the cache or no cached datasets exist.
+        """
+        if dataset_id is not None:
+            try:
+                return self._dataset_paths[dataset_id]
+            except KeyError as exc:
+                logger.warning("Sample dataset id '%s' could not be resolved from startup cache.", dataset_id)
+                raise DatasetNotFoundError(f"Sample dataset id '{dataset_id}' was not found.") from exc
+
+        if not self._dataset_paths:
+            logger.warning("No sample datasets available in startup cache.")
+            raise DatasetNotFoundError("No sample datasets available.")
+
+        return min(self._dataset_paths.values(), key=lambda dataset_path: (dataset_path.name, str(dataset_path)))

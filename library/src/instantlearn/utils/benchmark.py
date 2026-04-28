@@ -210,6 +210,8 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 confidence_threshold=args.confidence_threshold,
+                similarity_threshold=args.similarity_threshold,
+                num_grid_cells=args.num_grid_cells,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,

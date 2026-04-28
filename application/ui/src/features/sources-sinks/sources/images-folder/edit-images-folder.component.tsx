@@ -31,8 +31,8 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
         onSuccess: () => void
     ) => {
         updateSource.mutate(
-            sourceId,
             {
+                sourceId,
                 config: {
                     source_type: 'images_folder',
                     seekable: true,

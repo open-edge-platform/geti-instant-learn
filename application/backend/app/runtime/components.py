@@ -8,6 +8,7 @@ from uuid import UUID
 from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
+from domain.services.dataset_discovery import DatasetResolver
 from domain.services.project import ProjectService
 from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.factories.model import ModelFactory
@@ -37,15 +38,17 @@ class DefaultComponentFactory(ComponentFactory):
         self,
         session_factory: sessionmaker[Session],
         available_devices: list[AvailableDeviceSchema] | None = None,
+        dataset_resolver: DatasetResolver | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._model_factory = ModelFactory(available_devices=available_devices)
+        self._reader_factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
     def create_source(self, project_id: UUID) -> Source:
         with self._session_factory() as session:
             svc = ProjectService(session=session)
             cfg = svc.get_pipeline_config(project_id)
-        return Source(StreamReaderFactory.create(cfg.reader))
+        return Source(self._reader_factory.create(cfg.reader))
 
     def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor:
         with self._session_factory() as session:
