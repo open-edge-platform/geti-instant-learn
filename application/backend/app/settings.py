@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     supported_extensions: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
     # Thumbnail generation
-    thumbnail_max_dimension: int = Field(default=300, ge=0, alias="THUMBNAIL_MAX_DIMENSION")
+    thumbnail_max_dimension: int = Field(default=400, ge=0, alias="THUMBNAIL_MAX_DIMENSION")
     thumbnail_line_thickness_ratio: float = Field(
         default=0.005, ge=0.0, le=1.0, alias="THUMBNAIL_LINE_THICKNESS_RATIO"
     )  # 0.5% of smaller image dimension
@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     thumbnail_fill_opacity: float = Field(
         default=0.5, ge=0.0, le=1.0, alias="THUMBNAIL_FILL_OPACITY"
     )  # 50% opacity for annotation fill
-    thumbnail_jpeg_quality: int = Field(default=85, ge=0, le=100, alias="THUMBNAIL_JPEG_QUALITY")
+    thumbnail_jpeg_quality: int = Field(default=90, ge=0, le=100, alias="THUMBNAIL_JPEG_QUALITY")
 
     # Processor configuration
     processor_batch_size: int = Field(default=1, alias="PROCESSOR_BATCH_SIZE")

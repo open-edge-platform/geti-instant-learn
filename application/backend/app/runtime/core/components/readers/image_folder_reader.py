@@ -46,21 +46,6 @@ class ImageFolderReader(StreamReader):
         """
         return True
 
-    @staticmethod
-    def _generate_thumbnail(
-        image_path: Path, max_size: int | None = None, jpeg_quality: int | None = None
-    ) -> str | None:
-        """Generate a base64-encoded thumbnail for an image.
-
-        Args:
-            image_path: Path to the image file
-            max_size: Maximum dimension for thumbnail. If None, use the configured setting.
-            jpeg_quality: JPEG quality 0-100. If None, use the configured setting.
-        Returns:
-            Base64-encoded data URI string or None if generation fails
-        """
-        return generate_image_thumbnail(image_path, max_size=max_size, jpeg_quality=jpeg_quality)
-
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
         Filter and collect supported image files from the given folder.
@@ -110,7 +95,7 @@ class ImageFolderReader(StreamReader):
 
             # Pre-generate thumbnails for first page (optimization)
             for idx, path in enumerate(self._image_paths[:30]):
-                thumbnail = self._generate_thumbnail(path)
+                thumbnail = generate_image_thumbnail(path)
                 if thumbnail:
                     self._thumbnail_cache[idx] = thumbnail
 
@@ -198,7 +183,7 @@ class ImageFolderReader(StreamReader):
             if idx in self._thumbnail_cache:
                 thumbnail = self._thumbnail_cache[idx]
             else:
-                thumbnail = self._generate_thumbnail(image_path)
+                thumbnail = generate_image_thumbnail(image_path)
                 if thumbnail is not None:
                     with self._lock:
                         self._thumbnail_cache[idx] = thumbnail

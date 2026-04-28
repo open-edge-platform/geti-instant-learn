@@ -314,10 +314,10 @@ class TestImageFolderReaderListFrames:
         reader.connect()
 
         # First call should use pre-generated cache
-        with patch.object(ImageFolderReader, "_generate_thumbnail") as mock_gen:
+        with patch("runtime.core.components.readers.image_folder_reader.generate_image_thumbnail") as mock_gen:
             result = reader.list_frames(offset=0, limit=3)
             assert len(result.frames) == 3
-            # Should not call _generate_thumbnail since thumbnails are cached
+            # Should not call generate_image_thumbnail since thumbnails are cached
             mock_gen.assert_not_called()
 
     def test_list_frames_generates_uncached(self, tmp_path):
@@ -366,67 +366,3 @@ class TestImageFolderReaderContextManager:
 
         # After exiting context, close should have been called
         assert reader._image_paths == []
-
-
-class TestImageFolderReaderThumbnailGeneration:
-    def test_generate_thumbnail_valid_image(self, tmp_path):
-        """Test thumbnail generation for valid image."""
-        img_path = tmp_path / "test.jpg"
-        cv2.imwrite(str(img_path), np.zeros((200, 200, 3), dtype=np.uint8))
-
-        thumbnail = ImageFolderReader._generate_thumbnail(img_path)
-
-        assert thumbnail is not None
-        assert isinstance(thumbnail, str)
-        assert len(thumbnail) > 0  # base64 encoded string
-
-    def test_generate_thumbnail_invalid_image(self, tmp_path):
-        """Test thumbnail generation for invalid image."""
-        img_path = tmp_path / "invalid.jpg"
-        img_path.write_bytes(b"not an image")
-
-        thumbnail = ImageFolderReader._generate_thumbnail(img_path)
-
-        assert thumbnail is None
-
-    def test_generate_thumbnail_nonexistent_file(self):
-        """Test thumbnail generation for non-existent file."""
-        thumbnail = ImageFolderReader._generate_thumbnail(Path("/nonexistent/file.jpg"))
-
-        assert thumbnail is None
-
-    def test_generate_thumbnail_uses_settings_defaults(self, tmp_path, monkeypatch):
-        """Test that thumbnail generation uses settings defaults when no parameters provided."""
-        img_path = tmp_path / "test.jpg"
-        cv2.imwrite(str(img_path), np.zeros((200, 200, 3), dtype=np.uint8))
-
-        # Mock the generate_image_thumbnail function to verify it's called with correct params
-        mock_generate = Mock(return_value="mock_thumbnail")
-        monkeypatch.setattr(
-            "runtime.core.components.readers.image_folder_reader.generate_image_thumbnail",
-            mock_generate,
-        )
-
-        # Call without parameters - should use settings defaults
-        result = ImageFolderReader._generate_thumbnail(img_path)
-
-        assert result == "mock_thumbnail"
-        mock_generate.assert_called_once_with(img_path, max_size=None, jpeg_quality=None)
-
-    def test_generate_thumbnail_forwards_custom_parameters(self, tmp_path, monkeypatch):
-        """Test that custom max_size and jpeg_quality parameters are properly forwarded."""
-        img_path = tmp_path / "test.jpg"
-        cv2.imwrite(str(img_path), np.zeros((200, 200, 3), dtype=np.uint8))
-
-        # Mock the generate_image_thumbnail function
-        mock_generate = Mock(return_value="mock_thumbnail")
-        monkeypatch.setattr(
-            "runtime.core.components.readers.image_folder_reader.generate_image_thumbnail",
-            mock_generate,
-        )
-
-        # Call with custom parameters
-        result = ImageFolderReader._generate_thumbnail(img_path, max_size=100, jpeg_quality=90)
-
-        assert result == "mock_thumbnail"
-        mock_generate.assert_called_once_with(img_path, max_size=100, jpeg_quality=90)
