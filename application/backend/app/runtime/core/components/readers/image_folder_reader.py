@@ -47,9 +47,19 @@ class ImageFolderReader(StreamReader):
         return True
 
     @staticmethod
-    def _generate_thumbnail(image_path: Path, max_size: int = 150) -> str | None:
-        """Generate a base64-encoded thumbnail for an image."""
-        return generate_image_thumbnail(image_path, max_size=max_size, jpeg_quality=80)
+    def _generate_thumbnail(
+        image_path: Path, max_size: int | None = None, jpeg_quality: int | None = None
+    ) -> str | None:
+        """Generate a base64-encoded thumbnail for an image.
+
+        Args:
+            image_path: Path to the image file
+            max_size: Maximum dimension for thumbnail
+            jpeg_quality: JPEG quality 0-100
+        Returns:
+            Base64-encoded data URI string or None if generation fails
+        """
+        return generate_image_thumbnail(image_path, max_size=max_size, jpeg_quality=jpeg_quality)
 
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """

@@ -7,11 +7,32 @@ from pathlib import Path
 
 import cv2
 
+from settings import get_settings
+
 logger = logging.getLogger(__name__)
 
+settings = get_settings()
 
-def generate_image_thumbnail(image_path: Path, max_size: int = 150, jpeg_quality: int = 80) -> str | None:
-    """Generate a base64-encoded JPEG thumbnail for an image file."""
+
+def generate_image_thumbnail(
+    image_path: Path,
+    max_size: int | None = None,
+    jpeg_quality: int | None = None,
+) -> str | None:
+    """Generate a base64-encoded JPEG thumbnail for an image file.
+
+    Args:
+        image_path: Path to the image file
+        max_size: Maximum dimension for thumbnail
+        jpeg_quality: JPEG quality 0-100
+
+    Returns:
+        Base64-encoded data URI string or None if generation fails
+    """
+    if max_size is None:
+        max_size = settings.thumbnail_max_dimension
+    if jpeg_quality is None:
+        jpeg_quality = settings.thumbnail_jpeg_quality
     try:
         image = cv2.imread(str(image_path))
         if image is None:
