@@ -73,6 +73,8 @@ jobs:
           GH_TOKEN: ${{ steps.get-github-app-token.outputs.token }}
           BRANCH_NAME: "npm-audit-fix-${{ github.run_id }}"
           IS_FORCE: ${{ github.event.inputs.force_fix == 'true' }}
+          # Feature freeze control: set RENOVATE_AUTOMERGE_ENABLED repository variable to 'false' to disable automerge
+          AUTOMERGE_ENABLED: ${{ vars.RENOVATE_AUTOMERGE_ENABLED != 'false' }}
         run: |
           git config user.name "oep-renovate[bot]"
           git config user.email "212772560+oep-renovate[bot]@users.noreply.github.com"
@@ -122,6 +124,8 @@ jobs:
               --head "$BRANCH_NAME" \
               --reviewer sys-geti
             
-            # Enable auto-merge for safe mode PRs
-            gh pr merge "$BRANCH_NAME" --auto --squash
+            # Enable auto-merge for safe mode PRs (if not disabled via env)
+            if [ "$AUTOMERGE_ENABLED" = "true" ]; then
+              gh pr merge "$BRANCH_NAME" --auto --squash
+            fi
           fi
