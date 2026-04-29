@@ -87,6 +87,15 @@
       schedule: ["* * 1,15 * *"], // twice a month
     },
 
+    // Include debian container images used in workflows into GitHub Actions group
+    {
+      enabled: true,
+      matchManagers: ["github-actions"],
+      matchDepTypes: ["container"],
+      matchPackageNames: ["debian"],
+      groupName: "GitHub Actions",
+    },
+
     // uv version used in GitHub Actions is updated manually
     {
       enabled: false,
@@ -116,9 +125,9 @@
     {
       enabled: true,
       matchDatasources: ["docker"],
+      matchManagers: ["dockerfile"],
       pinDigests: true,
-      groupName: "Pin images",
-      groupSlug: "pin-images",
+      groupName: "Container images",
       schedule: ["* * * * 6"], // weekly on Saturday
       // `automerge` is not set here
       // controlled via RENOVATE_AUTOMERGE env variable
