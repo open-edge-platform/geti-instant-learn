@@ -97,17 +97,18 @@ jobs:
           else
             PR_TITLE="fix(deps): npm audit fixes (safe mode) [security]"
             PR_BODY=$(cat <<EOF
-          **Safe mode - no breaking changes**
+          **Lockfile-only audit remediation**
 
           This PR was automatically created to update NPM dependencies with:
           \`npm audit fix --package-lock-only\`
 
-          Only patch and minor updates are included.
+          This updates the lockfile based on audit remediation and should be reviewed for any dependency changes.
           EOF
           )
             git commit -s -m "fix(deps): npm audit fixes (safe mode) [security]"
           fi
 
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$BRANCH_NAME"
 
           if [ "$IS_FORCE" = "true" ]; then
@@ -126,6 +127,6 @@ jobs:
             
             # Enable auto-merge for safe mode PRs (if not disabled via env)
             if [ "$AUTOMERGE_ENABLED" = "true" ]; then
-              gh pr merge "$BRANCH_NAME" --auto --squash
+              gh pr merge "$BRANCH_NAME" --auto --squash --delete-branch
             fi
           fi
