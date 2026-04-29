@@ -84,6 +84,7 @@
       groupName: "GitHub Actions",
       matchManagers: ["github-actions", "custom.regex"],
       matchPackagePatterns: ["*"],
+      versioning: "regex:^(?:[^/]+/)?v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       schedule: ["* * 1,15 * *"], // twice a month
     },
 
