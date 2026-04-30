@@ -435,18 +435,31 @@ class Matcher(Model):
         Raises:
             ImportError: If OpenVINO is selected but not installed.
             RuntimeError: If fit() has not been called before predict().
-            ValueError: If SAM-HQ-Tiny is used with OpenVINO backend.
         """
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
             raise RuntimeError(msg)
 
+        # SAM-HQ-Tiny is not compatible with OpenVINO export (non-deterministic output).
+        # Automatically fall back to SAM-HQ-base and warn the user.
+        fallback_segmenter = None
         if Backend(backend) == Backend.OPENVINO and self.sam_predictor.sam_model_name == SAMModelName.SAM_HQ_TINY:
-            msg = (
-                "SAM-HQ-Tiny is not supported for OpenVINO export. "
-                "Use SAM-HQ-base or SAM-HQ-large instead."
+            logger.warning(
+                "SAM-HQ-Tiny is not supported for OpenVINO export. " \
+                "Some of the layers are non-deterministic and so the exported model is not reliable for inference. "
+                "Falling back to SAM-HQ-base for the exported model. "
+                "SAM-HQ-base weights will be downloaded if not already cached."
             )
-            raise ValueError(msg)
+            fallback_predictor = load_sam_model(
+                SAMModelName.SAM_HQ_BASE,
+                device="cpu",
+                precision="fp32",
+            )
+            fallback_segmenter = SamDecoder(
+                sam_predictor=fallback_predictor,
+                confidence_threshold=self.segmenter.confidence_threshold,
+                use_mask_refinement=self.segmenter.use_mask_refinement,
+            )
 
         export_path = Path(export_dir)
         export_path.mkdir(parents=True, exist_ok=True)
@@ -462,6 +475,9 @@ class Matcher(Model):
         self.segmenter.device = self.sam_predictor.device
         ref_features = self.ref_features.to(export_device)
 
+        # Use fallback decoder (SAM-HQ-base) if SAM-HQ-Tiny was requested with OpenVINO
+        export_decoder = fallback_segmenter if fallback_segmenter is not None else self.segmenter
+
         matcher = (
             MatcherInferenceGraph(
                 encoder=EncoderForwardFeaturesWrapper(
@@ -469,7 +485,7 @@ class Matcher(Model):
                     ignore_token_length=self.encoder._model.ignore_token_length,  # noqa: SLF001
                 ),
                 prompt_generator=self.prompt_generator,
-                sam_decoder=self.segmenter,
+                sam_decoder=export_decoder,
                 ref_features=ref_features,
                 postprocessor=self.postprocessor,
             )
