@@ -9,13 +9,23 @@ from sqlalchemy.orm import Session
 
 from domain.db.engine import get_session
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.errors import DatasetNotFoundError
 from domain.repositories.frame import FrameRepository
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
-from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
+from domain.services import (
+    LabelService,
+    ModelService,
+    ProjectService,
+    PromptService,
+    SinkService,
+    SourceService,
+)
+from domain.services.schemas.dataset import DatasetsListSchema
+from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
@@ -42,6 +52,19 @@ def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
 def get_webrtc_manager(request: Request) -> WebRTCManager:
     """Provides the global WebRTCManager instance from FastAPI application's state."""
     return request.app.state.webrtc_manager
+
+
+def get_available_datasets(request: Request) -> DatasetsListSchema:
+    """Dependency that provides startup-cached dataset metadata list."""
+    available_datasets: DatasetsListSchema = request.app.state.available_datasets
+    if not available_datasets.datasets:
+        raise DatasetNotFoundError("No datasets found in startup cache.")
+    return available_datasets
+
+
+def get_available_devices(request: Request) -> list[AvailableDeviceSchema]:
+    """Dependency that provides startup-cached available devices list."""
+    return request.app.state.available_devices
 
 
 # --- DB session dependency ---
@@ -163,3 +186,5 @@ SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
+AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
+AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]

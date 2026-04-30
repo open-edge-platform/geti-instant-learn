@@ -5,15 +5,15 @@ import logging
 
 from fastapi import status
 
-from api.routers import source_types_router
+from api.routers import system_router
 from dependencies import DiscoveryServiceDep
 from domain.services.schemas.reader import ReaderConfig
 
 logger = logging.getLogger(__name__)
 
 
-@source_types_router.get(
-    path="/{source_type}/sources",
+@system_router.get(
+    path="/source-types/{source_type}/sources",
     tags=["Source Types"],
     status_code=status.HTTP_200_OK,
     responses={

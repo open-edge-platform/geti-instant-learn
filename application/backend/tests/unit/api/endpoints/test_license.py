@@ -27,9 +27,9 @@ def app(mock_license_service):
 
     # Import and register endpoints after override is in place
     from api.endpoints import license as _  # noqa: F401
-    from api.routers import license_router
+    from api.routers import system_router
 
-    app.include_router(license_router, prefix="/api/v1")
+    app.include_router(system_router, prefix="/api/v1")
 
     return app
 
@@ -40,12 +40,12 @@ def client(app):
 
 
 class TestAcceptLicense:
-    """Tests for POST /license/accept endpoint."""
+    """Tests for POST /system/license/accept endpoint."""
 
     def test_accept_license_first_time(self, client, mock_license_service):
         mock_license_service.is_accepted.return_value = False
 
-        resp = client.post("/api/v1/license/accept")
+        resp = client.post("/api/v1/system/license/accept")
 
         assert resp.status_code == 200
         assert resp.json() == {"accepted": True}
@@ -54,7 +54,7 @@ class TestAcceptLicense:
     def test_accept_license_already_accepted(self, client, mock_license_service):
         mock_license_service.is_accepted.return_value = True
 
-        resp = client.post("/api/v1/license/accept")
+        resp = client.post("/api/v1/system/license/accept")
 
         assert resp.status_code == 200
         assert resp.json() == {"accepted": True}
@@ -64,7 +64,7 @@ class TestAcceptLicense:
         mock_license_service.is_accepted.return_value = False
         mock_license_service.accept.side_effect = OSError("Cannot create consent file")
 
-        resp = client.post("/api/v1/license/accept")
+        resp = client.post("/api/v1/system/license/accept")
 
         assert resp.status_code == 500
         assert "internal server error" in resp.json()["detail"].lower()

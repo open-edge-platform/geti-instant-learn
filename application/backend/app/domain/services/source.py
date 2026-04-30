@@ -175,7 +175,7 @@ class SourceService(BaseService):
                 if update_data.active and not source.active:
                     self._disconnect_existing_active_source(project_id=project_id)
                 source.active = update_data.active
-                source.config = update_data.config.model_dump()
+                source.config = update_data.config.model_dump(mode="json")
                 source = self.source_repository.update(source)
                 self._emit_component_change(project_id=project_id, source_id=source.id)
         except IntegrityError as exc:

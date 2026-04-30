@@ -9,7 +9,7 @@ permissions: {} # No permissions by default
 jobs:
   build-parameters:
     name: Prepare build parameters
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     environment: 'prod'
     permissions:
       contents: read
@@ -58,7 +58,6 @@ jobs:
       ai_devices: '["xpu"]'
       build_version: ${{ needs.build-parameters.outputs.build_version }}
       push_images: true
-      image_name_prefix: "ghcr.io/open-edge-platform/geti-instant-learn"
 
   windows-installer:
     name: Build Windows installer

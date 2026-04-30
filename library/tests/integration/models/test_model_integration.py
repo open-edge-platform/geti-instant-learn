@@ -20,7 +20,7 @@ from instantlearn.data.folder import FolderDataset
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
-from instantlearn.models.sam3 import SAM3
+from instantlearn.models.sam3 import SAM3, SAM3_APPLICATION_MODEL_ID
 from instantlearn.models.sam3.sam3 import Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 from instantlearn.utils.benchmark import convert_masks_to_one_hot_tensor
@@ -79,8 +79,12 @@ SAM_MODELS = [SAMModelName.SAM_HQ_BASE, SAMModelName.SAM2_TINY]
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
 
-# Non-SAM3 model names (SAM3 is tested separately with dedicated methods)
-NON_SAM3_MODELS = [m for m in ModelName if m not in (ModelName.SAM3, ModelName.SAM3_CLASSIC, ModelName.SAM3_VISUAL)]
+# Non-SAM3 model names (SAM3 and EfficientSAM3 are tested separately with dedicated methods)
+NON_SAM3_MODELS = [
+    m
+    for m in ModelName
+    if m not in {ModelName.SAM3, ModelName.SAM3_CLASSIC, ModelName.SAM3_VISUAL, ModelName.EFFICIENT_SAM3}
+]
 
 # SAM3 prompt modes to test
 SAM3_PROMPT_MODES = [Sam3PromptMode.CLASSIC, Sam3PromptMode.VISUAL_EXEMPLAR]
@@ -102,7 +106,7 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_initialization for SAM2-tiny")
@@ -138,7 +142,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_learn_infer for SAM2-tiny")
@@ -185,7 +189,7 @@ class TestModelIntegration:
             model_name: The model type to test (must support n-shots).
             fss1000_root: Path to fss-1000 dataset.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
@@ -260,7 +264,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples (for category mapping).
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
@@ -294,7 +298,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
@@ -349,7 +353,7 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_metrics_calculation for SAM2-tiny")
@@ -416,7 +420,7 @@ class TestSAM3Integration:
         Args:
             prompt_mode: The SAM3 prompt mode to test.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
 
         assert model is not None
         assert model.prompt_mode == prompt_mode
@@ -442,7 +446,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             # Visual exemplar needs bboxes on reference images
@@ -485,7 +489,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
@@ -524,7 +528,7 @@ class TestSAM3Integration:
             device="cpu",
             precision="fp32",
             prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
-            model_id="jetjodh/sam3",
+            model_id=SAM3_APPLICATION_MODEL_ID,
         )
 
         ref_sample = Sample(
@@ -548,7 +552,7 @@ class TestSAM3Integration:
             prompt_mode: The SAM3 prompt mode to test.
             dataset: The dataset to use for testing.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
 
         categories = dataset.categories
         if not categories:

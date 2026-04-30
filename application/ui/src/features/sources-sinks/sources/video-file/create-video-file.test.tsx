@@ -4,7 +4,7 @@
  */
 
 import { SourceCreateType } from '@/api';
-import { render } from '@/test-utils';
+import { clearMockedTauriContext, render, setMockedTauriContext } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -19,6 +19,10 @@ class VideoFilePage {
 
     get filePathField() {
         return screen.getByRole('textbox', { name: /File path/ });
+    }
+
+    get browseButton() {
+        return screen.queryByRole('button', { name: 'Browse' });
     }
 
     get applyButton() {
@@ -45,10 +49,23 @@ const renderVideoFile = (onSaved = vi.fn()) => {
 };
 
 describe('CreateVideoFile', () => {
+    afterEach(() => {
+        clearMockedTauriContext();
+    });
+
+    it('shows browse button in tauri context', () => {
+        setMockedTauriContext();
+
+        const { videoFilePage } = renderVideoFile();
+
+        expect(videoFilePage.browseButton).toBeInTheDocument();
+    });
+
     it('disables apply button when file path is empty', () => {
         const { videoFilePage } = renderVideoFile();
 
         expect(videoFilePage.filePathField).toHaveValue('');
+        expect(videoFilePage.browseButton).not.toBeInTheDocument();
         expect(videoFilePage.applyButton).toBeDisabled();
     });
 

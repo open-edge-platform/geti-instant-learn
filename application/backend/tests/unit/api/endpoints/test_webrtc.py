@@ -73,7 +73,7 @@ class TestWebRTCEndpoints:
     def test_get_webrtc_config_empty(self, fxt_client):
         with patch("api.endpoints.webrtc.settings") as mock_settings:
             mock_settings.ice_servers = []
-            resp = fxt_client.get("/api/v1/webrtc/config")
+            resp = fxt_client.get("/api/v1/system/webrtc/config")
         assert resp.status_code == status.HTTP_200_OK
         assert resp.json() == {"iceServers": []}
 
@@ -84,7 +84,7 @@ class TestWebRTCEndpoints:
         ]
         with patch("api.endpoints.webrtc.settings") as mock_settings:
             mock_settings.ice_servers = ice_servers
-            resp = fxt_client.get("/api/v1/webrtc/config")
+            resp = fxt_client.get("/api/v1/system/webrtc/config")
         assert resp.status_code == status.HTTP_200_OK
         assert resp.json() == {
             "iceServers": [

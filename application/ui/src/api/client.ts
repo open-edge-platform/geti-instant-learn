@@ -9,7 +9,7 @@ import createClient from 'openapi-react-query';
 import type { paths } from './openapi-spec';
 
 /* eslint-disable no-underscore-dangle */
-const isTauriContext = (): boolean => typeof window.__TAURI__?.core?.invoke === 'function';
+export const isTauriContext = (): boolean => typeof window.__TAURI__?.core?.invoke === 'function';
 
 const getBaseUrl = async (): Promise<string> => {
     if (isTauriContext()) {

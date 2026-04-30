@@ -38,7 +38,7 @@ def source_schema_to_db(schema: SourceCreateSchema, project_id: UUID) -> SourceD
     """
     return SourceDB(
         id=schema.id,
-        config=schema.config.model_dump(),
+        config=schema.config.model_dump(mode="json"),
         active=schema.active,
         project_id=project_id,
     )

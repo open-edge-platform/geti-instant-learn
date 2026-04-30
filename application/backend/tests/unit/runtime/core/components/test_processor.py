@@ -166,6 +166,17 @@ class TestProcessorInit:
         processor._stop()
         mock_inbound_broadcaster.unregister.assert_called_once_with(Processor.__name__)
 
+    def test_stop_calls_close_on_model_handler(
+        self,
+        processor: Processor,
+        mock_model_handler: Mock,
+        mock_inbound_broadcaster: Mock,
+        mock_outbound_broadcaster: Mock,
+    ) -> None:
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        processor._stop()
+        mock_model_handler.close.assert_called_once()
+
 
 class TestProcessorRun:
     def _run_processor_with_frames(
@@ -432,3 +443,12 @@ class TestProcessorRun:
         thread.join(timeout=2)
 
         assert not thread.is_alive()
+
+    def test_stop_calls_close_on_model_handler_after_run(
+        self,
+        configured_processor: tuple[Processor, Queue],
+        mock_model_handler: Mock,
+    ) -> None:
+        processor, queue = configured_processor
+        self._run_processor_with_frames(processor, queue, [])
+        mock_model_handler.close.assert_called_once()

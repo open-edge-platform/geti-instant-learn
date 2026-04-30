@@ -66,6 +66,7 @@ fn main() {
     let port = pick_free_port();
     // Build the app
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup({
             let child_handle = child_handle.clone();
             let port = port;

@@ -23,8 +23,8 @@ class Pagination(BaseModel):
 
     count: int  # number of items actually returned (might be less than limit if at the end)
     total: int  # total number of items available
-    offset: int = 0  # index of the first item returned (0-based)
-    limit: int = 10  # number of items requested per page
+    offset: int  # index of the first item returned (0-based)
+    limit: int  # number of items requested per page
 
 
 class PaginatedResponse(BaseModel):

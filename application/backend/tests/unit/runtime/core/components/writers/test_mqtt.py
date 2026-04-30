@@ -1,8 +1,9 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
+from domain.services.schemas.processor import OutputData
 from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.writers import mqtt_writer
 from runtime.core.components.writers.mqtt_writer import MqttWriter
@@ -25,10 +26,10 @@ class TestMqttWriter:
         writer._connected = True
         writer.connect = MagicMock()
 
-        writer.write(SimpleNamespace(results={"foo": "bar"}))
+        writer.write(OutputData(frame=np.full((1), 1), results=[{"box": np.full((1), 1)}]))
 
         writer.connect.assert_not_called()
-        client.publish.assert_called_once_with("topic/1", '{"foo": "bar"}')
+        client.publish.assert_called_once_with("topic/1", '[{"box": [1]}]')
         assert writer._connected is True
 
     def test_connect_is_noop_when_already_connected(self, mocked_writer):

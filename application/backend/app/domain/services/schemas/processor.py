@@ -18,6 +18,7 @@ class ModelType(StrEnum):
     MATCHER = "matcher"
     PERDINO = "perdino"
     SOFT_MATCHER = "soft_matcher"
+    SAM3 = "sam3"
 
 
 ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
@@ -54,8 +55,8 @@ class BaseModelConfig(BaseModel):
 
 class PerDinoConfig(BaseModelConfig):
     model_type: Literal[ModelType.PERDINO] = ModelType.PERDINO
-    num_foreground_points: int = Field(default=80, gt=0, lt=300)
-    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_foreground_points: int = Field(default=80, gt=0, le=300)
+    num_background_points: int = Field(default=2, ge=0, le=10)
     num_grid_cells: int = Field(default=16, gt=0)
     point_selection_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
     confidence_threshold: float = Field(default=0.01, gt=0.0, lt=1.0)
@@ -79,14 +80,18 @@ class PerDinoConfig(BaseModelConfig):
 
 class MatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = Field(default=5, gt=0, lt=300)
-    num_background_points: int = Field(default=3, ge=0, lt=10)
-    confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
+    num_foreground_points: int = Field(default=5, gt=0, le=300)
+    num_background_points: int = Field(default=3, ge=0, le=10)
+    # Optimal threshold varies by encoder: ~0.50 for dinov3_large, ~0.75 for dinov3_small.
+    # Using 0.75 as a safe universal default that minimizes cross-class false positives.
+    confidence_threshold: float = Field(default=0.75, gt=0.0, lt=1.0)
     use_mask_refinement: bool = Field(default=False)
     compression: str = Field(
         default="fp32",
         description="Weight compression mode for OpenVINO export (fp32, fp16, int8_sym, int8_asym, int4_sym, int4_asym)",
     )
+    similarity_threshold: float | None = Field(default=None, gt=0.0, lt=1.0)
+    num_grid_cells: int = Field(default=8, ge=0, le=100)
 
     @field_validator("compression")
     @classmethod
@@ -104,12 +109,14 @@ class MatcherConfig(BaseModelConfig):
                 "model_type": "matcher",
                 "num_foreground_points": 5,
                 "num_background_points": 3,
-                "confidence_threshold": 0.38,
+                "confidence_threshold": 0.75,
                 "precision": "bf16",
                 "compression": "fp32",
                 "sam_model": "SAM-HQ-base",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
+                "similarity_threshold": None,
+                "num_grid_cells": 8,
             }
         }
     }
@@ -117,8 +124,8 @@ class MatcherConfig(BaseModelConfig):
 
 class SoftMatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.SOFT_MATCHER] = ModelType.SOFT_MATCHER
-    num_foreground_points: int = Field(default=40, gt=0, lt=300)
-    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_foreground_points: int = Field(default=40, gt=0, le=300)
+    num_background_points: int = Field(default=2, ge=0, le=10)
     confidence_threshold: float = Field(default=0.42, gt=0.0, lt=1.0)
     use_sampling: bool = Field(default=False)
     use_spatial_sampling: bool = Field(default=False)
@@ -146,7 +153,46 @@ class SoftMatcherConfig(BaseModelConfig):
     }
 
 
+class Sam3Config(BaseModel):
+    """Configuration for SAM3 visual or text-prompted segmentation model."""
+
+    model_type: Literal[ModelType.SAM3] = ModelType.SAM3
+    confidence_threshold: float = Field(default=0.5, gt=0.0, lt=1.0)
+    resolution: int = Field(default=1008, gt=0)
+    precision: str = Field(default="fp32", description="Model precision ('bf16' or 'fp32')")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "model_type": "sam3",
+                "confidence_threshold": 0.5,
+                "resolution": 1008,
+                "precision": "fp32",
+            }
+        }
+    }
+
+
 ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig, Field(discriminator="model_type")]
+
+
+class SupportedPromptType(StrEnum):
+    """Supported prompt types for a given model type."""
+
+    TEXT = "text"
+    VISUAL_POLYGON = "visual_polygon"
+    VISUAL_RECTANGLE = "visual_rectangle"
+
+
+class SupportedModelMetadataSchema(BaseModel):
+    """Metadata for a supported model type: its defaults and accepted prompt types."""
+
+    default_config: ModelConfig
+    supported_prompt_types: list[SupportedPromptType]
+
+
+class SupportedModelsListSchema(PaginatedResponse):
+    models: list[SupportedModelMetadataSchema]
 
 
 @dataclass(kw_only=True)
@@ -162,6 +208,10 @@ class OutputData:
     results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
     trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
+
+    def to_list(self) -> list[dict[str, list]]:
+        # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
+        return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
 
 
 class ProcessorSchema(BaseIDSchema):

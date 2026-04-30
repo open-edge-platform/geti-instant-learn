@@ -13,7 +13,7 @@ data/                              # DB_DATA_DIR
 ├── instant_learn.db                 # SQLite database
 └── templates/
     └── datasets/
-        └── coffee-berries/        # Sample dataset
+        └── aquarium/              # Sample dataset (example)
 
 logs/                              # LOGS_DIR
 └── instant-learn-backend.log        # Application log

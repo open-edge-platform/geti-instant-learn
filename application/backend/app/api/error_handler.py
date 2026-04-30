@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
+    DatasetNotFoundError,
     ResourceAlreadyExistsError,
     ResourceInUseError,
     ResourceNotFoundError,
@@ -58,6 +59,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
             f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
         )
         message = str(exc) if str(exc) else "The requested resource was not found."
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
+
+    if isinstance(exc, DatasetNotFoundError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The requested dataset was not found."
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
 
     if isinstance(exc, ResourceAlreadyExistsError):

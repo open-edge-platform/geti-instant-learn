@@ -32,6 +32,8 @@ export const useCreateProject = () => {
                 body: {
                     id: projectId,
                     name,
+                    device: 'auto',
+                    prompt_mode: 'visual',
                 },
             },
             {

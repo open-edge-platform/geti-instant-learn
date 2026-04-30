@@ -487,10 +487,11 @@ class DetrDecoderLayer(nn.Module):
 
         Args:
             hidden_states (torch.Tensor): Query features
-                [batch_size, num_queries + 1, hidden_size] (includes presence token at
-                position 0) with floating-point dtype.
+                [batch_size, num_queries, hidden_size] (may include presence token at
+                position 0 when enabled) with floating-point dtype.
             query_pos (torch.Tensor): Query position embeddings
-                [batch_size, num_queries, hidden_size] with floating-point dtype.
+                [batch_size, num_queries, hidden_size] (already padded with a zero
+                row for presence token, if present) with floating-point dtype.
             text_features (torch.Tensor): Text features [batch_size, seq_len, hidden_size]
                 with floating-point dtype.
             vision_features (torch.Tensor): Vision features
@@ -509,9 +510,6 @@ class DetrDecoderLayer(nn.Module):
                 position 0) [batch_size, num_queries + 1, hidden_size] with
                 floating-point dtype.
         """
-        # Prepend zeros to query_pos for presence token
-        query_pos = functional.pad(query_pos, (0, 0, 1, 0), mode="constant", value=0)
-
         # Self-attention with query position encoding
         residual = hidden_states
         query_with_pos = hidden_states + query_pos
@@ -629,6 +627,7 @@ class DetrDecoder(nn.Module):
         self.query_embed = nn.Embedding(num_queries, hidden_size)
         self.reference_points = nn.Embedding(num_queries, 4)
 
+        self.use_presence = True
         self.presence_token = nn.Embedding(1, hidden_size)
         self.presence_head = DecoderMLP(hidden_size, hidden_size, 1, 3)
         self.presence_layer_norm = nn.LayerNorm(hidden_size)
@@ -771,22 +770,28 @@ class DetrDecoder(nn.Module):
         query_embeds = self.query_embed.weight.unsqueeze(0).expand(batch_size, -1, -1)
         reference_boxes = self.reference_points.weight.unsqueeze(0).expand(batch_size, -1, -1)
         reference_boxes = reference_boxes.sigmoid()
-        presence_token = self.presence_token.weight.unsqueeze(0).expand(batch_size, -1, -1)
 
-        # Concatenate presence token with query embeddings
-        hidden_states = torch.cat([presence_token, query_embeds], dim=1)
+        if self.use_presence:
+            presence_token = self.presence_token.weight.unsqueeze(0).expand(batch_size, -1, -1)
+            hidden_states = torch.cat([presence_token, query_embeds], dim=1)
+        else:
+            hidden_states = query_embeds
 
         text_cross_attn_mask = expand_attention_mask(text_mask) if text_mask is not None else None
 
         intermediate_outputs = []
         intermediate_boxes = [reference_boxes]
-        intermediate_presence_logits = []
+        intermediate_presence_logits: list[torch.Tensor] = []
 
         for layer in self.layers:
             # Generate sine embeddings for conditional queries
             reference_points_input = reference_boxes.unsqueeze(2)
             query_sine_embed = self.position_encoding.encode_boxes(reference_points_input[:, :, 0, :])
             query_pos = self.ref_point_head(query_sine_embed)
+
+            # Prepend zeros to query_pos for presence token position
+            if self.use_presence:
+                query_pos = functional.pad(query_pos, (0, 0, 1, 0), mode="constant", value=0)
 
             # Compute box relative position bias (RPB) attention mask
             vision_cross_attn_mask = None
@@ -796,8 +801,16 @@ class DetrDecoder(nn.Module):
                     raise ValueError(msg)
                 spatial_shape = (spatial_shapes[0, 0], spatial_shapes[0, 1])
                 rpb_matrix = self._get_rpb_matrix(reference_boxes, spatial_shape)
-                # Prepend zeros row for presence token (it attends to all vision tokens equally)
-                vision_cross_attn_mask = functional.pad(rpb_matrix, (0, 0, 1, 0), mode="constant", value=0)
+                if self.use_presence:
+                    # Prepend zeros row for presence token (attends to all vision tokens equally)
+                    vision_cross_attn_mask = functional.pad(
+                        rpb_matrix,
+                        (0, 0, 1, 0),
+                        mode="constant",
+                        value=0,
+                    )
+                else:
+                    vision_cross_attn_mask = rpb_matrix
 
             hidden_states = layer(
                 hidden_states,
@@ -811,7 +824,7 @@ class DetrDecoder(nn.Module):
             )
 
             # Extract query hidden states (without presence token) for box refinement
-            query_hidden_states = hidden_states[:, 1:]
+            query_hidden_states = hidden_states[:, 1:] if self.use_presence else hidden_states
 
             # Box refinement: predict delta and update reference boxes
             reference_boxes_before_sigmoid = inverse_sigmoid(reference_boxes)
@@ -822,24 +835,25 @@ class DetrDecoder(nn.Module):
             intermediate_outputs.append(self.output_layer_norm(query_hidden_states))
             intermediate_boxes.append(new_reference_boxes)
 
-            # Process presence token
-            presence_hidden = hidden_states[:, :1]
-            presence_logits = self.presence_head(self.presence_layer_norm(presence_hidden)).squeeze(-1)
-            presence_logits = presence_logits.clamp(
-                min=-self.clamp_presence_logit_max_val,
-                max=self.clamp_presence_logit_max_val,
-            )
-            intermediate_presence_logits.append(presence_logits)
+            if self.use_presence:
+                presence_hidden = hidden_states[:, :1]
+                presence_logits = self.presence_head(
+                    self.presence_layer_norm(presence_hidden),
+                ).squeeze(-1)
+                presence_logits = presence_logits.clamp(
+                    min=-self.clamp_presence_logit_max_val,
+                    max=self.clamp_presence_logit_max_val,
+                )
+                intermediate_presence_logits.append(presence_logits)
 
         # Stack outputs from all layers
         intermediate_outputs = torch.stack(intermediate_outputs)
         intermediate_boxes = torch.stack(intermediate_boxes[:-1])
-        intermediate_presence_logits = torch.stack(intermediate_presence_logits)
 
         return {
             "intermediate_hidden_states": intermediate_outputs,
             "reference_boxes": intermediate_boxes,
-            "presence_logits": intermediate_presence_logits,
+            "presence_logits": (torch.stack(intermediate_presence_logits) if intermediate_presence_logits else None),
             "hidden_states": None,
             "attentions": None,
         }

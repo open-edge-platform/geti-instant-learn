@@ -5,15 +5,15 @@ import logging
 
 from fastapi import status
 
-from api.routers import license_router
+from api.routers import system_router
 from dependencies import LicenseServiceDep
 from domain.services.schemas.license import LicenseAcceptedSchema
 
 logger = logging.getLogger(__name__)
 
 
-@license_router.post(
-    path="/accept",
+@system_router.post(
+    path="/license/accept",
     tags=["License"],
     status_code=status.HTTP_200_OK,
     responses={

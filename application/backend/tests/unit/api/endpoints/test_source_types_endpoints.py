@@ -40,7 +40,7 @@ class TestSourceTypeEndpoints:
     def test_get_available_sources_success(self, fxt_discovery_service, fxt_usb_camera_sources, fxt_client):
         fxt_discovery_service.list_available_sources.return_value = fxt_usb_camera_sources
 
-        response = fxt_client.get(f"/api/v1/source-types/{SourceType.USB_CAMERA}/sources")
+        response = fxt_client.get(f"/api/v1/system/source-types/{SourceType.USB_CAMERA}/sources")
 
         assert response.status_code == status.HTTP_200_OK
         fxt_discovery_service.list_available_sources.assert_called_once_with(SourceType.USB_CAMERA)
@@ -56,7 +56,7 @@ class TestSourceTypeEndpoints:
     def test_get_available_sources_empty_list(self, fxt_discovery_service, fxt_client):
         fxt_discovery_service.list_available_sources.return_value = []
 
-        response = fxt_client.get(f"/api/v1/source-types/{SourceType.USB_CAMERA}/sources")
+        response = fxt_client.get(f"/api/v1/system/source-types/{SourceType.USB_CAMERA}/sources")
 
         assert response.status_code == status.HTTP_200_OK
         fxt_discovery_service.list_available_sources.assert_called_once_with(SourceType.USB_CAMERA)
@@ -69,7 +69,7 @@ class TestSourceTypeEndpoints:
             f"Discovery not supported for source type: {SourceType.USB_CAMERA}"
         )
 
-        response = fxt_client.get(f"/api/v1/source-types/{SourceType.USB_CAMERA}/sources")
+        response = fxt_client.get(f"/api/v1/system/source-types/{SourceType.USB_CAMERA}/sources")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         fxt_discovery_service.list_available_sources.assert_called_once_with(SourceType.USB_CAMERA)
@@ -78,7 +78,7 @@ class TestSourceTypeEndpoints:
     def test_get_available_sources_error(self, fxt_discovery_service, fxt_client):
         fxt_discovery_service.list_available_sources.side_effect = RuntimeError("Failed to enumerate devices")
 
-        response = fxt_client.get(f"/api/v1/source-types/{SourceType.USB_CAMERA}/sources")
+        response = fxt_client.get(f"/api/v1/system/source-types/{SourceType.USB_CAMERA}/sources")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         fxt_discovery_service.list_available_sources.assert_called_once_with(SourceType.USB_CAMERA)

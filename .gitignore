@@ -150,3 +150,6 @@ lightning_logs
 
 # Autosummary generated rst files
 library/**/_autosummary/
+
+# autodownloaded datasets
+library/datasets/

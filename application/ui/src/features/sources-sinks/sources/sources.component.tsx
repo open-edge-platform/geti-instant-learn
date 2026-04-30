@@ -18,6 +18,7 @@ import { usePrefetchAvailableSources } from './api/use-available-sources';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
+import { useAvailableDatasets } from './sample-dataset/api/use-available-datasets';
 import { CreateSampleDataset } from './sample-dataset/create-sample-dataset.component';
 import { CreateUsbCameraSource } from './usb-camera/create-usb-camera-source.component';
 import { SourcesViews } from './utils';
@@ -32,8 +33,9 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
     const navigateToExistingView = () => {
         onViewChange('existing');
     };
+    const { data: datasets = [] } = useAvailableDatasets(false);
 
-    const sourcesList = [
+    const baseSourcesList = [
         {
             label: 'USB Camera',
             value: 'usb_camera',
@@ -64,13 +66,16 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
             content: <CreateVideoFile onSaved={navigateToExistingView} />,
             icon: <VideoFile width={'24px'} />,
         },
-        {
-            label: 'Sample dataset',
-            value: 'sample_dataset',
-            content: <CreateSampleDataset onSaved={navigateToExistingView} />,
-            icon: <Datasets width={'24px'} />,
-        },
     ] satisfies { label: string; value: SourceType; content: ReactNode; icon: ReactNode }[];
+
+    const sampleDatasetSource = {
+        label: 'Sample dataset',
+        value: 'sample_dataset',
+        content: <CreateSampleDataset onSaved={navigateToExistingView} />,
+        icon: <Datasets width={'24px'} />,
+    } satisfies { label: string; value: SourceType; content: ReactNode; icon: ReactNode };
+
+    const sourcesList = datasets.length > 0 ? [...baseSourcesList, sampleDatasetSource] : baseSourcesList;
 
     const visibleSourcesList = sourcesList.filter(
         (source) => !sources.some((existingSource) => existingSource.config.source_type === source.value)

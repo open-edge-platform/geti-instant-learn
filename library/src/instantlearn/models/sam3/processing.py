@@ -11,6 +11,8 @@ import torch
 from torch import nn
 from torch.nn import functional
 
+from .post_processing import PostProcessingConfig, apply_post_processing
+
 
 class Sam3Preprocessor(nn.Module):
     """ONNX-traceable image preprocessor for SAM3.
@@ -90,14 +92,14 @@ class Sam3Preprocessor(nn.Module):
             pixel_values: Input image tensor with shape (B, C, H, W).
                          Can be uint8 (0-255) or float (0-1).
 
-        Raises:
-            ValueError: If input tensor does not have 4 dimensions or if the number of channels is not 3.
-
         Returns:
             Tuple containing:
                 - pixel_values: Preprocessed image tensor with shape (B, 3, target_size, target_size)
                   and SAM3 normalized values (range [-1, 1]).
                 - original_sizes: Tensor with shape (B, 2) containing [height, width] of input images.
+
+        Raises:
+            ValueError: If input tensor does not have 4 dimensions or if the number of channels is not 3.
 
         Example:
             >>> preprocessor = Sam3Preprocessor(target_size=1008)
@@ -209,7 +211,15 @@ class Sam3PromptPreprocessor(nn.Module):
         input_boxes: torch.Tensor | list | tuple,
         original_sizes: torch.Tensor,
     ) -> torch.Tensor:
-        """Normalize boxes from absolute xyxy to normalized cxcywh format."""
+        """Normalize boxes from absolute xyxy to normalized cxcywh format.
+
+        Args:
+            input_boxes: Boxes in xyxy format (B, N, 4), (N, 4), (4,), or list.
+            original_sizes: Image sizes (B, 2) as [height, width].
+
+        Returns:
+            Normalized boxes in cxcywh format (B, N, 4).
+        """
         if not isinstance(input_boxes, torch.Tensor):
             input_boxes = torch.tensor(input_boxes, dtype=torch.float32)
         input_boxes = input_boxes.to(device=original_sizes.device, dtype=torch.float32)
@@ -230,7 +240,15 @@ class Sam3PromptPreprocessor(nn.Module):
         input_points: torch.Tensor | list | tuple,
         original_sizes: torch.Tensor,
     ) -> torch.Tensor:
-        """Normalize points from absolute xy to normalized [0, 1] xy format."""
+        """Normalize points from absolute xy to normalized [0, 1] xy format.
+
+        Args:
+            input_points: Points in xy format (B, N, 2), (N, 2), (2,), or list.
+            original_sizes: Image sizes (B, 2) as [height, width].
+
+        Returns:
+            Normalized points in [0, 1] range (B, N, 2).
+        """
         if not isinstance(input_points, torch.Tensor):
             input_points = torch.tensor(input_points, dtype=torch.float32)
         input_points = input_points.to(device=original_sizes.device, dtype=torch.float32)
@@ -332,6 +350,7 @@ class Sam3Postprocessor(nn.Module):
         target_size: int = 1008,
         threshold: float = 0.3,
         mask_threshold: float = 0.5,
+        post_processing: PostProcessingConfig | None = None,
     ) -> None:
         """Initialize the postprocessor.
 
@@ -339,11 +358,16 @@ class Sam3Postprocessor(nn.Module):
             target_size: The target size for mask interpolation. Default: 1008.
             threshold: Score threshold for filtering predictions. Default: 0.3.
             mask_threshold: Threshold for binarizing masks. Default: 0.5.
+            post_processing: Optional post-processing configuration for NMS,
+                mask overlap removal, and non-overlapping pixel constraints.
+                When ``None``, no post-processing is applied beyond score
+                thresholding and mask binarization.
         """
         super().__init__()
         self.target_size = target_size
         self.threshold = threshold
         self.mask_threshold = mask_threshold
+        self.post_processing = post_processing
 
     @staticmethod
     def box_cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
@@ -421,6 +445,7 @@ class Sam3Postprocessor(nn.Module):
         boxes: torch.Tensor,
         masks: torch.Tensor,
         target_size: tuple[int, int],
+        threshold: float | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Postprocess predictions for a single image.
 
@@ -432,13 +457,16 @@ class Sam3Postprocessor(nn.Module):
             boxes: Bounding boxes (N, 4).
             masks: Mask logits after sigmoid (N, H, W).
             target_size: Target (height, width) for mask interpolation.
+            threshold: Score threshold override. Uses ``self.threshold``
+                when None. Default: None.
 
         Returns:
             Tuple of (kept_scores, kept_boxes, kept_masks) with only predictions
             above the threshold.
         """
         # Filter by score threshold
-        keep = scores > self.threshold
+        effective_threshold = threshold if threshold is not None else self.threshold
+        keep = scores > effective_threshold
         kept_scores = scores[keep]
         kept_boxes = boxes[keep]
         kept_masks = masks[keep]  # (num_keep, H, W)
@@ -455,18 +483,103 @@ class Sam3Postprocessor(nn.Module):
         # Binarize masks
         kept_masks = (kept_masks > self.mask_threshold).to(torch.int64)
 
+        # Apply configurable post-processing (NMS, IoM suppression, etc.)
+        # Skip during ONNX export: NMS and greedy suppression ops are not
+        # ONNX-traceable and would break export.
+        if not torch.onnx.is_in_onnx_export():
+            kept_scores, kept_boxes, kept_masks = apply_post_processing(
+                kept_scores,
+                kept_boxes,
+                kept_masks,
+                self.post_processing,
+            )
+
         return kept_scores, kept_boxes, kept_masks
+
+    @staticmethod
+    def _filter_by_points(
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        masks: torch.Tensor,
+        input_points: torch.Tensor,
+        input_points_labels: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Filter predictions to keep only masks that contain input points.
+
+        When using the DETR grounding path for point prompts, detection scores
+        are text-based (dot-product with text features). The highest-scored mask
+        may not overlap with the input point(s). This method filters to keep
+        only masks that actually contain the positive input points, effectively
+        emulating the SAM-style interactive segmentation behavior.
+
+        Args:
+            scores: Confidence scores (N,).
+            boxes: Bounding boxes (N, 4) in pixel coordinates.
+            masks: Binary masks (N, H, W) at target image resolution.
+            input_points: Point coordinates (P, 2) as (x, y) in pixel space.
+            input_points_labels: Point labels (P,) where 1=positive, 0=negative.
+                If None, all points are treated as positive.
+
+        Returns:
+            Filtered (scores, boxes, masks) containing only predictions whose
+            masks intersect with the positive input points. Falls back to
+            original predictions if no masks match.
+        """
+        if masks.numel() == 0 or input_points.numel() == 0:
+            return scores, boxes, masks
+
+        if input_points_labels is not None:
+            positive_mask = input_points_labels == 1
+            positive_points = input_points[positive_mask]
+        else:
+            positive_points = input_points
+
+        if positive_points.numel() == 0:
+            return scores, boxes, masks
+
+        h, w = masks.shape[-2:]
+        num_masks = masks.shape[0]
+        num_pos = positive_points.shape[0]
+
+        # Check which masks contain each positive point
+        # point_hits[i, j] = True if mask i contains positive point j
+        point_hits = torch.zeros(num_masks, num_pos, dtype=torch.bool, device=masks.device)
+        for j in range(num_pos):
+            px = int(positive_points[j, 0].clamp(0, w - 1).item())
+            py = int(positive_points[j, 1].clamp(0, h - 1).item())
+            point_hits[:, j] = masks[:, py, px] > 0
+
+        # Prefer masks that contain ALL positive points
+        all_points_hit = point_hits.all(dim=1)
+        if all_points_hit.any():
+            return scores[all_points_hit], boxes[all_points_hit], masks[all_points_hit]
+
+        # Fall back to masks that contain at least one positive point
+        any_point_hit = point_hits.any(dim=1)
+        if any_point_hit.any():
+            return scores[any_point_hit], boxes[any_point_hit], masks[any_point_hit]
+
+        # No masks contain any point — return all (unchanged behavior)
+        return scores, boxes, masks
 
     def forward(
         self,
         outputs: dict,
         target_sizes: torch.Tensor | list[tuple[int, int]],
+        input_points: list[torch.Tensor] | None = None,
+        input_points_labels: list[torch.Tensor] | None = None,
     ) -> list[dict[str, torch.Tensor]] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Postprocess model outputs to final predictions.
 
         Args:
             outputs: Dictionary containing model outputs.
             target_sizes: Target sizes as tensor (B, 2) or list of (height, width) tuples.
+            input_points: Per-image point prompts as list of (P, 2) tensors in
+                pixel coordinates. When provided, masks are filtered to keep only
+                those intersecting with positive input points. Default: None.
+            input_points_labels: Per-image point labels as list of (P,) tensors
+                where 1=positive, 0=negative. Used together with input_points.
+                Default: None.
 
         Returns:
             ONNX mode: Tuple of (scores, boxes, masks) tensors (filtered).
@@ -476,9 +589,40 @@ class Sam3Postprocessor(nn.Module):
 
         results = []
         for idx, (scores, boxes, masks) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
-            kept_scores, kept_boxes, kept_masks = self._postprocess_single(scores, boxes, masks, target_sizes[idx])
+            has_points = input_points is not None and idx < len(input_points) and input_points[idx].numel() > 0
+
+            if has_points:
+                # When point prompts are provided, use a much lower threshold
+                # to capture candidate masks that contain the input points. The
+                # correct mask may score low in text-based scoring but still
+                # intersect with the prompted point(s).
+                point_threshold = min(self.threshold, 0.01)
+                kept_scores, kept_boxes, kept_masks = self._postprocess_single(
+                    scores,
+                    boxes,
+                    masks,
+                    target_sizes[idx],
+                    threshold=point_threshold,
+                )
+
+                pts = input_points[idx]
+                pts_labels = input_points_labels[idx] if input_points_labels is not None else None
+                kept_scores, kept_boxes, kept_masks = self._filter_by_points(
+                    kept_scores,
+                    kept_boxes,
+                    kept_masks,
+                    pts,
+                    pts_labels,
+                )
+            else:
+                kept_scores, kept_boxes, kept_masks = self._postprocess_single(
+                    scores,
+                    boxes,
+                    masks,
+                    target_sizes[idx],
+                )
+
             if torch.onnx.is_in_onnx_export():
-                # In ONNX export, we return tensors with all predictions (including those below threshold)
                 results.append((kept_scores, kept_boxes, kept_masks))
             else:
                 results.append({"scores": kept_scores, "boxes": kept_boxes, "masks": kept_masks})
