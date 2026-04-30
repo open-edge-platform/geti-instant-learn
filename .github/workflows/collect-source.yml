@@ -8,7 +8,7 @@ permissions: {} # No permissions by default on workflow level
 jobs:
   collect-packages-names:
     name: Generate SBOM with Syft
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     permissions:
       contents: read
     strategy:
@@ -59,14 +59,14 @@ jobs:
           ] | unique[]' > pkg_list_$DEVICE.txt
 
       - name: Upload packages list
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pkg_list_${{ matrix.ai-device }}
           path: pkg_list_*
           retention-days: 5
 
   get-unique-names:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     needs:
       - collect-packages-names
     outputs:
@@ -94,10 +94,10 @@ jobs:
           echo "unique_package_names_oneline=$(cat unique_package_names_oneline.txt)" >> $GITHUB_OUTPUT
 
   collect-source-code:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
     needs: get-unique-names
     container:
-      image: debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
+      image: debian:bookworm-slim@sha256:4724b8cc51e33e398f0e2e15e18d5ec2851ff0c2280647e1310bc1642182655d
     steps:
       - name: Add apt sources for deb-src
         shell: bash
@@ -134,7 +134,7 @@ jobs:
           tar -czf "$ARCHIVE_NAME" -C "$OUTPUT_DIR" .
 
       - name: Upload source code archive
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: source-code-archive
           path: source_code.tar.gz
