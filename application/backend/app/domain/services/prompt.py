@@ -41,8 +41,8 @@ from domain.services.schemas.prompt import (
     PromptSchema,
     PromptsListSchema,
     PromptUpdateSchema,
-    TextPromptUpdateSchema,
-    VisualPromptUpdateSchema, VisualPromptCreateSchema,
+    VisualPromptCreateSchema,
+    VisualPromptUpdateSchema,
 )
 from domain.services.thumbnail import generate_thumbnail
 
@@ -156,7 +156,6 @@ class PromptService(BaseService):
         """
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
-
 
         thumbnail = None
         if isinstance(create_data, VisualPromptCreateSchema):
@@ -471,7 +470,6 @@ class PromptService(BaseService):
                 resource_id=str(project_id),
                 message="Referenced project does not exist.",
             )
-
 
         if ("unique" in error_msg or constraint_name) and (
             constraint_name == UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT or "frame_id" in error_msg
