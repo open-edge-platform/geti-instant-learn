@@ -15,7 +15,7 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
-from domain.services.schemas.reader import SourceType, UsbCameraConfig, VideoFileConfig
+from domain.services.schemas.reader import MaxResolution, SourceType, UsbCameraConfig, VideoFileConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
 
@@ -248,6 +248,78 @@ def test_create_active_source_violates_single_active_constraint(service, tmp_pat
     service.session.rollback.assert_called_once()
 
 
+def test_create_video_file_source_persists_max_resolution(service, dispatcher_mock, tmp_path):
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    new_source = make_source(
+        source_id=new_id,
+        project_id=project_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(video_file), "max_resolution": "fullhd"},
+        active=False,
+    )
+    service.source_repository.add.return_value = new_source
+
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        active=False,
+        config=VideoFileConfig(
+            source_type=SourceType.VIDEO_FILE,
+            video_path=str(video_file),
+            max_resolution=MaxResolution.FULLHD,
+        ),
+    )
+
+    result = service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert result.config.max_resolution == MaxResolution.FULLHD
+    persisted_source = service.source_repository.add.call_args.args[0]
+    assert persisted_source.config["max_resolution"] == "fullhd"
+    dispatcher_mock.dispatch.assert_called_once()
+
+
+def test_create_video_file_source_defaults_max_resolution_to_fullhd(service, dispatcher_mock, tmp_path):
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    new_source = make_source(
+        source_id=new_id,
+        project_id=project_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(video_file), "max_resolution": "fullhd"},
+        active=False,
+    )
+    service.source_repository.add.return_value = new_source
+
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        active=False,
+        config=VideoFileConfig(
+            source_type=SourceType.VIDEO_FILE,
+            video_path=str(video_file),
+        ),
+    )
+
+    result = service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert create_schema.config.max_resolution == MaxResolution.FULLHD
+    assert result.config.max_resolution == MaxResolution.FULLHD
+    persisted_source = service.source_repository.add.call_args.args[0]
+    assert persisted_source.config["max_resolution"] == "fullhd"
+    dispatcher_mock.dispatch.assert_called_once()
+
+
 def test_update_source_success(service, dispatcher_mock):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
@@ -279,6 +351,41 @@ def test_update_source_success(service, dispatcher_mock):
     assert all(ev.component_type == ComponentType.SOURCE for ev in events)
     assert events[0].component_id == prev_active.id
     assert events[1].component_id == source_id
+
+
+def test_update_video_file_source_persists_max_resolution(service, dispatcher_mock, tmp_path):
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(video_file)},
+        active=False,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.update.side_effect = lambda source: source
+
+    update_schema = SourceUpdateSchema(
+        active=False,
+        config=VideoFileConfig(
+            source_type=SourceType.VIDEO_FILE,
+            video_path=str(video_file),
+            max_resolution=MaxResolution.FULLHD,
+        ),
+    )
+
+    result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    assert result.config.max_resolution == MaxResolution.FULLHD
+    assert existing.config["max_resolution"] == "fullhd"
+    persisted_source = service.source_repository.update.call_args.args[0]
+    assert persisted_source.config["max_resolution"] == "fullhd"
+    dispatcher_mock.dispatch.assert_called_once()
 
 
 def test_update_source_type_change_conflict(service, tmp_path):

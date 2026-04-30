@@ -11,6 +11,7 @@ import cv2
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import ReaderConfig
 from runtime.core.components.base import StreamReader
+from runtime.services.frame_resolution import resize_frame_to_max_resolution
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +59,14 @@ class VideoFileReader(StreamReader):
         self._fps: float = 30.0
         self._video_path: Path | None = None
         self._next_frame_time_s: float | None = None
+        self._logged_resolution_cap = False
         self._lock = Lock()
         super().__init__()
 
     def connect(self) -> None:
         """Open the video file and initialize video properties."""
         video_path = Path(self._config.video_path)
+        max_resolution = getattr(self._config, "max_resolution", None)
         video_capture = cv2.VideoCapture(str(video_path))
 
         if not video_capture.isOpened():
@@ -81,6 +84,13 @@ class VideoFileReader(StreamReader):
             self._next_frame_time_s = next_frame_time_s
 
         logger.info(f"Opened video: {video_path.name}, frames: {total_frames}, fps: {fps:.2f}")
+        if max_resolution is None:
+            logger.info("Video file resolution cap disabled; source config has no max_resolution")
+        else:
+            logger.info(
+                "Video file resolution cap %s configured; effective frame dimensions will be reported on first read",
+                max_resolution,
+            )
 
     def __len__(self) -> int:
         """Return the total number of frames in the video."""
@@ -126,6 +136,30 @@ class VideoFileReader(StreamReader):
             video_path = self._video_path
             fps = self._fps
 
+        max_resolution = getattr(self._config, "max_resolution", None)
+        source_height, source_width = frame.shape[:2]
+        frame = resize_frame_to_max_resolution(frame, max_resolution)
+        resized_height, resized_width = frame.shape[:2]
+
+        if max_resolution is not None and not self._logged_resolution_cap:
+            if (source_width, source_height) == (resized_width, resized_height):
+                logger.info(
+                    "Video file resolution cap %s configured; source frame already within bounds at %dx%d",
+                    max_resolution,
+                    source_width,
+                    source_height,
+                )
+            else:
+                logger.info(
+                    "Video file resolution cap %s configured; source frame %dx%d resized to %dx%d",
+                    max_resolution,
+                    source_width,
+                    source_height,
+                    resized_width,
+                    resized_height,
+                )
+            self._logged_resolution_cap = True
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         return InputData(
@@ -143,4 +177,5 @@ class VideoFileReader(StreamReader):
             self._total_frames = 0
             self._video_path = None
             self._next_frame_time_s = None
+            self._logged_resolution_cap = False
             logger.info("Video reader closed")

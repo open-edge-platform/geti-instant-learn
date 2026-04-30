@@ -18,6 +18,14 @@ class SourceType(StrEnum):
     SAMPLE_DATASET = "sample_dataset"
 
 
+class MaxResolution(StrEnum):
+    FULLHD = "fullhd"
+
+
+class ResolutionCapConfig(BaseModel):
+    max_resolution: MaxResolution | None = MaxResolution.FULLHD
+
+
 class UsbCameraConfig(BaseModel):
     source_type: Literal[SourceType.USB_CAMERA]
     name: str | None = None
@@ -36,7 +44,7 @@ class UsbCameraConfig(BaseModel):
     }
 
 
-class VideoFileConfig(BaseModel):
+class VideoFileConfig(ResolutionCapConfig):
     source_type: Literal[SourceType.VIDEO_FILE]
     video_path: str
     seekable: bool = True
@@ -55,6 +63,7 @@ class VideoFileConfig(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
+                "max_resolution": "fullhd",
                 "seekable": True,
                 "source_type": "video_file",
                 "video_path": "/path/to/video.mp4",

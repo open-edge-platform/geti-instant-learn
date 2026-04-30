@@ -1,13 +1,14 @@
 #  Copyright (C) 2026 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-from domain.services.schemas.reader import ReaderConfig
+from domain.services.schemas.reader import MaxResolution, ReaderConfig
 from runtime.core.components.readers.video_file import VideoFileReader
 
 
@@ -22,6 +23,7 @@ def video_path(tmp_path: Path) -> Path:
 def reader_config(video_path: Path) -> MagicMock:
     config = MagicMock(spec=ReaderConfig)
     config.video_path = str(video_path)
+    config.max_resolution = None
     return config
 
 
@@ -89,6 +91,43 @@ class TestVideoFileReaderConnect:
         with patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture):
             with pytest.raises(RuntimeError, match="Failed to open video file"):
                 reader.connect()
+
+    def test_connect_logs_when_resolution_cap_is_disabled(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            caplog.at_level(logging.INFO, logger="runtime.core.components.readers.video_file"),
+        ):
+            reader.connect()
+
+        assert any(
+            "Video file resolution cap disabled; source config has no max_resolution" in record.getMessage()
+            for record in caplog.records
+        )
+
+    def test_connect_logs_when_resolution_cap_is_configured(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        reader._config.max_resolution = MaxResolution.FULLHD
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            caplog.at_level(logging.INFO, logger="runtime.core.components.readers.video_file"),
+        ):
+            reader.connect()
+
+        assert any(
+            "Video file resolution cap fullhd configured; effective frame dimensions will be reported on first read"
+            in record.getMessage()
+            for record in caplog.records
+        )
 
 
 class TestVideoFileReaderLength:
@@ -241,6 +280,111 @@ class TestVideoFileReaderRead:
                 reader.read()
 
             mock_sleep.assert_not_called()
+
+    def test_read_downscales_oversized_frame_for_fullhd_cap(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+    ) -> None:
+        frame_bgr = np.zeros((2160, 3840, 3), dtype=np.uint8)
+        resized_bgr = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        frame_rgb = np.ones((1080, 1920, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+        reader._config.max_resolution = MaxResolution.FULLHD
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.resize", return_value=resized_bgr) as mock_resize,
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+            patch("runtime.core.components.readers.video_file.time.sleep"),
+            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+        ):
+            reader.connect()
+            data = reader.read()
+
+        assert data is not None
+        assert data.frame is frame_rgb
+        mock_resize.assert_called_once_with(frame_bgr, (1920, 1080), interpolation=3)
+
+    def test_read_logs_when_fullhd_cap_resizes_frame(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        frame_bgr = np.zeros((2160, 3840, 3), dtype=np.uint8)
+        resized_bgr = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        frame_rgb = np.ones((1080, 1920, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+        reader._config.max_resolution = MaxResolution.FULLHD
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.resize", return_value=resized_bgr),
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+            patch("runtime.core.components.readers.video_file.time.sleep"),
+            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+            caplog.at_level(logging.INFO, logger="runtime.core.components.readers.video_file"),
+        ):
+            reader.connect()
+            reader.read()
+
+        assert any(
+            "resolution cap fullhd configured; source frame 3840x2160 resized to 1920x1080" in record.getMessage()
+            for record in caplog.records
+        )
+
+    def test_read_preserves_frame_when_within_fullhd_cap(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+    ) -> None:
+        frame_bgr = np.zeros((720, 1280, 3), dtype=np.uint8)
+        frame_rgb = np.ones((720, 1280, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+        reader._config.max_resolution = MaxResolution.FULLHD
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.resize") as mock_resize,
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+            patch("runtime.core.components.readers.video_file.time.sleep"),
+            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+        ):
+            reader.connect()
+            data = reader.read()
+
+        assert data is not None
+        assert data.frame is frame_rgb
+        mock_resize.assert_not_called()
+
+    def test_read_logs_when_fullhd_cap_is_already_within_bounds(
+        self,
+        reader: VideoFileReader,
+        mock_capture: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        frame_bgr = np.zeros((720, 1280, 3), dtype=np.uint8)
+        frame_rgb = np.ones((720, 1280, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+        reader._config.max_resolution = MaxResolution.FULLHD
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.resize") as mock_resize,
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+            patch("runtime.core.components.readers.video_file.time.sleep"),
+            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+            caplog.at_level(logging.INFO, logger="runtime.core.components.readers.video_file"),
+        ):
+            reader.connect()
+            reader.read()
+
+        mock_resize.assert_not_called()
+        assert any(
+            "resolution cap fullhd configured; source frame already within bounds at 1280x720" in record.getMessage()
+            for record in caplog.records
+        )
 
 
 class TestVideoFileReaderLockUsage:

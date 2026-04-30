@@ -18,7 +18,7 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, UsbCameraConfig
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, MaxResolution, SourceType, UsbCameraConfig, VideoFileConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
 from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
 
@@ -36,6 +36,18 @@ def make_source_schema(
         id=source_id,
         active=active,
         config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=device_id),
+    )
+
+
+def make_video_file_source_schema(source_id: UUID, video_path: str, active: bool = False) -> SourceSchema:
+    return SourceSchema(
+        id=source_id,
+        active=active,
+        config=VideoFileConfig(
+            source_type=SourceType.VIDEO_FILE,
+            video_path=video_path,
+            max_resolution=MaxResolution.FULLHD,
+        ),
     )
 
 
@@ -222,6 +234,138 @@ def test_update_source(client, behavior, expected_status):
         assert data["config"]["source_type"] == "usb_camera"
     else:
         assert "detail" in resp.json()
+
+
+def test_create_video_file_source_accepts_max_resolution(client, tmp_path):
+    created_id = uuid4()
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def create_source(self, project_id: UUID, create_data):
+            assert project_id == PROJECT_ID
+            assert create_data.config.source_type == SourceType.VIDEO_FILE
+            assert create_data.config.max_resolution == MaxResolution.FULLHD
+            return make_video_file_source_schema(created_id, create_data.config.video_path, create_data.active)
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+
+    payload = {
+        "id": str(created_id),
+        "active": False,
+        "config": {
+            "source_type": "video_file",
+            "video_path": str(video_file),
+            "max_resolution": "fullhd",
+        },
+    }
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["config"]["source_type"] == "video_file"
+    assert data["config"]["max_resolution"] == "fullhd"
+
+
+def test_create_video_file_source_defaults_max_resolution_to_fullhd(client, tmp_path):
+    created_id = uuid4()
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def create_source(self, project_id: UUID, create_data):
+            assert project_id == PROJECT_ID
+            assert create_data.config.source_type == SourceType.VIDEO_FILE
+            assert create_data.config.max_resolution == MaxResolution.FULLHD
+            return make_video_file_source_schema(created_id, create_data.config.video_path, create_data.active)
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+
+    payload = {
+        "id": str(created_id),
+        "active": False,
+        "config": {
+            "source_type": "video_file",
+            "video_path": str(video_file),
+        },
+    }
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["config"]["source_type"] == "video_file"
+    assert data["config"]["max_resolution"] == "fullhd"
+
+
+def test_update_video_file_source_accepts_max_resolution(client, tmp_path):
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def update_source(self, project_id: UUID, source_id: UUID, update_data):
+            assert project_id == PROJECT_ID
+            assert source_id == SOURCE_ID_1
+            assert update_data.config.source_type == SourceType.VIDEO_FILE
+            assert update_data.config.max_resolution == MaxResolution.FULLHD
+            return make_video_file_source_schema(source_id, update_data.config.video_path, update_data.active)
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+
+    payload = {
+        "active": False,
+        "config": {
+            "source_type": "video_file",
+            "video_path": str(video_file),
+            "max_resolution": "fullhd",
+        },
+    }
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["config"]["source_type"] == "video_file"
+    assert data["config"]["max_resolution"] == "fullhd"
+
+
+def test_update_video_file_source_defaults_max_resolution_to_fullhd(client, tmp_path):
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def update_source(self, project_id: UUID, source_id: UUID, update_data):
+            assert project_id == PROJECT_ID
+            assert source_id == SOURCE_ID_1
+            assert update_data.config.source_type == SourceType.VIDEO_FILE
+            assert update_data.config.max_resolution == MaxResolution.FULLHD
+            return make_video_file_source_schema(source_id, update_data.config.video_path, update_data.active)
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+
+    payload = {
+        "active": False,
+        "config": {
+            "source_type": "video_file",
+            "video_path": str(video_file),
+        },
+    }
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["config"]["source_type"] == "video_file"
+    assert data["config"]["max_resolution"] == "fullhd"
 
 
 @pytest.mark.parametrize(
