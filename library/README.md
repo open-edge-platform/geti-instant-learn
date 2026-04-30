@@ -119,7 +119,7 @@ ref_image = read_image("examples/assets/coco/000000286874.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
 # Available models: "SAM-HQ-tiny", "SAM-HQ-base", "SAM-HQ-large", "SAM-HQ", "SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"
-predictor = SAMPredictor("SAM-HQ-base", device="xpu")
+predictor = SAMPredictor("SAM-HQ-tiny", device="xpu")
 
 # Set image and generate mask from a point click
 predictor.set_image(ref_image)
@@ -192,7 +192,7 @@ from instantlearn.utils.constants import SAMModelName
 model = Matcher(
     device="xpu",
     encoder_model="dinov3_small",      # Smaller, faster encoder
-    sam=SAMModelName.SAM_HQ_BASE,        # Fast SAM HQ Base model
+    sam=SAMModelName.SAM_HQ_TINY,        # Fast SAM HQ Tiny model
 )
 
 # Use a heavier model for best accuracy
@@ -217,8 +217,8 @@ model = Matcher(
 
 | Model | Description |
 | ----- | ----------- |
-| `SAMModelName.SAM_HQ_TINY` | SAM-HQ Tiny — ViT-Tiny, ~5M params (fastest, PyTorch only — no OpenVINO export) |
-| `SAMModelName.SAM_HQ_BASE` | SAM-HQ Base — ViT-B, ~86M params (default, balanced) |
+| `SAMModelName.SAM_HQ_TINY` | SAM-HQ Tiny — ViT-Tiny, ~5M params (default, fastest, PyTorch only — no OpenVINO export) |
+| `SAMModelName.SAM_HQ_BASE` | SAM-HQ Base — ViT-B, ~86M params (balanced) |
 | `SAMModelName.SAM_HQ_LARGE` | SAM-HQ Large — ViT-L, ~307M params (high quality) |
 | `SAMModelName.SAM_HQ` | SAM-HQ — ViT-H, ~632M params (highest quality) |
 | `SAMModelName.SAM2_TINY` | SAM2 Tiny (newest architecture) |
@@ -363,9 +363,9 @@ Approximate GPU memory requirements for different model configurations:
 
 | Encoder | SAM Model | GPU Memory |
 | ------- | --------- | ---------- |
-| `dinov3_small` | `SAM_HQ_BASE` | ~4 GB |
-| `dinov3_base` | `SAM_HQ_BASE` | ~6 GB |
-| `dinov3_large` | `SAM_HQ_BASE` | ~8 GB |
+| `dinov3_small` | `SAM_HQ_TINY` | ~2 GB |
+| `dinov3_base` | `SAM_HQ_TINY` | ~4 GB |
+| `dinov3_large` | `SAM_HQ_TINY` | ~6 GB |
 | `dinov3_large` | `SAM_HQ` | ~10 GB |
 | `dinov3_huge` | `SAM_HQ` | ~16 GB |
 | `dinov3_huge` | `SAM2_LARGE` | ~20 GB |

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
-from instantlearn.utils.constants import CompressionMode, SAMModelName
+from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
@@ -32,7 +32,7 @@ ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
 class BaseModelConfig(BaseModel):
     """Base configuration class with common validators for all model types."""
 
-    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_BASE)
+    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
 
@@ -66,7 +66,7 @@ class PerDinoConfig(BaseModelConfig):
             "example": {
                 "model_type": "perdino",
                 "encoder_model": "dinov3_small",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "num_foreground_points": 80,
                 "num_background_points": 2,
                 "num_grid_cells": 16,
@@ -86,22 +86,8 @@ class MatcherConfig(BaseModelConfig):
     # Using 0.75 as a safe universal default that minimizes cross-class false positives.
     confidence_threshold: float = Field(default=0.75, gt=0.0, lt=1.0)
     use_mask_refinement: bool = Field(default=False)
-    compression: str = Field(
-        default="fp32",
-        description="Weight compression mode for OpenVINO export (fp32, fp16, int8_sym, int8_asym, int4_sym, int4_asym)",
-    )
     similarity_threshold: float | None = Field(default=None, gt=0.0, lt=1.0)
     num_grid_cells: int = Field(default=8, ge=0, le=100)
-
-    @field_validator("compression")
-    @classmethod
-    def validate_compression(cls, v: str) -> str:
-        try:
-            CompressionMode(v)
-        except ValueError:
-            allowed = ", ".join(m.value for m in CompressionMode)
-            raise ValueError(f"Compression mode must be one of [{allowed}], got '{v}'")
-        return v
 
     model_config = {
         "json_schema_extra": {
@@ -111,8 +97,7 @@ class MatcherConfig(BaseModelConfig):
                 "num_background_points": 3,
                 "confidence_threshold": 0.75,
                 "precision": "bf16",
-                "compression": "fp32",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
                 "similarity_threshold": None,
@@ -137,7 +122,7 @@ class SoftMatcherConfig(BaseModelConfig):
         "json_schema_extra": {
             "example": {
                 "model_type": "soft_matcher",
-                "sam_model": "SAM-HQ-base",
+                "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "num_foreground_points": 40,
                 "num_background_points": 2,

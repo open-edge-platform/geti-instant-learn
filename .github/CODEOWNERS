@@ -3,9 +3,16 @@
 
 # Backend
 application/backend/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
+application/docker/Dockerfile @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
+application/backend/pyproject.toml @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
+application/backend/uv.lock @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
 
 # Frontend
 application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN
+application/ui/package.json @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
+application/ui/package-lock.json @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
+application/ui/src-tauri/Cargo.toml @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
+application/ui/src-tauri/Cargo.lock @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
 
 # Deploy
 deploy/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
@@ -15,6 +22,8 @@ docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-ak
 
 # Lib
 library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
+library/pyproject.toml @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
+library/uv.lock @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
 
 # CI and security
 .github/actions/                        @open-edge-platform/geti-ci-maintain

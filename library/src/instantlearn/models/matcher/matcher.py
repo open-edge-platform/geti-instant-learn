@@ -6,6 +6,8 @@
 import logging
 from pathlib import Path
 
+import cv2
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional
@@ -20,7 +22,6 @@ from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
-from instantlearn.utils.compression import compress_model
 from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 
 from .prompt_generators import BidirectionalPromptGenerator
@@ -184,14 +185,13 @@ class Matcher(Model):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_BASE,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
         confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
         precision: str = "bf16",
-        compression: str | CompressionMode = CompressionMode.FP32,
         compile_models: bool = False,
         device: str = "cuda",
         postprocessor: PostProcessor | None = None,
@@ -209,8 +209,6 @@ class Matcher(Model):
                                  in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
             precision: Model precision ("bf16", "fp32").
-            compression: Weight compression mode for OpenVINO export.
-                See :class:`~instantlearn.utils.constants.CompressionMode` for valid values.
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
             postprocessor: Post-processor applied after predict().
@@ -227,7 +225,6 @@ class Matcher(Model):
         if postprocessor is None:
             postprocessor = default_postprocessor()
         super().__init__(postprocessor=postprocessor)
-        self.compression = CompressionMode(compression)
         # SAM predictor
         self.sam_predictor = load_sam_model(
             sam,
@@ -272,6 +269,11 @@ class Matcher(Model):
 
         # Reference features (set during fit)
         self.ref_features: ReferenceFeatures | None = None
+
+    @property
+    def input_size(self) -> int:
+        """Square input size expected by the encoder (e.g. 512)."""
+        return self.encoder.input_size
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> ReferenceFeatures:
         """Learn from reference images.
@@ -345,6 +347,50 @@ class Matcher(Model):
         return self.apply_postprocessing(predictions)
 
     @staticmethod
+    def prepare_openvino_input(frame: np.ndarray, input_size: int) -> np.ndarray:
+        """Resize and reformat a frame for OpenVINO inference.
+
+        Converts an HWC uint8/float frame to a contiguous float32 NCHW tensor
+        resized to the model's expected square input dimensions.
+
+        Args:
+            frame: Input image in HWC layout (any dtype).
+            input_size: Target square side length (e.g. 512).
+
+        Returns:
+            Contiguous float32 array with shape ``[1, 3, input_size, input_size]``.
+        """
+        if frame.shape[0] != input_size or frame.shape[1] != input_size:
+            frame = cv2.resize(frame, (input_size, input_size), interpolation=cv2.INTER_LINEAR)
+        image = np.expand_dims(frame.transpose(2, 0, 1), axis=0)
+        return np.ascontiguousarray(image, dtype=np.float32)
+
+    @staticmethod
+    def resize_masks_to_frame(masks: np.ndarray, frame_h: int, frame_w: int) -> np.ndarray:
+        """Resize predicted masks to the original frame spatial size.
+
+        Uses nearest-neighbour index mapping so no external resize library is needed.
+
+        Args:
+            masks: Predicted masks, ``[1, N, H, W]`` or ``[N, H, W]``.
+            frame_h: Original frame height.
+            frame_w: Original frame width.
+
+        Returns:
+            Boolean mask array ``[N, frame_h, frame_w]``.
+        """
+        if masks.ndim == 4 and masks.shape[0] == 1:
+            masks = masks[0]
+
+        if masks.ndim == 3 and (masks.shape[1] != frame_h or masks.shape[2] != frame_w):
+            src_h, src_w = masks.shape[1], masks.shape[2]
+            row_idx = (np.arange(frame_h) * src_h // frame_h).clip(0, src_h - 1)
+            col_idx = (np.arange(frame_w) * src_w // frame_w).clip(0, src_w - 1)
+            masks = masks[:, row_idx][:, :, col_idx]
+
+        return masks > 0.5
+
+    @staticmethod
     def _fix_onnx_output_names(onnx_path: Path, expected_names: list[str]) -> None:  # noqa: C901
         """Ensure ONNX graph outputs have the expected names.
 
@@ -381,20 +427,22 @@ class Matcher(Model):
         onnx.save(model, str(onnx_path))
 
     @torch.no_grad()
-    def export(  # noqa: C901
+    def export(  # noqa: C901, PLR0915
         self,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: str | Backend = Backend.ONNX,
-        compression: str | CompressionMode | None = None,
+        compress_to_fp16: bool = False,
+        compression: str | CompressionMode = CompressionMode.FP32,
     ) -> Path:
         """Export model components.
 
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
-            compression: Weight compression mode for OpenVINO export.
-                When *None*, falls back to ``self.compression``.
-                See :class:`~instantlearn.utils.constants.CompressionMode`.
+            compress_to_fp16: Whether to compress OpenVINO model to FP16.
+            compression: Weight compression mode for the exported OpenVINO model.
+                See :class:`~instantlearn.utils.constants.CompressionMode` for options.
+                Only applied when *backend* is ``OPENVINO``. Default: FP32 (no compression).
 
         Returns:
             Path to export directory.
@@ -402,19 +450,31 @@ class Matcher(Model):
         Raises:
             ImportError: If OpenVINO is selected but not installed.
             RuntimeError: If fit() has not been called before predict().
-            ValueError: If SAM-HQ-Tiny is used with OpenVINO backend.
         """
-        compression = CompressionMode(compression) if compression is not None else self.compression
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
             raise RuntimeError(msg)
 
+        # SAM-HQ-Tiny is not compatible with OpenVINO export (non-deterministic output).
+        # Automatically fall back to SAM-HQ-base and warn the user.
+        fallback_segmenter = None
         if Backend(backend) == Backend.OPENVINO and self.sam_predictor.sam_model_name == SAMModelName.SAM_HQ_TINY:
-            msg = (
-                "SAM-HQ-Tiny is not compatible with OpenVINO export due to GPU non-determinism. "
-                "Use SAM_HQ_BASE or SAM_HQ_LARGE instead."
+            logger.warning(
+                "SAM-HQ-Tiny is not supported for OpenVINO export. " \
+                "Some of the layers are non-deterministic and so the exported model is not reliable for inference. "
+                "Falling back to SAM-HQ-base for the exported model. "
+                "SAM-HQ-base weights will be downloaded if not already cached."
             )
-            raise ValueError(msg)
+            fallback_predictor = load_sam_model(
+                SAMModelName.SAM_HQ_BASE,
+                device="cpu",
+                precision="fp32",
+            )
+            fallback_segmenter = SamDecoder(
+                sam_predictor=fallback_predictor,
+                confidence_threshold=self.segmenter.confidence_threshold,
+                use_mask_refinement=self.segmenter.use_mask_refinement,
+            )
 
         export_path = Path(export_dir)
         export_path.mkdir(parents=True, exist_ok=True)
@@ -430,6 +490,9 @@ class Matcher(Model):
         self.segmenter.device = self.sam_predictor.device
         ref_features = self.ref_features.to(export_device)
 
+        # Use fallback decoder (SAM-HQ-base) if SAM-HQ-Tiny was requested with OpenVINO
+        export_decoder = fallback_segmenter if fallback_segmenter is not None else self.segmenter
+
         matcher = (
             MatcherInferenceGraph(
                 encoder=EncoderForwardFeaturesWrapper(
@@ -437,7 +500,7 @@ class Matcher(Model):
                     ignore_token_length=self.encoder._model.ignore_token_length,  # noqa: SLF001
                 ),
                 prompt_generator=self.prompt_generator,
-                sam_decoder=self.segmenter,
+                sam_decoder=export_decoder,
                 ref_features=ref_features,
                 postprocessor=self.postprocessor,
             )
@@ -522,14 +585,17 @@ class Matcher(Model):
                 input_name = ov_model.inputs[0].get_any_name()
                 ov_model.reshape({input_name: [1, 3, input_size, input_size]})
 
-                # Apply weight compression (INT8/INT4) via NNCF when requested.
-                # FP16 is handled natively by openvino.save_model below.
-                ov_model = compress_model(ov_model, compression)
+                # Apply weight compression if requested (INT8/INT4 via NNCF).
+                compression_mode = CompressionMode(compression)
+                if compression_mode not in (CompressionMode.FP32, CompressionMode.FP16):
+                    from instantlearn.utils.compression import compress_model  # noqa: PLC0415
+
+                    ov_model = compress_model(ov_model, mode=compression_mode)
 
                 openvino.save_model(
                     ov_model,
                     export_path / "matcher.xml",
-                    compress_to_fp16=(compression == CompressionMode.FP16),
+                    compress_to_fp16=compress_to_fp16 or compression_mode == CompressionMode.FP16,
                 )
                 return export_path / "matcher.xml"
             except ImportError as e:

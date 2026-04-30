@@ -11,7 +11,7 @@ export const getMockedModel = (model?: Partial<ModelType>): ModelType => {
         config: {
             model_type: 'perdino',
             encoder_model: 'dinov3_large',
-            sam_model: 'SAM-HQ-base',
+            sam_model: 'SAM-HQ-tiny',
             num_foreground_points: 40,
             num_background_points: 2,
             num_grid_cells: 16,

@@ -66,9 +66,10 @@ class ModelFactory:
 
         match config:
             case MatcherConfig() as config:
-                # When using the OpenVINO backend, precision is forced to fp32
-                # because the export pipeline traces in fp32 for numerical stability.
-                # Weight compression is handled separately via the compression parameter.
+                # if the model is converted to the OV format, the precision should be strictly fp32
+                # as a suggestion we can handle conversion at the higher level factory,
+                # as it knows if the model should be converted or not and can override the configuration
+                # of the model
                 precision = config.precision if not settings.processor_openvino_enabled else "fp32"
                 model = Matcher(
                     sam=config.sam_model,
@@ -80,13 +81,10 @@ class ModelFactory:
                     similarity_threshold=config.similarity_threshold,
                     num_grid_cells=config.num_grid_cells,
                     precision=precision,
-                    compression=config.compression,
                     device=selected_device,
                 )
                 if settings.processor_openvino_enabled:
-                    return OpenVINOModelHandler(
-                        model, reference_batch, precision=precision, compression=config.compression
-                    )
+                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
