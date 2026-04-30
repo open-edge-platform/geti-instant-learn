@@ -431,7 +431,6 @@ class Matcher(Model):
         self,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: str | Backend = Backend.ONNX,
-        compress_to_fp16: bool = False,
         compression: str | CompressionMode = CompressionMode.FP32,
     ) -> Path:
         """Export model components.
@@ -439,7 +438,6 @@ class Matcher(Model):
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
-            compress_to_fp16: Whether to compress OpenVINO model to FP16.
             compression: Weight compression mode for the exported OpenVINO model.
                 See :class:`~instantlearn.utils.constants.CompressionMode` for options.
                 Only applied when *backend* is ``OPENVINO``. Default: FP32 (no compression).
@@ -595,7 +593,7 @@ class Matcher(Model):
                 openvino.save_model(
                     ov_model,
                     export_path / "matcher.xml",
-                    compress_to_fp16=compress_to_fp16 or compression_mode == CompressionMode.FP16,
+                    compress_to_fp16=compression_mode == CompressionMode.FP16,
                 )
                 return export_path / "matcher.xml"
             except ImportError as e:
