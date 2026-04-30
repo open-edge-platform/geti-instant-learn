@@ -35,18 +35,6 @@ class PromptRepository(ProjectComponentRepository[PromptDB]):
 
         return self.session.scalars(stmt).unique().all()
 
-    def get_text_prompt_by_project(self, project_id: UUID) -> PromptDB | None:
-        """
-        Retrieve the text prompt for a project (if any).
-        """
-        logger.debug(f"Fetching text prompt for project_id={project_id}")
-        stmt = (
-            select(PromptDB)
-            .where(PromptDB.project_id == project_id, PromptDB.type == PromptType.TEXT)
-            .options(joinedload(PromptDB.annotations))
-        )
-        return self.session.scalars(stmt).unique().first()
-
     def list_with_pagination_by_project(
         self, project_id: UUID, offset: int = 0, limit: int = 10
     ) -> tuple[Sequence[PromptDB], int]:
