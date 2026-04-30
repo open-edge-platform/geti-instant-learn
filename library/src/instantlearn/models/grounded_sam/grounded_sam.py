@@ -22,7 +22,7 @@ class GroundedSAM(Model):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_BASE,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         precision: str = "bf16",
         compile_models: bool = False,

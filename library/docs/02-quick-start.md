@@ -45,7 +45,7 @@ from instantlearn.components.sam import SAMPredictor
 from instantlearn.utils.constants import SAMModelName
 
 # Generate reference mask from a point click using SAM
-predictor = SAMPredictor(SAMModelName.SAM_HQ_BASE, device="xpu")
+predictor = SAMPredictor(SAMModelName.SAM_HQ_TINY, device="xpu")
 predictor.set_image("examples/assets/coco/000000286874.jpg")
 ref_mask, _, _ = predictor.forward(
     point_coords=torch.tensor([[[280, 237]]], device="xpu"),  # Click on elephant
