@@ -8,6 +8,7 @@ import contextlib
 import itertools
 import logging
 from collections.abc import AsyncGenerator, Callable
+from uuid import UUID
 
 import cv2
 import numpy as np
@@ -24,6 +25,22 @@ TIMING_LOG_INTERVAL_FRAMES = 30
 _STREAM_ID_COUNTER = itertools.count(1)
 
 
+def _visualization_info_cache_key(vis_info: VisualizationInfo | None) -> tuple | None:
+    """Build a hashable cache key for visualization settings."""
+    if vis_info is None:
+        return None
+
+    label_colors = tuple(
+        (str(label.id), label.color.r, label.color.g, label.color.b, label.object_name)
+        for label in vis_info.label_colors
+    )
+    label_to_category = tuple(
+        sorted((str(label_id), category_id) for label_id, category_id in vis_info.category_mappings.label_to_category_id.items())
+    )
+    category_to_label = tuple(sorted(vis_info.category_mappings.category_id_to_label_id.items()))
+    return label_colors, label_to_category, category_to_label
+
+
 def _encode_jpeg(bgr: np.ndarray, quality: int) -> bytes:
     """Encode a BGR frame to JPEG bytes."""
     ok, buf = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])
@@ -38,6 +55,66 @@ class MjpegStreamService:
     def __init__(self, quality: int, max_fps: int) -> None:
         self._quality = quality
         self._max_fps = max_fps
+
+    async def _render_multipart_chunk(
+        self,
+        output_data: OutputData,
+        visualizer: InferenceVisualizer,
+        vis_info: VisualizationInfo | None,
+        boundary: bytes,
+        loop: asyncio.AbstractEventLoop,
+    ) -> tuple[bytes, bool, float, float, float, float]:
+        render_key = (self._quality, _visualization_info_cache_key(vis_info))
+
+        multipart_cache: dict[tuple[int, tuple | None], bytes] = getattr(output_data, "_mjpeg_multipart_cache", {})
+        cached_chunk = multipart_cache.get(render_key)
+        if cached_chunk is not None:
+            return cached_chunk, True, 0.0, 0.0, 0.0, 0.0
+
+        pending_renders: dict[tuple[int, tuple | None], asyncio.Future[bytes]] = getattr(
+            output_data,
+            "_mjpeg_pending_renders",
+            {},
+        )
+        pending_render = pending_renders.get(render_key)
+        if pending_render is not None:
+            return await asyncio.shield(pending_render), True, 0.0, 0.0, 0.0, 0.0
+
+        render_future = loop.create_future()
+        pending_renders[render_key] = render_future
+        setattr(output_data, "_mjpeg_pending_renders", pending_renders)
+
+        try:
+            visualize_start = loop.time()
+            rgb = visualizer.visualize(output_data=output_data, visualization_info=vis_info)
+            visualize_elapsed = loop.time() - visualize_start
+
+            color_convert_start = loop.time()
+            bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            color_convert_elapsed = loop.time() - color_convert_start
+
+            encode_start = loop.time()
+            jpeg = await loop.run_in_executor(None, _encode_jpeg, bgr, self._quality)
+            encode_elapsed = loop.time() - encode_start
+
+            multipart_start = loop.time()
+            multipart_chunk = (
+                b"--" + boundary + b"\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n"
+                b"\r\n" + jpeg + b"\r\n"
+            )
+            multipart_elapsed = loop.time() - multipart_start
+
+            multipart_cache[render_key] = multipart_chunk
+            setattr(output_data, "_mjpeg_multipart_cache", multipart_cache)
+            render_future.set_result(multipart_chunk)
+            return multipart_chunk, False, visualize_elapsed, color_convert_elapsed, encode_elapsed, multipart_elapsed
+        except Exception as exc:
+            render_future.set_exception(exc)
+            raise
+        finally:
+            pending_renders.pop(render_key, None)
 
     async def stream(
         self,
@@ -62,6 +139,8 @@ class MjpegStreamService:
         color_convert_time = 0.0
         encode_time = 0.0
         multipart_build_time = 0.0
+        cache_hits = 0
+        cache_misses = 0
 
         def log_timing_summary(reason: str) -> None:
             active_time = max(loop.time() - stream_start_time, 0.0)
@@ -75,7 +154,7 @@ class MjpegStreamService:
                 (
                     "MJPEG stream %s timing (%s): frames=%d active_s=%.3f avg_frame_ms=%.2f "
                     "vis_info_ms=%.2f visualize_ms=%.2f color_ms=%.2f encode_ms=%.2f multipart_ms=%.2f "
-                    "polls_no_frame=%d polls_duplicate=%d polls_throttled=%d"
+                    "cache_hits=%d cache_misses=%d polls_no_frame=%d polls_duplicate=%d polls_throttled=%d"
                 ),
                 stream_id,
                 reason,
@@ -87,6 +166,8 @@ class MjpegStreamService:
                 (color_convert_time / emitted_frames) * 1000 if emitted_frames else 0.0,
                 (encode_time / emitted_frames) * 1000 if emitted_frames else 0.0,
                 (multipart_build_time / emitted_frames) * 1000 if emitted_frames else 0.0,
+                cache_hits,
+                cache_misses,
                 no_frame_polls,
                 duplicate_frame_polls,
                 throttled_polls,
@@ -116,26 +197,29 @@ class MjpegStreamService:
                 vis_info = vis_info_provider()
                 vis_info_time += loop.time() - vis_info_start
 
-                visualize_start = loop.time()
-                rgb = visualizer.visualize(output_data=output_data, visualization_info=vis_info)
-                visualize_time += loop.time() - visualize_start
-
-                color_convert_start = loop.time()
-                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-                color_convert_time += loop.time() - color_convert_start
-
-                encode_start = loop.time()
-                jpeg = await loop.run_in_executor(None, _encode_jpeg, bgr, self._quality)
-                encode_time += loop.time() - encode_start
-
-                multipart_start = loop.time()
-                multipart_chunk = (
-                    b"--" + boundary + b"\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n"
-                    b"\r\n" + jpeg + b"\r\n"
+                (
+                    multipart_chunk,
+                    cache_hit,
+                    visualize_elapsed,
+                    color_convert_elapsed,
+                    encode_elapsed,
+                    multipart_elapsed,
+                ) = await self._render_multipart_chunk(
+                    output_data=output_data,
+                    visualizer=visualizer,
+                    vis_info=vis_info,
+                    boundary=boundary,
+                    loop=loop,
                 )
-                multipart_build_time += loop.time() - multipart_start
+
+                if cache_hit:
+                    cache_hits += 1
+                else:
+                    cache_misses += 1
+                    visualize_time += visualize_elapsed
+                    color_convert_time += color_convert_elapsed
+                    encode_time += encode_elapsed
+                    multipart_build_time += multipart_elapsed
 
                 emitted_frames += 1
                 last_yield_time = loop.time()
