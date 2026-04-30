@@ -69,16 +69,64 @@ jobs:
 
       - name: Create PR if lockfile changed
         if: steps.check-changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-        with:
-          token: ${{ steps.get-github-app-token.outputs.token }}
-          author: oep-renovate[bot] <212772560+oep-renovate[bot]@users.noreply.github.com>
-          committer: oep-renovate[bot] <212772560+oep-renovate[bot]@users.noreply.github.com>
-          commit-message: "fix(deps): npm audit fixes [security]"
-          title: "fix(deps): npm audit fixes [security]"
-          body: |
-            This PR was automatically created to update NPM dependencies with:
-            ${{ github.event.inputs.force_fix == 'true' && '`npm audit fix --force`' || '`npm audit fix --package-lock-only`' }}
-          branch: "npm-audit-fix-${{ github.run_id }}"
-          base: main
-          delete-branch: true
+        env:
+          GH_TOKEN: ${{ steps.get-github-app-token.outputs.token }}
+          BRANCH_NAME: "npm-audit-fix-${{ github.run_id }}"
+          IS_FORCE: ${{ github.event.inputs.force_fix == 'true' }}
+          # Feature freeze control: set RENOVATE_AUTOMERGE_ENABLED repository variable to 'false' to disable automerge
+          AUTOMERGE_ENABLED: ${{ vars.RENOVATE_AUTOMERGE_ENABLED != 'false' }}
+        run: |
+          git config user.name "oep-renovate[bot]"
+          git config user.email "212772560+oep-renovate[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+          git add application/ui/package-lock.json application/ui/package.json
+
+          if [ "$IS_FORCE" = "true" ]; then
+            PR_TITLE="fix(deps): npm audit fixes with breaking changes [security]"
+            PR_BODY=$(cat <<EOF
+          **This PR includes breaking changes**
+
+          This PR was automatically created to update NPM dependencies with:
+          \`npm audit fix --force\`
+
+          Please review carefully as this may include major version updates.
+          EOF
+          )
+            git commit -s -m "fix(deps): npm audit fixes with breaking changes [security]"
+          else
+            PR_TITLE="fix(deps): npm audit fixes (safe mode) [security]"
+            PR_BODY=$(cat <<EOF
+          **Lockfile-only audit remediation**
+
+          This PR was automatically created to update NPM dependencies with:
+          \`npm audit fix --package-lock-only\`
+
+          This updates the lockfile based on audit remediation and should be reviewed for any dependency changes.
+          EOF
+          )
+            git commit -s -m "fix(deps): npm audit fixes (safe mode) [security]"
+          fi
+
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$BRANCH_NAME"
+
+          if [ "$IS_FORCE" = "true" ]; then
+            gh pr create \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY" \
+              --base main \
+              --head "$BRANCH_NAME"
+          else
+            gh pr create \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY" \
+              --base main \
+              --head "$BRANCH_NAME" \
+              --reviewer sys-geti
+            
+            # Enable auto-merge for safe mode PRs (if not disabled via env)
+            if [ "$AUTOMERGE_ENABLED" = "true" ]; then
+              gh pr merge "$BRANCH_NAME" --auto --squash --delete-branch
+            fi
+          fi
