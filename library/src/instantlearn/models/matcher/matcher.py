@@ -485,7 +485,8 @@ class Matcher(Model):
         if backend != Backend.OPENVINO and isinstance(first_encoder_param, torch.Tensor):
             export_device = first_encoder_param.device
 
-        # INT4 compression does not work well on Matcher — reject early.
+        # INT4 compression does not work well on Matcher. 
+        # Export will succeed but masks produces are just noise  
         if Backend(backend) == Backend.OPENVINO and CompressionMode(compression) in {
             CompressionMode.INT4_SYM,
             CompressionMode.INT4_ASYM,

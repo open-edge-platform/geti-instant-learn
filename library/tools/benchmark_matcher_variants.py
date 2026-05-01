@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Benchmark SAM-HQ decoder x DINOv3 encoder variants: export, GPU/CPU inference, accuracy, determinism.
@@ -8,8 +8,8 @@ Usage:
     uv run python tools/benchmark_matcher_variants.py
     uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-base SAM-HQ-large
     uv run python tools/benchmark_matcher_variants.py --encoder dinov3_small dinov3_base
-    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-base --encoder dinov3_small dinov3_large
-    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-tiny --gpu-iterations 20
+    uv run python tools/benchmark_matcher_variants.py --compression int8_sym
+    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-base --encoder dinov3_small --gpu-iterations 20
 """
 
 import argparse
@@ -291,13 +291,12 @@ def main() -> None:
         help="DINOv3 encoder variants (e.g., dinov3_small dinov3_large). Default: all encoders.",
     )
     parser.add_argument("--gpu-iterations", type=int, default=10, help="GPU determinism iterations (default: 10)")
-    parser.add_argument("--no-fp16", action="store_true", help="Disable FP16 compression (use FP32 baseline)")
     parser.add_argument(
         "--compression",
         type=str,
-        default=None,
+        default="fp16",
         choices=[m.value for m in CompressionMode],
-        help="Weight compression mode (overrides --no-fp16). Default: fp16.",
+        help="Weight compression mode (default: fp16).",
     )
     args = parser.parse_args()
 
@@ -307,13 +306,7 @@ def main() -> None:
     sam_variants = [SAMModelName(v) for v in args.sam] if args.sam else ALL_SAM_HQ_VARIANTS
     encoders = args.encoder or ALL_ENCODERS
 
-    # Resolve compression mode from CLI args
-    if args.compression is not None:
-        compression = CompressionMode(args.compression)
-    elif args.no_fp16:
-        compression = CompressionMode.FP32
-    else:
-        compression = CompressionMode.FP16
+    compression = CompressionMode(args.compression)
     logger.info("Compression mode: %s", compression.value)
 
     combos = [(sam, enc) for sam in sam_variants for enc in encoders]
