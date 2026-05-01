@@ -199,7 +199,7 @@ class SAM3OpenVINO(Model):
         prompt_mode: Sam3PromptMode = Sam3PromptMode.VISUAL_EXEMPLAR,
         drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
-        variant: SAM3OVVariant = SAM3OVVariant.FP16,
+        variant: SAM3OVVariant = SAM3OVVariant.INT8,
         repo_id: str = _DEFAULT_HF_REPO,
     ) -> None:
         """Initialise SAM3 OpenVINO model.
@@ -314,7 +314,7 @@ class SAM3OpenVINO(Model):
     def _resolve_model_dir(
         model_dir: str | Path | None,
         *,
-        variant: SAM3OVVariant = SAM3OVVariant.FP16,
+        variant: SAM3OVVariant = SAM3OVVariant.INT8,
         repo_id: str = _DEFAULT_HF_REPO,
     ) -> Path:
         """Resolve the model directory, downloading from HuggingFace if needed.
