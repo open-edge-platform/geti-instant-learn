@@ -19,6 +19,22 @@ class Backend(StrEnum):
     TIMM = "timm"
 
 
+class CompressionMode(StrEnum):
+    """Weight compression mode for OpenVINO model export.
+
+    Controls the precision of stored model weights. Activations remain in
+    floating point. Higher compression reduces model size and memory
+    bandwidth but may lower accuracy, especially for small vision models.
+    """
+
+    FP32 = "fp32"
+    FP16 = "fp16"
+    INT8_SYM = "int8_sym"
+    INT8_ASYM = "int8_asym"
+    INT4_SYM = "int4_sym"
+    INT4_ASYM = "int4_asym"
+
+
 class SAMModelName(StrEnum):
     """Enum for SAM model types."""
 

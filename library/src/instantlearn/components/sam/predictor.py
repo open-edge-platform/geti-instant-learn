@@ -92,7 +92,7 @@ def check_model_weights(model_name: SAMModelName) -> None:
     """Check if model weights exist locally, download if necessary.
 
     Args:
-        model_name: The name of the model.
+        model_name: The SAM model name enum.
 
     Raises:
         ValueError: If the model is not found in MODEL_MAP.

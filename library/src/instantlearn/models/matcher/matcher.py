@@ -22,7 +22,7 @@ from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
-from instantlearn.utils.constants import Backend, SAMModelName
+from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 
 from .prompt_generators import BidirectionalPromptGenerator
 
@@ -431,14 +431,16 @@ class Matcher(Model):
         self,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: str | Backend = Backend.ONNX,
-        compress_to_fp16: bool = False,
+        compression: CompressionMode = CompressionMode.INT8_SYM,
     ) -> Path:
         """Export model components.
 
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
-            compress_to_fp16: Whether to compress OpenVINO model to FP16.
+            compression: Weight compression mode for the exported OpenVINO model.
+                See :class:`~instantlearn.utils.constants.CompressionMode` for options.
+                Only applied when *backend* is ``OPENVINO``. Default: INT8_SYM.
 
         Returns:
             Path to export directory.
@@ -446,6 +448,7 @@ class Matcher(Model):
         Raises:
             ImportError: If OpenVINO is selected but not installed.
             RuntimeError: If fit() has not been called before predict().
+            ValueError: If INT4 compression is requested for OpenVINO export.
         """
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
@@ -456,10 +459,10 @@ class Matcher(Model):
         fallback_segmenter = None
         if Backend(backend) == Backend.OPENVINO and self.sam_predictor.sam_model_name == SAMModelName.SAM_HQ_TINY:
             logger.warning(
-                "SAM-HQ-Tiny is not supported for OpenVINO export. " \
+                "SAM-HQ-Tiny is not supported for OpenVINO export. "
                 "Some of the layers are non-deterministic and so the exported model is not reliable for inference. "
                 "Falling back to SAM-HQ-base for the exported model. "
-                "SAM-HQ-base weights will be downloaded if not already cached."
+                "SAM-HQ-base weights will be downloaded if not already cached.",
             )
             fallback_predictor = load_sam_model(
                 SAMModelName.SAM_HQ_BASE,
@@ -481,6 +484,18 @@ class Matcher(Model):
         first_encoder_param = next(iter(self.encoder._model.model.parameters()), None)  # noqa: SLF001
         if backend != Backend.OPENVINO and isinstance(first_encoder_param, torch.Tensor):
             export_device = first_encoder_param.device
+
+        # INT4 compression does not work well on Matcher.
+        # Export will succeed but masks produces are just noise
+        if Backend(backend) == Backend.OPENVINO and compression in {
+            CompressionMode.INT4_SYM,
+            CompressionMode.INT4_ASYM,
+        }:
+            msg = (
+                "INT4 compressed models for Matcher produce random noisy masks and are not accurate. "
+                "Please use INT8 compression or no compression for Matcher exports."
+            )
+            raise ValueError(msg)
 
         self.sam_predictor.sync_device(export_device, dtype=torch.float32)
         self.segmenter.device = self.sam_predictor.device
@@ -581,10 +596,16 @@ class Matcher(Model):
                 input_name = ov_model.inputs[0].get_any_name()
                 ov_model.reshape({input_name: [1, 3, input_size, input_size]})
 
+                # Apply weight compression if requested (INT8/INT4 via NNCF).
+                if compression not in {CompressionMode.FP32, CompressionMode.FP16}:
+                    from instantlearn.utils.compression import compress_model  # noqa: PLC0415
+
+                    ov_model = compress_model(ov_model, mode=compression)
+
                 openvino.save_model(
                     ov_model,
                     export_path / "matcher.xml",
-                    compress_to_fp16=compress_to_fp16,
+                    compress_to_fp16=compression == CompressionMode.FP16,
                 )
                 return export_path / "matcher.xml"
             except ImportError as e:
