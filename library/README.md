@@ -27,9 +27,6 @@ uv sync --extra dev
 # Install notebook support
 uv sync --extra notebook
 
-# Install quantization tools (NNCF) - only required when needed to run model conversion (quantisation)scripts 
-uv sync --extra quantize
-
 # Install all dependencies
 uv sync --extra full
 ```
@@ -126,14 +123,16 @@ predictions = model.predict([
 <summary><strong>SAM3 OpenVINO: Optimized Inference</strong></summary>
 
 `SAM3OpenVINO` runs SAM3 on OpenVINO IR models for faster CPU/GPU inference without PyTorch at runtime.
-Pre-exported models are auto-downloaded from [HuggingFace](https://huggingface.co/rajeshgangireddy/exported_sam3).
+Pre-exported models are auto-downloaded from [HuggingFace](https://huggingface.co/rajeshgangireddy/SAM3_OpenVINO).
 
 | Variant | Enum | Precision | Recommended Use |
 | ------- | ---- | --------- | --------------- |
-| FP16 | `SAM3OVVariant.FP16` | Half-precision float | Default — balanced speed and accuracy |
+| FP16 | `SAM3OVVariant.FP16` | Half-precision float | Baseline — balanced speed and accuracy |
 | FP32 | `SAM3OVVariant.FP32` | Full-precision float | Maximum accuracy, debugging |
-| INT8 | `SAM3OVVariant.INT8` | 8-bit integer (NNCF) | Faster inference, good accuracy |
-| INT4 | `SAM3OVVariant.INT4` | 4-bit integer (NNCF) | Maximum compression, fastest |
+| INT8 Symmetric | `SAM3OVVariant.INT8_SYM` | 8-bit symmetric | Faster inference, good accuracy |
+| INT8 Asymmetric | `SAM3OVVariant.INT8_ASYM` | 8-bit asymmetric | Slightly better accuracy than SYM |
+| INT4 Symmetric | `SAM3OVVariant.INT4_SYM` | 4-bit symmetric | Maximum compression, fastest |
+| INT4 Asymmetric | `SAM3OVVariant.INT4_ASYM` | 4-bit asymmetric | Better accuracy than INT4 SYM |
 
 **Device support:** `"CPU"`, `"GPU"` (Intel iGPU/dGPU), or `"AUTO"`.
 PyTorch-style names (`"xpu"`, `"cuda"`) are mapped to the OpenVINO `"GPU"` device automatically.

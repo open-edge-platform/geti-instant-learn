@@ -6,7 +6,7 @@
 Measures component-level and end-to-end latency for live-inference scenarios:
 
 **Model variants benchmarked:**
-  - OpenVINO IR: FP16, NNCF-INT8, NNCF-INT4
+  - OpenVINO IR: FP16, INT8-SYM, INT8-ASYM, INT4-SYM, INT4-ASYM
 
 **Prompt types:**
   - Text prompt (category name → detect all instances)
@@ -48,8 +48,8 @@ Usage:
     # Auto-download models from HuggingFace and benchmark (default)
     python scripts/benchmark_sam3_openvino.py
 
-    # Auto-download INT8 quantised variant
-    python scripts/benchmark_sam3_openvino.py --variants openvino-int8
+    # Auto-download INT8 symmetric quantised variant
+    python scripts/benchmark_sam3_openvino.py --variants openvino-int8_sym
 
     # Use local model directory instead of HuggingFace
     python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino
@@ -93,7 +93,7 @@ console = Console()
 RESOLUTION = 1008
 
 # Default HuggingFace repo containing exported SAM3 OpenVINO models
-SAM3_HF_REPO_ID = "rajeshgangireddy/exported_sam3"
+SAM3_HF_REPO_ID = "rajeshgangireddy/SAM3_OpenVINO"
 
 # Canonical model file names (v3 five-model split)
 VISION_ENCODER = "vision-encoder"
@@ -105,8 +105,10 @@ PROMPT_DECODER = "prompt-decoder"
 # Model variants to benchmark (directory name -> human label)
 DEFAULT_VARIANTS: dict[str, str] = {
     "openvino-fp16": "OV-FP16",
-    "openvino-nncf-int8": "OV-NNCF-INT8",
-    "openvino-nncf-int4": "OV-NNCF-INT4",
+    "openvino-int8_sym": "OV-INT8-SYM",
+    "openvino-int8_asym": "OV-INT8-ASYM",
+    "openvino-int4_sym": "OV-INT4-SYM",
+    "openvino-int4_asym": "OV-INT4-ASYM",
 }
 
 # OpenVINO compile configs to benchmark (keyed by device category)

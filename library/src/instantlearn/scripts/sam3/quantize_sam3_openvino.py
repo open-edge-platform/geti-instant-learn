@@ -7,20 +7,21 @@ Applies NNCF weight compression (INT8 or INT4) to existing FP16 OpenVINO IR
 models.  Produces proper OpenVINO IR with compressed weights.  No calibration
 data is needed.
 
-Supported methods: ``nncf-int8``, ``nncf-int4``, and ``all``.
+Uses the shared ``compress_model()`` utility from
+``instantlearn.utils.compression``.
 
 Usage:
-    # Apply NNCF INT8 weight compression to FP16 IR
-    python quantize_sam3_openvino.py --method nncf-int8 --source-dir ./sam3-openvino/openvino-fp16
+    # Apply INT8 symmetric weight compression to FP16 IR
+    python quantize_sam3_openvino.py --compression int8_sym --source-dir ./sam3-openvino/openvino-fp16
 
-    # Apply NNCF INT4 weight compression to FP16 IR
-    python quantize_sam3_openvino.py --method nncf-int4 --source-dir ./sam3-openvino/openvino-fp16
+    # Apply INT4 symmetric weight compression to FP16 IR
+    python quantize_sam3_openvino.py --compression int4_sym --source-dir ./sam3-openvino/openvino-fp16
 
-    # Run all NNCF methods and compare sizes
-    python quantize_sam3_openvino.py --method all --source-dir ./sam3-openvino/openvino-fp16
+    # Run all compression modes and compare sizes
+    python quantize_sam3_openvino.py --compression all --source-dir ./sam3-openvino/openvino-fp16
 
     # Validate quantized models
-    python quantize_sam3_openvino.py --method nncf-int8 --source-dir ./sam3-openvino/openvino-fp16 --validate
+    python quantize_sam3_openvino.py --compression int8_sym --source-dir ./sam3-openvino/openvino-fp16 --validate
 """
 
 import argparse
@@ -34,6 +35,9 @@ import openvino as ov
 from rich.console import Console
 from rich.table import Table
 
+from instantlearn.utils.compression import compress_model
+from instantlearn.utils.constants import CompressionMode
+
 logger = logging.getLogger(__name__)
 
 # Canonical model names (5-model split)
@@ -45,11 +49,13 @@ MODEL_NAMES = [
     "prompt-decoder",
 ]
 
-# Methods that use NNCF
-NNCF_METHODS = {"nncf-int8", "nncf-int4"}
-
-# All individual methods
-ALL_METHODS = NNCF_METHODS
+# Compression modes applicable to SAM3 (excludes FP32/FP16 which are not quantisation)
+_SAM3_COMPRESSION_MODES = [
+    CompressionMode.INT8_SYM,
+    CompressionMode.INT8_ASYM,
+    CompressionMode.INT4_SYM,
+    CompressionMode.INT4_ASYM,
+]
 
 # Tokenizer files needed for inference
 TOKENIZER_FILES = [
@@ -61,101 +67,45 @@ TOKENIZER_FILES = [
 ]
 
 
-def _compress_single_model(nncf: object, ov_model: ov.Model, mode: str) -> ov.Model:
-    """Apply NNCF weight compression to a single OpenVINO model.
-
-    For INT4 mode, attempts group_size=128 first. If that fails due to
-    incompatible channel sizes, retries with group_size=-1 (per-channel).
-
-    Args:
-        nncf: The imported nncf module.
-        ov_model: OpenVINO model to compress.
-        mode: Compression mode ("int8" or "int4").
-
-    Returns:
-        Compressed OpenVINO model.
-    """
-    if mode == "int8":
-        return nncf.compress_weights(
-            ov_model,
-            mode=nncf.CompressWeightsMode.INT8_SYM,
-        )
-    # INT4: try group_size=128 first, fall back to per-channel
-    try:
-        return nncf.compress_weights(
-            ov_model,
-            mode=nncf.CompressWeightsMode.INT4_SYM,
-            ratio=0.8,
-            group_size=128,
-        )
-    except nncf.errors.InvalidGroupSizeError:
-        logger.warning("  group_size=128 failed, retrying with per-channel (group_size=-1)...")
-        return nncf.compress_weights(
-            ov_model,
-            mode=nncf.CompressWeightsMode.INT4_SYM,
-            ratio=0.8,
-            group_size=-1,
-        )
-
-
-def apply_nncf_weight_compression(
+def apply_weight_compression(
     source_dir: Path,
     output_dir: Path,
-    mode: str = "int8",
+    mode: CompressionMode = CompressionMode.INT8_SYM,
 ) -> Path:
-    """Apply NNCF weight compression to OpenVINO IR models.
+    """Apply weight compression to SAM3 OpenVINO IR models.
 
     Args:
         source_dir: Directory containing FP16 OpenVINO IR models.
         output_dir: Base output directory.
-        mode: Compression mode ("int8" or "int4").
+        mode: Compression mode from :class:`CompressionMode`.
 
     Returns:
         Path to directory containing compressed OpenVINO IR models.
-
-    Raises:
-        ImportError: If NNCF is not installed.
-        ValueError: If an unknown compression mode is specified.
     """
-    try:
-        import nncf  # noqa: PLC0415
-    except ImportError:
-        msg = "nncf is required for weight compression. Install it with: uv pip install nncf"
-        raise ImportError(msg) from None
-
-    if mode not in {"int8", "int4"}:
-        msg = f"Unknown NNCF mode: {mode}"
-        raise ValueError(msg)
-
     logger.info("=" * 60)
-    logger.info("Applying NNCF %s weight compression", mode.upper())
-    logger.info("Using nncf version: %s", nncf.__version__)
+    logger.info("Applying %s weight compression", mode.value.upper())
     logger.info("=" * 60)
 
-    ir_dir = output_dir / f"openvino-nncf-{mode}"
+    ir_dir = output_dir / f"openvino-{mode.value}"
     ir_dir.mkdir(parents=True, exist_ok=True)
 
     core = ov.Core()
+    logger.info("Compressing %d models", len(MODEL_NAMES))
 
-    model_names = MODEL_NAMES
-    logger.info("Compressing %d models", len(model_names))
-
-    for model_name in model_names:
+    for model_name in MODEL_NAMES:
         xml_path = source_dir / f"{model_name}.xml"
         if not xml_path.exists():
-            msg = f"Source model not found: {xml_path}"
-            logger.warning(msg)
+            logger.warning("Source model not found: %s", xml_path)
             continue
 
-        msg = f"Compressing {model_name} with NNCF {mode.upper()}..."
-        logger.info(msg)
+        logger.info("Compressing %s with %s...", model_name, mode.value.upper())
 
         ov_model = core.read_model(xml_path)
 
         try:
-            compressed_model = _compress_single_model(nncf, ov_model, mode)
+            compressed_model = compress_model(ov_model, mode=mode, group_size=-1)
         except Exception:
-            logger.exception("Failed to compress %s with NNCF %s", model_name, mode)
+            logger.exception("Failed to compress %s with %s", model_name, mode.value)
             continue
 
         out_xml = ir_dir / f"{model_name}.xml"
@@ -163,8 +113,7 @@ def apply_nncf_weight_compression(
 
         bin_path = ir_dir / f"{model_name}.bin"
         size_mb = bin_path.stat().st_size / (1024 * 1024)
-        msg = f"Saved: {out_xml} ({size_mb:.1f} MB)"
-        logger.info(msg)
+        logger.info("Saved: %s (%.1f MB)", out_xml, size_mb)
 
     # Copy tokenizer files from source
     for filename in TOKENIZER_FILES:
@@ -373,27 +322,27 @@ def _build_parser() -> argparse.ArgumentParser:
     Returns:
         Configured argument parser.
     """
+    valid_modes = [m.value for m in _SAM3_COMPRESSION_MODES]
     parser = argparse.ArgumentParser(
         description="Quantize SAM3 models for faster OpenVINO inference.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Methods:
-  nncf-int8   Apply NNCF INT8 weight compression to FP16 models (requires --source-dir)
-  nncf-int4   Apply NNCF INT4 weight compression to FP16 models (requires --source-dir)
-  all         Run all NNCF methods (requires --source-dir)
+        epilog=f"""
+Compression modes:
+  {', '.join(valid_modes)}
+  all         Run all compression modes
 
 Examples:
-  python quantize_sam3_openvino.py --method nncf-int8 --source-dir ./sam3-openvino/openvino-fp16
-  python quantize_sam3_openvino.py --method nncf-int4 --source-dir ./sam3-openvino/openvino-fp16
-  python quantize_sam3_openvino.py --method all --source-dir ./sam3-openvino/openvino-fp16 --validate
+  python quantize_sam3_openvino.py --compression int8_sym --source-dir ./sam3-openvino/openvino-fp16
+  python quantize_sam3_openvino.py --compression int4_sym --source-dir ./sam3-openvino/openvino-fp16
+  python quantize_sam3_openvino.py --compression all --source-dir ./sam3-openvino/openvino-fp16 --validate
         """,
     )
     parser.add_argument(
-        "--method",
+        "--compression",
         type=str,
         required=True,
-        choices=["nncf-int8", "nncf-int4", "all"],
-        help="Quantization method to apply.",
+        choices=[*valid_modes, "all"],
+        help="Weight compression mode to apply.",
     )
     parser.add_argument(
         "--output-dir",
@@ -404,7 +353,7 @@ Examples:
     parser.add_argument(
         "--source-dir",
         type=Path,
-        help="Directory with FP16 OpenVINO IR models (required for NNCF methods).",
+        help="Directory with FP16 OpenVINO IR models.",
     )
     parser.add_argument(
         "--validate",
@@ -425,21 +374,6 @@ Examples:
     return parser
 
 
-def _run_method(method: str, output_dir: Path, source_dir: Path | None) -> Path:
-    """Run a single quantization method.
-
-    Args:
-        method: Method name (e.g., "nncf-int8", "nncf-int4").
-        output_dir: Base output directory.
-        source_dir: Source directory with FP16 OpenVINO IR models.
-
-    Returns:
-        Path to directory containing the quantized models.
-    """
-    nncf_mode = method.replace("nncf-", "")
-    return apply_nncf_weight_compression(source_dir, output_dir, nncf_mode)
-
-
 def main() -> None:
     """CLI entry point for SAM3 quantization."""
     parser = _build_parser()
@@ -452,56 +386,37 @@ def main() -> None:
         force=True,
     )
 
-    method = args.method
-    output_dir = args.output_dir
-    source_dir = args.source_dir
-
-    # Determine which methods to run
-    methods_to_run = _resolve_methods(method)
-
-    # Validate that source-dir is provided for NNCF
-    if source_dir is None:
+    if args.source_dir is None:
         parser.error("--source-dir is required. Point it to your FP16 OpenVINO IR directory.")
 
-    # Run each method
+    # Resolve compression modes to run
+    modes = _SAM3_COMPRESSION_MODES if args.compression == "all" else [CompressionMode(args.compression)]
+
+    # Run each compression mode
     result_dirs: dict[str, Path] = {}
-    for m in methods_to_run:
+    for mode in modes:
         try:
-            result_dirs[m] = _run_method(m, output_dir, source_dir)
+            result_dirs[mode.value] = apply_weight_compression(args.source_dir, args.output_dir, mode)
         except Exception:  # noqa: PERF203
-            logger.exception("Failed method: %s", m)
+            logger.exception("Failed compression: %s", mode.value)
 
     # Validate
     if args.validate:
-        for m, result_dir in result_dirs.items():
+        for name, result_dir in result_dirs.items():
             logger.info("-" * 60)
-            logger.info("Validating: %s", m)
+            logger.info("Validating: %s", name)
             validate_openvino_models(result_dir, device=args.device)
 
     # Summary
     logger.info("=" * 60)
     logger.info("Quantization complete!")
-    for m, result_dir in result_dirs.items():
+    for name, result_dir in result_dirs.items():
         size = get_dir_size(result_dir)
-        logger.info("  %s: %s (%.1f MB model files)", m, result_dir, size)
+        logger.info("  %s: %s (%.1f MB model files)", name, result_dir, size)
 
     # Print comparison table
-    if args.compare or method == "all":
-        print_comparison_table(output_dir)
-
-
-def _resolve_methods(method: str) -> list[str]:
-    """Resolve a method argument to a list of individual methods.
-
-    Args:
-        method: Method string from CLI (may be "all" or a single method).
-
-    Returns:
-        List of individual method names.
-    """
-    if method == "all":
-        return sorted(ALL_METHODS)
-    return [method]
+    if args.compare or args.compression == "all":
+        print_comparison_table(args.output_dir)
 
 
 if __name__ == "__main__":

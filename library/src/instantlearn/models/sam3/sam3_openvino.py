@@ -51,19 +51,22 @@ from .sam3 import Sam3PromptMode
 logger = logging.getLogger(__name__)
 
 # Default HuggingFace repo for SAM3 OpenVINO models and tokenizer
-_DEFAULT_HF_REPO = "rajeshgangireddy/exported_sam3"
+_DEFAULT_HF_REPO = "rajeshgangireddy/SAM3_OpenVINO"
 
 
 class SAM3OVVariant(str, Enum):
     """Available SAM3 OpenVINO model variants.
 
     Each variant maps to a subdirectory name on HuggingFace Hub.
+    Quantised variants align with :class:`~instantlearn.utils.constants.CompressionMode`.
     """
 
     FP16 = "openvino-fp16"
     FP32 = "openvino-fp32"
-    INT8 = "openvino-nncf-int8"
-    INT4 = "openvino-nncf-int4"
+    INT8_SYM = "openvino-int8_sym"
+    INT8_ASYM = "openvino-int8_asym"
+    INT4_SYM = "openvino-int4_sym"
+    INT4_ASYM = "openvino-int4_asym"
 
 
 # Sub-model file names
@@ -154,7 +157,7 @@ class SAM3OpenVINO(Model):
         ... )
 
         >>> # Auto-download INT8 quantised variant
-        >>> model = SAM3OpenVINO(variant=SAM3OVVariant.INT8, device="CPU")
+        >>> model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
 
         >>> # Use a local model directory (no download)
         >>> model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-fp16", device="CPU")
@@ -199,7 +202,7 @@ class SAM3OpenVINO(Model):
         prompt_mode: Sam3PromptMode = Sam3PromptMode.VISUAL_EXEMPLAR,
         drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
-        variant: SAM3OVVariant = SAM3OVVariant.INT8,
+        variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
         repo_id: str = _DEFAULT_HF_REPO,
     ) -> None:
         """Initialise SAM3 OpenVINO model.
@@ -314,7 +317,7 @@ class SAM3OpenVINO(Model):
     def _resolve_model_dir(
         model_dir: str | Path | None,
         *,
-        variant: SAM3OVVariant = SAM3OVVariant.INT8,
+        variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
         repo_id: str = _DEFAULT_HF_REPO,
     ) -> Path:
         """Resolve the model directory, downloading from HuggingFace if needed.
