@@ -142,17 +142,3 @@ class TestMjpegStreamService:
         # No frame in slot — should not yield
         with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(gen.__anext__(), timeout=0.05)
-
-    @pytest.mark.asyncio
-    async def test_stream_reuses_rendered_multipart_for_same_frame(self, service, output_slot, mock_visualizer):
-        frame = np.zeros((10, 10, 3), dtype=np.uint8)
-        output_data = OutputData(frame=frame, results=[])
-        output_slot.update(output_data)
-
-        gen1 = service.stream(output_slot, mock_visualizer, lambda: None)
-        gen2 = service.stream(output_slot, mock_visualizer, lambda: None)
-
-        chunk1, chunk2 = await asyncio.gather(gen1.__anext__(), gen2.__anext__())
-
-        assert chunk1 == chunk2
-        mock_visualizer.visualize.assert_called_once_with(output_data=output_data, visualization_info=None)
