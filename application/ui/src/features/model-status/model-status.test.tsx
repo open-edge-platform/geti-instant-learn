@@ -22,7 +22,7 @@ const renderBanner = () =>
     );
 
 describe('ModelStatusBanner', () => {
-    it('shows the ready label and keeps it visible', async () => {
+    it('shows the ready label with model and device and keeps it visible', async () => {
         mockStatus({
             state: 'ready',
             message: 'Model matcher ready on cuda',
@@ -34,11 +34,24 @@ describe('ModelStatusBanner', () => {
         renderBanner();
 
         const status = await screen.findByRole('status');
-        expect(status).toHaveAttribute('aria-label', 'Model Ready');
-        expect(status).toHaveTextContent(/Ready/i);
+        expect(status).toHaveAttribute('aria-label', 'Model Ready · matcher on cuda');
+        expect(status).toHaveTextContent(/Ready · matcher on cuda/i);
     });
 
-    it('shows a loading label and a spinner while the model is loading', async () => {
+    it('falls back to the bare state label when model and device are unknown', async () => {
+        mockStatus({
+            state: 'ready',
+            message: 'Model ready',
+            project_id: '1',
+        });
+
+        renderBanner();
+
+        const status = await screen.findByRole('status');
+        expect(status).toHaveAttribute('aria-label', 'Model Ready');
+    });
+
+    it('shows a loading label with model/device and a spinner while the model is loading', async () => {
         mockStatus({
             state: 'loading_model',
             message: 'Loading model matcher on cuda…',
@@ -50,8 +63,7 @@ describe('ModelStatusBanner', () => {
         renderBanner();
 
         const status = await screen.findByRole('status');
-        expect(status).toHaveAttribute('aria-label', 'Model Loading…');
-        // Spinner is present while busy.
+        expect(status).toHaveAttribute('aria-label', 'Model Loading matcher on cuda…');
         expect(screen.getByLabelText('Loading')).toBeVisible();
     });
 
@@ -59,19 +71,23 @@ describe('ModelStatusBanner', () => {
         mockStatus({
             state: 'loading_reference_batch',
             message: 'Building reference batch from prompts…',
+            model_name: 'matcher',
+            device: 'cuda',
             project_id: '1',
         });
 
         renderBanner();
 
         const status = await screen.findByRole('status');
-        expect(status).toHaveAttribute('aria-label', 'Model Building prompts…');
+        expect(status).toHaveAttribute('aria-label', 'Model Building prompts · matcher on cuda');
     });
 
-    it('shows the error label on ERROR state', async () => {
+    it('shows the error label with model/device on ERROR state', async () => {
         mockStatus({
             state: 'error',
             message: 'Model failed to load: boom',
+            model_name: 'matcher',
+            device: 'cuda',
             project_id: '1',
             error: { code: 'RuntimeError', detail: 'boom' },
         });
@@ -79,7 +95,7 @@ describe('ModelStatusBanner', () => {
         renderBanner();
 
         const status = await screen.findByRole('status');
-        expect(status).toHaveAttribute('aria-label', 'Model Error');
+        expect(status).toHaveAttribute('aria-label', 'Model Error · matcher on cuda');
     });
 
     it('shows the idle label when no model is loaded', async () => {
