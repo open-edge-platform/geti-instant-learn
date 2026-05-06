@@ -10,12 +10,13 @@ for text and visual prompting segmentation.
 from .model import Sam3Model
 from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
-from .sam3 import SAM3, SAM3_APPLICATION_MODEL_ID, SAM3_LIBRARY_MODEL_ID, Sam3PromptMode
+from .sam3 import SAM3, SAM3_APPLICATION_MODEL_ID, SAM3_LIBRARY_MODEL_ID, CanvasConfig, Sam3PromptMode
 
 __all__ = [
     "SAM3",
     "SAM3_APPLICATION_MODEL_ID",
     "SAM3_LIBRARY_MODEL_ID",
+    "CanvasConfig",
     "PostProcessingConfig",
     "Sam3Model",
     "Sam3Postprocessor",
