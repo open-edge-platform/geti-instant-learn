@@ -54,7 +54,7 @@ class TestOpenVINOModelHandler:
         mock_model.fit.assert_called_once_with(mock_reference_batch)
         mock_model.cpu.assert_called_once_with()
         mock_model.export.assert_called_once()
-        assert mock_model.export.call_args.args[1] == openvino_model.Backend.OPENVINO
+        assert mock_model.export.call_args.kwargs["backend"] == openvino_model.Backend.OPENVINO
 
         mock_device_to_openvino_device.assert_called_once_with("CPU")
         mock_precision_to_openvino_type.assert_called_once_with("fp16")
@@ -111,3 +111,44 @@ class TestOpenVINOModelHandler:
         np.testing.assert_array_equal(results[0]["pred_scores"], scores)
         np.testing.assert_array_equal(results[0]["pred_labels"], labels)
         assert results[0]["pred_boxes"].shape[1] == 5
+
+    @pytest.mark.parametrize(
+        ("preset", "expected_mode"),
+        [
+            ("throughput", "int8_sym"),
+            ("accuracy", "fp16"),
+        ],
+    )
+    def test_initialise_passes_compression_mode_from_preset(
+        self, mock_model, mock_reference_batch, monkeypatch, preset, expected_mode
+    ):
+        from instantlearn.utils.constants import CompressionMode
+
+        from domain.services.schemas.processor import CompressionPreset
+
+        compression = CompressionPreset(preset)
+        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp32", compression=compression)
+
+        parameter = MagicMock()
+        parameter.device = MagicMock()
+        mock_model.parameters.return_value = iter((parameter,))
+        mock_model.export.return_value = "/tmp/model.xml"
+
+        compiled_model = MagicMock()
+        compiled_model.outputs = [
+            MagicMock(get_names=MagicMock(return_value={"masks"})),
+            MagicMock(get_names=MagicMock(return_value={"scores"})),
+            MagicMock(get_names=MagicMock(return_value={"labels"})),
+        ]
+        mock_core = MagicMock()
+        mock_core.read_model.return_value = MagicMock()
+        mock_core.compile_model.return_value = compiled_model
+
+        monkeypatch.setattr(openvino_model.openvino, "Core", MagicMock(return_value=mock_core))
+        monkeypatch.setattr(openvino_model, "device_to_openvino_device", MagicMock(return_value="CPU"))
+        monkeypatch.setattr(openvino_model, "precision_to_openvino_type", MagicMock(return_value="f32"))
+
+        handler.initialise()
+
+        export_kwargs = mock_model.export.call_args.kwargs
+        assert export_kwargs["compression"] == CompressionMode(expected_mode)

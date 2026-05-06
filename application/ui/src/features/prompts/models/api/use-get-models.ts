@@ -38,6 +38,7 @@ const getDefaultMatcherModel = (id: string): MatcherModel => {
             use_mask_refinement: false,
             similarity_threshold: null,
             num_grid_cells: 8,
+            preset: 'throughput',
         },
         active: false,
         name: `Matcher`,

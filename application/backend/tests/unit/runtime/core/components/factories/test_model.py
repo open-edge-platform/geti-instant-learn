@@ -8,7 +8,7 @@ import pytest
 from instantlearn.utils.constants import SAMModelName
 
 from domain.services.schemas.device import AvailableDeviceSchema, Device
-from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.processor import CompressionPreset, MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
@@ -155,6 +155,7 @@ class TestModelFactory:
                     mock_model_instance,
                     mock_reference_batch,
                     precision="fp32",
+                    compression=CompressionPreset.THROUGHPUT,
                 )
                 mock_torch_handler.assert_not_called()
 
@@ -197,7 +198,9 @@ class TestModelFactory:
                 sam=SAMModelName.SAM_HQ_TINY,
                 encoder_model="dinov3_small",
             )
-            mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, precision="fp32")
+            mock_handler.assert_called_once_with(
+                mock_model_instance, mock_reference_batch, precision="fp32", compression=CompressionPreset.THROUGHPUT
+            )
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
         config = PerDinoConfig(
@@ -409,3 +412,40 @@ class TestModelFactory:
                 assert result is mock_torch_handler_instance
                 mock_torch_handler.assert_called_once()
                 mock_openvino_handler.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("preset", "expected_compression"),
+        [
+            (CompressionPreset.THROUGHPUT, CompressionPreset.THROUGHPUT),
+            (CompressionPreset.ACCURACY, CompressionPreset.ACCURACY),
+        ],
+    )
+    def test_factory_passes_preset_to_openvino_handler(
+        self, mock_reference_batch, mock_settings, model_factory, preset, expected_compression
+    ):
+        mock_settings.processor_openvino_enabled = True
+        config = MatcherConfig(
+            num_foreground_points=5,
+            num_background_points=3,
+            confidence_threshold=0.5,
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_small",
+            preset=preset,
+        )
+
+        with patch.multiple(
+            "runtime.core.components.factories.model",
+            get_settings=DEFAULT,
+            Matcher=DEFAULT,
+            OpenVINOModelHandler=DEFAULT,
+        ) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mocks["Matcher"].return_value = MagicMock()
+            model_factory.create(mock_reference_batch, config)
+
+            mocks["OpenVINOModelHandler"].assert_called_once_with(
+                mocks["Matcher"].return_value,
+                mock_reference_batch,
+                precision="fp32",
+                compression=expected_compression,
+            )
