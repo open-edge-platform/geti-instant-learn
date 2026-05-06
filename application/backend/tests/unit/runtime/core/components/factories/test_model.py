@@ -152,10 +152,10 @@ class TestModelFactory:
             else:
                 assert result is mock_openvino_handler_instance
                 mock_openvino_handler.assert_called_once_with(
-                    mock_model_instance,
-                    mock_reference_batch,
+                    model=mock_model_instance,
+                    reference_batch=mock_reference_batch,
                     precision="fp32",
-                    compression=CompressionPreset.THROUGHPUT,
+                    compression_preset=CompressionPreset.THROUGHPUT,
                 )
                 mock_torch_handler.assert_not_called()
 
@@ -199,7 +199,10 @@ class TestModelFactory:
                 encoder_model="dinov3_small",
             )
             mock_handler.assert_called_once_with(
-                mock_model_instance, mock_reference_batch, precision="fp32", compression=CompressionPreset.THROUGHPUT
+                model=mock_model_instance,
+                reference_batch=mock_reference_batch,
+                precision="fp32",
+                compression_preset=CompressionPreset.THROUGHPUT,
             )
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
@@ -444,8 +447,8 @@ class TestModelFactory:
             model_factory.create(mock_reference_batch, config)
 
             mocks["OpenVINOModelHandler"].assert_called_once_with(
-                mocks["Matcher"].return_value,
-                mock_reference_batch,
+                model=mocks["Matcher"].return_value,
+                reference_batch=mock_reference_batch,
                 precision="fp32",
-                compression=expected_compression,
+                compression_preset=expected_compression,
             )

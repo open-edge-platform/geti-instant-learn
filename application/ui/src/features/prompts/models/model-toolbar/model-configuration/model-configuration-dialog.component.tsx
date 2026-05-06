@@ -68,7 +68,7 @@ const PRECISIONS: { label: string; value: Precision }[] = [
     { label: 'BF16', value: 'bf16' },
 ];
 
-type CompressionPreset = 'throughput' | 'accuracy';
+type CompressionPreset = MatcherModel['config']['preset'];
 
 const COMPRESSION_PRESETS: { label: string; value: CompressionPreset }[] = [
     { label: 'Throughput', value: 'throughput' },
@@ -110,7 +110,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
     const [detectSmallObjects, setDetectSmallObjects] = useState<boolean>(
         model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined
     );
-    const [preset, setPreset] = useState<CompressionPreset>((model.config.preset as CompressionPreset) ?? 'throughput');
+    const [preset, setPreset] = useState<CompressionPreset>(model.config.preset ?? 'throughput');
 
     const updateModelMutation = useUpdateModel();
 
@@ -124,7 +124,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
         useMaskRefinement === model.config.use_mask_refinement &&
         detectSmallObjects ===
             (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined) &&
-        preset === ((model.config.preset as CompressionPreset) ?? 'throughput');
+        preset === (model.config.preset ?? 'throughput');
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();

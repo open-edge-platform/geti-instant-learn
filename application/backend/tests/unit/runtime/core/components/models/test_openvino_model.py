@@ -126,8 +126,13 @@ class TestOpenVINOModelHandler:
 
         from domain.services.schemas.processor import CompressionPreset
 
-        compression = CompressionPreset(preset)
-        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp32", compression=compression)
+        compression_preset = CompressionPreset(preset)
+        handler = OpenVINOModelHandler(
+            model=mock_model,
+            reference_batch=mock_reference_batch,
+            precision="fp32",
+            compression_preset=compression_preset,
+        )
 
         parameter = MagicMock()
         parameter.device = MagicMock()

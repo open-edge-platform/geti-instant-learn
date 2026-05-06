@@ -25,12 +25,12 @@ class OpenVINOModelHandler(ModelHandler):
         model: Model,
         reference_batch: Batch,
         precision: str,
-        compression: CompressionPreset = CompressionPreset.THROUGHPUT,
+        compression_preset: CompressionPreset = CompressionPreset.THROUGHPUT,
     ) -> None:
         self._model = model
         self._reference_batch = reference_batch
         self._precision = precision
-        self._compression = compression
+        self._compression_preset = compression_preset
         self._compiled_model: openvino.CompiledModel | None = None
         self._infer_request: openvino.InferRequest | None = None
         self._input_port: openvino.ConstOutput | None = None
@@ -63,7 +63,9 @@ class OpenVINOModelHandler(ModelHandler):
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 path = self._model.export(
-                    export_dir=tmp_dir, backend=Backend.OPENVINO, compression=self._compression.to_compression_mode()
+                    export_dir=tmp_dir,
+                    backend=Backend.OPENVINO,
+                    compression=self._compression_preset.to_compression_mode(),
                 )
 
                 core = openvino.Core()
