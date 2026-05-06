@@ -7,7 +7,7 @@ import { Key, Suspense } from 'react';
 
 import { Flex, Item, Loading, Picker, Text, View } from '@geti/ui';
 
-import { useModelStatus } from '../../../model-status';
+import { ModelStatusBanner, useModelStatus } from '../../../model-status';
 import { useGetModels } from '../api/use-get-models';
 import { useUpdateModel } from '../api/use-update-model';
 import { ModelConfiguration } from './model-configuration/model-configuration.component';
@@ -45,7 +45,7 @@ const ModelToolbarContent = () => {
     }
 
     return (
-        <Flex alignItems={'end'} gap={'size-100'}>
+        <Flex alignItems={'end'} gap={'size-200'} width={'100%'}>
             <Picker
                 isQuiet
                 isDisabled={isBusy}
@@ -58,6 +58,10 @@ const ModelToolbarContent = () => {
             </Picker>
 
             <ModelConfiguration model={activeModel} />
+
+            <View marginStart={'auto'}>
+                <ModelStatusBanner />
+            </View>
         </Flex>
     );
 };

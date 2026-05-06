@@ -5,7 +5,6 @@
 
 import { Divider, Flex, Heading, View } from '@geti/ui';
 
-import { ModelStatusBanner } from '../model-status';
 import { ModelToolbar } from './models/model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';
 import { PromptModes } from './prompt-modes/prompt-modes.component';
@@ -24,7 +23,6 @@ export const Prompt = () => {
                 <Heading margin={0}>Prompt</Heading>
                 <View padding={'size-300'} flex={1}>
                     <Flex direction={'column'} gap={'size-300'} height={'100%'}>
-                        <ModelStatusBanner />
 
                         <PromptModes />
 

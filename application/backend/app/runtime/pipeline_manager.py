@@ -183,9 +183,13 @@ class PipelineManager:
         for queue in subscribers:
             loop.call_soon_threadsafe(queue.put_nowait, status)
 
-    @staticmethod
-    def _resolve_model_descriptor(cfg: PipelineConfig | None) -> tuple[str | None, str | None]:
-        """Extract a human-friendly model name and device label from a pipeline config."""
+    def _resolve_model_descriptor(self, cfg: PipelineConfig | None) -> tuple[str | None, str | None]:
+        """Extract a human-friendly model name and resolved device label from a pipeline config.
+
+        The device is resolved through the component factory so ``auto`` and ``None``
+        values get mapped to the concrete backend the model will actually use
+        (e.g. ``xpu``/``cuda``/``cpu``), keeping status messages truthful.
+        """
         if cfg is None:
             return None, None
         model_name: str | None = None
@@ -193,7 +197,14 @@ class PipelineManager:
             model_name = getattr(cfg.processor, "model_type", None)
             if model_name is not None:
                 model_name = str(model_name)
-        device = str(cfg.device) if cfg.device is not None else None
+        try:
+            resolved = self._component_factory.resolve_device(cfg.device)
+            device: str | None = str(resolved)
+        except Exception:
+            # Resolution failure (e.g. device probing error) shouldn't break status
+            # reporting — fall back to the configured value or ``None``.
+            logger.debug("Failed to resolve device for status descriptor", exc_info=True)
+            device = str(cfg.device) if cfg.device is not None else None
         return model_name, device
 
     def _make_reporter(self, cfg: PipelineConfig) -> PublishingReporter:

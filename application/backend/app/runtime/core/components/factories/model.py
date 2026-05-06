@@ -48,6 +48,10 @@ class ModelFactory:
     ) -> None:
         self._device_resolver = device_resolver or DeviceResolver(available_devices=available_devices)
 
+    def resolve_device(self, configured_device: Device | None) -> Device:
+        """Resolve the configured device (possibly ``auto``/``None``) to a concrete backend."""
+        return self._device_resolver.resolve_device(configured_device)
+
     def create(  # noqa: PLR0911
         self,
         reference_batch: Batch | None,
