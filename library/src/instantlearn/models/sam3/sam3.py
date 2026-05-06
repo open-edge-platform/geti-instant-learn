@@ -336,8 +336,6 @@ class SAM3(Model):
             "attention_mask": text_inputs.attention_mask.to(self.device),
         }
 
-    # -- Public API --
-
     @torch.inference_mode()
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference samples.
@@ -482,8 +480,6 @@ class SAM3(Model):
             self.sam3_postprocessor.to(self.device)
 
         return str(xml_path)
-
-    # -- Fit internals --
 
     def _fit_classic(self, reference_batch: Batch) -> None:
         """Store category mapping from reference batch.
@@ -709,8 +705,6 @@ class SAM3(Model):
             [text_cache[p][1] for p in text_prompts],
         )
 
-    # -- Predict internals --
-
     def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
         """Classic SAM3 prediction with per-image text/box/point prompts.
 
@@ -881,8 +875,6 @@ class SAM3(Model):
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
         return results
-
-    # -- Canvas mode --
 
     def _fit_canvas(self, reference_batch: Batch) -> None:
         """Store reference images and bboxes for canvas-based prediction.
@@ -1776,8 +1768,6 @@ class SAM3(Model):
             result["pred_labels"] = torch.zeros(result["pred_boxes"].shape[0], dtype=torch.int64)
 
         return result
-
-    # -- Utilities --
 
     @staticmethod
     def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
