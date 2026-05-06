@@ -40,7 +40,7 @@ export type MatcherModel = Omit<ModelType, 'config'> & { config: MatcherConfig }
 export type PerDINOModel = Omit<ModelType, 'config'> & { config: PerDINOConfig };
 export type SoftMatcherModel = Omit<ModelType, 'config'> & { config: SoftMatcherConfig };
 
-export { $api, client } from './client';
+export { $api, client, baseUrl } from './client';
 export {
     type paths,
     type SchemaProcessorUpdateSchema as ModelUpdateType,
@@ -65,4 +65,8 @@ export {
     type SchemaSinkCreateSchema as SinkCreateType,
     type SchemaSinkUpdateSchema as SinkUpdateType,
     type SchemaSinksListSchema as SinksListType,
+    type SchemaModelStatusSchema as ModelStatusType,
+    type components,
 } from './openapi-spec';
+
+export type ModelState = components['schemas']['ModelState'];

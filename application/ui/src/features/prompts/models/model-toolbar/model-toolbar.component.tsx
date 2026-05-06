@@ -7,6 +7,7 @@ import { Key, Suspense } from 'react';
 
 import { Flex, Item, Loading, Picker, Text, View } from '@geti/ui';
 
+import { useModelStatus } from '../../../model-status';
 import { useGetModels } from '../api/use-get-models';
 import { useUpdateModel } from '../api/use-update-model';
 import { ModelConfiguration } from './model-configuration/model-configuration.component';
@@ -24,6 +25,7 @@ export const ModelToolbar = () => {
 const ModelToolbarContent = () => {
     const models = useGetModels();
     const updateModel = useUpdateModel();
+    const { isBusy } = useModelStatus();
     const activeModel = models.find((model) => model.active) ?? models[0];
 
     const handleSelectionChange = (key: Key | null) => {
@@ -46,6 +48,7 @@ const ModelToolbarContent = () => {
         <Flex alignItems={'end'} gap={'size-100'}>
             <Picker
                 isQuiet
+                isDisabled={isBusy}
                 label={'Model'}
                 defaultSelectedKey={activeModel.id}
                 onSelectionChange={handleSelectionChange}

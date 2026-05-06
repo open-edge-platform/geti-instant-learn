@@ -129,6 +129,14 @@ const initialHandlers = [
     http.get('/api/v1/projects/{project_id}/models', () => {
         return HttpResponse.json(MOCKED_MODELS_RESPONSE);
     }),
+
+    http.get('/api/v1/projects/{project_id}/model-status', () => {
+        return HttpResponse.json({
+            state: 'idle',
+            message: 'No active model',
+            project_id: '1',
+        });
+    }),
 ];
 
 const server = setupServer(...handlers, ...initialHandlers);

@@ -8,7 +8,15 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
 import { http, server } from '../../../../setup-test';
+import { ModelStatusProvider } from '../../../model-status';
 import { ModelToolbar } from './model-toolbar.component';
+
+const renderModelToolbar = () =>
+    render(
+        <ModelStatusProvider>
+            <ModelToolbar />
+        </ModelStatusProvider>
+    );
 
 describe('ModelToolbar', () => {
     it('does not render picker if there are no models', async () => {
@@ -18,13 +26,13 @@ describe('ModelToolbar', () => {
             })
         );
 
-        render(<ModelToolbar />);
+        renderModelToolbar();
 
         expect(await screen.findByText(/No models available/i)).toBeVisible();
     });
 
     it('renders models correctly', async () => {
-        render(<ModelToolbar />);
+        renderModelToolbar();
 
         const pickerButton = await screen.findByRole('button', { name: /Mega model/i });
         fireEvent.click(pickerButton);
@@ -46,7 +54,7 @@ describe('ModelToolbar', () => {
             })
         );
 
-        render(<ModelToolbar />);
+        renderModelToolbar();
 
         const pickerButton = await screen.findByRole('button', { name: /Mega model/i });
         fireEvent.click(pickerButton);

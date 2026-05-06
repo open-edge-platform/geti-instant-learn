@@ -8,15 +8,18 @@ import { fireEvent, screen } from '@testing-library/react';
 import { Group } from 'react-resizable-panels';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
 
+import { ModelStatusProvider } from '../../features/model-status';
 import { Sidebar } from './sidebar.component';
 
 const renderSidebar = () => {
     return render(
-        <SelectedFrameProvider>
-            <Group>
-                <Sidebar />
-            </Group>
-        </SelectedFrameProvider>
+        <ModelStatusProvider>
+            <SelectedFrameProvider>
+                <Group>
+                    <Sidebar />
+                </Group>
+            </SelectedFrameProvider>
+        </ModelStatusProvider>
     );
 };
 
