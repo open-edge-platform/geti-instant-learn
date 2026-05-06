@@ -8,6 +8,7 @@ from uuid import uuid4
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import SampleDatasetConfig, SourceType
 from runtime.components import DefaultComponentFactory
+from runtime.core.components.model_status_reporter import ModelStatusReporter
 
 
 class FakeSessionCtx:
@@ -48,8 +49,9 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
         patch("runtime.components.Processor") as processor_cls,
     ):
         svc_cls.return_value.get_pipeline_config.return_value = cfg
+        status_reporter = Mock(spec=ModelStatusReporter)
 
-        factory.create_processor(project_id, reference_batch)
+        factory.create_processor(project_id, reference_batch, status_reporter=status_reporter)
 
         factory._model_factory.create.assert_called_once_with(
             reference_batch=reference_batch,
@@ -58,6 +60,7 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
         )
         processor_cls.assert_called_once_with(
             model_handler=model_handler,
+            status_reporter=status_reporter,
             batch_size=8,
             frame_skip_interval=2,
             frame_skip_amount=1,

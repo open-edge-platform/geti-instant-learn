@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -87,6 +88,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         session_factory=session_factory,
         component_factory=component_factory,
     )
+    # Bind the running asyncio loop so worker-thread status updates can reach
+    # SSE subscribers via ``call_soon_threadsafe``.
+    app.state.pipeline_manager.bind_loop(asyncio.get_running_loop())
     app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager

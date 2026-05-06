@@ -9,6 +9,8 @@ import numpy as np
 from domain.services.schemas.processor import InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.model_status_reporter import ModelStatusReporter
+from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +78,19 @@ class Processor(PipelineComponent):
     """
 
     def __init__(
-        self, model_handler: ModelHandler, batch_size: int = 1, frame_skip_interval: int = 3, frame_skip_amount: int = 1
+        self,
+        model_handler: ModelHandler,
+        status_reporter: ModelStatusReporter,
+        batch_size: int = 1,
+        frame_skip_interval: int = 3,
+        frame_skip_amount: int = 1,
     ) -> None:
         super().__init__()
         self._model_handler = model_handler
         self._batch_size = batch_size
         self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
         self._initialized = False
+        self._status_reporter: ModelStatusReporter = status_reporter
 
     def setup(
         self, inbound_broadcaster: FrameBroadcaster[InputData], outbound_broadcaster: FrameBroadcaster[OutputData]
@@ -92,12 +100,37 @@ class Processor(PipelineComponent):
         self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
-    def run(self) -> None:  # noqa: C901
+    def _initialise_model(self) -> bool:
+        """Run model handler initialisation and report status transitions.
+
+        Returns ``True`` when the processor should enter its main loop, ``False``
+        if initialisation failed (the loop is then skipped).
+        """
+        is_passthrough = isinstance(self._model_handler, PassThroughModelHandler)
+        try:
+            if is_passthrough:
+                # No real model is loaded; the pipeline still streams frames but
+                # surfaces an IDLE model state to the UI.
+                self._model_handler.initialise()
+                self._status_reporter.idle()
+            else:
+                self._status_reporter.loading_model()
+                self._model_handler.initialise()
+                self._status_reporter.ready()
+        except Exception as exc:
+            logger.exception("Model initialisation failed: %s", exc)
+            self._status_reporter.error(exc)
+            return False
+        return True
+
+    def run(self) -> None:  # noqa: C901, PLR0912
         if not self._initialized:
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        self._model_handler.initialise()
+        if not self._initialise_model():
+            return
+
         logger.info(
             "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
             self._batch_size,
@@ -150,3 +183,5 @@ class Processor(PipelineComponent):
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)
         self._model_handler.close()
+        # Once the model handler is closed, the model is no longer serving predictions.
+        self._status_reporter.idle()

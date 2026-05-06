@@ -14,6 +14,7 @@ from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
+from runtime.core.components.model_status_reporter import ModelStatusReporter
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
@@ -27,7 +28,12 @@ class ComponentFactory(ABC):
     def create_source(self, project_id: UUID) -> Source: ...
 
     @abstractmethod
-    def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor: ...
+    def create_processor(
+        self,
+        project_id: UUID,
+        reference_batch: Batch,
+        status_reporter: ModelStatusReporter,
+    ) -> Processor: ...
 
     @abstractmethod
     def create_sink(self, project_id: UUID) -> Sink: ...
@@ -50,7 +56,12 @@ class DefaultComponentFactory(ComponentFactory):
             cfg = svc.get_pipeline_config(project_id)
         return Source(self._reader_factory.create(cfg.reader))
 
-    def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor:
+    def create_processor(
+        self,
+        project_id: UUID,
+        reference_batch: Batch,
+        status_reporter: ModelStatusReporter,
+    ) -> Processor:
         with self._session_factory() as session:
             project_svc = ProjectService(session)
             cfg = project_svc.get_pipeline_config(project_id)
@@ -62,6 +73,7 @@ class DefaultComponentFactory(ComponentFactory):
                 config=cfg.processor,
                 configured_device=cfg.device,
             ),
+            status_reporter=status_reporter,
             batch_size=settings.processor_batch_size,
             frame_skip_interval=settings.processor_frame_skip_interval,
             frame_skip_amount=settings.processor_frame_skip_amount,

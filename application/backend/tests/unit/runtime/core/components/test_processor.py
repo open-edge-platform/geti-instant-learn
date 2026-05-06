@@ -12,6 +12,7 @@ import pytest
 from domain.services.schemas.processor import InputData, OutputData
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.model_status_reporter import ModelStatusReporter
 from runtime.core.components.processor import FrameSkipPolicy, Processor
 
 
@@ -50,9 +51,15 @@ def mock_outbound_broadcaster() -> Mock:
 
 
 @pytest.fixture
-def processor(mock_model_handler) -> Processor:
+def mock_status_reporter() -> Mock:
+    return Mock(spec=ModelStatusReporter)
+
+
+@pytest.fixture
+def processor(mock_model_handler, mock_status_reporter) -> Processor:
     return Processor(
         model_handler=mock_model_handler,
+        status_reporter=mock_status_reporter,
         batch_size=1,
         frame_skip_interval=0,
         frame_skip_amount=0,
@@ -256,6 +263,7 @@ class TestProcessorRun:
         mock_model_handler: Mock,
         mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
+        mock_status_reporter: Mock,
     ) -> None:
         # interval=3, skip_amount=1: frames 0,1 processed; frame 2 dropped per cycle
         queue: Queue = Queue()
@@ -263,6 +271,7 @@ class TestProcessorRun:
 
         processor = Processor(
             model_handler=mock_model_handler,
+            status_reporter=mock_status_reporter,
             batch_size=1,
             frame_skip_interval=3,
             frame_skip_amount=1,
@@ -282,6 +291,7 @@ class TestProcessorRun:
         mock_model_handler: Mock,
         mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
+        mock_status_reporter: Mock,
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
@@ -289,6 +299,7 @@ class TestProcessorRun:
         # skip policy would skip every 3rd frame
         processor = Processor(
             model_handler=mock_model_handler,
+            status_reporter=mock_status_reporter,
             batch_size=1,
             frame_skip_interval=3,
             frame_skip_amount=1,
@@ -352,6 +363,7 @@ class TestProcessorRun:
         mock_model_handler: Mock,
         mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
+        mock_status_reporter: Mock,
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
@@ -362,6 +374,7 @@ class TestProcessorRun:
 
         processor = Processor(
             model_handler=mock_model_handler,
+            status_reporter=mock_status_reporter,
             batch_size=2,
             frame_skip_interval=0,
             frame_skip_amount=0,
@@ -384,6 +397,7 @@ class TestProcessorRun:
         mock_model_handler: Mock,
         mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
+        mock_status_reporter: Mock,
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
@@ -391,6 +405,7 @@ class TestProcessorRun:
 
         processor = Processor(
             model_handler=mock_model_handler,
+            status_reporter=mock_status_reporter,
             batch_size=4,
             frame_skip_interval=0,
             frame_skip_amount=0,
@@ -409,6 +424,7 @@ class TestProcessorRun:
         mock_model_handler: Mock,
         mock_inbound_broadcaster: Mock,
         mock_outbound_broadcaster: Mock,
+        mock_status_reporter: Mock,
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
@@ -416,6 +432,7 @@ class TestProcessorRun:
 
         processor = Processor(
             model_handler=mock_model_handler,
+            status_reporter=mock_status_reporter,
             batch_size=4,
             frame_skip_interval=0,
             frame_skip_amount=0,
@@ -452,3 +469,84 @@ class TestProcessorRun:
         processor, queue = configured_processor
         self._run_processor_with_frames(processor, queue, [])
         mock_model_handler.close.assert_called_once()
+
+
+class TestProcessorStatusReporter:
+    """Verify ``Processor`` reports model lifecycle through the injected reporter."""
+
+    def test_real_model_reports_loading_then_ready(self, mock_inbound_broadcaster, mock_outbound_broadcaster):
+        from runtime.core.components.base import ModelHandler
+        from runtime.core.components.model_status_reporter import ModelStatusReporter
+        from runtime.core.components.processor import Processor
+
+        reporter = Mock(spec=ModelStatusReporter)
+        handler = Mock(spec=ModelHandler)
+        handler.initialise = Mock()
+        handler.predict = Mock(return_value=[])
+        handler.close = Mock()
+        processor = Processor(
+            model_handler=handler,
+            status_reporter=reporter,
+            batch_size=1,
+            frame_skip_interval=0,
+            frame_skip_amount=0,
+        )
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        thread = Thread(target=processor)
+        thread.start()
+        time.sleep(0.05)
+        processor.stop()
+        thread.join(timeout=2)
+        reporter.loading_model.assert_called_once()
+        reporter.ready.assert_called_once()
+        reporter.idle.assert_called()  # called from _stop()
+        reporter.error.assert_not_called()
+
+    def test_passthrough_handler_reports_idle(self, mock_inbound_broadcaster, mock_outbound_broadcaster):
+        from runtime.core.components.model_status_reporter import ModelStatusReporter
+        from runtime.core.components.models.passthrough_model import PassThroughModelHandler
+        from runtime.core.components.processor import Processor
+
+        reporter = Mock(spec=ModelStatusReporter)
+        handler = PassThroughModelHandler()
+        processor = Processor(
+            model_handler=handler,
+            status_reporter=reporter,
+            batch_size=1,
+            frame_skip_interval=0,
+            frame_skip_amount=0,
+        )
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        thread = Thread(target=processor)
+        thread.start()
+        time.sleep(0.05)
+        processor.stop()
+        thread.join(timeout=2)
+        reporter.loading_model.assert_not_called()
+        reporter.ready.assert_not_called()
+        reporter.idle.assert_called()  # from initialise path + _stop()
+        reporter.error.assert_not_called()
+
+    def test_initialisation_failure_reports_error(self, mock_inbound_broadcaster, mock_outbound_broadcaster):
+        from runtime.core.components.base import ModelHandler
+        from runtime.core.components.model_status_reporter import ModelStatusReporter
+        from runtime.core.components.processor import Processor
+
+        reporter = Mock(spec=ModelStatusReporter)
+        handler = Mock(spec=ModelHandler)
+        boom = RuntimeError("boom")
+        handler.initialise = Mock(side_effect=boom)
+        handler.close = Mock()
+        processor = Processor(
+            model_handler=handler,
+            status_reporter=reporter,
+            batch_size=1,
+            frame_skip_interval=0,
+            frame_skip_amount=0,
+        )
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        thread = Thread(target=processor)
+        thread.start()
+        thread.join(timeout=2)
+        reporter.error.assert_called_once_with(boom)
+        reporter.ready.assert_not_called()

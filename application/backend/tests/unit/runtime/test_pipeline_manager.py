@@ -3,7 +3,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -102,7 +102,9 @@ class TestPipelineManager:
 
             svc_inst.get_active_pipeline_config.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.project_id)
-            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg.project_id, None)
+            mock_component_factory.create_processor.assert_called_once_with(
+                pipeline_cfg.project_id, None, status_reporter=ANY
+            )
             mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.project_id)
 
             # Pipeline is called with project_id and two FrameBroadcasters
@@ -137,15 +139,19 @@ class TestPipelineManager:
             assert mgr._pipeline is None
             assert dispatcher._listeners == [mgr.on_config_change]
 
-    def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory, mock_component_factory):
+    def test_on_activation_event_starts_new_pipeline(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
         with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
             patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
             patch.object(PipelineManager, "get_reference_batch", return_value=None),
             patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
         ):
-            pid = uuid4()
+            pid = pipeline_cfg.project_id
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
             repo_inst = repo_cls.return_value
 
             # Configure the mock Pipeline to support method chaining
@@ -159,7 +165,7 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             mock_component_factory.create_source.assert_called_once_with(pid)
-            mock_component_factory.create_processor.assert_called_once_with(pid, None)
+            mock_component_factory.create_processor.assert_called_once_with(pid, None, status_reporter=ANY)
             mock_component_factory.create_sink.assert_called_once_with(pid)
 
             # Pipeline is called with project_id and two FrameBroadcasters
@@ -177,8 +183,11 @@ class TestPipelineManager:
             pipeline_inst.start.assert_called_once()
             assert mgr._pipeline == pipeline_inst
 
-    def test_on_activation_replaces_existing_pipeline(self, dispatcher, session_factory, mock_component_factory):
+    def test_on_activation_replaces_existing_pipeline(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
         with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
             patch("runtime.pipeline_manager.FrameRepository"),
@@ -187,7 +196,8 @@ class TestPipelineManager:
         ):
             # Existing pipeline
             old_pipeline = Mock()
-            pid_new = uuid4()
+            pid_new = pipeline_cfg.project_id
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -203,7 +213,7 @@ class TestPipelineManager:
 
             old_pipeline.stop.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(pid_new)
-            mock_component_factory.create_processor.assert_called_once_with(pid_new, None)
+            mock_component_factory.create_processor.assert_called_once_with(pid_new, None, status_reporter=ANY)
             mock_component_factory.create_sink.assert_called_once_with(pid_new)
 
             # Pipeline is called with project_id and two FrameBroadcasters
