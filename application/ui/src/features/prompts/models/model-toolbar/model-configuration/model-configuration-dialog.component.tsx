@@ -71,8 +71,8 @@ const PRECISIONS: { label: string; value: Precision }[] = [
 type CompressionPreset = 'throughput' | 'accuracy';
 
 const COMPRESSION_PRESETS: { label: string; value: CompressionPreset }[] = [
-    { label: 'Throughput (INT8)', value: 'throughput' },
-    { label: 'Accuracy (FP16)', value: 'accuracy' },
+    { label: 'Throughput', value: 'throughput' },
+    { label: 'Accuracy', value: 'accuracy' },
 ];
 
 interface SelectionProps<T extends string> {

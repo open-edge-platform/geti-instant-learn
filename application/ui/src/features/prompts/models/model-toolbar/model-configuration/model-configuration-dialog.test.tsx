@@ -140,9 +140,9 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
 
-        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy (FP16)');
+        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
-        await modelConfigurationDialogPage.changeCompressionPreset('Throughput (INT8)');
+        await modelConfigurationDialogPage.changeCompressionPreset('Throughput');
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
@@ -225,7 +225,7 @@ describe('ModelConfigurationDialog', () => {
         const mockOnClose = vi.fn();
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
 
-        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy (FP16)');
+        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
         await modelConfigurationDialogPage.configureModel();
 
         await waitFor(() => {
