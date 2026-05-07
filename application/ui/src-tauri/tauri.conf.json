@@ -20,15 +20,28 @@
             }
         ],
         "security": {
-            "csp": null
+            "csp": null,
+            "headers": {
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin"
+            }
         },
         "withGlobalTauri": true
     },
     "bundle": {
         "active": true,
-        "targets": ["app"],
-        "externalBin": ["instant-learn-backend"],
-        "resources": ["_internal", "InitialData"],
-        "icon": ["icons/icon.ico"]
+        "targets": [
+            "app"
+        ],
+        "externalBin": [
+            "instant-learn-backend"
+        ],
+        "resources": [
+            "_internal",
+            "InitialData"
+        ],
+        "icon": [
+            "icons/icon.ico"
+        ]
     }
 }
