@@ -31,7 +31,6 @@ from domain.services.schemas.source import (
     SourcesListSchema,
     SourceUpdateSchema,
 )
-from runtime.core.components.factories.reader import StreamReaderFactory
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,6 @@ class SourceService(BaseService):
         source_repository: SourceRepository | None = None,
         project_repository: ProjectRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
-        reader_factory: StreamReaderFactory | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
@@ -61,7 +59,6 @@ class SourceService(BaseService):
         super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.source_repository = source_repository or SourceRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self.reader_factory = reader_factory or StreamReaderFactory()
 
     def list_sources(self, project_id: UUID, offset: int = 0, limit: int = 20) -> SourcesListSchema:
         """
@@ -121,7 +118,6 @@ class SourceService(BaseService):
         try:
             with self.db_transaction():
                 if create_data.active:
-                    self._validate_source_config(create_data)
                     self._disconnect_existing_active_source(project_id=project_id)
                 new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
                 self.source_repository.add(new_source)
@@ -176,10 +172,8 @@ class SourceService(BaseService):
 
         try:
             with self.db_transaction():
-                if update_data.active:
-                    self._validate_source_config(update_data)
-                    if not source.active:
-                        self._disconnect_existing_active_source(project_id=project_id)
+                if update_data.active and not source.active:
+                    self._disconnect_existing_active_source(project_id=project_id)
                 source.active = update_data.active
                 source.config = update_data.config.model_dump(mode="json")
                 source = self.source_repository.update(source)
@@ -219,19 +213,6 @@ class SourceService(BaseService):
             self.source_repository.delete(source.id)
             self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
-
-    def _validate_source_config(self, config: SourceCreateSchema | SourceUpdateSchema) -> None:
-        """Validate source configuration by delegating to the reader instance.
-
-        Args:
-            config: The source configuration schema to validate.
-
-        Raises:
-            ValueError: If validation fails for the specific source type.
-        """
-        reader = self.reader_factory.create(config.config)
-        reader.validate_config()
-        reader.close()
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

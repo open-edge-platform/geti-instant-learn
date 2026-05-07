@@ -41,7 +41,7 @@ def create_error_frame(error_data: ErrorData, width: int = 1280, height: int = 7
     line_spacing = 40
 
     # Add title
-    title = f"{error_data.component.name} Error"
+    title = f"{error_data.component.name.capitalize()} Error"
     title_size = cv2.getTextSize(title, font, font_scale * 1.2, thickness + 1)[0]
     title_x = (width - title_size[0]) // 2
     title_y = height // 3

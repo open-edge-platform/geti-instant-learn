@@ -26,6 +26,7 @@ from domain.services import (
 )
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
+from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
@@ -164,6 +165,11 @@ def get_sink_connection_validator() -> SinkConnectionValidator:
     return SinkConnectionValidator()
 
 
+def get_reader_config_validator() -> ReaderConfigValidator:
+    """Dependency that provides a reader config validator instance."""
+    return ReaderConfigValidator()
+
+
 def get_discovery_service() -> SourceTypeService:
     """Dependency that provides a DiscoveryService instance."""
     return SourceTypeService()
@@ -184,6 +190,7 @@ PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
+ReaderConfigValidatorDep = Annotated[ReaderConfigValidator, Depends(get_reader_config_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
