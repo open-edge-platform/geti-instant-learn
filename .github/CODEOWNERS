@@ -18,12 +18,12 @@ application/ui/src-tauri/Cargo.lock @dwesolow @pplaskie @jpggvilaca @MarkRedeman
 deploy/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
 
 # Docs
-docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay @rajeshgangireddy
+docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @rajeshgangireddy
 
 # Lib
-library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
-library/pyproject.toml @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
-library/uv.lock @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
+library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @rajeshgangireddy
+library/pyproject.toml @Daankrol @mpryahin @LenaRudaya @eugene123tw @rajeshgangireddy @sys-geti
+library/uv.lock @Daankrol @mpryahin @LenaRudaya @eugene123tw @rajeshgangireddy @sys-geti
 
 # CI and security
 .github/actions/                        @open-edge-platform/geti-ci-maintain
