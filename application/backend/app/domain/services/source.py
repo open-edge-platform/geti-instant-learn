@@ -231,6 +231,7 @@ class SourceService(BaseService):
         """
         reader = self.reader_factory.create(config.config)
         reader.validate_config()
+        reader.close()
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

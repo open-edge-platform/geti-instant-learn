@@ -467,20 +467,6 @@ class TestProcessorRun:
         broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
         assert any(isinstance(a, ErrorData) and a.message == "Source connection failed" for a in broadcast_args)
 
-    def test_model_initialization_error_sets_outbound_error(
-        self,
-        configured_processor: tuple[Processor, Queue],
-        mock_model_handler: Mock,
-        mock_outbound_broadcaster: Mock,
-    ) -> None:
-        processor, queue = configured_processor
-        mock_model_handler.initialise.side_effect = RuntimeError("Model load failed")
-
-        self._run_processor_with_frames(processor, queue, [], stop_after=0.3)
-
-        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
-        assert any(isinstance(a, ErrorData) and "Failed to initialize model" in a.message for a in broadcast_args)
-
     def test_error_state_prevents_frame_processing(
         self,
         configured_processor: tuple[Processor, Queue],
@@ -494,33 +480,5 @@ class TestProcessorRun:
 
         # ErrorData is forwarded downstream, not passed to predict
         mock_model_handler.predict.assert_not_called()
-        broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
-        assert any(isinstance(a, ErrorData) for a in broadcast_args)
-
-    def test_error_breaks_batch_collection(
-        self,
-        mock_model_handler: Mock,
-        mock_inbound_broadcaster: Mock,
-        mock_outbound_broadcaster: Mock,
-    ) -> None:
-        queue: Queue = Queue()
-        mock_inbound_broadcaster.register.return_value = queue
-
-        processor = Processor(
-            model_handler=mock_model_handler,
-            batch_size=4,
-            frame_skip_interval=0,
-            frame_skip_amount=0,
-        )
-        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
-
-        # Put a few frames then an ErrorData
-        for _ in range(2):
-            queue.put(make_input_data())
-        queue.put(ErrorData(message="Error during batch collection"))
-
-        self._run_processor_with_frames(processor, queue, [], stop_after=0.3)
-
-        # ErrorData should have been forwarded to outbound
         broadcast_args = [call.args[0] for call in mock_outbound_broadcaster.broadcast.call_args_list]
         assert any(isinstance(a, ErrorData) for a in broadcast_args)

@@ -116,45 +116,22 @@ class TestSource:
         """Test that Source broadcasts ErrorData when connect fails."""
         self.mock_stream_reader.connect.side_effect = RuntimeError("File not found")
 
-        import time
-        from threading import Thread
-
-        thread = Thread(target=self.source.run, daemon=True)
-        thread.start()
-
-        # Poll for broadcast to be called with a timeout
-        max_wait = 2.0
-        start_time = time.time()
-        while not self.mock_broadcaster.broadcast.called and (time.time() - start_time) < max_wait:
-            time.sleep(0.01)
-
-        self.source.stop()
-        thread.join(timeout=2)
+        self.source.run()
 
         self.mock_broadcaster.broadcast.assert_called_once()
         error_data = self.mock_broadcaster.broadcast.call_args[0][0]
         assert isinstance(error_data, ErrorData)
-        assert "Failed to connect to source" in error_data.message
+        assert "File not found" in error_data.message
 
-    def test_source_connect_error_does_not_crash_thread(self):
-        """Test that Source thread keeps running even when connect fails."""
+    def test_source_connect_error_terminates_gracefully(self):
+        """Test that Source thread terminates gracefully when connect fails."""
         self.mock_stream_reader.connect.side_effect = RuntimeError("Connection error")
 
-        import time
         from threading import Thread
 
         thread = Thread(target=self.source.run, daemon=True)
         thread.start()
-
-        # Poll for broadcast to be called (indicates error was handled)
-        max_wait = 2.0
-        start_time = time.time()
-        while not self.mock_broadcaster.broadcast.called and (time.time() - start_time) < max_wait:
-            time.sleep(0.01)
-
-        # Thread should still be alive, waiting
-        assert thread.is_alive()
-
-        self.source.stop()
         thread.join(timeout=2)
+
         assert not thread.is_alive()
+        self.mock_stream_reader.read.assert_not_called()

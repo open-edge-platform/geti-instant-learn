@@ -49,12 +49,8 @@ class Source(PipelineComponent):
         try:
             self._reader.connect()
         except Exception as e:
-            error_msg = f"Failed to connect to source: {e}"
-            logger.exception("Source connection failed")
-            self._inbound_broadcaster.broadcast(ErrorData(message=error_msg))
-            # Keep the thread alive but don't process frames
-            while not self._stop_event.is_set():
-                self._stop_event.wait(timeout=0.1)
+            logger.exception(f"Failed to connect reader: {e}")
+            self._inbound_broadcaster.broadcast(ErrorData(message=str(e)))
             return
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")

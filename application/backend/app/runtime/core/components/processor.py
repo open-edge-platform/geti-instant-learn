@@ -99,19 +99,13 @@ class Processor(PipelineComponent):
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        try:
-            self._model_handler.initialise()
-            logger.info(
-                "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
-                self._batch_size,
-                self._skip_policy.interval,
-                self._skip_policy.skip_amount,
-            )
-        except Exception as e:
-            error_msg = f"Failed to initialize model: {e}"
-            logger.exception("Model initialization failed")
-            self._outbound_broadcaster.broadcast(ErrorData(message=error_msg))
-            return
+        self._model_handler.initialise()
+        logger.info(
+            "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
+            self._batch_size,
+            self._skip_policy.interval,
+            self._skip_policy.skip_amount,
+        )
 
         while not self._stop_event.is_set():
             try:
@@ -135,18 +129,29 @@ class Processor(PipelineComponent):
         """
         batch_data: list[InputData] = []
 
+        # Fetch first item; check for startup errors (e.g. missing video file)
+        try:
+            initial_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
+        except Empty:
+            return []
+
+        if isinstance(initial_data, ErrorData):
+            self._outbound_broadcaster.broadcast(initial_data)
+            return []
+
         while len(batch_data) < self._batch_size and not self._stop_event.is_set():
-            try:
-                input_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
-                if isinstance(input_data, ErrorData):
-                    self._outbound_broadcaster.broadcast(input_data)
-                    return []
-                if input_data.trace:
-                    input_data.trace.record_start("processor")
-            except Empty:
-                if batch_data:  # if we have partial batch data, process what we have
-                    break
-                continue
+            if initial_data is not None:
+                input_data, initial_data = initial_data, None
+            else:
+                try:
+                    input_data = self._in_queue.get(timeout=0.1)
+                except Empty:
+                    if batch_data:  # if we have partial batch data, process what we have
+                        break
+                    continue
+
+            if input_data.trace:
+                input_data.trace.record_start("processor")
 
             is_manual = input_data.context.get("requires_manual_control", False)
 
