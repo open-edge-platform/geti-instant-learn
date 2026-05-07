@@ -22,6 +22,7 @@ from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
+from instantlearn.utils.utils import log_hf_model_cache_status
 
 from .model import Sam3Model
 from .post_processing import PostProcessingConfig
@@ -301,11 +302,7 @@ class SAM3(Model):
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
-        logger.info(
-            "Loading CLIP tokenizer from '%s'. Cache dir: %s",
-            model_id,
-            Path("~/.cache/huggingface/hub").expanduser(),
-        )
+        log_hf_model_cache_status(model_id)
         self.tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
 
         self.model = (

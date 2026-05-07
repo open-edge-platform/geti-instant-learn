@@ -137,6 +137,70 @@ def device_to_openvino_device(device: str) -> str:
     return "CPU"
 
 
+def log_hf_cache_status(repo_id: str, filename: str, subfolder: str | None = None) -> None:
+    """Log whether a HuggingFace file is already cached or needs to be downloaded.
+
+    Args:
+        repo_id: HuggingFace repository id (e.g. 'facebook/sam3.1').
+        filename: Filename within the repo (e.g. 'sam3.1_multiplex.pt').
+        subfolder: Optional subfolder within the repo.
+    """
+    from huggingface_hub import try_to_load_from_cache
+    from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
+
+    full_path = f"{subfolder}/{filename}" if subfolder else filename
+    try:
+        cached = try_to_load_from_cache(repo_id=repo_id, filename=full_path)
+    except (EntryNotFoundError, RepositoryNotFoundError):
+        cached = None
+
+    if cached is not None and cached is not getattr(cached, "__class__", None):
+        # try_to_load_from_cache returns the path string if cached, None if not
+        logger.info(
+            "HuggingFace weights already cached: %s (%s). Path: %s",
+            full_path,
+            repo_id,
+            cached,
+        )
+    else:
+        logger.info(
+            "HuggingFace weights not in cache — will download: %s (%s). Cache dir: %s",
+            full_path,
+            repo_id,
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
+
+
+def log_hf_model_cache_status(repo_id: str) -> None:
+    """Log whether a HuggingFace transformers model snapshot is already cached.
+
+    Checks for 'config.json' as a proxy for the full model snapshot.
+
+    Args:
+        repo_id: HuggingFace repository id (e.g. 'facebook/dinov2-with-registers-large').
+    """
+    from huggingface_hub import try_to_load_from_cache
+    from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
+
+    try:
+        cached = try_to_load_from_cache(repo_id=repo_id, filename="config.json")
+    except (EntryNotFoundError, RepositoryNotFoundError):
+        cached = None
+
+    if cached is not None:
+        logger.info(
+            "HuggingFace model already cached: %s. Path: %s",
+            repo_id,
+            Path(cached).parent,
+        )
+    else:
+        logger.info(
+            "HuggingFace model not in cache — will download: %s. Cache dir: %s",
+            repo_id,
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
+
+
 def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> None:
     """Download a file from a URL to a target path.
 

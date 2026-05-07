@@ -106,11 +106,7 @@ class TextToBoxPromptGenerator(nn.Module):
         """Load the grounding model and processor."""
         from instantlearn.utils.optimization import optimize_model
 
-        logger.info(
-            "Loading grounding model '%s'. Cache dir: %s",
-            model_id,
-            Path("~/.cache/huggingface/hub").expanduser(),
-        )
+        log_hf_model_cache_status(model_id)
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
             from .grounding_dino import GroundingDinoForObjectDetection

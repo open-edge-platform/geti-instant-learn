@@ -128,12 +128,7 @@ class HuggingFaceImageEncoder(nn.Module):
         )
         from pathlib import Path
 
-        logger.info(
-            "Loading HuggingFace model '%s' (revision: %s). Cache dir: %s",
-            model_id,
-            revision,
-            Path("~/.cache/huggingface/hub").expanduser(),
-        )
+        log_hf_model_cache_status(model_id)
         try:
             # B615 - revision is pinned in AVAILABLE_IMAGE_ENCODERS
             model = AutoModel.from_pretrained(model_id, revision=revision)  # nosec: B615

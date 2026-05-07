@@ -116,11 +116,16 @@ class FrameBroadcaster[T]:
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug("%s/%s depth: %d/%d", self.name, consumer_name, queue.qsize(), queue.maxsize)
 
-    def clear(self) -> None:
+    def clear(self, clear_slot: bool = True) -> None:
         """
         Drop all queued frames for all consumers.
         Keeps consumer queues registered, but drains them so no stale frames are delivered
         after a component swap (e.g., changing the source).
+
+        Args:
+            clear_slot: If True (default), also clears the latest-frame slot. Set to False
+                when swapping a processor or sink so that capture_frame() keeps working
+                while the source is still running.
         """
         with self._lock:
             for consumer_name, q in self._consumers.items():
@@ -130,7 +135,8 @@ class FrameBroadcaster[T]:
                     except Empty:
                         logger.debug("Drained queued frames for consumer '%s'", consumer_name)
                         break
-            self._slot.clear()
+            if clear_slot:
+                self._slot.clear()
 
     def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""

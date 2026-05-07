@@ -108,10 +108,13 @@ class TimmImageEncoder(nn.Module):
         """
         # Disable dynamic_img_size to avoid conditional position embedding code
         # that creates ONNX If nodes with dynamic rank outputs (not supported by OpenVINO CPU)
+        import torch
+        timm_cache = Path(torch.hub.get_dir()) / "checkpoints"
         logger.info(
-            "Loading timm model '%s' (pretrained=True). Cache dir: %s",
+            "Loading timm model '%s' (pretrained=True). Cache dir: %s — cached files: %s",
             model_id,
-            Path("~/.cache/torch/hub/checkpoints").expanduser(),
+            timm_cache,
+            [p.name for p in timm_cache.glob("*.pth")] if timm_cache.exists() else "(cache dir not found)",
         )
         model = timm.create_model(
             model_id,

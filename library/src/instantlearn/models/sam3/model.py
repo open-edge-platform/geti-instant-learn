@@ -15,6 +15,8 @@ import torch
 import torch.nn.functional
 import torchvision
 from huggingface_hub import hf_hub_download
+
+from instantlearn.utils.utils import log_hf_cache_status
 from torch import nn
 from transformers import CLIPTextConfig, CLIPTextModelWithProjection
 
@@ -1105,12 +1107,7 @@ class Sam3Model(nn.Module):
                     msg = f"No checkpoint found in {path}. Expected: {checkpoint_filename}"
                     raise FileNotFoundError(msg)
         else:
-            logger.info(
-                "Downloading SAM3 weights from HuggingFace repo '%s' (file: %s). Cache dir: %s",
-                pretrained_model_name_or_path,
-                checkpoint_filename,
-                Path("~/.cache/huggingface/hub").expanduser(),
-            )
+            log_hf_cache_status(pretrained_model_name_or_path, checkpoint_filename)
             model_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path,
                 filename=checkpoint_filename,

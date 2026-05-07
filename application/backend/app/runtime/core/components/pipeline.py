@@ -154,8 +154,12 @@ class Pipeline:
             new_component: The new component instance.
         """
         component_cls = new_component.__class__
-        self._inbound_broadcaster.clear()
-        self._outbound_broadcaster.clear()
+        # Only clear the latest-frame slot when the source changes — stale frames from a
+        # dead source are invalid. For processor/sink swaps the source is still running,
+        # so preserve the slot so capture_frame() keeps working during the swap.
+        clear_slot = component_cls is Source
+        self._inbound_broadcaster.clear(clear_slot=clear_slot)
+        self._outbound_broadcaster.clear(clear_slot=clear_slot)
         self._components[component_cls] = new_component
         if start:
             thread = Thread(target=new_component, daemon=False)

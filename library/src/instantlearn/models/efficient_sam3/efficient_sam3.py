@@ -23,6 +23,7 @@ from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
 from instantlearn.models.sam3.post_processing import PostProcessingConfig
+from instantlearn.utils.utils import log_hf_model_cache_status
 from instantlearn.models.sam3.processing import (
     Sam3Postprocessor as EfficientSam3Postprocessor,
 )
@@ -183,13 +184,7 @@ class EfficientSAM3(SAM3):
         # Reuse SAM3 CLIP tokenizer (same BPE vocabulary)
         # Use pad_token_id=0 to match the original SimpleTokenizer's zero-padding
         # behavior used during EfficientSAM3's distillation training.
-        import logging
-        from pathlib import Path
-        _logger = logging.getLogger("Geti Instant Learn")
-        _logger.info(
-            "Loading CLIP tokenizer from 'jetjodh/sam3'. Cache dir: %s",
-            Path("~/.cache/huggingface/hub").expanduser(),
-        )
+        log_hf_model_cache_status("jetjodh/sam3")
         self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
         self.tokenizer.pad_token_id = 0
 
