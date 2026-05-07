@@ -114,9 +114,10 @@ def check_model_weights(model_name: SAMModelName) -> None:
     target_path = DATA_PATH.joinpath(local_filename)
 
     if not target_path.exists():
-        msg = f"Model weights for {model_name.value} not found at {target_path}, downloading..."
-        logger.info(msg)
+        logger.info("Model weights for %s not found at %s, downloading...", model_name.value, target_path.resolve())
         download_file(download_url, target_path, sha_sum)
+    else:
+        logger.info("Model weights for %s found at: %s", model_name.value, target_path.resolve())
 
 
 class PositionEmbeddingRandom(_PositionEmbeddingRandom):

@@ -3,10 +3,13 @@
 
 """DINOTxt model."""
 
+import logging
 import os
 from pathlib import Path
 
 import torch
+
+logger = logging.getLogger("Geti Instant Learn")
 import torchvision
 from torch import nn
 from torchvision import tv_tensors
@@ -160,6 +163,7 @@ class DinoTextEncoder(nn.Module):
         """
         weights_location = Path(weights_location) if isinstance(weights_location, str) else weights_location
         weights_location = weights_location.expanduser()
+        logger.info("Loading DINOv3 weights from: %s", weights_location.resolve())
         txt_head_path = weights_location / DINOV3_TXT_HEAD_FILENAME
         backbone_filename = DINOV3_BACKBONE_MAP.get(backbone_size)
         if not backbone_filename:

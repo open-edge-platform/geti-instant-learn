@@ -183,6 +183,13 @@ class EfficientSAM3(SAM3):
         # Reuse SAM3 CLIP tokenizer (same BPE vocabulary)
         # Use pad_token_id=0 to match the original SimpleTokenizer's zero-padding
         # behavior used during EfficientSAM3's distillation training.
+        import logging
+        from pathlib import Path
+        _logger = logging.getLogger("Geti Instant Learn")
+        _logger.info(
+            "Loading CLIP tokenizer from 'jetjodh/sam3'. Cache dir: %s",
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
         self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
         self.tokenizer.pad_token_id = 0
 

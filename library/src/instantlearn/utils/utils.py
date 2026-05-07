@@ -148,6 +148,8 @@ def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> No
     target_dir = target_path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
 
+    logger.info("Weights will be saved to: %s", target_path.resolve())
+
     disable_progress = not sys.stderr.isatty()
     progress = Progress(
         TextColumn("[bold blue]{task.fields[filename]}", justify="right"),

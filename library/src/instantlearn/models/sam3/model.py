@@ -1105,11 +1105,18 @@ class Sam3Model(nn.Module):
                     msg = f"No checkpoint found in {path}. Expected: {checkpoint_filename}"
                     raise FileNotFoundError(msg)
         else:
+            logger.info(
+                "Downloading SAM3 weights from HuggingFace repo '%s' (file: %s). Cache dir: %s",
+                pretrained_model_name_or_path,
+                checkpoint_filename,
+                Path("~/.cache/huggingface/hub").expanduser(),
+            )
             model_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path,
                 filename=checkpoint_filename,
             )
 
+        logger.info("Loading SAM3 checkpoint: %s", model_path)
         # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
         state_dict = torch.load(model_path, map_location="cpu", weights_only=True)  # nosec: B614
         if "model" in state_dict:

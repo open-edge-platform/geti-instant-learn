@@ -205,13 +205,30 @@ class EfficientSam3Model(Sam3Model):
             if path.exists():
                 model_path = str(path)
             else:
+                filename = get_checkpoint_filename(backbone_type, variant)
+                logger.info(
+                    "Downloading EfficientSAM3 weights from HuggingFace repo '%s' (file: %s/%s). "
+                    "Cache dir: %s",
+                    pretrained_model_name_or_path,
+                    HF_SUBFOLDER,
+                    filename,
+                    Path("~/.cache/huggingface/hub").expanduser(),
+                )
                 model_path = hf_hub_download(
                     repo_id=pretrained_model_name_or_path,
-                    filename=get_checkpoint_filename(backbone_type, variant),
+                    filename=filename,
                     subfolder=HF_SUBFOLDER,
                 )
         else:
             filename = get_checkpoint_filename(backbone_type, variant)
+            logger.info(
+                "Downloading EfficientSAM3 weights from HuggingFace repo '%s' (file: %s/%s). "
+                "Cache dir: %s",
+                HF_REPO_ID,
+                HF_SUBFOLDER,
+                filename,
+                Path("~/.cache/huggingface/hub").expanduser(),
+            )
             model_path = hf_hub_download(
                 repo_id=HF_REPO_ID,
                 filename=filename,

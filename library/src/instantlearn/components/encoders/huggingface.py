@@ -126,6 +126,14 @@ class HuggingFaceImageEncoder(nn.Module):
             "   - Run: hf auth login\n"
             "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token\n"
         )
+        from pathlib import Path
+
+        logger.info(
+            "Loading HuggingFace model '%s' (revision: %s). Cache dir: %s",
+            model_id,
+            revision,
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
         try:
             # B615 - revision is pinned in AVAILABLE_IMAGE_ENCODERS
             model = AutoModel.from_pretrained(model_id, revision=revision)  # nosec: B615

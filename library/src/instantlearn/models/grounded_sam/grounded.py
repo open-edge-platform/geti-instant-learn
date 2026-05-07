@@ -3,11 +3,15 @@
 
 """Generate bounding boxes using a zero shot object detector."""
 
+import logging
 from difflib import SequenceMatcher
 from enum import Enum
+from pathlib import Path
 
 import torch
 from torch import nn
+
+logger = logging.getLogger("Geti Instant Learn")
 from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
@@ -102,6 +106,11 @@ class TextToBoxPromptGenerator(nn.Module):
         """Load the grounding model and processor."""
         from instantlearn.utils.optimization import optimize_model
 
+        logger.info(
+            "Loading grounding model '%s'. Cache dir: %s",
+            model_id,
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
             from .grounding_dino import GroundingDinoForObjectDetection

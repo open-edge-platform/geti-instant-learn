@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
 from itertools import zip_longest
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -300,6 +301,11 @@ class SAM3(Model):
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
+        logger.info(
+            "Loading CLIP tokenizer from '%s'. Cache dir: %s",
+            model_id,
+            Path("~/.cache/huggingface/hub").expanduser(),
+        )
         self.tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
 
         self.model = (

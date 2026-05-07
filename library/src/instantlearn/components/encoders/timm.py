@@ -4,6 +4,7 @@
 """Image encoder using TIMM models."""
 
 from logging import getLogger
+from pathlib import Path
 
 import timm
 import torch
@@ -107,6 +108,11 @@ class TimmImageEncoder(nn.Module):
         """
         # Disable dynamic_img_size to avoid conditional position embedding code
         # that creates ONNX If nodes with dynamic rank outputs (not supported by OpenVINO CPU)
+        logger.info(
+            "Loading timm model '%s' (pretrained=True). Cache dir: %s",
+            model_id,
+            Path("~/.cache/torch/hub/checkpoints").expanduser(),
+        )
         model = timm.create_model(
             model_id,
             pretrained=True,
