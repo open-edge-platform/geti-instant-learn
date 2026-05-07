@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -459,7 +460,7 @@ class TestProcessorRun:
         mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        error = ErrorData(message="Source connection failed")
+        error = ErrorData(message="Source connection failed", component=ComponentType.SOURCE)
         queue.put(error)
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.1)
@@ -474,7 +475,7 @@ class TestProcessorRun:
         mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        queue.put(ErrorData(message="Source error"))
+        queue.put(ErrorData(message="Source error", component=ComponentType.SOURCE))
 
         self._run_processor_with_frames(processor, queue, [], stop_after=0.2)
 

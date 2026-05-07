@@ -10,6 +10,7 @@ from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 from domain.services.schemas.frame_trace import FrameTrace
 
@@ -200,6 +201,7 @@ class OutputData:
 @dataclass
 class ErrorData:
     message: str
+    component: ComponentType
 
 
 class ProcessorSchema(BaseIDSchema):

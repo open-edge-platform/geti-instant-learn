@@ -5,6 +5,7 @@ import logging
 import time
 from threading import Condition
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.frame_trace import FrameTrace
 from domain.services.schemas.processor import ErrorData, InputData
 from domain.services.schemas.reader import FrameListResponse
@@ -50,7 +51,7 @@ class Source(PipelineComponent):
             self._reader.connect()
         except Exception as e:
             logger.exception(f"Failed to connect reader: {e}")
-            self._inbound_broadcaster.broadcast(ErrorData(message=str(e)))
+            self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
             return
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")

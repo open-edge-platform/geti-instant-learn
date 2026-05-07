@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call
 import numpy as np
 import pytest
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -67,7 +68,7 @@ class TestSink:
 
     def test_error_data_is_skipped(self):
         data = make_output("data1")
-        items = [ErrorData(message="upstream failed"), data]
+        items = [ErrorData(message="upstream failed", component=ComponentType.SOURCE), data]
         iterator = iter(items)
 
         def mock_get(*args, **kwargs):

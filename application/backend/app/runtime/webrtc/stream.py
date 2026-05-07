@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
 
 
-def create_error_frame(error_message: str, width: int = 1280, height: int = 720) -> np.ndarray:
+def create_error_frame(error_data: ErrorData, width: int = 1280, height: int = 720) -> np.ndarray:
     """Create a frame with error text overlay.
 
     Args:
-        error_message: The error message to display.
+        error_data: The error data containing the message and component.
         width: Frame width in pixels.
         height: Frame height in pixels.
 
@@ -41,14 +41,14 @@ def create_error_frame(error_message: str, width: int = 1280, height: int = 720)
     line_spacing = 40
 
     # Add title
-    title = "Source Connection Error"
+    title = f"{error_data.component.name} Error"
     title_size = cv2.getTextSize(title, font, font_scale * 1.2, thickness + 1)[0]
     title_x = (width - title_size[0]) // 2
     title_y = height // 3
     cv2.putText(frame, title, (title_x, title_y), font, font_scale * 1.2, (255, 100, 100), thickness + 1)
 
     # Wrap and display error message
-    wrapped_lines = textwrap.wrap(error_message, width=60)
+    wrapped_lines = textwrap.wrap(error_data.message, width=60)
     y_offset = title_y + 60
 
     for line in wrapped_lines:
@@ -107,7 +107,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         # Check for error state first
         output_data = self._slot.latest
         if isinstance(output_data, ErrorData):
-            np_frame = create_error_frame(output_data.message)
+            np_frame = create_error_frame(output_data)
         elif output_data is not None and output_data is not self._last_output:
             # New frame from the pipeline — visualize and cache
             self._last_output = output_data
