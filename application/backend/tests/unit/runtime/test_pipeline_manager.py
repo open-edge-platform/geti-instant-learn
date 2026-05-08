@@ -18,6 +18,7 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.schemas.pipeline import PipelineConfig
+from domain.services.schemas.processor import MatcherConfig
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 
@@ -486,3 +487,151 @@ class TestPipelineManager:
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
 
         assert result is None
+
+
+class TestPipelineManagerStatus:
+    """Tests for model status publishing behaviour."""
+
+    def _make_mgr(self, dispatcher, session_factory, component_factory=None):
+        mgr = PipelineManager(dispatcher, session_factory, component_factory=component_factory)
+        return mgr
+
+    def test_stop_always_publishes_idle(self, dispatcher, session_factory):
+        """stop() must publish IDLE even if the pipeline's stop() raises."""
+        mgr = self._make_mgr(dispatcher, session_factory)
+        failing_pipeline = Mock()
+        failing_pipeline.stop.side_effect = RuntimeError("boom")
+        mgr._pipeline = failing_pipeline
+
+        with pytest.raises(RuntimeError):
+            mgr.stop()
+
+        assert mgr.get_status().state.value == "idle"
+
+    def test_stop_publishes_idle_when_no_pipeline(self, dispatcher, session_factory):
+        mgr = self._make_mgr(dispatcher, session_factory)
+        mgr._pipeline = None
+        mgr.stop()
+        assert mgr.get_status().state.value == "idle"
+
+    def test_prepare_processor_publishes_loading_reference_batch_then_loading_model(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        """_prepare_processor emits LOADING_REFERENCE_BATCH then LOADING_MODEL when cfg.processor is set."""
+        from unittest.mock import MagicMock
+
+        from instantlearn.data.base.batch import Batch
+
+        fake_batch = MagicMock(spec=Batch)
+        fake_batch.samples = [MagicMock()]
+
+        # Give cfg a processor config so LOADING_MODEL is emitted.
+        pipeline_cfg_with_processor = PipelineConfig(
+            project_id=pipeline_cfg.project_id,
+            reader=None,
+            processor=MatcherConfig(),
+            writer=None,
+        )
+
+        with (
+            patch.object(PipelineManager, "get_reference_batch", return_value=(fake_batch, {})),
+        ):
+            mgr = self._make_mgr(dispatcher, session_factory, component_factory=mock_component_factory)
+            reporter = Mock()
+            published_states = []
+            original_publish = mgr._publish_status
+
+            def track(status):
+                published_states.append(status.state.value)
+                original_publish(status)
+
+            mgr._publish_status = track
+
+            mgr._prepare_processor(pipeline_cfg_with_processor, reporter)
+
+        assert published_states == ["loading_reference_batch", "loading_model"]
+
+    def test_prepare_processor_skips_loading_model_when_processor_config_is_none(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        """_prepare_processor skips LOADING_MODEL when cfg.processor is None (passthrough)."""
+        with patch.object(PipelineManager, "get_reference_batch", return_value=None):
+            mgr = self._make_mgr(dispatcher, session_factory, component_factory=mock_component_factory)
+            reporter = Mock()
+            published_states = []
+            original_publish = mgr._publish_status
+
+            def track(status):
+                published_states.append(status.state.value)
+                original_publish(status)
+
+            mgr._publish_status = track
+
+            mgr._prepare_processor(pipeline_cfg, reporter)
+
+        assert published_states == ["loading_reference_batch"]
+
+    def test_prepare_processor_skips_loading_model_when_reference_batch_is_none(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
+        """_prepare_processor skips LOADING_MODEL when reference batch is None (no prompts)."""
+        cfg = PipelineConfig(
+            project_id=uuid4(),
+            reader=None,
+            processor=MatcherConfig(),
+            writer=None,
+        )
+
+        with patch.object(PipelineManager, "get_reference_batch", return_value=None):
+            mgr = self._make_mgr(dispatcher, session_factory, component_factory=mock_component_factory)
+            reporter = Mock()
+            published_states = []
+            original_publish = mgr._publish_status
+
+            def track(status):
+                published_states.append(status.state.value)
+                original_publish(status)
+
+            mgr._publish_status = track
+
+            mgr._prepare_processor(cfg, reporter)
+
+        assert published_states == ["loading_reference_batch"]
+
+    def test_start_publishes_idle_when_no_active_project(self, dispatcher, session_factory):
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.FrameRepository"),
+        ):
+            svc_cls.return_value.get_active_pipeline_config.return_value = None
+            mgr = self._make_mgr(dispatcher, session_factory)
+            mgr.start()
+
+        assert mgr.get_status().state.value == "idle"
+
+    def test_subscribe_and_get_status(self, dispatcher, session_factory):
+        mgr = self._make_mgr(dispatcher, session_factory)
+        status = mgr.get_status()
+        assert status.state.value == "idle"
+
+    def test_on_processor_update_publishes_error_on_failure(self, dispatcher, session_factory, mock_component_factory):
+        """When _prepare_processor fails, an ERROR status is published."""
+        with patch("runtime.pipeline_manager.ProjectService") as svc_cls:
+            pid = uuid4()
+            cfg = PipelineConfig(project_id=pid, reader=None, processor=MatcherConfig(), writer=None)
+            svc_cls.return_value.get_pipeline_config.return_value = cfg
+
+            running = Mock()
+            running.project_id = pid
+
+            mgr = self._make_mgr(dispatcher, session_factory, component_factory=mock_component_factory)
+            mgr._pipeline = running
+
+            with patch.object(PipelineManager, "_prepare_processor", side_effect=RuntimeError("download failed")):
+                ev = ComponentConfigChangeEvent(
+                    project_id=pid, component_type=ComponentType.PROCESSOR, component_id=uuid4()
+                )
+                with pytest.raises(RuntimeError):
+                    mgr.on_config_change(ev)
+
+            assert mgr.get_status().state.value == "error"
