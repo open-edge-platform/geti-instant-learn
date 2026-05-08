@@ -42,6 +42,7 @@ dependencies = [
     "ftfy",
     "torchmetrics==1.8.2",
     "openvino==2025.3.0",
+    "nncf>=2.16.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",
     # ONNXScript is used for authoring and transforming ONNX graphs in
@@ -239,6 +240,15 @@ notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-Li
 "tests/**/*.py" = [
     "PLR6301",  # Ignore no-self-use for test methods
     "S101",     # Use of assert detected
+]
+"tools/**/*.py" = [
+    "T201",     # print() is intentional for CLI output
+    "PLR0915",  # Too many statements — expected in benchmark scripts
+    "G004",     # Logging f-strings acceptable in standalone dev tools
+]
+"examples/**/*.ipynb" = [
+    "T201",     # print() is the standard output mechanism in notebooks
+    "N812",     # Allow conventional aliases like `import torch.nn.functional as F`
 ]
 
 

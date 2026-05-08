@@ -153,3 +153,6 @@ library/**/_autosummary/
 
 # autodownloaded datasets
 library/datasets/
+
+
+.agents/
