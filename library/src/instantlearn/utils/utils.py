@@ -6,6 +6,7 @@
 import hashlib
 import logging
 import sys
+import threading
 from pathlib import Path
 
 import openvino as ov
@@ -137,6 +138,13 @@ def device_to_openvino_device(device: str) -> str:
     return "CPU"
 
 
+# Serializes all concurrent downloads. Rich's Progress/Live display does not
+# support multiple concurrent instances on the same console, and two threads
+# writing the same file simultaneously corrupts it. A single global lock is
+# simpler and sufficient — model downloads are infrequent and heavyweight.
+_download_lock = threading.Lock()
+
+
 def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> None:
     """Download a file from a URL to a target path.
 
@@ -144,7 +152,24 @@ def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> No
         url: URL to download the file from
         target_path: Path to save the file to
         sha_sum: SHA-256 checksum of the file
+
+    Concurrent calls are serialized so that only one download runs at a time.
+    If the file already exists when a waiting thread acquires the lock, the
+    download is skipped (with an optional integrity check via ``sha_sum``).
     """
+    with _download_lock:
+        # If another thread already downloaded the file while we waited, skip.
+        if target_path.exists():
+            if sha_sum:
+                check_file_hash(target_path, sha_sum)
+            logger.info("File already present (downloaded by another thread): %s", target_path)
+            return
+
+        _do_download(url, target_path, sha_sum)
+
+
+def _do_download(url: str, target_path: Path, sha_sum: str | None = None) -> None:
+    """Internal download implementation (must be called under the per-path lock)."""
     target_dir = target_path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
 
