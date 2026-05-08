@@ -24,8 +24,10 @@ from domain.services import (
     SinkService,
     SourceService,
 )
+from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
+from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
@@ -165,9 +167,16 @@ def get_sink_connection_validator() -> SinkConnectionValidator:
     return SinkConnectionValidator()
 
 
-def get_reader_config_validator() -> ReaderConfigValidator:
+def get_dataset_resolver(request: Request) -> DatasetResolver | None:
+    """Dependency that provides the startup-cached DatasetResolver instance."""
+    return request.app.state.dataset_resolver
+
+
+def get_reader_config_validator(
+    dataset_resolver: Annotated[DatasetResolver | None, Depends(get_dataset_resolver)],
+) -> ReaderConfigValidator:
     """Dependency that provides a reader config validator instance."""
-    return ReaderConfigValidator()
+    return ReaderConfigValidator(StreamReaderFactory(dataset_resolver=dataset_resolver))
 
 
 def get_discovery_service() -> SourceTypeService:
