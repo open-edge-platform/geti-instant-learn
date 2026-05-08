@@ -4,11 +4,12 @@
  */
 
 import { render } from '@/test-utils';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
 import { http, server } from '../../setup-test';
 import { ModelStatusBanner } from './model-status-banner.component';
+import { ModelStatusBlockingOverlay } from './model-status-blocking-overlay.component';
 import { ModelStatusProvider } from './model-status-provider.component';
 
 const mockStatus = (body: Record<string, unknown>) =>
@@ -124,5 +125,109 @@ describe('ModelStatusBanner', () => {
 
         // Give React a tick to settle the loading state.
         await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    });
+});
+
+const renderOverlay = () =>
+    render(
+        <ModelStatusProvider>
+            <ModelStatusBlockingOverlay />
+        </ModelStatusProvider>
+    );
+
+describe('ModelStatusBlockingOverlay', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('appears on loading_model after debounce with role="alertdialog"', async () => {
+        mockStatus({
+            state: 'loading_model',
+            message: 'Loading model matcher on cuda…',
+            model_name: 'matcher',
+            device: 'cuda',
+            project_id: '1',
+        });
+
+        renderOverlay();
+
+        // Wait for REST snapshot to arrive, then advance past the 200ms debounce.
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        act(() => vi.advanceTimersByTime(250));
+
+        await waitFor(() => {
+            const dialog = screen.getByRole('alertdialog');
+            expect(dialog).toBeVisible();
+            expect(dialog).toHaveAttribute('aria-modal', 'true');
+        });
+    });
+
+    it('appears on loading_reference_batch and shows model + device', async () => {
+        mockStatus({
+            state: 'loading_reference_batch',
+            message: 'Building reference batch…',
+            model_name: 'matcher',
+            device: 'cuda',
+            project_id: '1',
+        });
+
+        renderOverlay();
+
+        act(() => vi.advanceTimersByTime(250));
+
+        await waitFor(() => {
+            const dialog = screen.getByRole('alertdialog');
+            expect(dialog).toBeVisible();
+            expect(dialog).toHaveTextContent(/matcher on cuda/);
+            expect(dialog).toHaveTextContent(/Building reference batch/);
+        });
+    });
+
+    it('does not appear on ready state', async () => {
+        mockStatus({
+            state: 'ready',
+            message: 'Model ready',
+            model_name: 'matcher',
+            device: 'cuda',
+            project_id: '1',
+        });
+
+        renderOverlay();
+
+        act(() => vi.advanceTimersByTime(500));
+
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    });
+
+    it('does not appear on idle state', async () => {
+        mockStatus({
+            state: 'idle',
+            message: 'No active model',
+            project_id: '1',
+        });
+
+        renderOverlay();
+
+        act(() => vi.advanceTimersByTime(500));
+
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    });
+
+    it('does not appear on error state', async () => {
+        mockStatus({
+            state: 'error',
+            message: 'Model failed to load',
+            project_id: '1',
+        });
+
+        renderOverlay();
+
+        act(() => vi.advanceTimersByTime(500));
+
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     });
 });

@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, ProgressCircle, StatusLight, Tooltip, TooltipTrigger } from '@geti/ui';
-
 import { ModelState, ModelStatusType } from '@/api';
+import { Flex, ProgressCircle, StatusLight, Tooltip, TooltipTrigger } from '@geti/ui';
 
 import { useModelStatus } from './model-status-provider.component';
 

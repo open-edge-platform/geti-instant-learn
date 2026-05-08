@@ -23,7 +23,6 @@ export const Prompt = () => {
                 <Heading margin={0}>Prompt</Heading>
                 <View padding={'size-300'} flex={1}>
                     <Flex direction={'column'} gap={'size-300'} height={'100%'}>
-
                         <PromptModes />
 
                         <Divider size={'S'} />

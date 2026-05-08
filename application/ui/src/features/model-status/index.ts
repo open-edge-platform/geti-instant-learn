@@ -5,3 +5,4 @@
 
 export { ModelStatusProvider, useModelStatus, type ModelStatusContextValue } from './model-status-provider.component';
 export { ModelStatusBanner } from './model-status-banner.component';
+export { ModelStatusBlockingOverlay } from './model-status-blocking-overlay.component';

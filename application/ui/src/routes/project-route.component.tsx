@@ -14,7 +14,7 @@ import { MainContent } from '../components/main-content/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar/toolbar.component';
 import { paths } from '../constants/paths';
-import { ModelStatusProvider } from '../features/model-status';
+import { ModelStatusBlockingOverlay, ModelStatusProvider, useModelStatus } from '../features/model-status';
 import { useActivateProject } from '../features/project/api/use-activate-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
@@ -54,6 +54,31 @@ const useEnsureValidAndActiveProject = () => {
     }, [data.active]);
 };
 
+const ProjectContent = () => {
+    const { isBusy } = useModelStatus();
+
+    return (
+        <>
+            <Grid
+                areas={['header', 'main']}
+                rows={['size-800', minmax(0, '1fr')]}
+                columns={'1fr'}
+                height={'100vh'}
+                {...(isBusy ? { inert: '' } : {})}
+            >
+                <Header homeLink={paths.projects({})}>
+                    <ProjectsListPanel />
+                </Header>
+
+                <SelectedFrameProvider>
+                    <MainLayout />
+                </SelectedFrameProvider>
+            </Grid>
+            <ModelStatusBlockingOverlay />
+        </>
+    );
+};
+
 export const ProjectRoute = () => {
     useEnsureValidAndActiveProject();
 
@@ -62,15 +87,7 @@ export const ProjectRoute = () => {
     return (
         <WebRTCConnectionProvider key={projectId}>
             <ModelStatusProvider>
-                <Grid areas={['header', 'main']} rows={['size-800', minmax(0, '1fr')]} columns={'1fr'} height={'100vh'}>
-                    <Header homeLink={paths.projects({})}>
-                        <ProjectsListPanel />
-                    </Header>
-
-                    <SelectedFrameProvider>
-                        <MainLayout />
-                    </SelectedFrameProvider>
-                </Grid>
+                <ProjectContent />
             </ModelStatusProvider>
         </WebRTCConnectionProvider>
     );

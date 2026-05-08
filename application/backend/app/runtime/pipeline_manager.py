@@ -241,6 +241,17 @@ class PipelineManager:
             )
         )
 
+    def _publish_loading_model(self, cfg: PipelineConfig) -> None:
+        """Publish a LOADING_MODEL snapshot before creating the processor."""
+        model_name, device = self._resolve_model_descriptor(cfg)
+        self._publish_status(
+            ModelStatusSchema.loading_model(
+                project_id=cfg.project_id,
+                model_name=model_name,
+                device=device,
+            )
+        )
+
     def start(self) -> None:
         """
         Start pipeline for active project if present; subscribe to config events.
@@ -356,13 +367,11 @@ class PipelineManager:
                     logger.info("Pipeline components updated for project %s", e.project_id)
 
     def _build_and_start_pipeline(self, cfg: PipelineConfig) -> Pipeline:
-        """Create, configure and start a pipeline.
+        """Create, configure, and start a pipeline.
 
-        Status emissions during this call are limited to ``LOADING_REFERENCE_BATCH``,
-        which is work the manager performs synchronously before handing control to
-        the processor thread. The processor itself emits ``LOADING_MODEL`` ->
-        ``READY`` (or ``IDLE`` for passthrough) once it starts running, via the
-        injected ``ModelStatusReporter``.
+        Status emissions during this call are limited to "LOADING_REFERENCE_BATCH", which is work the manager
+        performs synchronously before handing control to the processor thread.
+        The processor itself emits "LOADING_MODEL" -> "READY" (or "IDLE" for passthrough) once it starts running.
         """
         project_id = cfg.project_id
         reporter = self._make_reporter(cfg)
@@ -373,6 +382,7 @@ class PipelineManager:
             None,
             {},
         )
+        self._publish_loading_model(cfg)
 
         source = self._component_factory.create_source(project_id)
         processor = self._component_factory.create_processor(project_id, reference_batch, status_reporter=reporter)
@@ -424,6 +434,7 @@ class PipelineManager:
                         project_id, PromptType.VISUAL
                     ) or (None, {})
 
+                    self._publish_loading_model(cfg)
                     processor = self._component_factory.create_processor(
                         project_id, reference_batch, status_reporter=reporter
                     )
