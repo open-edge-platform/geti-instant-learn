@@ -13,8 +13,8 @@ import * as ort from 'onnxruntime-web';
 // We use Object.defineProperty to prevent session.ts from overriding our path with the broken one.
 Object.defineProperty(ort.env.wasm, 'wasmPaths', {
     get: () => '/ort-wasm/',
-    set: () => {
-        /* ignore overrides from the package */
+    set: (v) => {
+        console.warn('[SAM worker] wasmPaths write intercepted, ignoring value:', v);
     },
     configurable: true,
 });
@@ -22,11 +22,31 @@ Object.defineProperty(ort.env.wasm, 'wasmPaths', {
 // even when crossOriginIsolated is true.
 Object.defineProperty(ort.env.wasm, 'numThreads', {
     get: () => 1,
-    set: () => {
-        /* ignore overrides from the package */
+    set: (v) => {
+        console.warn('[SAM worker] numThreads write intercepted, ignoring value:', v);
     },
     configurable: true,
 });
+
+// Diagnostic: log the actual env.wasm state after module init
+console.log('[SAM worker] ort.env.wasm after defineProperty:', JSON.stringify({
+    wasmPaths: ort.env.wasm.wasmPaths,
+    numThreads: ort.env.wasm.numThreads,
+    simd: ort.env.wasm.simd,
+    proxy: ort.env.wasm.proxy,
+}));
+
+// Diagnostic: intercept InferenceSession.create to log actual options
+const _origCreate = ort.InferenceSession.create.bind(ort.InferenceSession);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(ort.InferenceSession as any).create = async function (...args: unknown[]) {
+    console.log('[SAM worker] InferenceSession.create called, options:', JSON.stringify(args[1]));
+    console.log('[SAM worker] env.wasm at create time:', JSON.stringify({
+        wasmPaths: ort.env.wasm.wasmPaths,
+        numThreads: ort.env.wasm.numThreads,
+    }));
+    return _origCreate(...(args as Parameters<typeof ort.InferenceSession.create>));
+};
 
 const WorkerApi = {
     build: async () => {
