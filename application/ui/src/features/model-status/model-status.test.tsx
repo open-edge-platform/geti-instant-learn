@@ -182,8 +182,8 @@ describe('ModelStatusBlockingOverlay', () => {
         await waitFor(() => {
             const dialog = screen.getByRole('alertdialog');
             expect(dialog).toBeVisible();
-            expect(dialog).toHaveTextContent(/matcher on cuda/);
-            expect(dialog).toHaveTextContent(/Building reference batch/);
+            expect(dialog).toHaveTextContent(/Matcher \(CUDA\)/);
+            expect(dialog).toHaveTextContent(/Preparing.*for inference/);
         });
     });
 

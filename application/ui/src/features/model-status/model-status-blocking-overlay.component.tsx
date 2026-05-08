@@ -11,24 +11,55 @@ import { useModelStatus } from './model-status-provider.component';
 import { useDebouncedVisibility } from './use-debounced-visibility.hook';
 
 interface BlockingCopy {
-    title: string;
+    title: (modelLabel: string) => string;
     hint: string;
 }
 
 const BLOCKING_COPY: Partial<Record<ModelState, BlockingCopy>> = {
     loading_model: {
-        title: 'Loading model…',
+        title: (model) => (model ? `Loading ${model}…` : 'Loading model…'),
         hint: 'Please wait — this may take a moment on first run while weights are downloaded.',
     },
     loading_reference_batch: {
-        title: 'Building reference batch from your prompts…',
-        hint: 'The model is preparing to run inference. This should only take a few seconds.',
+        title: (model) => (model ? `Preparing ${model} for inference…` : 'Preparing the model for inference…'),
+        hint: 'Building a reference batch from your prompts. This should only take a few seconds.',
     },
 };
 
-const buildTarget = (status: ModelStatusType | undefined): string => {
+/**
+ * Human-friendly display labels for known model types.
+ * These match the identifiers sent by the backend in status messages.
+ */
+const MODEL_TYPE_LABELS: Record<string, string> = {
+    matcher: 'Matcher',
+    soft_matcher: 'Soft Matcher',
+    perdino: 'PerDINO',
+    sam3: 'SAM3',
+};
+
+/**
+ * Format the raw model_name (e.g. "soft_matcher") into a human-friendly label
+ * (e.g. "Soft Matcher"). Uses a known-labels map, falling back to title-casing.
+ */
+const formatModelName = (raw: string): string =>
+    MODEL_TYPE_LABELS[raw] ??
+    raw
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+/**
+ * Build a short, human-friendly model label like "Soft Matcher (XPU)".
+ */
+const buildModelLabel = (status: ModelStatusType | undefined): string => {
     if (!status) return '';
-    const parts = [status.model_name, status.device && `on ${status.device}`].filter(Boolean);
+    const parts: string[] = [];
+    if (status.model_name) {
+        parts.push(formatModelName(status.model_name));
+    }
+    if (status.device) {
+        parts.push(`(${status.device.toUpperCase()})`);
+    }
     return parts.join(' ');
 };
 
@@ -40,7 +71,8 @@ export const ModelStatusBlockingOverlay = () => {
 
     const state = status?.state;
     const copy = (state && BLOCKING_COPY[state]) ?? BLOCKING_COPY.loading_model!;
-    const target = buildTarget(status);
+    const modelLabel = buildModelLabel(status);
+    const title = copy.title(modelLabel);
 
     return (
         <FocusScope contain restoreFocus>
@@ -48,7 +80,7 @@ export const ModelStatusBlockingOverlay = () => {
                 role={'alertdialog'}
                 aria-modal={'true'}
                 aria-live={'assertive'}
-                aria-label={copy.title}
+                aria-label={title}
                 style={{
                     position: 'fixed',
                     inset: 0,
@@ -69,19 +101,11 @@ export const ModelStatusBlockingOverlay = () => {
                 >
                     <Flex direction={'column'} alignItems={'center'} gap={'size-300'}>
                         <ProgressCircle size={'L'} aria-label={'Loading'} isIndeterminate />
-                        <Heading level={3}>{copy.title}</Heading>
-                        {target && (
-                            <Text UNSAFE_style={{ color: 'var(--spectrum-global-color-gray-700)' }}>{target}</Text>
-                        )}
-                        {status?.message && (
-                            <Text UNSAFE_style={{ color: 'var(--spectrum-global-color-gray-600)', fontSize: '14px' }}>
-                                {status.message}
-                            </Text>
-                        )}
+                        <Heading level={3}>{title}</Heading>
                         <Text
                             UNSAFE_style={{
                                 color: 'var(--spectrum-global-color-gray-600)',
-                                fontSize: '12px',
+                                fontSize: '13px',
                                 fontStyle: 'italic',
                             }}
                         >
