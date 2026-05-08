@@ -100,11 +100,18 @@ class Processor(PipelineComponent):
         self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
-    def _initialise_model(self) -> bool:
-        """Run model handler initialisation and report status transitions.
+    def _initialize_model(self) -> bool:
+        """Run model handler initialization and report status transitions.
 
-        Returns ``True`` when the processor should enter its main loop, ``False``
-        if initialisation failed (the loop is then skipped).
+        Returns `True` when the processor should enter its main loop, `False`
+        if initialization failed (the loop is then skipped).
+
+        Note: `loading_model()` may duplicate a snapshot already published by
+        `PipelineManager` before constructing this processor (model weights
+        are downloaded inside the model constructor, so the manager publishes
+        `LOADING_MODEL` up front). The duplicate is intentional and harmless
+        — it keeps the `Processor` self-contained and useful in standalone
+        tests where no manager is involved.
         """
         is_passthrough = isinstance(self._model_handler, PassThroughModelHandler)
         try:
@@ -118,7 +125,7 @@ class Processor(PipelineComponent):
                 self._model_handler.initialise()
                 self._status_reporter.ready()
         except Exception as exc:
-            logger.exception("Model initialisation failed: %s", exc)
+            logger.exception("Model initialization failed: %s", exc)
             self._status_reporter.error(exc)
             return False
         return True
@@ -128,7 +135,7 @@ class Processor(PipelineComponent):
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        if not self._initialise_model():
+        if not self._initialize_model():
             return
 
         logger.info(

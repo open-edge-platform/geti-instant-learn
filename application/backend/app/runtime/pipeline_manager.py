@@ -11,9 +11,6 @@ import cv2
 from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 from domain.db.models import PromptType
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
@@ -38,14 +35,18 @@ from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.model_status_reporter import ModelStatusReporter
 from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.processor import Processor
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
 
 class PublishingReporter(ModelStatusReporter):
-    """Adapter that translates ``ModelStatusReporter`` calls from a ``Processor``
-    into status snapshots published through ``PipelineManager._publish_status``.
+    """Adapter that translates `ModelStatusReporter` calls from a `Processor`
+    into status snapshots published through `PipelineManager._publish_status`.
 
     Each instance is bound to a single (project_id, model_name, device) descriptor
     so messages remain coherent even after the pipeline is replaced.
@@ -129,7 +130,7 @@ class PipelineManager:
         # --- Model status broadcasting ---
         # Status transitions are emitted from worker threads (the dispatcher's
         # ThreadPoolExecutor) but consumed by SSE generators on the asyncio loop.
-        # ``_loop`` is captured at FastAPI startup via ``bind_loop``.
+        # `_loop` is captured at FastAPI startup via `bind_loop`.
         self._status: ModelStatusSchema = ModelStatusSchema.idle()
         self._status_lock = threading.Lock()
         self._subscribers: set[asyncio.Queue[ModelStatusSchema]] = set()
@@ -186,9 +187,9 @@ class PipelineManager:
     def _resolve_model_descriptor(self, cfg: PipelineConfig | None) -> tuple[str | None, str | None]:
         """Extract a human-friendly model name and resolved device label from a pipeline config.
 
-        The device is resolved through the component factory so ``auto`` and ``None``
+        The device is resolved through the component factory so `auto` and `None`
         values get mapped to the concrete backend the model will actually use
-        (e.g. ``xpu``/``cuda``/``cpu``), keeping status messages truthful.
+        (e.g. `xpu`/`cuda`/`cpu`), keeping status messages truthful.
         """
         if cfg is None:
             return None, None
@@ -202,13 +203,13 @@ class PipelineManager:
             device: str | None = str(resolved)
         except Exception:
             # Resolution failure (e.g. device probing error) shouldn't break status
-            # reporting — fall back to the configured value or ``None``.
+            # reporting — fall back to the configured value or `None`.
             logger.debug("Failed to resolve device for status descriptor", exc_info=True)
             device = str(cfg.device) if cfg.device is not None else None
         return model_name, device
 
     def _make_reporter(self, cfg: PipelineConfig) -> PublishingReporter:
-        """Create a ``ModelStatusReporter`` bound to the given pipeline config."""
+        """Create a `ModelStatusReporter` bound to the given pipeline config."""
         model_name, device = self._resolve_model_descriptor(cfg)
         return PublishingReporter(
             publish=self._publish_status,
@@ -252,6 +253,34 @@ class PipelineManager:
             )
         )
 
+    def _prepare_processor(self, cfg: PipelineConfig, reporter: ModelStatusReporter) -> "Processor":
+        """Run manager-side prep work and create the processor.
+
+        Emits `LOADING_REFERENCE_BATCH` while the reference batch is built,
+        then `LOADING_MODEL` (only when an actual model is configured) right
+        before constructing the processor — model weight downloads happen
+        inside the model constructor, so this state must be visible *before*
+        `create_processor` is called.
+
+        The processor thread continues from there, re-publishing
+        `LOADING_MODEL` (idempotent) and then `READY`/`IDLE` once
+        `initialise()` completes.
+        """
+        project_id = cfg.project_id
+        self._publish_loading_reference_batch(cfg)
+        reference_batch, _category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (
+            None,
+            {},
+        )
+
+        # Skip LOADING_MODEL when the pipeline will run in passthrough mode (no
+        # processor config, or no prompts yet → no reference batch). The
+        # processor thread will publish IDLE on its own once it starts.
+        if cfg.processor is not None and reference_batch is not None:
+            self._publish_loading_model(cfg)
+
+        return self._component_factory.create_processor(project_id, reference_batch, status_reporter=reporter)
+
     def start(self) -> None:
         """
         Start pipeline for active project if present; subscribe to config events.
@@ -279,7 +308,7 @@ class PipelineManager:
         """Stop and dispose the running pipeline.
 
         Always ends with an IDLE snapshot. The Processor thread may have already
-        published IDLE from its ``_stop()``; re-publishing is idempotent from the
+        published IDLE from its `_stop()`; re-publishing is idempotent from the
         UI's perspective and guarantees the UI recovers even if the pipeline stop
         raised or no processor was ever started.
         """
@@ -369,23 +398,16 @@ class PipelineManager:
     def _build_and_start_pipeline(self, cfg: PipelineConfig) -> Pipeline:
         """Create, configure, and start a pipeline.
 
-        Status emissions during this call are limited to "LOADING_REFERENCE_BATCH", which is work the manager
-        performs synchronously before handing control to the processor thread.
-        The processor itself emits "LOADING_MODEL" -> "READY" (or "IDLE" for passthrough) once it starts running.
+        Status emissions during this call are handled by `_prepare_processor`
+        (LOADING_REFERENCE_BATCH → LOADING_MODEL when a real model is
+        configured). The processor itself emits `LOADING_MODEL` →
+        `READY`/`IDLE` once it starts running.
         """
         project_id = cfg.project_id
         reporter = self._make_reporter(cfg)
 
-        # Manager-side work happens before the processor thread starts, so report it here.
-        self._publish_loading_reference_batch(cfg)
-        reference_batch, _category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (
-            None,
-            {},
-        )
-        self._publish_loading_model(cfg)
-
+        processor = self._prepare_processor(cfg, reporter)
         source = self._component_factory.create_source(project_id)
-        processor = self._component_factory.create_processor(project_id, reference_batch, status_reporter=reporter)
         sink = self._component_factory.create_sink(project_id)
 
         pipeline = (
@@ -402,7 +424,6 @@ class PipelineManager:
 
         self._refresh_visualization_info(project_id)
         pipeline.start()
-        # Processor emits LOADING_MODEL -> READY (or IDLE for passthrough) from its run loop.
         return pipeline
 
     def _update_pipeline_components(self, project_id: UUID, component_type: ComponentType) -> None:
@@ -429,15 +450,7 @@ class PipelineManager:
                 reporter = self._make_reporter(cfg)
 
                 try:
-                    self._publish_loading_reference_batch(cfg)
-                    reference_batch, _category_id_to_label_id = self.get_reference_batch(
-                        project_id, PromptType.VISUAL
-                    ) or (None, {})
-
-                    self._publish_loading_model(cfg)
-                    processor = self._component_factory.create_processor(
-                        project_id, reference_batch, status_reporter=reporter
-                    )
+                    processor = self._prepare_processor(cfg, reporter)
                 except Exception as exc:
                     # Failure occurred before the new processor thread could take
                     # over status reporting, so publish ERROR from here.
@@ -458,7 +471,7 @@ class PipelineManager:
         """Get the shared output slot for reading the latest processed frame.
 
         External consumers (e.g. WebRTC streams) can poll this slot without
-        registering or unregistering — they simply read ``slot.latest``.
+        registering or unregistering — they simply read `slot.latest`.
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline.")
