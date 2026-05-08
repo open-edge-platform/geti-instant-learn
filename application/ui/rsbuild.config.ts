@@ -41,6 +41,12 @@ export default defineConfig({
     ],
     output: {
         assetPrefix: process.env.ASSET_PREFIX,
+        copy: [
+            {
+                from: 'node_modules/onnxruntime-web/dist/*.wasm',
+                to: 'ort-wasm/[name][ext]',
+            },
+        ],
     },
     source: {
         define: {

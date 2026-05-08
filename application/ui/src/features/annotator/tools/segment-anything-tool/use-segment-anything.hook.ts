@@ -35,15 +35,17 @@ const useSegmentAnythingWorker = (algorithmType: 'SEGMENT_ANYTHING_DECODER' | 'S
         const loadWorker = async () => {
             setModelIsLoading(true);
 
-            if (data) {
-                const model = data;
+            try {
+                if (data) {
+                    const model = data;
 
-                await model.init(algorithmType);
+                    await model.init(algorithmType);
 
-                modelRef.current = model;
+                    modelRef.current = model;
+                }
+            } finally {
+                setModelIsLoading(false);
             }
-
-            setModelIsLoading(false);
         };
 
         if (data && modelRef.current === undefined && !modelIsLoading) {
