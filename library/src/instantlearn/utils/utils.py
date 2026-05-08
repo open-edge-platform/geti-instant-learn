@@ -169,7 +169,7 @@ def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> No
 
 
 def _do_download(url: str, target_path: Path, sha_sum: str | None = None) -> None:
-    """Internal download implementation (must be called under the per-path lock)."""
+    """Internal download implementation (must be called under ``_download_lock``)."""
     target_dir = target_path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.project import ProjectService
-from domain.services.schemas.device import AvailableDeviceSchema, Device
+from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
@@ -84,6 +84,3 @@ class DefaultComponentFactory(ComponentFactory):
             svc = ProjectService(session=session)
             cfg = svc.get_pipeline_config(project_id)
         return Sink(StreamWriterFactory.create(cfg.writer))
-
-    def resolve_device(self, configured_device: Device | None) -> Device:
-        return self._model_factory.resolve_device(configured_device)

@@ -32,6 +32,7 @@ from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.components import DefaultComponentFactory
+from runtime.core.components.factories.model import DeviceResolver
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.device import list_available_devices
 from runtime.webrtc.manager import WebRTCManager
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.available_datasets = datasets
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
+    device_resolver = DeviceResolver(available_devices=app.state.available_devices)
     component_factory = DefaultComponentFactory(
         session_factory=session_factory,
         available_devices=app.state.available_devices,
@@ -87,9 +89,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         event_dispatcher=app.state.config_dispatcher,
         session_factory=session_factory,
         component_factory=component_factory,
+        device_resolver=device_resolver,
     )
     # Bind the running asyncio loop so worker-thread status updates can reach
-    # SSE subscribers via ``call_soon_threadsafe``.
+    # SSE subscribers via `call_soon_threadsafe`.
     app.state.pipeline_manager.bind_loop(asyncio.get_running_loop())
     app.state.pipeline_manager.start()
 

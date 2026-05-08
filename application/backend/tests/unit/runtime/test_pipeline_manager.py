@@ -330,12 +330,6 @@ class TestPipelineManager:
         running.stop.assert_called_once()
         assert mgr._pipeline is None
 
-    def test_stop_no_pipeline_noop(self, dispatcher, session_factory):
-        mgr = PipelineManager(dispatcher, session_factory)
-        mgr._pipeline = None
-        mgr.stop()
-        assert mgr._pipeline is None
-
     def test_get_reference_batch_text_prompts_returns_none(self, dispatcher, session_factory) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
         assert mgr.get_reference_batch(uuid4(), PromptType.TEXT) is None
@@ -512,6 +506,7 @@ class TestPipelineManagerStatus:
         mgr = self._make_mgr(dispatcher, session_factory)
         mgr._pipeline = None
         mgr.stop()
+        assert mgr._pipeline is None
         assert mgr.get_status().state.value == "idle"
 
     def test_prepare_processor_publishes_loading_reference_batch_then_loading_model(
@@ -608,11 +603,6 @@ class TestPipelineManagerStatus:
             mgr.start()
 
         assert mgr.get_status().state.value == "idle"
-
-    def test_subscribe_and_get_status(self, dispatcher, session_factory):
-        mgr = self._make_mgr(dispatcher, session_factory)
-        status = mgr.get_status()
-        assert status.state.value == "idle"
 
     def test_on_processor_update_publishes_error_on_failure(self, dispatcher, session_factory, mock_component_factory):
         """When _prepare_processor fails, an ERROR status is published."""

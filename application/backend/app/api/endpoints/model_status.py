@@ -3,14 +3,12 @@
 
 """Project-scoped endpoints exposing the model (processor) loading state.
 
-- ``GET /api/v1/projects/{project_id}/model-status`` returns a one-shot snapshot.
-- ``GET /api/v1/projects/{project_id}/model-status/stream`` opens a Server-Sent
+- `GET /api/v1/projects/{project_id}/model-status` returns a one-shot snapshot.
+- `GET /api/v1/projects/{project_id}/model-status/stream` opens a Server-Sent
   Events stream that pushes status changes as they happen.
 
-The PipelineManager broadcasts a single global model status (only one pipeline
-can be active at a time), so the SSE generator filters events to the requested
-project. When another project is active or no pipeline is running, the stream
-still reports IDLE so the UI can recover when the project gets activated again.
+The PipelineManager broadcasts a single global model status (only one pipeline can be active at a time),
+so the SSE generator filters events to the requested project.
 """
 
 import logging
@@ -36,13 +34,7 @@ def _scoped_snapshot(snapshot: ModelStatusSchema, project_id: UUID) -> ModelStat
 
 
 async def _model_status_stream(pipeline_manager: PipelineManager, project_id: UUID) -> AsyncIterable[ModelStatusSchema]:
-    """Yield project-scoped model status snapshots.
-
-    FastAPI's ``EventSourceResponse`` JSON-encodes each yielded Pydantic model
-    into the ``data:`` field of an SSE event and handles keep-alive pings,
-    ``Cache-Control``/``X-Accel-Buffering`` headers and client-disconnect
-    cleanup automatically.
-    """
+    """Yield project-scoped model status snapshots."""
     queue = pipeline_manager.subscribe_status()
     try:
         # Initial snapshot so the client immediately knows the current state.
@@ -67,7 +59,7 @@ def get_model_status(
     project_id: UUID, project_service: ProjectServiceDep, pipeline_manager: PipelineManagerDep
 ) -> ModelStatusSchema:
     """Return a one-shot snapshot of the current model loading status."""
-    project_service.get_project(project_id)  # 404 if missing
+    project_service.get_project(project_id)  # check project_id, 404 if missing
     return _scoped_snapshot(pipeline_manager.get_status(), project_id)
 
 
@@ -91,6 +83,6 @@ async def stream_model_status(
     The stream emits an initial snapshot, then a snapshot per state transition
     (loading reference batch, loading model, ready, error, idle).
     """
-    project_service.get_project(project_id)  # 404 if missing
+    project_service.get_project(project_id)
     async for snapshot in _model_status_stream(pipeline_manager, project_id):
         yield snapshot

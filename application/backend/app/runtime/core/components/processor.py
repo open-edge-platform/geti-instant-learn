@@ -103,21 +103,17 @@ class Processor(PipelineComponent):
     def _initialize_model(self) -> bool:
         """Run model handler initialization and report status transitions.
 
-        Returns `True` when the processor should enter its main loop, `False`
-        if initialization failed (the loop is then skipped).
+        Returns `True` when the processor should enter its main loop, `False` if initialization failed.
 
-        Note: `loading_model()` may duplicate a snapshot already published by
-        `PipelineManager` before constructing this processor (model weights
-        are downloaded inside the model constructor, so the manager publishes
-        `LOADING_MODEL` up front). The duplicate is intentional and harmless
-        — it keeps the `Processor` self-contained and useful in standalone
-        tests where no manager is involved.
+        Note: `loading_model()` may duplicate a snapshot already published by `PipelineManager`
+        before constructing this processor (model weights are downloaded inside the model constructor,
+        so the manager publishes `LOADING_MODEL` up front). The duplicate is intentional and harmless -
+        it keeps the `Processor` self-contained.
         """
         is_passthrough = isinstance(self._model_handler, PassThroughModelHandler)
         try:
             if is_passthrough:
-                # No real model is loaded; the pipeline still streams frames but
-                # surfaces an IDLE model state to the UI.
+                # No real model is loaded; the pipeline still streams frames but surfaces an IDLE model state to the UI.
                 self._model_handler.initialise()
                 self._status_reporter.idle()
             else:
@@ -190,5 +186,4 @@ class Processor(PipelineComponent):
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)
         self._model_handler.close()
-        # Once the model handler is closed, the model is no longer serving predictions.
         self._status_reporter.idle()

@@ -3,10 +3,9 @@
 
 """Schemas describing the lifecycle state of the inference model (processor).
 
-The status is broadcast from ``PipelineManager`` to UI subscribers over SSE so
-users can see when a model is being (re)loaded after configuration or prompt
-changes, and so prompt/model controls can be temporarily disabled while the
-model is unavailable.
+The status is broadcast from `PipelineManager` to UI subscribers over SSE so users can see when a model
+is being (re)loaded after configuration or prompt changes, and so prompt/model controls can be temporarily disabled
+while the model is unavailable.
 """
 
 from datetime import UTC, datetime
@@ -19,9 +18,8 @@ from pydantic import BaseModel, Field
 class ModelState(StrEnum):
     """Lifecycle state of the inference model.
 
-    ``LOADING_REFERENCE_BATCH`` and ``LOADING_MODEL`` are both "busy" states from
-    the UI's perspective (controls disabled, banner shown), but distinguishing
-    them lets us surface what is taking time without an extra ``stage`` field.
+    `LOADING_REFERENCE_BATCH` and `LOADING_MODEL` are "busy" states from the UI's perspective
+    (controls disabled, banner shown).
     """
 
     IDLE = "idle"
@@ -32,8 +30,8 @@ class ModelState(StrEnum):
 
 
 # Per-state user-facing message templates. Kept centrally so wording can evolve
-# without touching transition logic. ``LOADING_MODEL`` and ``READY`` accept
-# ``{model_name}`` and ``{device}`` substitutions.
+# without touching transition logic. `LOADING_MODEL` and `READY` accept
+# `{model_name}` and `{device}` substitutions.
 MODEL_STATUS_MESSAGES: dict[ModelState, str] = {
     ModelState.IDLE: "No active model",
     ModelState.LOADING_REFERENCE_BATCH: "Building reference batch from prompts…",
@@ -48,7 +46,7 @@ _MAX_ERROR_DETAIL_LEN = 500
 
 
 def _format(template: str, *, model_name: str | None, device: str | None) -> str:
-    """Format a status message, substituting ``unknown`` for missing values."""
+    """Format a status message, substituting `unknown` for missing values."""
     return template.format(
         model_name=model_name or "unknown",
         device=device or "unknown",
@@ -64,7 +62,7 @@ def sanitize_error_detail(detail: str) -> str:
 
 
 class ModelErrorSchema(BaseModel):
-    """Structured error info attached to ``ModelState.ERROR`` snapshots."""
+    """Structured error info attached to `ModelState.ERROR` snapshots."""
 
     code: str = Field(description="Exception class name, e.g. 'RuntimeError'.")
     detail: str = Field(description="Human-readable, sanitized error message.")
@@ -74,7 +72,7 @@ class ModelStatusSchema(BaseModel):
     """Snapshot of the inference model lifecycle state.
 
     The same schema is returned by the snapshot endpoint and pushed as the
-    ``data`` payload of each ``status`` SSE event.
+    `data` payload of each `status` SSE event.
     """
 
     state: ModelState

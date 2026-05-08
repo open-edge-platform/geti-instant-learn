@@ -79,31 +79,21 @@ class TestDispatchPendingEventsCoalescing:
 
         assert mock_dispatcher.dispatch.call_count == 2
 
-    def test_activation_events_preserved(self, mock_session, mock_dispatcher):
-        """ProjectActivationEvent is not coalesced with ComponentConfigChangeEvent."""
+    def test_lifecycle_events_not_coalesced_with_component_events(self, mock_session, mock_dispatcher):
+        """ProjectActivation/Deactivation events are dispatched independently from component events."""
         svc = BaseService(mock_session, config_change_dispatcher=mock_dispatcher)
         pid = uuid4()
 
         activation = ProjectActivationEvent(project_id=pid)
+        deactivation = ProjectDeactivationEvent(project_id=pid)
         processor = ComponentConfigChangeEvent(
             project_id=pid, component_type=ComponentType.PROCESSOR, component_id=uuid4()
         )
 
-        svc._pending_events = [activation, processor]
+        svc._pending_events = [activation, deactivation, processor]
         svc._dispatch_pending_events()
 
-        assert mock_dispatcher.dispatch.call_count == 2
-
-    def test_deactivation_events_preserved(self, mock_session, mock_dispatcher):
-        """ProjectDeactivationEvent is dispatched independently."""
-        svc = BaseService(mock_session, config_change_dispatcher=mock_dispatcher)
-
-        deactivation = ProjectDeactivationEvent(project_id=uuid4())
-
-        svc._pending_events = [deactivation]
-        svc._dispatch_pending_events()
-
-        mock_dispatcher.dispatch.assert_called_once_with(deactivation)
+        assert mock_dispatcher.dispatch.call_count == 3
 
     def test_pending_events_cleared_after_dispatch(self, mock_session, mock_dispatcher):
         """Pending events list is cleared even after coalescing."""
