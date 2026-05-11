@@ -29,6 +29,22 @@ Object.defineProperty(ort.env.wasm, 'numThreads', {
     configurable: true,
 });
 
+// Verify which backend InferenceSession resolves to by patching registerBackend
+const origRegisterBackend = (ort as unknown as { registerBackend?: (...a: unknown[]) => void }).registerBackend;
+if (origRegisterBackend) {
+    (ort as unknown as { registerBackend: (...a: unknown[]) => void }).registerBackend = (name: unknown, backend: unknown, priority: unknown) => {
+        console.log('[SAM worker] registerBackend:', name, 'priority:', priority);
+        return origRegisterBackend(name, backend, priority);
+    };
+}
+
+// Test: try to load the WASM file directly to verify it's accessible
+fetch('/ort-wasm/ort-wasm-simd.wasm').then(r => {
+    console.log('[SAM worker] WASM fetch status:', r.status, r.statusText, 'url:', r.url);
+}).catch(err => {
+    console.error('[SAM worker] WASM fetch FAILED:', err);
+});
+
 const WorkerApi = {
     build: async () => {
         const instance = await buildSegmentAnythingInstance();
@@ -37,7 +53,7 @@ const WorkerApi = {
         console.log('[SAM worker] ort.env.wasm.numThreads:', ort.env.wasm.numThreads);
 
         return proxy({
-            init: (algorithmType: Parameters<typeof instance.init>[0]) => {
+            init: async (algorithmType: Parameters<typeof instance.init>[0]) => {
                 console.log('[SAM worker] init:', algorithmType);
                 return instance.init(algorithmType);
             },
