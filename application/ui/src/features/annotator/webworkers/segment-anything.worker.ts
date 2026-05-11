@@ -33,7 +33,40 @@ const WorkerApi = {
     build: async () => {
         const instance = await buildSegmentAnythingInstance();
 
-        return proxy(instance);
+        console.log('[SAM worker] ort.env.wasm.wasmPaths:', ort.env.wasm.wasmPaths);
+        console.log('[SAM worker] ort.env.wasm.numThreads:', ort.env.wasm.numThreads);
+
+        return proxy({
+            init: (algorithmType: Parameters<typeof instance.init>[0]) => {
+                console.log('[SAM worker] init:', algorithmType);
+                return instance.init(algorithmType);
+            },
+            processEncoder: async (imageData: ImageData) => {
+                console.log('[SAM worker] processEncoder start, image:', imageData?.width, 'x', imageData?.height);
+                try {
+                    const result = await instance.processEncoder(imageData);
+                    const r = result.encoderResult as unknown as Record<string, unknown>;
+                    console.log('[SAM worker] processEncoder OK - encoderResult.type:', r?.type,
+                        'dims:', r?.dims,
+                        'data constructor:', (r?.data as { constructor?: { name: unknown } })?.constructor?.name,
+                        'hasGetData:', typeof r?.getData);
+                    return result;
+                } catch (err) {
+                    console.error('[SAM worker] processEncoder threw:', err);
+                    throw err;
+                }
+            },
+            processDecoder: (
+                encoding: Parameters<typeof instance.processDecoder>[0],
+                input: Parameters<typeof instance.processDecoder>[1]
+            ) => {
+                const enc = encoding.encoderResult as unknown as Record<string, unknown>;
+                console.log('[SAM worker] processDecoder - encoderResult.type:', enc?.type,
+                    'dims:', enc?.dims,
+                    'hasGetData:', typeof enc?.getData);
+                return instance.processDecoder(encoding, input);
+            },
+        });
     },
 };
 
