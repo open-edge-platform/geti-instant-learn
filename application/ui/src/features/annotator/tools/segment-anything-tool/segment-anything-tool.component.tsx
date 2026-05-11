@@ -65,7 +65,8 @@ export const SegmentAnythingTool = () => {
     const { roi, image } = useAnnotator();
     const { addAnnotations } = useAnnotationActions();
     const { selectedLabel, labels } = useVisualPrompt();
-    const { isLoading, isProcessing, isEncodingError, retryEncoding, decodingQueryFn } = useSegmentAnythingModel();
+    const { isLoading, isProcessing, isEncodingError, encodingError, retryEncoding, decodingQueryFn } =
+        useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
     const canvasRef = useRef<SVGRectElement>(null);
@@ -159,7 +160,7 @@ export const SegmentAnythingTool = () => {
     }
 
     if (isEncodingError) {
-        return <SAMLoading isLoading={false} isError onRetry={retryEncoding} />;
+        return <SAMLoading isLoading={false} isError errorMessage={String(encodingError)} onRetry={retryEncoding} />;
     }
 
     return (

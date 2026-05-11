@@ -25,10 +25,11 @@ export const IntelBrandedLoading = () => {
 interface SAMLoadingProps {
     isLoading: boolean;
     isError?: boolean;
+    errorMessage?: string;
     onRetry?: () => void;
 }
 
-export const SAMLoading = ({ isLoading, isError = false, onRetry }: SAMLoadingProps) => {
+export const SAMLoading = ({ isLoading, isError = false, errorMessage, onRetry }: SAMLoadingProps) => {
     return (
         <View
             position={'absolute'}
@@ -63,6 +64,21 @@ export const SAMLoading = ({ isLoading, isError = false, onRetry }: SAMLoadingPr
                             {isLoading && 'Processing image, please wait...'}
                             {isError && 'Failed to process image.'}
                         </Heading>
+                        {isError && errorMessage && (
+                            <Heading
+                                level={3}
+                                UNSAFE_style={{
+                                    fontSize: 'calc(var(--spectrum-global-dimension-size-150) / var(--zoom-scale, 1))',
+                                    textShadow: '1px 1px 2px black',
+                                    opacity: 0.8,
+                                    maxWidth: '80%',
+                                    textAlign: 'center',
+                                    wordBreak: 'break-word',
+                                }}
+                            >
+                                {errorMessage}
+                            </Heading>
+                        )}
                         {isError && onRetry && (
                             <Button variant='primary' onPress={onRetry}>
                                 Retry

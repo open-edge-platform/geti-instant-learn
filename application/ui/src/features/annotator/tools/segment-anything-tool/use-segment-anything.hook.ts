@@ -68,7 +68,12 @@ const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, frame
                 throw new Error('Image not available');
             }
 
-            return await model.processEncoder(image);
+            try {
+                return await model.processEncoder(image);
+            } catch (err) {
+                console.error('[SAM] Encoding failed:', err);
+                throw err;
+            }
         },
         staleTime: Infinity,
         gcTime: 3600 * 15,
@@ -122,6 +127,7 @@ export const useSegmentAnythingModel = () => {
         isLoading,
         isProcessing,
         isEncodingError,
+        encodingError: encodingQuery.error,
         retryEncoding: encodingQuery.refetch,
         encodingQuery,
         decodingQueryFn,
