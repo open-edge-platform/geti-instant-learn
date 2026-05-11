@@ -46,7 +46,6 @@ class ImageFolderReader(StreamReader):
         """
         return True
 
-
     def validate_config(self) -> None:
         """Validate the image folder configuration.
 
@@ -60,7 +59,6 @@ class ImageFolderReader(StreamReader):
             raise ValueError(f"Path is not a directory: {self._config.images_folder_path}")
         if next(folder_path.iterdir(), None) is None:
             raise ValueError(f"Images folder is empty: {self._config.images_folder_path}")
-
 
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
