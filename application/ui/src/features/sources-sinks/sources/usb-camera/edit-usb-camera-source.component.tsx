@@ -31,8 +31,8 @@ const EditUsbCameraSourceContent = ({ source, onSaved, availableUsbCameras }: Ed
         const name = availableUsbCameras.find((camera) => camera.device_id === selectedDeviceId)?.name;
 
         updateUsbCameraSource.mutate(
-            source.id,
             {
+                sourceId: source.id,
                 config: {
                     source_type: 'usb_camera',
                     device_id: selectedDeviceId,

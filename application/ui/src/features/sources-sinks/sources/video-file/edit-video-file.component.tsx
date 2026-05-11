@@ -27,8 +27,8 @@ export const EditVideoFile = ({ source, onSaved }: EditVideoFileProps) => {
 
     const handleUpdateVideoFileSource = (active: boolean) => {
         updateVideoFileSource.mutate(
-            source.id,
             {
+                sourceId: source.id,
                 config: {
                     ...source.config,
                     video_path: filePath.trim(),

@@ -113,11 +113,15 @@ class Settings(BaseSettings):
     supported_extensions: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
     # Thumbnail generation
-    thumbnail_max_dimension: int = 300
-    thumbnail_line_thickness_ratio: float = 0.005  # 0.5% of smaller image dimension
-    thumbnail_min_line_thickness: int = 2
-    thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
-    thumbnail_jpeg_quality: int = 85
+    thumbnail_max_dimension: int = Field(default=400, ge=0, alias="THUMBNAIL_MAX_DIMENSION")
+    thumbnail_line_thickness_ratio: float = Field(
+        default=0.005, ge=0.0, le=1.0, alias="THUMBNAIL_LINE_THICKNESS_RATIO"
+    )  # 0.5% of smaller image dimension
+    thumbnail_min_line_thickness: int = Field(default=2, ge=0, alias="THUMBNAIL_MIN_LINE_THICKNESS")
+    thumbnail_fill_opacity: float = Field(
+        default=0.5, ge=0.0, le=1.0, alias="THUMBNAIL_FILL_OPACITY"
+    )  # 50% opacity for annotation fill
+    thumbnail_jpeg_quality: int = Field(default=90, ge=0, le=100, alias="THUMBNAIL_JPEG_QUALITY")
 
     # Processor configuration
     processor_batch_size: int = Field(default=1, alias="PROCESSOR_BATCH_SIZE")
@@ -143,7 +147,8 @@ class Settings(BaseSettings):
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
     box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
-    label_font_scale: float = Field(default=2.0, alias="LABEL_FONT_SCALE")
+    label_text_height_px: int = Field(default=24, ge=1, alias="LABEL_TEXT_HEIGHT_PX")
+    visualization_scale: float = Field(default=1.0, alias="VISUALIZATION_SCALE")
 
     @property
     def ice_servers(self) -> list[dict]:

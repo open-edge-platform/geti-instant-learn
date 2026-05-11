@@ -130,8 +130,13 @@ class EfficientSAM3(SAM3):
                 (MaskIoMNMS + BoxIoMNMS).
 
         Raises:
-            ValueError: If backbone_type/variant is not supported.
+            ValueError: If backbone_type/variant is not supported or if canvas
+                mode is requested (not supported by EfficientSAM3).
         """
+        if Sam3PromptMode(prompt_mode) == Sam3PromptMode.CANVAS:
+            msg = "Canvas mode is not supported by EfficientSAM3. Use VisualExemplar mode instead."
+            raise ValueError(msg)
+
         # Skip SAM3.__init__ -- we initialize nn.Module and set attributes directly
         # because EfficientSAM3 uses different model, tokenizer, and defaults.
         if postprocessor is None:
