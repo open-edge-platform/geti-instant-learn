@@ -65,7 +65,7 @@ export const SegmentAnythingTool = () => {
     const { roi, image } = useAnnotator();
     const { addAnnotations } = useAnnotationActions();
     const { selectedLabel, labels } = useVisualPrompt();
-    const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
+    const { isLoading, isProcessing, isEncodingError, retryEncoding, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
     const canvasRef = useRef<SVGRectElement>(null);
@@ -89,9 +89,9 @@ export const SegmentAnythingTool = () => {
             .then((shapes) => {
                 setPreviewShapes(shapes.map((shape) => removeOffLimitPoints(shape, roi)));
             })
-            .catch(() => {
-                // If getting decoding went wrong we set an empty preview and
-                // start to compute the next decoding
+            .catch((error: unknown) => {
+                // Decoding failed – log so it's visible in DevTools
+                console.error('[SAM] Decoding error:', error);
                 return [];
             });
     };
@@ -154,8 +154,12 @@ export const SegmentAnythingTool = () => {
         setAcceptedShapes(null);
     };
 
-    if (isLoading) {
-        return <SAMLoading isLoading={isLoading} />;
+    if (isLoading || isProcessing) {
+        return <SAMLoading isLoading={isLoading || isProcessing} />;
+    }
+
+    if (isEncodingError) {
+        return <SAMLoading isLoading={false} isError onRetry={retryEncoding} />;
     }
 
     return (

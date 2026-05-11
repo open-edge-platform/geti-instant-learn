@@ -116,10 +116,13 @@ export const useSegmentAnythingModel = () => {
 
     const isLoading = isLoadingWorkers || encodingQuery.isLoading;
     const isProcessing = encodingQuery.isFetching;
+    const isEncodingError = encodingQuery.isError;
 
     return {
         isLoading,
         isProcessing,
+        isEncodingError,
+        retryEncoding: encodingQuery.refetch,
         encodingQuery,
         decodingQueryFn,
     };

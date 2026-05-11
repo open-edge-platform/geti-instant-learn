@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, Heading, View } from '@geti/ui';
+import { Button, Flex, Heading, View } from '@geti/ui';
 
 import IntelBrandedLoadingGif from './intel-loading.webp';
 
@@ -22,7 +22,13 @@ export const IntelBrandedLoading = () => {
     );
 };
 
-export const SAMLoading = ({ isLoading }: { isLoading: boolean }) => {
+interface SAMLoadingProps {
+    isLoading: boolean;
+    isError?: boolean;
+    onRetry?: () => void;
+}
+
+export const SAMLoading = ({ isLoading, isError = false, onRetry }: SAMLoadingProps) => {
     return (
         <View
             position={'absolute'}
@@ -55,7 +61,13 @@ export const SAMLoading = ({ isLoading }: { isLoading: boolean }) => {
                             }}
                         >
                             {isLoading && 'Processing image, please wait...'}
+                            {isError && 'Failed to process image.'}
                         </Heading>
+                        {isError && onRetry && (
+                            <Button variant='primary' onPress={onRetry}>
+                                Retry
+                            </Button>
+                        )}
                     </Flex>
                 </View>
             </Flex>
