@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import path from 'node:path';
 import { defineConfig, loadEnv } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import { pluginReact } from '@rsbuild/plugin-react';
@@ -47,6 +48,13 @@ export default defineConfig({
                 to: 'ort-wasm/[name][ext]',
             },
         ],
+    },
+    resolve: {
+        alias: {
+            // Use the WASM-only ORT bundle to avoid the ONNX.js WebGL backend
+            // which causes `getData is not a function` errors in Tauri/WebView2.
+            'onnxruntime-web': path.resolve('./node_modules/onnxruntime-web/dist/ort.wasm.min.js'),
+        },
     },
     source: {
         define: {
