@@ -60,6 +60,10 @@ class ModelConfigurationDialogPage {
         await this.changeSelection('Precision', value);
     }
 
+    async changeCompressionPreset(value: string) {
+        await this.changeSelection('Compression preset', value);
+    }
+
     async configureModel() {
         await userEvent.click(this.configureButton);
     }
@@ -100,6 +104,7 @@ describe('ModelConfigurationDialog', () => {
                 use_mask_refinement: true,
                 precision: 'bf16',
                 num_grid_cells: 8,
+                preset: 'throughput',
             },
         });
 
@@ -133,6 +138,11 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changePrecision('FP16');
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
+        expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
+
+        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
+        expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
+        await modelConfigurationDialogPage.changeCompressionPreset('Throughput');
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
@@ -185,6 +195,71 @@ describe('ModelConfigurationDialog', () => {
         });
 
         expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('submits preset value in matcher config', async () => {
+        let body: ModelUpdateType;
+        server.use(
+            http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request }) => {
+                body = await request.json();
+                return HttpResponse.json(request.body);
+            })
+        );
+
+        const model = getMockedModel({
+            config: {
+                model_type: 'matcher',
+                num_foreground_points: 5,
+                num_background_points: 3,
+                confidence_threshold: 0.75,
+                sam_model: 'SAM-HQ-tiny',
+                encoder_model: 'dinov3_small',
+                use_mask_refinement: false,
+                similarity_threshold: null,
+                num_grid_cells: 8,
+                precision: 'bf16',
+                preset: 'throughput',
+            },
+        });
+
+        const mockOnClose = vi.fn();
+        const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
+
+        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
+        await modelConfigurationDialogPage.configureModel();
+
+        await waitFor(() => {
+            expect(body.config).toEqual(
+                expect.objectContaining({
+                    model_type: 'matcher',
+                    preset: 'accuracy',
+                })
+            );
+        });
+
+        expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('compression preset dropdown is visible for matcher model', () => {
+        const model = getMockedModel({
+            config: {
+                model_type: 'matcher',
+                num_foreground_points: 5,
+                num_background_points: 3,
+                confidence_threshold: 0.75,
+                sam_model: 'SAM-HQ-tiny',
+                encoder_model: 'dinov3_small',
+                use_mask_refinement: false,
+                similarity_threshold: null,
+                num_grid_cells: 8,
+                precision: 'bf16',
+                preset: 'throughput',
+            },
+        });
+
+        renderModelConfigurationDialog({ model });
+
+        expect(screen.getByRole('button', { name: /Compression preset/i })).toBeVisible();
     });
 
     it('closes the dialog', async () => {

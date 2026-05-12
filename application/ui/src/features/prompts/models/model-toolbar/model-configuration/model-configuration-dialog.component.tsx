@@ -68,6 +68,13 @@ const PRECISIONS: { label: string; value: Precision }[] = [
     { label: 'BF16', value: 'bf16' },
 ];
 
+type CompressionPreset = MatcherModel['config']['preset'];
+
+const COMPRESSION_PRESETS: { label: string; value: CompressionPreset }[] = [
+    { label: 'Throughput', value: 'throughput' },
+    { label: 'Accuracy', value: 'accuracy' },
+];
+
 interface SelectionProps<T extends string> {
     value: T;
     onChange: (model: T) => void;
@@ -103,6 +110,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
     const [detectSmallObjects, setDetectSmallObjects] = useState<boolean>(
         model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined
     );
+    const [preset, setPreset] = useState<CompressionPreset>(model.config.preset ?? 'throughput');
 
     const updateModelMutation = useUpdateModel();
 
@@ -115,7 +123,8 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
         precision === model.config.precision &&
         useMaskRefinement === model.config.use_mask_refinement &&
         detectSmallObjects ===
-            (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined);
+            (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined) &&
+        preset === (model.config.preset ?? 'throughput');
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -136,6 +145,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                     similarity_threshold: detectSmallObjects ? 0.65 : null,
                     num_grid_cells: detectSmallObjects ? 8 : model.config.num_grid_cells,
                     precision,
+                    preset,
                 },
             },
             onClose
@@ -184,6 +194,12 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                     value={confidenceThreshold}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Selection
+                    label={'Compression preset'}
+                    value={preset}
+                    onChange={setPreset}
+                    items={COMPRESSION_PRESETS}
+                />
                 <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
                     <Switch isEmphasized isSelected={detectSmallObjects} onChange={setDetectSmallObjects}>
                         Detect small objects

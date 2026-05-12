@@ -13,17 +13,24 @@ from instantlearn.utils.constants import Backend
 from instantlearn.utils.utils import device_to_openvino_device, precision_to_openvino_type
 from openvino import properties
 
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import CompressionPreset, InputData
 from runtime.core.components.base import ModelHandler
 
 logger = logging.getLogger(__name__)
 
 
 class OpenVINOModelHandler(ModelHandler):
-    def __init__(self, model: Model, reference_batch: Batch, precision: str) -> None:
+    def __init__(
+        self,
+        model: Model,
+        reference_batch: Batch,
+        precision: str,
+        compression_preset: CompressionPreset = CompressionPreset.THROUGHPUT,
+    ) -> None:
         self._model = model
         self._reference_batch = reference_batch
         self._precision = precision
+        self._compression_preset = compression_preset
         self._compiled_model: openvino.CompiledModel | None = None
         self._infer_request: openvino.InferRequest | None = None
         self._input_port: openvino.ConstOutput | None = None
@@ -55,7 +62,11 @@ class OpenVINOModelHandler(ModelHandler):
         self._model.cpu()
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
-                path = self._model.export(tmp_dir, Backend.OPENVINO)
+                path = self._model.export(
+                    export_dir=tmp_dir,
+                    backend=Backend.OPENVINO,
+                    compression=self._compression_preset.to_compression_mode(),
+                )
 
                 core = openvino.Core()
                 ov_device = device_to_openvino_device("CPU")
