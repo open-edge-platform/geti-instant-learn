@@ -96,7 +96,6 @@ const useDecodingFn = (model: Remote<SegmentAnythingModel> | undefined, encoding
             outputConfig: {
                 type: 'polygon',
             },
-            image: undefined,
         });
 
         return shapes.map(convertToolShapeToGetiShape);
