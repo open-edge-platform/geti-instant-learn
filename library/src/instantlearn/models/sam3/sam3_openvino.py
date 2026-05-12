@@ -1,19 +1,10 @@
-# Copyright (C) 2025-2026 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """SAM3 OpenVINO inference model for text, box, point, and visual-exemplar prompting.
 
 This module provides ``SAM3OpenVINO``, which loads pre-exported SAM3 OpenVINO IR
 (or ONNX) models and provides the same inference API as the PyTorch ``SAM3`` model.
-
-Supported prompt types (matching PyTorch ``SAM3`` parity):
-
-* **Text prompts** — category names via ``fit()`` or per-sample ``categories``
-* **Box prompts** — bounding boxes via the ``bboxes`` field
-* **Point prompts** — click points via the ``points`` field
-* **Combined text + box/point** — both at the same time
-* **Visual exemplar mode** — encode reference image prompts at ``fit()``
-  time, reuse cached features to detect similar objects on any target image
 
 The model expects 5 sub-models (custom-exported from ``Sam3Model``):
 
@@ -56,8 +47,8 @@ from .sam3 import CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
 
-# Default HuggingFace repo for SAM3 OpenVINO models and tokenizer
-_DEFAULT_HF_REPO = "rajeshgangireddy/SAM3_OpenVINO"
+# Default HuggingFace repo for SAM3 OpenVINO models 
+SAM3_OV_REPO = "rajeshgangireddy/SAM3_OpenVINO"
 
 
 class SAM3OVVariant(str, Enum):
@@ -89,13 +80,13 @@ class SAM3OVVariant(str, Enum):
       with ``INT8_SYM`` mode), kept for backward compatibility.
     """
 
-    # -- Recommended variants --
+    # Recommended variants
     FP16 = "openvino-fp16"
     INT8_SYM = "openvino-int8_sym"
     INT8_PTQ = "openvino-int8_ptq_gpu"
     ONNX = "onnx"
 
-    # -- Other variants (no significant advantage over recommended set) --
+    # Other variants (no significant advantage over recommended set)
     FP32 = "openvino-fp32"
     INT8_ASYM = "openvino-int8_asym"
     INT4_SYM = "openvino-int4_sym"
@@ -183,7 +174,7 @@ class SAM3OpenVINO(Model):
         >>> from instantlearn.data.base.sample import Sample
         >>> import numpy as np
 
-        >>> # Auto-download default variant (FP16) from HuggingFace
+        >>> # Auto-download default variant (INT8_SYM) from HuggingFace
         >>> model = SAM3OpenVINO(device="CPU")
         >>> model.fit(Sample(categories=["elephant"], category_ids=[0]))
         >>> results = model.predict(
@@ -237,7 +228,7 @@ class SAM3OpenVINO(Model):
         drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
         variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
-        repo_id: str = _DEFAULT_HF_REPO,
+        repo_id: str = SAM3_OV_REPO,
         canvas_config: CanvasConfig | None = None,
     ) -> None:
         """Initialise SAM3 OpenVINO model.
@@ -292,6 +283,9 @@ class SAM3OpenVINO(Model):
 
         # Compile properties: optimise for single-request latency (default GPU
         # hint is THROUGHPUT which adds overhead for real-time single-image use).
+        # From openvino doc  : Models may load slower and consume more memory when 
+        # using ov::hint::PerformanceMode::THROUGHPUT compared 
+        # to ov::hint::PerformanceMode::LATENCY.
         _compile_props = {"PERFORMANCE_HINT": "LATENCY"} if self.ov_device != "CPU" else {}
 
         # Vision encoder + text encoder (always required)
@@ -358,14 +352,14 @@ class SAM3OpenVINO(Model):
             return CLIPTokenizerFast.from_pretrained(str(tokenizer_path))
         if (self.model_dir / "tokenizer.json").exists():
             return CLIPTokenizerFast.from_pretrained(str(self.model_dir))
-        return CLIPTokenizerFast.from_pretrained(_DEFAULT_HF_REPO)
+        return CLIPTokenizerFast.from_pretrained(SAM3_OV_REPO)
 
     @staticmethod
     def _resolve_model_dir(
         model_dir: str | Path | None,
         *,
         variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
-        repo_id: str = _DEFAULT_HF_REPO,
+        repo_id: str = SAM3_OV_REPO,
     ) -> Path:
         """Resolve the model directory, downloading from HuggingFace if needed.
 

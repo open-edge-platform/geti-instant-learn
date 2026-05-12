@@ -251,7 +251,7 @@ def validate_openvino_models(  # noqa: PLR0915
     logger.info("Validation complete!")
 
 
-# -- Weight compression (quantization) --
+# Weight compression (quantization)
 
 # Canonical model names (5-model split)
 MODEL_NAMES = [
@@ -483,7 +483,7 @@ Examples:
         help="OpenVINO device for validation. Default: CPU",
     )
 
-    # -- Weight compression arguments --
+    # Weight compression arguments
     parser.add_argument(
         "--quantize",
         action="store_true",

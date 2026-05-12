@@ -76,11 +76,6 @@ N_WARMUP = 3
 ALL_OV_VARIANTS = ["fp16", "fp32", "int8_sym", "int8_asym", "int4_sym", "int4_asym"]
 
 
-# ===========================================================================
-# Data structures
-# ===========================================================================
-
-
 @dataclass
 class BenchmarkResult:
     """Result for a single (backend, variant, mode, dataset) combination."""
@@ -139,10 +134,6 @@ def get_gt_masks_for_image(
         return np.stack(masks)
     return np.zeros((0, img_h, img_w), dtype=np.uint8)
 
-
-# ===========================================================================
-# Metrics
-# ===========================================================================
 
 
 def compute_iou_matrix(pred_masks: np.ndarray, gt_masks: np.ndarray) -> np.ndarray:
@@ -229,11 +220,6 @@ def evaluate_predictions(
     return f1, miou, n_preds
 
 
-# ===========================================================================
-# Model loading
-# ===========================================================================
-
-
 def _map_device_for_openvino(device: str) -> str:
     """Map user-friendly device names to OpenVINO device strings."""
     mapping = {
@@ -286,11 +272,6 @@ def load_model(
         confidence_threshold=CONFIDENCE_THRESHOLD,
         prompt_mode=mode,
     )
-
-
-# ===========================================================================
-# Benchmark runners
-# ===========================================================================
 
 
 def benchmark_text_mode(
@@ -444,10 +425,6 @@ def benchmark_visual_mode(
 
     return latencies, f1_scores, iou_scores, pred_counts
 
-
-# ===========================================================================
-# Main orchestration
-# ===========================================================================
 
 
 def run_benchmark(
@@ -617,10 +594,6 @@ def save_results_json(results: list[BenchmarkResult], output_path: Path) -> None
     logger.info("Results saved to %s", output_path)
 
 
-
-# ===========================================================================
-# PROFILE subcommand: Component-level OpenVINO benchmarking
-# ===========================================================================
 
 _PROFILE_HF_REPO_ID = "rajeshgangireddy/SAM3_OpenVINO"
 

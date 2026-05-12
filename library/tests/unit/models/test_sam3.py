@@ -18,10 +18,6 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 
-
-# -- Helpers --
-
-
 def _make_mock_model() -> MagicMock:
     """Create a mock Sam3Model with plausible return values."""
     model = MagicMock()
