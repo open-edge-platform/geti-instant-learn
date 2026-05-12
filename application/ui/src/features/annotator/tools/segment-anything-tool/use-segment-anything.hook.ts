@@ -93,10 +93,9 @@ const useDecodingFn = (model: Remote<SegmentAnythingModel> | undefined, encoding
         const { shapes } = await model.processDecoder(encoding, {
             points,
             boxes: [],
-            ouputConfig: {
+            outputConfig: {
                 type: 'polygon',
             },
-            image: undefined,
         });
 
         return shapes.map(convertToolShapeToGetiShape);
