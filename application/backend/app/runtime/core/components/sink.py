@@ -34,15 +34,12 @@ class Sink(PipelineComponent):
                 try:
                     data = self._out_queue.get(timeout=0.1)
 
-                    if isinstance(data, ErrorData):
-                        continue
-
-                    if data.trace:
+                    if isinstance(data, OutputData) and data.trace:
                         data.trace.record_start("sink")
 
                     self._writer.write(data)
 
-                    if data.trace:
+                    if isinstance(data, OutputData) and data.trace:
                         data.trace.record_end("sink")
                         logger.debug(data.trace.format_log())
                 except Empty:

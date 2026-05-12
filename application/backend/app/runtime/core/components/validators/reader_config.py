@@ -16,6 +16,5 @@ class ReaderConfigValidator:
         self._reader_factory = reader_factory or StreamReaderFactory()
 
     def validate(self, config: ReaderConfig) -> None:
-        reader = self._reader_factory.create(config)
-        reader.validate_config()
-        reader.close()
+        with self._reader_factory.create(config) as reader:
+            reader.validate_config()

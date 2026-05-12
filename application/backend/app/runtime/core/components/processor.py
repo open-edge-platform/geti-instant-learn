@@ -113,6 +113,10 @@ class Processor(PipelineComponent):
                 if not batch_data:
                     continue
 
+                if isinstance(batch_data, ErrorData):
+                    self._outbound_broadcaster.broadcast(batch_data)
+                    continue
+
                 self._process_batch(batch_data)
 
             except Exception as e:
@@ -121,11 +125,11 @@ class Processor(PipelineComponent):
 
         logger.debug("Stopping the pipeline runner loop")
 
-    def _collect_batch_data(self) -> list[InputData]:
+    def _collect_batch_data(self) -> list[InputData] | ErrorData:
         """Collect a batch of input data from the queue.
 
         Returns:
-            List of InputData items, empty if no data available or error occurred.
+            List of InputData items, empty if no data available, or ErrorData if an error was received.
         """
         batch_data: list[InputData] = []
 
@@ -136,8 +140,7 @@ class Processor(PipelineComponent):
             return []
 
         if isinstance(initial_data, ErrorData):
-            self._outbound_broadcaster.broadcast(initial_data)
-            return []
+            return initial_data
 
         while len(batch_data) < self._batch_size and not self._stop_event.is_set():
             if initial_data is not None:

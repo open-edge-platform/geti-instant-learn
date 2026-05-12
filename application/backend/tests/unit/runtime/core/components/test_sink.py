@@ -66,9 +66,10 @@ class TestSink:
         expected_calls = [call(item) for item in expected_writes]
         assert self.mock_stream_writer.write.call_args_list == expected_calls
 
-    def test_error_data_is_skipped(self):
+    def test_error_data_is_forwarded_to_writer(self):
+        error = ErrorData(message="upstream failed", component=ComponentType.SOURCE)
         data = make_output("data1")
-        items = [ErrorData(message="upstream failed", component=ComponentType.SOURCE), data]
+        items = [error, data]
         iterator = iter(items)
 
         def mock_get(*args, **kwargs):
@@ -82,4 +83,4 @@ class TestSink:
         self.out_queue.get.side_effect = mock_get
         self.sink.run()
 
-        self.mock_stream_writer.write.assert_called_once_with(data)
+        self.mock_stream_writer.write.assert_has_calls([call(error), call(data)])
