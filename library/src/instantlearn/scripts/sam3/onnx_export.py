@@ -354,7 +354,7 @@ def export_sam3_to_onnx(  # noqa: PLR0915
 
     exported: dict[str, Path] = {}
 
-    # --- 1. Vision encoder ---
+    # 1. Vision encoder
     logger.info("Exporting vision encoder...")
     vision_wrapper = OnnxVisionEncoder(model)
     vision_wrapper.eval()
@@ -373,7 +373,7 @@ def export_sam3_to_onnx(  # noqa: PLR0915
     exported[_VISION_ENCODER_NAME] = vision_path
     logger.info("  -> %s", vision_path)
 
-    # --- 2. Text encoder ---
+    # 2. Text encoder
     logger.info("Exporting text encoder...")
     text_wrapper = OnnxTextEncoder(model)
     text_wrapper.eval()
@@ -396,7 +396,7 @@ def export_sam3_to_onnx(  # noqa: PLR0915
     exported[_TEXT_ENCODER_NAME] = text_path
     logger.info("  -> %s", text_path)
 
-    # --- 3. Geometry encoder (classic) ---
+    # 3. Geometry encoder (classic)
     logger.info("Exporting geometry encoder (classic)...")
     geo_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=False)
     geo_wrapper.eval()
@@ -436,7 +436,7 @@ def export_sam3_to_onnx(  # noqa: PLR0915
     exported[_GEOMETRY_ENCODER_NAME] = geo_path
     logger.info("  -> %s", geo_path)
 
-    # --- 4. Geometry encoder (exemplar — drop_spatial_bias=True) ---
+    # 4. Geometry encoder (exemplar, drop_spatial_bias=True)
     logger.info("Exporting geometry encoder (exemplar)...")
     geo_exemplar_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=True)
     geo_exemplar_wrapper.eval()
@@ -472,7 +472,7 @@ def export_sam3_to_onnx(  # noqa: PLR0915
     exported[_GEOMETRY_ENCODER_EXEMPLAR_NAME] = geo_exemplar_path
     logger.info("  -> %s", geo_exemplar_path)
 
-    # --- 5. Prompt decoder ---
+    # 5. Prompt decoder
     logger.info("Exporting prompt decoder...")
     decoder_wrapper = OnnxPromptDecoder(model)
     decoder_wrapper.eval()
