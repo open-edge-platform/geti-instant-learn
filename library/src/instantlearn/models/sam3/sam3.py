@@ -27,9 +27,11 @@ from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 from .canvas_helpers import (
     build_canvas_multishot,
+    build_canvas_shared_grouped,
     build_canvas_vertical,
     crop_around_bbox,
     extract_target_predictions,
+    group_references_by_category,
     merge_cross_category,
 )
 
@@ -798,31 +800,7 @@ class SAM3(Model):
         Raises:
             ValueError: If no reference samples contain bboxes.
         """
-        # Per-category storage: {cat_id: {"images": [...], "bboxes": [...], "text": str}}
-        refs_by_category: dict[int, dict] = {}
-
-        for sample in reference_batch.samples:
-            if sample.bboxes is None or len(sample.bboxes) == 0:
-                continue
-            bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
-            cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
-            cat_text = (
-                sample.categories[0]
-                if sample.categories and sample.categories[0] != "visual"
-                else "visual"
-            )
-
-            if cat_id not in refs_by_category:
-                refs_by_category[cat_id] = {"images": [], "bboxes": [], "text": cat_text}
-            refs_by_category[cat_id]["images"].append(sample.image)
-            refs_by_category[cat_id]["bboxes"].append(bbox)
-            # Keep the most specific (non-"visual") text for this category
-            if cat_text != "visual":
-                refs_by_category[cat_id]["text"] = cat_text
-
-        if not refs_by_category:
-            msg = "CANVAS mode requires at least one reference sample with bboxes."
-            raise ValueError(msg)
+        refs_by_category = group_references_by_category(reference_batch.samples)
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}  # Clear stale cache from previous fit()
@@ -1036,6 +1014,14 @@ class SAM3(Model):
         if spacing == "auto":
             spacing = "grouped"
 
+        if spacing == "grouped":
+            return build_canvas_shared_grouped(
+                self._canvas_refs_by_category,
+                tgt_image,
+                self.canvas_config.split_ratio,
+            )
+
+        # "spaced" — every ref individually separated
         C = tgt_image.shape[0]
         canvas_w = tgt_image.shape[2]
         for cat_refs in self._canvas_refs_by_category.values():
@@ -1053,96 +1039,45 @@ class SAM3(Model):
         ).squeeze(0)
 
         cat_items = list(self._canvas_refs_by_category.items())
-        n_cats = len(cat_items)
 
         ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
         per_cat_bboxes: dict[int, list[np.ndarray]] = {}
 
-        if spacing == "grouped":
-            # [cat1_refs] [gap] [cat2_refs] ... — 2K-1 slots
-            n_slots = 2 * n_cats - 1
-            if n_slots > canvas_w:
-                msg = (
-                    "Grouped canvas layout requires at least one pixel per slot. "
-                    f"Got canvas width {canvas_w} for {n_slots} slots across {n_cats} "
-                    "categories. Reduce the number of categories or increase canvas width."
-                )
-                raise ValueError(msg)
-            slot_w = canvas_w // n_slots
+        all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
+        for cat_id, cat_refs in cat_items:
+            for ref_img, ref_bbox in zip(
+                cat_refs["images"], cat_refs["bboxes"], strict=True,
+            ):
+                all_refs.append((cat_id, ref_img, ref_bbox))
 
-            for cat_idx, (cat_id, cat_refs) in enumerate(cat_items):
-                group_x = cat_idx * 2 * slot_w
-                group_w = slot_w if cat_idx < n_cats - 1 else canvas_w - group_x
+        n_total = len(all_refs)
+        n_slots = max(2 * n_total - 1, 1)
+        slot_w = canvas_w // n_slots
 
-                n_refs = len(cat_refs["images"])
-                cat_bboxes: list[np.ndarray] = []
+        for cat_id, _ in cat_items:
+            per_cat_bboxes[cat_id] = []
 
-                for ref_idx, (ref_img, ref_bbox) in enumerate(zip(
-                    cat_refs["images"], cat_refs["bboxes"], strict=True,
-                )):
-                    sub_x = group_x + ref_idx * (group_w // n_refs)
-                    sub_w = (
-                        group_w // n_refs
-                        if ref_idx < n_refs - 1
-                        else group_w - ref_idx * (group_w // n_refs)
-                    )
+        for ref_idx, (cat_id, ref_img, ref_bbox) in enumerate(all_refs):
+            slot_x = ref_idx * 2 * slot_w
+            this_w = slot_w if ref_idx < n_total - 1 else canvas_w - slot_x
 
-                    ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
-                    ref_resized = F.interpolate(
-                        ref_img.unsqueeze(0).float(),
-                        size=(ref_strip_h, sub_w),
-                        mode="bilinear", align_corners=False,
-                    ).squeeze(0)
-                    ref_strip[:, :, sub_x:sub_x + sub_w] = ref_resized
+            ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
+            ref_resized = F.interpolate(
+                ref_img.unsqueeze(0).float(),
+                size=(ref_strip_h, this_w),
+                mode="bilinear", align_corners=False,
+            ).squeeze(0)
+            ref_strip[:, :, slot_x:slot_x + this_w] = ref_resized
 
-                    sx = sub_w / ref_w
-                    sy = ref_strip_h / ref_h
-                    x1, y1, x2, y2 = ref_bbox[:4]
-                    cat_bboxes.append(np.array([
-                        x1 * sx + sub_x,
-                        y1 * sy + tgt_canvas_h,
-                        x2 * sx + sub_x,
-                        y2 * sy + tgt_canvas_h,
-                    ], dtype=np.float32))
-
-                per_cat_bboxes[cat_id] = cat_bboxes
-
-        else:  # "spaced" — every ref individually separated
-            all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
-            for cat_id, cat_refs in cat_items:
-                for ref_img, ref_bbox in zip(
-                    cat_refs["images"], cat_refs["bboxes"], strict=True,
-                ):
-                    all_refs.append((cat_id, ref_img, ref_bbox))
-
-            n_total = len(all_refs)
-            n_slots = max(2 * n_total - 1, 1)
-            slot_w = canvas_w // n_slots
-
-            for cat_id, _ in cat_items:
-                per_cat_bboxes[cat_id] = []
-
-            for ref_idx, (cat_id, ref_img, ref_bbox) in enumerate(all_refs):
-                slot_x = ref_idx * 2 * slot_w
-                this_w = slot_w if ref_idx < n_total - 1 else canvas_w - slot_x
-
-                ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
-                ref_resized = F.interpolate(
-                    ref_img.unsqueeze(0).float(),
-                    size=(ref_strip_h, this_w),
-                    mode="bilinear", align_corners=False,
-                ).squeeze(0)
-                ref_strip[:, :, slot_x:slot_x + this_w] = ref_resized
-
-                sx = this_w / ref_w
-                sy = ref_strip_h / ref_h
-                x1, y1, x2, y2 = ref_bbox[:4]
-                per_cat_bboxes[cat_id].append(np.array([
-                    x1 * sx + slot_x,
-                    y1 * sy + tgt_canvas_h,
-                    x2 * sx + slot_x,
-                    y2 * sy + tgt_canvas_h,
-                ], dtype=np.float32))
+            sx = this_w / ref_w
+            sy = ref_strip_h / ref_h
+            x1, y1, x2, y2 = ref_bbox[:4]
+            per_cat_bboxes[cat_id].append(np.array([
+                x1 * sx + slot_x,
+                y1 * sy + tgt_canvas_h,
+                x2 * sx + slot_x,
+                y2 * sy + tgt_canvas_h,
+            ], dtype=np.float32))
 
         canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
         canvas[:, :tgt_canvas_h, :] = tgt_resized

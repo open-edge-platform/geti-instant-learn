@@ -90,14 +90,15 @@ predictions = model.predict(target)
 </details>
 
 <details>
-<summary><strong>Visual exemplar mode — fit on reference, predict on any target</strong></summary>
+<summary><strong>Canvas mode — fit on a reference crop, predict on any target (default)</strong></summary>
 
 ```python
 from instantlearn.models.sam3 import Sam3PromptMode
+from instantlearn.models.sam3.sam3 import CanvasConfig
 
 model = SAM3OpenVINO(
-    variant=SAM3OVVariant.FP16,
-    prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+    variant=SAM3OVVariant.INT8_SYM,
+    prompt_mode=Sam3PromptMode.CANVAS,
     device="CPU",
 )
 
@@ -144,7 +145,7 @@ from instantlearn.models import SAM3OpenVINO
 from instantlearn.models.sam3 import SAM3OVVariant
 from instantlearn.data import Sample
 
-model = SAM3OpenVINO(variant=SAM3OVVariant.FP16, device="CPU")
+model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
 
 predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),

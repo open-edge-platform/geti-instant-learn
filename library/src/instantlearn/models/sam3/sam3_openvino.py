@@ -38,8 +38,10 @@ from instantlearn.utils import device_to_openvino_device
 
 from .canvas_helpers import (
     build_canvas_multishot,
+    build_canvas_shared_grouped,
     build_canvas_vertical,
     extract_target_predictions,
+    group_references_by_category,
     merge_cross_category,
 )
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
@@ -102,21 +104,23 @@ _GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
 _PROMPT_DECODER = "prompt-decoder"
 
 
-def _find_model_file(model_dir: Path, name: str) -> Path | None:
-    """Find a model file in a directory, supporting OV IR (.xml) and ONNX (.onnx).
+def _get_model_file(model_dir: Path, name: str, *, required: bool = True) -> Path | None:
+    """Locate a sub-model file in *model_dir*.
 
-    Search order:
-      1. ``{name}.xml`` — OpenVINO IR (preferred)
-      2. ``{name}.onnx`` — canonical ONNX name
-      3. ``{name}-fp16.onnx`` — FP16 ONNX variant
-      4. Any remaining ``{name}*.onnx`` — other quantised variants
+    Search order: ``{name}.xml`` (OpenVINO IR), ``{name}.onnx``,
+    ``{name}-fp16.onnx``, then any ``{name}*.onnx`` glob match.
 
     Args:
         model_dir: Directory to search.
         name: Base name of the model (without extension).
+        required: If ``True``, raise when the file is missing.
 
     Returns:
-        Path to the found model file, or ``None`` if not found.
+        Path to the model file, or ``None`` when *required* is ``False``
+        and no file is found.
+
+    Raises:
+        FileNotFoundError: If *required* is ``True`` and no file is found.
     """
     candidates = [
         model_dir / f"{name}.xml",
@@ -129,27 +133,10 @@ def _find_model_file(model_dir: Path, name: str) -> Path | None:
     onnx_variants = sorted(model_dir.glob(f"{name}*.onnx"))
     if onnx_variants:
         return onnx_variants[0]
-    return None
-
-
-def _require_model_file(model_dir: Path, name: str) -> Path:
-    """Find a model file or raise.
-
-    Args:
-        model_dir: Directory to search.
-        name: Base name of the model (without extension).
-
-    Returns:
-        Path to the found model file.
-
-    Raises:
-        FileNotFoundError: If no matching model file is found.
-    """
-    path = _find_model_file(model_dir, name)
-    if path is None:
+    if required:
         msg = f"Model '{name}' not found in {model_dir}."
         raise FileNotFoundError(msg)
-    return path
+    return None
 
 
 class SAM3OpenVINO(Model):
@@ -158,64 +145,51 @@ class SAM3OpenVINO(Model):
     Provides the same capabilities as the PyTorch ``SAM3`` model:
 
     * **CLASSIC** mode — text, box, point, or combined prompts per target image.
+    * **CANVAS** mode — stitch reference crop + target into a single image and
+      detect by visual similarity together with text. Default mode.
     * **VISUAL_EXEMPLAR** mode — encode reference-image prompts during ``fit()``
       and reuse cached geometry features for every target image in ``predict()``.
 
-    The model loads 4 (or 5) pre-exported sub-models from *model_dir*:
+    The model loads pre-exported sub-models from *model_dir*:
 
-    * ``vision-encoder``
-    * ``text-encoder``
-    * ``geometry-encoder``  (classic mode)
-    * ``geometry-encoder-exemplar``  (exemplar fit)
-    * ``prompt-decoder``
+    * ``vision-encoder`` (always)
+    * ``text-encoder`` (always)
+    * ``prompt-decoder`` (always)
+    * ``geometry-encoder`` (loaded when present, needed for box/point/canvas)
+    * ``geometry-encoder-exemplar`` (loaded on demand for VISUAL_EXEMPLAR mode)
 
     Examples:
         >>> from instantlearn.models.sam3 import SAM3OpenVINO, Sam3PromptMode
+        >>> from instantlearn.models.sam3.sam3 import CanvasConfig
         >>> from instantlearn.data.base.sample import Sample
         >>> import numpy as np
 
-        >>> # Auto-download default variant (INT8_SYM) from HuggingFace
+        >>> # Auto-download default variant (INT8_SYM) — canvas mode
         >>> model = SAM3OpenVINO(device="CPU")
-        >>> model.fit(Sample(categories=["elephant"], category_ids=[0]))
-        >>> results = model.predict(
-        ...     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
-        ... )
-
-        >>> # Auto-download INT8 quantised variant
-        >>> model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
-
-        >>> # Use a local model directory (no download)
-        >>> model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-fp16", device="CPU")
-
-        >>> # Box prompting (elephant bounding box)
-        >>> target = Sample(
-        ...     image_path="examples/assets/coco/000000286874.jpg",
-        ...     bboxes=np.array([[180, 105, 490, 370]]),
-        ... )
-        >>> results = model.predict(target)
-
-        >>> # Point prompting (click on elephant)
-        >>> target = Sample(
-        ...     image_path="examples/assets/coco/000000286874.jpg",
-        ...     points=np.array([[335, 240]]),
-        ... )
-        >>> results = model.predict(target)
-
-        >>> # Visual exemplar mode — fit on one image, predict on another
-        >>> model_ve = SAM3OpenVINO(
-        ...     variant=SAM3OVVariant.FP16,
-        ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
-        ... )
         >>> ref = Sample(
         ...     image_path="examples/assets/coco/000000286874.jpg",
         ...     bboxes=np.array([[180, 105, 490, 370]]),
         ...     categories=["elephant"],
         ...     category_ids=[0],
         ... )
-        >>> model_ve.fit(ref)
-        >>> results = model_ve.predict(
+        >>> model.fit(ref)
+        >>> results = model.predict(
         ...     Sample(image_path="examples/assets/coco/000000390341.jpg"),
         ... )
+
+        >>> # Text-only prompting (classic mode)
+        >>> model = SAM3OpenVINO(
+        ...     variant=SAM3OVVariant.INT8_SYM,
+        ...     prompt_mode=Sam3PromptMode.CLASSIC,
+        ...     device="CPU",
+        ... )
+        >>> model.fit(Sample(categories=["elephant"], category_ids=[0]))
+        >>> results = model.predict(
+        ...     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+        ... )
+
+        >>> # Use a local model directory (no download)
+        >>> model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
     """
 
     def __init__(
@@ -224,7 +198,7 @@ class SAM3OpenVINO(Model):
         device: str = "AUTO",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
-        prompt_mode: Sam3PromptMode = Sam3PromptMode.VISUAL_EXEMPLAR,
+        prompt_mode: Sam3PromptMode = Sam3PromptMode.CANVAS,
         drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
         variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
@@ -243,7 +217,8 @@ class SAM3OpenVINO(Model):
                 PyTorch-style names (``"cuda"``, ``"cpu"``) are also accepted.
             confidence_threshold: Minimum confidence score for predictions.
             resolution: Input image resolution (must match exported model).
-            prompt_mode: ``Sam3PromptMode.CLASSIC`` or
+            prompt_mode: ``Sam3PromptMode.CANVAS`` (default),
+                ``Sam3PromptMode.CLASSIC``, or
                 ``Sam3PromptMode.VISUAL_EXEMPLAR``.
             drop_spatial_bias: Stored for API compatibility but has no
                 runtime effect.  The exemplar geometry encoder already has
@@ -288,44 +263,38 @@ class SAM3OpenVINO(Model):
         # to ov::hint::PerformanceMode::LATENCY.
         _compile_props = {"PERFORMANCE_HINT": "LATENCY"} if self.ov_device != "CPU" else {}
 
-        # Vision encoder + text encoder (always required)
-        vision_path = _require_model_file(self.model_dir, _VISION_ENCODER)
-        text_path = _require_model_file(self.model_dir, _TEXT_ENCODER)
+        # Always required: vision encoder, text encoder, prompt decoder
+        vision_path = _get_model_file(self.model_dir, _VISION_ENCODER)
+        text_path = _get_model_file(self.model_dir, _TEXT_ENCODER)
+        prompt_decoder_path = _get_model_file(self.model_dir, _PROMPT_DECODER)
 
         logger.info("Loading SAM3 OpenVINO models from %s on %s...", self.model_dir, self.ov_device)
         self.vision_model = core.compile_model(vision_path, self.ov_device, _compile_props)
         self.text_model = core.compile_model(text_path, self.ov_device, _compile_props)
+        self.decoder_model = core.compile_model(prompt_decoder_path, self.ov_device, _compile_props)
         logger.info("  Vision encoder: %s", vision_path.name)
         logger.info("  Text encoder: %s", text_path.name)
-
-        # Load prompt decoder (required)
-        prompt_decoder_path = _require_model_file(self.model_dir, _PROMPT_DECODER)
-        self.decoder_model = core.compile_model(prompt_decoder_path, self.ov_device, _compile_props)
         logger.info("  Prompt decoder: %s", prompt_decoder_path.name)
 
-        # Load geometry encoders (optional — needed for box/point/exemplar)
-        geo_path = _find_model_file(self.model_dir, _GEOMETRY_ENCODER)
+        # Geometry encoder (classic) — needed for box/point/canvas prompts
+        geo_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER, required=False)
         if geo_path is not None:
             self.geometry_model = core.compile_model(geo_path, self.ov_device, _compile_props)
             logger.info("  Geometry encoder (classic): %s", geo_path.name)
         else:
             self.geometry_model = None
 
-        geo_ex_path = _find_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
-        if geo_ex_path is not None:
-            self.geometry_exemplar_model = core.compile_model(geo_ex_path, self.ov_device, _compile_props)
-            logger.info("  Geometry encoder (exemplar): %s", geo_ex_path.name)
-        else:
-            self.geometry_exemplar_model = None
+        # Geometry encoder (exemplar) — loaded on demand for VISUAL_EXEMPLAR mode
+        self.geometry_exemplar_model = None
+        self._ov_core = core
+        self._compile_props = _compile_props
 
         # Pre-create infer requests to avoid per-call allocation overhead (GPU)
         self._vision_request = self.vision_model.create_infer_request()
         self._text_request = self.text_model.create_infer_request()
         self._decoder_request = self.decoder_model.create_infer_request()
         self._geometry_request = self.geometry_model.create_infer_request() if self.geometry_model is not None else None
-        self._geometry_exemplar_request = (
-            self.geometry_exemplar_model.create_infer_request() if self.geometry_exemplar_model is not None else None
-        )
+        self._geometry_exemplar_request = None
 
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution)
@@ -398,6 +367,17 @@ class SAM3OpenVINO(Model):
         )
         return Path(cache_dir) / subdir
 
+    def _ensure_geometry_exemplar_loaded(self) -> None:
+        """Lazy-load the geometry-encoder-exemplar model on first use."""
+        if self.geometry_exemplar_model is not None:
+            return
+        geo_ex_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
+        self.geometry_exemplar_model = self._ov_core.compile_model(
+            geo_ex_path, self.ov_device, self._compile_props
+        )
+        self._geometry_exemplar_request = self.geometry_exemplar_model.create_infer_request()
+        logger.info("  Geometry encoder (exemplar): %s [lazy]", geo_ex_path.name)
+
     def _run_vision_encoder(self, pixel_values: np.ndarray) -> dict[str, np.ndarray]:
         """Run vision encoder.
 
@@ -464,6 +444,8 @@ class SAM3OpenVINO(Model):
         Raises:
             RuntimeError: If the required geometry encoder model is not loaded.
         """
+        if exemplar:
+            self._ensure_geometry_exemplar_loaded()
         model = self.geometry_exemplar_model if exemplar else self.geometry_model
         if model is None:
             variant = "exemplar" if exemplar else "classic"
@@ -994,29 +976,7 @@ class SAM3OpenVINO(Model):
         Raises:
             ValueError: If no reference samples contain bboxes.
         """
-        refs_by_category: dict[int, dict] = {}
-
-        for sample in reference_batch.samples:
-            if sample.bboxes is None or len(sample.bboxes) == 0:
-                continue
-            bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
-            cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
-            cat_text = (
-                sample.categories[0]
-                if sample.categories and sample.categories[0] != "visual"
-                else "visual"
-            )
-
-            if cat_id not in refs_by_category:
-                refs_by_category[cat_id] = {"images": [], "bboxes": [], "text": cat_text}
-            refs_by_category[cat_id]["images"].append(sample.image)
-            refs_by_category[cat_id]["bboxes"].append(bbox)
-            if cat_text != "visual":
-                refs_by_category[cat_id]["text"] = cat_text
-
-        if not refs_by_category:
-            msg = "CANVAS mode requires at least one reference sample with bboxes."
-            raise ValueError(msg)
+        refs_by_category = group_references_by_category(reference_batch.samples)
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}
@@ -1262,74 +1222,11 @@ class SAM3OpenVINO(Model):
         Returns:
             (canvas, per_cat_bboxes, tgt_region).
         """
-        import torch.nn.functional as F  # noqa: N812
-
-        C = tgt_image.shape[0]
-        canvas_w = tgt_image.shape[2]
-        for cat_refs in self._canvas_refs_by_category.values():
-            for img in cat_refs["images"]:
-                canvas_w = max(canvas_w, img.shape[2])
-        canvas_h = max(canvas_w, 2)
-
-        ref_strip_h = int(canvas_h * self.canvas_config.split_ratio)
-        ref_strip_h = min(max(ref_strip_h, 1), canvas_h - 1)
-        tgt_canvas_h = canvas_h - ref_strip_h
-
-        tgt_resized = F.interpolate(
-            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
-            mode="bilinear", align_corners=False,
-        ).squeeze(0)
-
-        cat_items = list(self._canvas_refs_by_category.items())
-        n_cats = len(cat_items)
-        n_slots = 2 * n_cats - 1
-        slot_w = canvas_w // n_slots
-
-        ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
-        per_cat_bboxes: dict[int, list[np.ndarray]] = {}
-
-        for cat_idx, (cat_id, cat_refs) in enumerate(cat_items):
-            group_x = cat_idx * 2 * slot_w
-            group_w = slot_w if cat_idx < n_cats - 1 else canvas_w - group_x
-
-            n_refs = len(cat_refs["images"])
-            cat_bboxes_list: list[np.ndarray] = []
-
-            for ref_idx, (ref_img, ref_bbox) in enumerate(zip(
-                cat_refs["images"], cat_refs["bboxes"], strict=True,
-            )):
-                sub_x = group_x + ref_idx * (group_w // n_refs)
-                sub_w = (
-                    group_w // n_refs
-                    if ref_idx < n_refs - 1
-                    else group_w - ref_idx * (group_w // n_refs)
-                )
-
-                ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
-                ref_resized = F.interpolate(
-                    ref_img.unsqueeze(0).float(),
-                    size=(ref_strip_h, sub_w),
-                    mode="bilinear", align_corners=False,
-                ).squeeze(0)
-                ref_strip[:, :, sub_x:sub_x + sub_w] = ref_resized
-
-                sx = sub_w / ref_w
-                sy = ref_strip_h / ref_h
-                x1, y1, x2, y2 = ref_bbox[:4]
-                cat_bboxes_list.append(np.array([
-                    x1 * sx + sub_x,
-                    y1 * sy + tgt_canvas_h,
-                    x2 * sx + sub_x,
-                    y2 * sy + tgt_canvas_h,
-                ], dtype=np.float32))
-
-            per_cat_bboxes[cat_id] = cat_bboxes_list
-
-        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
-        canvas[:, :tgt_canvas_h, :] = tgt_resized
-        canvas[:, tgt_canvas_h:, :] = ref_strip
-
-        return canvas, per_cat_bboxes, (0, 0, canvas_w, tgt_canvas_h)
+        return build_canvas_shared_grouped(
+            self._canvas_refs_by_category,
+            tgt_image,
+            self.canvas_config.split_ratio,
+        )
 
     def _run_canvas_forward(
         self,
@@ -1505,27 +1402,3 @@ class SAM3OpenVINO(Model):
             "pred_labels": torch.empty(0, dtype=torch.long),
         }
 
-    def export(
-        self,
-        export_dir: str | Path = Path("./exports/sam3"),  # noqa: ARG002
-        backend: str = "openvino",  # noqa: ARG002
-    ) -> Path:
-        """Export is not applicable — this model already uses exported models.
-
-        For exporting from PyTorch, use::
-
-            python scripts/export_sam3_openvino.py
-
-        Args:
-            export_dir: Not used.
-            backend: Not used.
-
-        Returns:
-            Path to the model directory.
-        """
-        msg = (
-            "SAM3OpenVINO already uses pre-exported models. "
-            "To export from PyTorch, use: python scripts/export_sam3_openvino.py"
-        )
-        logger.info(msg)
-        return self.model_dir

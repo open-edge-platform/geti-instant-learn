@@ -98,16 +98,16 @@ labels = predictions[0]["pred_labels"]
 
 ### Zero-Shot Segmentation with SAM3 OpenVINO
 
-SAM3OpenVINO provides text, box, point, and visual exemplar prompting using
-pre-exported OpenVINO IR models — no PyTorch required at inference time.
+SAM3OpenVINO provides text, box, point, canvas, and visual exemplar prompting
+using pre-exported OpenVINO IR models — no PyTorch required at inference time.
 
 ```python
 from instantlearn.models import SAM3OpenVINO
 from instantlearn.models.sam3 import SAM3OVVariant
 from instantlearn.data import Sample
 
-# Auto-downloads FP16 model from HuggingFace (also supports INT8, INT4, FP32)
-model = SAM3OpenVINO(variant=SAM3OVVariant.FP16, device="CPU")
+# Auto-downloads INT8_SYM model from HuggingFace (also supports FP16, INT4, FP32)
+model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
 
 # Text prompt — detect elephants
 predictions = model.predict([
@@ -116,15 +116,16 @@ predictions = model.predict([
 ```
 
 <details>
-<summary><strong>Visual exemplar mode — fit once, predict on any image</strong></summary>
+<summary><strong>Canvas mode — fit on a reference crop, predict on any image (default)</strong></summary>
 
 ```python
 from instantlearn.models.sam3 import Sam3PromptMode
+from instantlearn.models.sam3.sam3 import CanvasConfig
 import numpy as np
 
-model_ve = SAM3OpenVINO(
-    variant=SAM3OVVariant.FP16,
-    prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+model = SAM3OpenVINO(
+    variant=SAM3OVVariant.INT8_SYM,
+    prompt_mode=Sam3PromptMode.CANVAS,
     device="CPU",
 )
 
@@ -134,8 +135,8 @@ ref = Sample(
     categories=["elephant"],
     category_ids=[0],
 )
-model_ve.fit(ref)
-predictions = model_ve.predict([
+model.fit(ref)
+predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000390341.jpg"),
 ])
 ```
