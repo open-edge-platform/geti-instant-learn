@@ -24,8 +24,8 @@ describe('ModelLoadingDialog', () => {
 
         render(<ModelLoadingDialog />);
 
-        // Spin-delay's entry delay (500ms) elapses; nothing should appear.
-        await vi.advanceTimersByTimeAsync(600);
+        // Spin-delay's entry delay (300ms) elapses; nothing should appear.
+        await vi.advanceTimersByTimeAsync(400);
 
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
@@ -35,12 +35,12 @@ describe('ModelLoadingDialog', () => {
 
         render(<ModelLoadingDialog />);
 
-        // Before the 500ms spin-delay elapses, dialog must not be visible.
+        // Before the 300ms spin-delay elapses, dialog must not be visible.
         await vi.advanceTimersByTimeAsync(100);
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
         // After the spin-delay, the dialog appears.
-        await vi.advanceTimersByTimeAsync(600);
+        await vi.advanceTimersByTimeAsync(400);
         await waitFor(() => {
             expect(screen.getByRole('dialog')).toBeVisible();
         });

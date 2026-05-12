@@ -64,7 +64,7 @@ const ProjectContent = () => {
                 rows={['size-800', minmax(0, '1fr')]}
                 columns={'1fr'}
                 height={'100vh'}
-                {...(isModelLoading ? { inert: '' } : {})}
+                inert={isModelLoading}
             >
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
