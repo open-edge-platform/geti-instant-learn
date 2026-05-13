@@ -136,9 +136,7 @@ for pred in predictions:
 Deploy models on live video streams, cameras, and video files.
 
 ```bash
-just application/dev                  # CPU (default)
-just device=xpu application/dev      # Intel XPU
-just device=cuda application/dev     # NVIDIA CUDA
+just device=xpu application/dev   # (device can be "xpu", "cuda", or "cpu")
 ```
 
 Access at: http://localhost:3000

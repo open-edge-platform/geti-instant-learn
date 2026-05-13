@@ -23,7 +23,7 @@ In order to consent, set an environment variable `INSTANTLEARN_LICENSE_ACCEPTED=
 
 ### Run from Source (Development)
 
-**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13+, Node.js v24+
+**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13, Node.js v24+
 
 ```bash
 # Start backend and frontend in development mode
