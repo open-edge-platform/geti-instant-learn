@@ -74,4 +74,4 @@ predictions = model.predict(Sample(image_path=target_image))
 
 ## Acknowledgements
 
-This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/instant-learn/blob/main/third-party-programs.txt) file for the full list.
+This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/geti-instant-learn/blob/main/third-party-programs.txt) file for the full list.

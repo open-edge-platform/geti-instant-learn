@@ -11,7 +11,7 @@ coturn-port := "443"
 dataset-dir := justfile_directory() + "/.data/templates/datasets"
 
 uv_version := `grep -A 3 '\[tool\.uv\]' pyproject.toml | grep 'required-version' | sed 's/.*"[~=<>]*\([0-9][0-9.]*\)"/\1/'`
-device := "cpu" # cpu, cu128, xpu
+device := "cpu" # cpu, cuda, xpu
 
 default:
     @just --list

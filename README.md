@@ -5,7 +5,7 @@
 
 **A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
 
-[![python](https://img.shields.io/badge/python-3.12%2B-green)]()
+[![python](https://img.shields.io/badge/python-3.13-green)]()
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 </div>
 
@@ -35,7 +35,7 @@ Geti Instant Learn consists of two core components:
 <details>
 <summary> Prerequisites </summary>
 
-- **Python 3.12+**
+- **Python 3.13**
 - **[uv](https://github.com/astral-sh/uv)** (Python package manager)
 - **[Just](https://github.com/casey/just)** (Command runner)
 - **Node.js (v24.2.0)** (Required only for the UI Application)
@@ -51,13 +51,13 @@ Install the library:
 cd library
 uv sync --extra xpu    # Intel XPU (recommended)
 uv sync --extra cpu    # CPU only
-uv sync --extra gpu    # CUDA support
+uv sync --extra cuda    # CUDA support
 ```
 
 Or with pip:
 
 ```bash
-pip install ./library[xpu]  # or [cpu], [gpu]
+pip install ./library[xpu]  # or [cpu], [cuda]
 ```
 
 #### SAM3: Zero-Shot Text Prompting
@@ -136,7 +136,9 @@ for pred in predictions:
 Deploy models on live video streams, cameras, and video files.
 
 ```bash
-just application/dev
+just application/dev                  # CPU (default)
+just device=xpu application/dev      # Intel XPU
+just device=cuda application/dev     # NVIDIA CUDA
 ```
 
 Access at: http://localhost:3000
@@ -177,8 +179,8 @@ Geti Instant Learn supports a variety of foundation models and visual prompting 
 
 ## Community
 
-- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/instant-learn/issues).
-- Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
+- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-instant-learn/issues).
+- Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti-instant-learn/discussions).
 
 ## License
 

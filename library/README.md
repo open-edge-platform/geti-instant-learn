@@ -14,7 +14,7 @@ uv sync --extra xpu
 uv sync --extra cpu
 
 # With CUDA support
-uv sync --extra gpu
+uv sync --extra cuda
 ```
 
 <details>
@@ -382,6 +382,7 @@ Approximate GPU memory requirements for different model configurations:
 | **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher.py) |
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino.py) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam.py) |
+| **SAM 3** | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) | [sam3.py](src/instantlearn/models/sam3/sam3.py) |
 
 ### Foundation Models (Backbones)
 
