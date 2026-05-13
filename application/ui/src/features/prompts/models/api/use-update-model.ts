@@ -4,6 +4,7 @@
  */
 
 import { $api, ModelType } from '@/api';
+import { modelStatusQueryKey } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ const useUpdateModelMutation = (projectId: string) => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/models', { params: { path: { project_id: projectId } } }],
+                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,

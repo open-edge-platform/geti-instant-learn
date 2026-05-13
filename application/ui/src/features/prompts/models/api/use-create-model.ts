@@ -4,6 +4,7 @@
  */
 
 import { $api, ModelType } from '@/api';
+import { modelStatusQueryKey } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 
 // TODO: Figure out if the user will ever create a model or if we will provide pre-trained models only
@@ -13,6 +14,7 @@ export const useCreateModel = () => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/models', { params: { path: { project_id: projectId } } }],
+                modelStatusQueryKey(projectId),
             ],
         },
     });

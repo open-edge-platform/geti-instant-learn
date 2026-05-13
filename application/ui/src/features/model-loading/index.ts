@@ -4,4 +4,10 @@
  */
 
 export { ModelLoadingDialog, useShowModelLoadingDialog } from './model-loading-dialog.component';
-export { useModelLoading } from './use-model-loading.hook';
+export {
+    MODEL_STATUS_PATH,
+    modelStatusQueryKey,
+    startModelStatusProbe,
+    stopModelStatusProbe,
+    useModelLoading,
+} from './use-model-loading.hook';

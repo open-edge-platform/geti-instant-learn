@@ -4,6 +4,7 @@
  */
 
 import { $api, VisualPromptType } from '@/api';
+import { modelStatusQueryKey } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
@@ -16,6 +17,7 @@ const useEditPromptMutation = () => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
+                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,

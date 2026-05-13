@@ -65,16 +65,27 @@ export const queryClient: QueryClient = new QueryClient({
     }),
     mutationCache: new MutationCache({
         onSuccess: (_data, _variables, _context, mutation): void | Promise<void> => {
+            const invalidates = mutation.meta?.invalidates ?? [];
+
             // Fire-and-forget invalidation
             queryClient.invalidateQueries({
                 predicate: (query: Query): boolean => {
-                    return (
-                        mutation.meta?.invalidates?.some((queryKey) => {
-                            return matchQuery({ queryKey }, query);
-                        }) ?? false
-                    );
+                    return invalidates.some((queryKey) => matchQuery({ queryKey }, query));
                 },
             });
+
+            // If any invalidated key targets the model-status endpoint, open a
+            // probe window so the UI catches the backend's asynchronous
+            // transition into `loading: true`. Mutation hooks only need to
+            // declare the key in `invalidates` — nothing else.
+            // Uses a lazy import to avoid a circular dependency with the
+            // model-loading feature (which itself consumes the queryClient).
+            const MODEL_STATUS_PATH = '/api/v1/projects/{project_id}/model-status';
+            if (invalidates.some((key) => key[1] === MODEL_STATUS_PATH)) {
+                void import('@/features/model-loading').then(({ startModelStatusProbe }) => {
+                    startModelStatusProbe(queryClient);
+                });
+            }
 
             // Optionally await specific query invalidations
             if (mutation.meta?.awaits && mutation.meta.awaits.length > 0) {

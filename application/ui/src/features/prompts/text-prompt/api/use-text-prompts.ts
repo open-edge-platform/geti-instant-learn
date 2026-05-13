@@ -4,6 +4,7 @@
  */
 
 import { $api, TextPromptType } from '@/api';
+import { modelStatusQueryKey } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
 
@@ -24,6 +25,7 @@ export const useCreateTextPrompt = () => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
+                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
@@ -45,6 +47,7 @@ export const useDeleteTextPrompt = () => {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
+                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
