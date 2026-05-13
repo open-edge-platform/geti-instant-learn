@@ -4,9 +4,10 @@
  */
 
 import { $api } from '@/api';
-import { modelStatusQueryKey } from '@/features/model-loading';
+import { setModelLoading } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { v4 as uuid } from 'uuid';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
@@ -17,16 +18,19 @@ import { useEditPrompt } from './use-edit-prompt';
 
 const useSavePromptMutation = () => {
     const { projectId } = useProjectIdentifier();
+    const queryClient = useQueryClient();
 
     return $api.useMutation('post', '/api/v1/projects/{project_id}/prompts', {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
-                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
             },
+        },
+        onSuccess: () => {
+            setModelLoading(queryClient, projectId);
         },
     });
 };

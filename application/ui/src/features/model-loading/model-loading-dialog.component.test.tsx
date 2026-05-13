@@ -4,49 +4,46 @@
  */
 
 import { renderHook } from '@/test-utils';
+import { act, waitFor } from '@testing-library/react';
+import { HttpResponse } from 'msw';
 
+import { http, server } from '../../setup-test';
 import { useShowModelLoadingDialog } from './model-loading-dialog.component';
 
-const { mockUseModelLoading, mockUseSpinDelay } = vi.hoisted(() => ({
-    mockUseModelLoading: vi.fn(() => false),
-    mockUseSpinDelay: vi.fn((value: boolean) => value),
-}));
-
-vi.mock('./use-model-loading.hook', () => ({
-    useModelLoading: mockUseModelLoading,
-    MODEL_STATUS_PATH: '/api/v1/projects/{project_id}/model-status',
-    modelStatusQueryKey: vi.fn(),
-    startModelStatusProbe: vi.fn(),
-    stopModelStatusProbe: vi.fn(),
-}));
-
-vi.mock('spin-delay', () => ({
-    useSpinDelay: mockUseSpinDelay,
-}));
-
 describe('useShowModelLoadingDialog', () => {
-    afterEach(() => {
-        mockUseModelLoading.mockReturnValue(false);
-        mockUseSpinDelay.mockImplementation((value: boolean) => value);
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
     });
 
-    it('returns false when the model is not loading', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('returns false when the model is not loading', async () => {
+        server.use(http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ loading: false })));
+
         const { result } = renderHook(() => useShowModelLoadingDialog());
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(500);
+        });
 
         expect(result.current).toBe(false);
     });
 
-    it('returns true when the model is loading', () => {
-        mockUseModelLoading.mockReturnValue(true);
+    it('returns true after the spin-delay when the model is loading', async () => {
+        server.use(http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ loading: true })));
 
         const { result } = renderHook(() => useShowModelLoadingDialog());
 
-        expect(result.current).toBe(true);
-    });
+        expect(result.current).toBe(false);
 
-    it('passes correct spin-delay config', () => {
-        renderHook(() => useShowModelLoadingDialog());
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(500);
+        });
 
-        expect(mockUseSpinDelay).toHaveBeenCalledWith(false, { delay: 300, minDuration: 400 });
+        await waitFor(() => {
+            expect(result.current).toBe(true);
+        });
     });
 });

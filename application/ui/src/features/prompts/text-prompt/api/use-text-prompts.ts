@@ -4,9 +4,10 @@
  */
 
 import { $api, TextPromptType } from '@/api';
-import { modelStatusQueryKey } from '@/features/model-loading';
+import { setModelLoading } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useGetTextPrompts = (): TextPromptType[] => {
     const { projectId } = useProjectIdentifier();
@@ -20,18 +21,20 @@ export const useGetTextPrompts = (): TextPromptType[] => {
 
 export const useCreateTextPrompt = () => {
     const { projectId } = useProjectIdentifier();
+    const queryClient = useQueryClient();
 
     return $api.useMutation('post', '/api/v1/projects/{project_id}/prompts', {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
-                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
             },
         },
         onSuccess: () => {
+            setModelLoading(queryClient, projectId);
+
             toast({
                 type: 'success',
                 message: 'Prompt created successfully.',
@@ -42,18 +45,20 @@ export const useCreateTextPrompt = () => {
 
 export const useDeleteTextPrompt = () => {
     const { projectId } = useProjectIdentifier();
+    const queryClient = useQueryClient();
 
     return $api.useMutation('delete', '/api/v1/projects/{project_id}/prompts/{prompt_id}', {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
-                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
             },
         },
         onSuccess: () => {
+            setModelLoading(queryClient, projectId);
+
             toast({
                 type: 'success',
                 message: 'Prompt deleted successfully.',

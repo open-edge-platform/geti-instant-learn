@@ -4,9 +4,10 @@
  */
 
 import { $api } from '@/api';
-import { modelStatusQueryKey } from '@/features/model-loading';
+import { setModelLoading } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useSelectedFrame } from '../../../../shared/selected-frame-provider.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
@@ -15,18 +16,20 @@ export const useDeletePrompt = () => {
     const { projectId } = useProjectIdentifier();
     const { prompt, setPromptId } = useVisualPrompt();
     const { selectedFrameId, setSelectedFrameId } = useSelectedFrame();
+    const queryClient = useQueryClient();
 
     return $api.useMutation('delete', '/api/v1/projects/{project_id}/prompts/{prompt_id}', {
         meta: {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
-                modelStatusQueryKey(projectId),
             ],
             error: {
                 notify: true,
             },
         },
         onSuccess: () => {
+            setModelLoading(queryClient, projectId);
+
             if (selectedFrameId === prompt?.frame_id) {
                 setSelectedFrameId(null);
             }
