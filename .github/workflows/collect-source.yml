@@ -15,6 +15,12 @@ jobs:
       matrix:
         ai-device: [cpu, cuda, xpu]
     steps:
+      - &harden-runner
+        name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -72,6 +78,8 @@ jobs:
     outputs:
       unique_package_names_oneline: ${{ steps.transform-list.outputs.unique_package_names_oneline }}
     steps:
+      - *harden-runner
+
       # Create directory first
       - name: Create results directory
         run: mkdir -p all-pkg_list
@@ -99,6 +107,8 @@ jobs:
     container:
       image: debian:bookworm-slim@sha256:f9c6a2fd2ddbc23e336b6257a5245e31f996953ef06cd13a59fa0a1df2d5c252
     steps:
+      - *harden-runner
+
       - name: Add apt sources for deb-src
         shell: bash
         run: |
