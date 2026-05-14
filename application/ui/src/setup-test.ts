@@ -91,6 +91,7 @@ const MOCKED_SUPPORTED_MODELS_RESPONSE: SupportedModelsListSchema = {
                 confidence_threshold: 0.38,
                 use_mask_refinement: false,
                 num_grid_cells: 8,
+                preset: 'throughput',
             },
             supported_prompt_types: ['visual_polygon'],
         },
