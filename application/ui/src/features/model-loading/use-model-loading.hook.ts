@@ -8,7 +8,6 @@ import { useProjectIdentifier } from '@/hooks';
 import type { QueryClient } from '@tanstack/react-query';
 
 const POLL_MS = 1_000;
-const MAX_ACTIVE_POLL_MS = 60_000;
 
 /**
  * Build the query options for the model-status endpoint.
@@ -38,7 +37,6 @@ export const setModelLoading = (queryClient: QueryClient, projectId: string): vo
  * Polling strategy:
  *   - Idle (`loading` is false): no polling.
  *   - Active loading (`loading` is true): poll every POLL_MS, capped by
- *     MAX_ACTIVE_POLL_MS to avoid runaway polling against a stuck backend.
  */
 export const useModelLoading = (): boolean => {
     const { projectId } = useProjectIdentifier();
@@ -48,14 +46,7 @@ export const useModelLoading = (): boolean => {
         '/api/v1/projects/{project_id}/model-status',
         { params: { path: { project_id: projectId } } },
         {
-            refetchInterval: (query) => {
-                if (!query.state.data?.loading) return false;
-                const firstLoadingAt = query.state.dataUpdatedAt;
-                if (firstLoadingAt > 0 && Date.now() - firstLoadingAt > MAX_ACTIVE_POLL_MS) {
-                    return false;
-                }
-                return POLL_MS;
-            },
+            refetchInterval: (query) => (query.state.data?.loading ? POLL_MS : false),
             refetchIntervalInBackground: false,
         }
     );
