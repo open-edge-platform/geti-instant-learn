@@ -127,7 +127,7 @@ class Settings(BaseSettings):
     sam3_hybrid_mode: bool = Field(
         default=False,
         alias="SAM3_HYBRID_MODE",
-        description="When enabled, SAM3 visual-exemplar prompts include real label names alongside bounding boxes. "
+        description="When enabled, SAM3 canvas-mode prompts include real label names alongside bounding boxes. "
         "Disabled by default to avoid degraded performance from conflicting or nonsensical label names.",
     )
 
