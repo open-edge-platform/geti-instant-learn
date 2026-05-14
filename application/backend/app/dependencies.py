@@ -24,10 +24,10 @@ from domain.services.project import ProjectService
 from domain.services.prompt import PromptService
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
-from runtime.core.components.factories.reader import StreamReaderFactory
-from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from domain.services.sink import SinkService
 from domain.services.source import SourceService
+from runtime.core.components.factories.reader import StreamReaderFactory
+from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
