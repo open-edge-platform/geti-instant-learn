@@ -400,3 +400,69 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     assert ev.project_id == project_id
     assert ev.component_type == ComponentType.SOURCE
     assert ev.component_id == source_id
+
+
+def test_update_source_already_active_with_valid_path_succeeds(service, tmp_path):
+    """Test that updating an already-active source with a valid new path succeeds."""
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Create valid video files
+    old_video = tmp_path / "old_video.mp4"
+    old_video.touch()
+    new_video = tmp_path / "new_video.mp4"
+    new_video.touch()
+
+    # Existing active source with valid path
+    existing = make_source(
+        project_id=project_id,
+        source_id=source_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": str(old_video)},
+        active=True,
+    )
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.update.return_value = existing
+
+    # Update with a new valid path - should validate and succeed
+    update_schema = SourceUpdateSchema(
+        active=True,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(new_video)),
+    )
+
+    result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    assert result is not None
+    service.source_repository.update.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_create_source_inactive_with_invalid_video_path_succeeds(service):
+    """Test that creating an inactive source with invalid path succeeds (no validation)."""
+    project_id = uuid.uuid4()
+    new_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_active_in_project.return_value = None
+
+    new_source = make_source(
+        source_id=new_id,
+        project_id=project_id,
+        source_type=SourceType.VIDEO_FILE,
+        config_extra={"video_path": "/nonexistent/video.mp4"},
+        active=False,
+    )
+    service.source_repository.add.return_value = new_source
+
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        active=False,  # Inactive, so validation should NOT run
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/nonexistent/video.mp4"),
+    )
+
+    # Should not raise ValueError - validation only runs when active=True
+    result = service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert result is not None
+    service.source_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()

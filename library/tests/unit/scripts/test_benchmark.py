@@ -144,7 +144,7 @@ class TestBenchmarkModelHandling:
                 output_path=Path(tempfile.mkdtemp()),
                 dataset_name="lvis",
                 model_name="Matcher",
-                backbone_name="SAM-HQ-tiny",
+                backbone_name="SAM-HQ-base",
                 number_of_priors_tests=1,
                 device=torch.device("cpu"),
             )
@@ -168,7 +168,7 @@ class TestBenchmarkModelHandling:
                     output_path=Path(tempfile.mkdtemp()),
                     dataset_name="lvis",
                     model_name="Matcher",
-                    backbone_name="SAM-HQ-tiny",
+                    backbone_name="SAM-HQ-base",
                     number_of_priors_tests=1,
                     device=torch.device("cpu"),
                 )
@@ -197,7 +197,7 @@ class TestBenchmarkOutputHandling:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()
@@ -227,7 +227,7 @@ class TestBenchmarkOutputHandling:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()
@@ -256,7 +256,7 @@ class TestBenchmarkOutputHandling:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()
@@ -290,7 +290,7 @@ class TestBenchmarkIntegration:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()
@@ -318,7 +318,7 @@ class TestBenchmarkIntegration:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()
@@ -354,7 +354,7 @@ class TestBenchmarkIntegration:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.side_effect = FileNotFoundError("Dataset not found")
             mock_setup_logger.return_value = None
@@ -379,7 +379,7 @@ class TestBenchmarkIntegration:
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
                 [MagicMock(value="Matcher")],
-                [MagicMock(value="SAM-HQ-tiny")],
+                [MagicMock(value="SAM-HQ-base")],
             )
             mock_load_dataset.return_value = MagicMock()
             mock_load_model.return_value = MagicMock()

@@ -170,7 +170,7 @@ class ReferenceBatchService:
                 db_id_to_name = {label.id: label.name for label in labels}
                 label_id_to_name = {lid: db_id_to_name.get(lid, str(lid)) for lid in all_label_ids}
             else:
-                label_id_to_name = dict.fromkeys(all_label_ids, "visual")
+                label_id_to_name = None
 
         return db_prompts, LabelInfo(category_mappings=category_mappings, label_id_to_name=label_id_to_name)
 
@@ -207,7 +207,7 @@ class ReferenceBatchService:
         return samples
 
     @staticmethod
-    def _visual_prompt_to_sample(  # noqa: C901
+    def _visual_prompt_to_sample(  # noqa: C901, PLR0912
         prompt: PromptDB,
         frame: np.ndarray,
         label_info: LabelInfo,
@@ -264,21 +264,23 @@ class ReferenceBatchService:
                 continue
 
             category_id = label_to_category_id[label_id]
-            category_name = label_id_to_name.get(label_id, str(label_id))
+            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else None
 
             if output_bboxes:
                 for polygon in polygons:
                     xs = [pt.x for pt in polygon.points]
                     ys = [pt.y for pt in polygon.points]
                     all_bboxes.append([min(xs), min(ys), max(xs), max(ys)])
-                    categories.append(category_name)
+                    if category_name is not None:
+                        categories.append(category_name)
                     category_ids.append(category_id)
                     is_reference.append(True)
             else:
                 instance_masks = polygons_to_masks(polygons, height, width)
                 semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)
                 all_masks.append(semantic_mask)
-                categories.append(category_name)
+                if category_name is not None:
+                    categories.append(category_name)
                 category_ids.append(category_id)
                 is_reference.append(True)
 
@@ -286,12 +288,15 @@ class ReferenceBatchService:
         if not has_annotations:
             raise ServiceError(f"No valid annotations for prompt {prompt.id}")
 
-        return Sample(
-            image=frame_chw,
-            masks=np.stack(all_masks, axis=0) if all_masks else None,
-            bboxes=np.array(all_bboxes, dtype=np.float32) if all_bboxes else None,
-            categories=categories,
-            category_ids=np.array(category_ids, dtype=np.int32),
-            is_reference=is_reference,
-            image_path=str(prompt.frame_id),
-        )
+        sample_kwargs: dict[str, Any] = {
+            "image": frame_chw,
+            "masks": np.stack(all_masks, axis=0) if all_masks else None,
+            "bboxes": np.array(all_bboxes, dtype=np.float32) if all_bboxes else None,
+            "category_ids": np.array(category_ids, dtype=np.int32),
+            "is_reference": is_reference,
+            "image_path": str(prompt.frame_id),
+        }
+        if categories:
+            sample_kwargs["categories"] = categories
+
+        return Sample(**sample_kwargs)

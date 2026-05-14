@@ -64,7 +64,7 @@ class LabelInfo:
     """Bundled label context for batch construction."""
 
     category_mappings: CategoryMappings
-    label_id_to_name: dict[UUID, str]
+    label_id_to_name: dict[UUID, str] | None
 
 
 @dataclass(frozen=True)

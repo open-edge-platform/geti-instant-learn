@@ -16,8 +16,10 @@ from domain.services.schemas.label import (
 from domain.services.schemas.processor import OutputData
 from runtime.webrtc.visualizer import (
     DEFAULT_FALLBACK_COLOR,
+    BoxRenderer,
     CategoryResolver,
     InferenceVisualizer,
+    ResolutionScaler,
     generate_deterministic_color,
 )
 
@@ -42,7 +44,8 @@ def fxt_visualizer() -> InferenceVisualizer:
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
-        mock_get_settings.return_value.label_font_scale = 0.5
+        mock_get_settings.return_value.label_text_height_px = 24
+        mock_get_settings.return_value.visualization_scale = 1.0
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -56,7 +59,8 @@ def fxt_visualizer_boxes_only() -> InferenceVisualizer:
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
-        mock_get_settings.return_value.label_font_scale = 0.5
+        mock_get_settings.return_value.label_text_height_px = 24
+        mock_get_settings.return_value.visualization_scale = 1.0
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -70,7 +74,8 @@ def fxt_visualizer_both() -> InferenceVisualizer:
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
-        mock_get_settings.return_value.label_font_scale = 0.5
+        mock_get_settings.return_value.label_text_height_px = 24
+        mock_get_settings.return_value.visualization_scale = 1.0
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -84,7 +89,8 @@ def fxt_visualizer_boxes_with_labels() -> InferenceVisualizer:
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
         mock_get_settings.return_value.box_thickness = 2
-        mock_get_settings.return_value.label_font_scale = 0.5
+        mock_get_settings.return_value.label_text_height_px = 24
+        mock_get_settings.return_value.visualization_scale = 1.0
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -401,15 +407,16 @@ def test_visualize_both_masks_and_boxes(fxt_visualizer_both: InferenceVisualizer
 
 
 def test_box_renderer_draw(fxt_large_frame: np.ndarray) -> None:
-    from runtime.webrtc.visualizer import BoxRenderer
-
     label_id = "00000000-0000-0000-0000-000000000001"
     vis_info = _make_vis_info(
         category_id_to_label_id={0: label_id},
         label_colors={label_id: (0, 255, 0)},
     )
     resolver = CategoryResolver(vis_info)
-    renderer = BoxRenderer(box_thickness=2, visualize_labels=False, label_font_scale=0.5, resolver=resolver)
+    scaler = ResolutionScaler()
+    renderer = BoxRenderer(
+        box_thickness=2, visualize_labels=False, label_text_height_px=24, resolver=resolver, scaler=scaler
+    )
 
     boxes = np.array([[20, 20, 40, 40]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
@@ -555,6 +562,109 @@ def test_visualize_draws_label_name_only_without_score(
 
     caption_region = result[0:40, 20:80]
     assert caption_region.any(), "Expected label-name-only caption above bounding box"
+
+
+class TestResolutionScaler:
+    def test_factor_at_reference_resolution_is_one(self) -> None:
+        scaler = ResolutionScaler()
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        assert scaler.factor(frame) == pytest.approx(1.0, rel=1e-3)
+
+    def test_factor_doubles_at_4k(self) -> None:
+        scaler = ResolutionScaler()
+        frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+        # sqrt(area_ratio) == 2.0 exactly for 4K vs 1080p, hits the upper clamp.
+        assert scaler.factor(frame) == pytest.approx(2.0, rel=1e-3)
+
+    def test_factor_clamped_at_low_resolution(self) -> None:
+        scaler = ResolutionScaler()
+        frame = np.zeros((90, 160, 3), dtype=np.uint8)
+        # raw factor would be ~0.083, clamped to lower bound 0.6
+        assert scaler.factor(frame) == pytest.approx(0.6)
+
+    def test_factor_clamped_at_huge_resolution(self) -> None:
+        scaler = ResolutionScaler()
+        frame = np.zeros((4320, 7680, 3), dtype=np.uint8)  # 8K
+        # raw factor would be ~4.0, clamped to upper bound 2.0
+        assert scaler.factor(frame) == pytest.approx(2.0)
+
+    def test_multiplier_applied_after_clamp(self) -> None:
+        scaler = ResolutionScaler(multiplier=1.5)
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        assert scaler.factor(frame) == pytest.approx(1.5, rel=1e-3)
+
+
+class TestLabelCaptionCalibration:
+    """Pin the contract that caption text matches the configured pixel height."""
+
+    def _measure_caption_height(self, frame: np.ndarray, x_band: slice, y_band: slice) -> int:
+        """Return the vertical extent (in pixels) of any non-zero pixels in a region."""
+        region = frame[y_band, x_band]
+        non_empty_rows = np.where(region.any(axis=(1, 2)))[0]
+        if non_empty_rows.size == 0:
+            return 0
+        return int(non_empty_rows.max() - non_empty_rows.min() + 1)
+
+    def test_caption_height_matches_target_at_1080p(self) -> None:
+        target_h = 24
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        label_id = "00000000-0000-0000-0000-000000000001"
+        vis_info = _make_vis_info(
+            category_id_to_label_id={0: label_id},
+            label_colors={label_id: (255, 0, 0)},
+            label_names={label_id: "Cat"},
+        )
+        resolver = CategoryResolver(vis_info)
+        renderer = BoxRenderer(
+            box_thickness=2,
+            visualize_labels=True,
+            label_text_height_px=target_h,
+            resolver=resolver,
+            scaler=ResolutionScaler(),
+        )
+
+        boxes = np.array([[100, 200, 400, 400, 0.9]], dtype=np.float32)
+        labels = np.array([0], dtype=np.int64)
+        out = renderer.draw(frame.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+
+        # The caption pill (background rect = text + padding + baseline) sits
+        # above y=200. It is wider/taller than the bare glyph height; we only
+        # pin that it's in a sensible band around the target text height.
+        measured = self._measure_caption_height(out, slice(100, 400), slice(0, 200))
+        assert target_h <= measured <= 2 * target_h, (
+            f"caption pill height {measured}px outside expected band [{target_h}, {2 * target_h}]"
+        )
+
+    def test_caption_height_scales_with_resolution(self) -> None:
+        target_h = 24
+        label_id = "00000000-0000-0000-0000-000000000001"
+        vis_info = _make_vis_info(
+            category_id_to_label_id={0: label_id},
+            label_colors={label_id: (255, 0, 0)},
+            label_names={label_id: "Cat"},
+        )
+        resolver = CategoryResolver(vis_info)
+        renderer = BoxRenderer(
+            box_thickness=2,
+            visualize_labels=True,
+            label_text_height_px=target_h,
+            resolver=resolver,
+            scaler=ResolutionScaler(),
+        )
+
+        boxes = np.array([[100, 400, 600, 800, 0.9]], dtype=np.float32)
+        labels = np.array([0], dtype=np.int64)
+
+        frame_1080 = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        out_1080 = renderer.draw(frame_1080.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+        h_1080 = self._measure_caption_height(out_1080, slice(100, 600), slice(0, 400))
+
+        frame_4k = np.zeros((2160, 3840, 3), dtype=np.uint8)
+        out_4k = renderer.draw(frame_4k.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+        h_4k = self._measure_caption_height(out_4k, slice(100, 600), slice(0, 400))
+
+        # 4K frame area is 4x 1080p, sqrt -> 2.0x scale factor.
+        assert h_4k == pytest.approx(2 * h_1080, rel=0.2)
 
 
 # --- CategoryResolver tests ---

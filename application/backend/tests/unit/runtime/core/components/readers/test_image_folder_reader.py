@@ -96,6 +96,52 @@ class TestImageFolderReaderConnect:
             reader.connect()
 
 
+class TestImageFolderReaderValidateConfig:
+    """Tests for the validate_config method."""
+
+    def test_validate_config_valid_folder(self, temp_image_folder):
+        """Test validation succeeds for valid folder."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(temp_image_folder)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        # Should not raise
+        reader.validate_config()
+
+    def test_validate_config_nonexistent_path(self):
+        """Test validation fails for nonexistent path."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = "/nonexistent/path"
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Images folder does not exist"):
+            reader.validate_config()
+
+    def test_validate_config_file_not_directory(self, tmp_path):
+        """Test validation fails when path is a file."""
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("test")
+
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(file_path)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Path is not a directory"):
+            reader.validate_config()
+
+    def test_validate_config_empty_folder(self, tmp_path):
+        """Test validation fails for empty folder."""
+        empty_folder = tmp_path / "empty"
+        empty_folder.mkdir()
+
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(empty_folder)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Images folder is empty"):
+            reader.validate_config()
+
+
 def test_natural_sort_key():
     """Test natural sorting of filenames."""
     paths = [Path(f"img_{i}.jpg") for i in [1, 10, 2, 20, 3]]

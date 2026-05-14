@@ -85,7 +85,12 @@ class ModelFactory:
                     device=selected_device,
                 )
                 if settings.processor_openvino_enabled:
-                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                    return OpenVINOModelHandler(
+                        model=model,
+                        reference_batch=reference_batch,
+                        precision=precision,
+                        compression_preset=config.preset,
+                    )
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
@@ -118,7 +123,7 @@ class ModelFactory:
                 return TorchModelHandler(model, reference_batch)
             case Sam3Config() as config:
                 has_bboxes = any(s.bboxes is not None for s in reference_batch.samples)
-                prompt_mode = Sam3PromptMode.VISUAL_EXEMPLAR if has_bboxes else Sam3PromptMode.CLASSIC
+                prompt_mode = Sam3PromptMode.CANVAS if has_bboxes else Sam3PromptMode.CLASSIC
                 model = SAM3(
                     confidence_threshold=config.confidence_threshold,
                     resolution=config.resolution,

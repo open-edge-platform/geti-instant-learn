@@ -43,12 +43,18 @@ jobs:
       contents: read
       security-events: write # Needed to upload the results to code-scanning dashboard
     steps:
+      - &harden-runner
+        name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Run Zizmor scan
-        uses: open-edge-platform/geti-ci/actions/zizmor@e80098b3d180db37914f11ff6021f9fa34d0bb9f
+        uses: open-edge-platform/geti-ci/actions/zizmor@0bed754fc7db24b5f9f15e7ead2eb4acdb0c7263 # zizmor/v0.1.2
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'LOW' || 'LOW' }}
@@ -61,10 +67,13 @@ jobs:
       contents: read
       security-events: write # Needed to upload the results to code-scanning dashboard
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+
       - name: Run Bandit scan
         uses: open-edge-platform/geti-ci/actions/bandit@e80098b3d180db37914f11ff6021f9fa34d0bb9f
         with:
@@ -80,11 +89,14 @@ jobs:
       contents: read
       security-events: write # Needed to upload the results to code-scanning dashboard
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
+
       - name: Run Semgrep scan
         uses: open-edge-platform/geti-ci/actions/semgrep@e80098b3d180db37914f11ff6021f9fa34d0bb9f
         with:
@@ -99,10 +111,13 @@ jobs:
       contents: read
       security-events: write # Needed to upload the results to code-scanning dashboard
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+
       - name: Run Trivy scan
         id: trivy
         uses: open-edge-platform/geti-ci/actions/trivy@e80098b3d180db37914f11ff6021f9fa34d0bb9f
@@ -124,6 +139,8 @@ jobs:
       matrix:
         ai-device: [cpu, cuda, xpu]
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -171,6 +188,8 @@ jobs:
       matrix:
         ai-device: [xpu]
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:

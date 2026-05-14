@@ -2,20 +2,69 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import textwrap
 from collections.abc import Callable
 
+import cv2
 import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
 from domain.services.schemas.label import VisualizationInfo
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.broadcaster import FrameSlot
 from runtime.webrtc.visualizer import InferenceVisualizer
 
 logger = logging.getLogger(__name__)
 
 FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
+
+
+def create_error_frame(error_data: ErrorData, width: int = 1280, height: int = 720) -> np.ndarray:
+    """Create a frame with error text overlay.
+
+    Args:
+        error_data: The error data containing the message and component.
+        width: Frame width in pixels.
+        height: Frame height in pixels.
+
+    Returns:
+        RGB frame with error text overlay.
+    """
+    # Create dark background
+    frame = np.full((height, width, 3), 32, dtype=np.uint8)
+
+    # Wrap text to fit frame width
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.7
+    thickness = 2
+    line_spacing = 40
+
+    # Add title
+    title = f"{error_data.component.name.capitalize()} Error"
+    title_size = cv2.getTextSize(title, font, font_scale * 1.2, thickness + 1)[0]
+    title_x = (width - title_size[0]) // 2
+    title_y = height // 3
+    cv2.putText(frame, title, (title_x, title_y), font, font_scale * 1.2, (255, 100, 100), thickness + 1)
+
+    # Wrap and display error message
+    wrapped_lines = textwrap.wrap(error_data.message, width=60)
+    y_offset = title_y + 60
+
+    for line in wrapped_lines:
+        text_size = cv2.getTextSize(line, font, font_scale, thickness)[0]
+        text_x = (width - text_size[0]) // 2
+        cv2.putText(frame, line, (text_x, y_offset), font, font_scale, (255, 255, 255), thickness)
+        y_offset += line_spacing
+
+    # Add instruction
+    instruction = "Please check the source configuration and try again."
+    inst_size = cv2.getTextSize(instruction, font, font_scale * 0.8, thickness - 1)[0]
+    inst_x = (width - inst_size[0]) // 2
+    inst_y = y_offset + 40
+    cv2.putText(frame, instruction, (inst_x, inst_y), font, font_scale * 0.8, (200, 200, 200), thickness - 1)
+
+    return frame
 
 
 class InferenceVideoStreamTrack(VideoStreamTrack):
@@ -30,7 +79,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
     def __init__(
         self,
-        output_slot: FrameSlot[OutputData],
+        output_slot: FrameSlot[OutputData | ErrorData],
         enable_visualization: bool = True,
         visualization_info_provider: Callable[[], VisualizationInfo | None] | None = None,
     ):
@@ -51,13 +100,15 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         Subsequent calls that see the same ``OutputData`` reuse the cache.
 
         Falls back to a small dark-gray placeholder when no frame has been
-        published yet.
+        published yet, or displays an error frame if the source encountered an error.
         """
         pts, time_base = await self.next_timestamp()
 
+        # Check for error state first
         output_data = self._slot.latest
-
-        if output_data is not None and output_data is not self._last_output:
+        if isinstance(output_data, ErrorData):
+            np_frame = create_error_frame(output_data)
+        elif output_data is not None and output_data is not self._last_output:
             # New frame from the pipeline — visualize and cache
             self._last_output = output_data
 
@@ -75,8 +126,10 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             if output_data.trace:
                 output_data.trace.record_end("webrtc")
                 logger.debug(output_data.trace.format_log())
+        else:
+            # Use cached frame or fallback only when no new output
+            np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
 
-        np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base

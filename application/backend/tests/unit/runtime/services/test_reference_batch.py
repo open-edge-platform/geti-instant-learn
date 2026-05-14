@@ -52,18 +52,20 @@ def sample_frame() -> np.ndarray:
 
 
 def _make_label_info(
-    label_ids_to_names: dict[uuid.UUID, str],
+    label_ids_to_names: dict[uuid.UUID, str | None],
 ) -> LabelInfo:
     """Helper to build a LabelInfo from a label_id→name mapping."""
     sorted_ids = sorted(label_ids_to_names.keys(), key=str)
     label_to_category_id = {lid: idx for idx, lid in enumerate(sorted_ids)}
     category_id_to_label_id = {idx: str(lid) for lid, idx in label_to_category_id.items()}
+    # If all values are None, pass label_id_to_name=None (no categories mode)
+    has_names = any(v is not None for v in label_ids_to_names.values())
     return LabelInfo(
         category_mappings=CategoryMappings(
             label_to_category_id=label_to_category_id,
             category_id_to_label_id=category_id_to_label_id,
         ),
-        label_id_to_name=label_ids_to_names,
+        label_id_to_name={k: v for k, v in label_ids_to_names.items() if v is not None} if has_names else None,
     )
 
 
@@ -251,11 +253,11 @@ class TestVisualPromptToSample:
 
         assert result.categories == ["car"]
 
-    def test_use_label_names_false_uses_visual_placeholder(self, sample_frame: np.ndarray) -> None:
-        """When label_id_to_name maps to ``"visual"``, categories use the placeholder."""
+    def test_use_label_names_false_omits_categories(self, sample_frame: np.ndarray) -> None:
+        """When label_id_to_name is None, categories default to ["object"]."""
         label_id = uuid.uuid4()
         prompt_db, _ = _make_single_polygon_prompt(label_id)
-        label_info = _make_label_info({label_id: "visual"})
+        label_info = _make_label_info({label_id: None})
 
         result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
@@ -264,10 +266,10 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.categories == ["visual"]
+        assert result.categories == ["object"]
 
-    def test_use_label_names_false_with_multiple_labels(self, sample_frame: np.ndarray) -> None:
-        """All categories become ``"visual"`` when label_id_to_name maps all to ``"visual"``."""
+    def test_use_label_names_false_with_multiple_labels_omits_categories(self, sample_frame: np.ndarray) -> None:
+        """Categories default to ["object"] when label_id_to_name is None, even with multiple labels."""
         label_id_1 = uuid.uuid4()
         label_id_2 = uuid.uuid4()
         prompt_id = uuid.uuid4()
@@ -297,7 +299,7 @@ class TestVisualPromptToSample:
             ],
         )
 
-        label_info = _make_label_info({label_id_1: "visual", label_id_2: "visual"})
+        label_info = _make_label_info({label_id_1: None, label_id_2: None})
 
         result = ReferenceBatchService._visual_prompt_to_sample(
             prompt_db,
@@ -306,8 +308,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert all(c == "visual" for c in result.categories)
-        assert len(result.categories) == 2
+        assert result.categories == ["object"]
 
 
 def _make_single_polygon_prompt(
@@ -496,7 +497,7 @@ class TestReferenceBatchServiceBuild:
         assert result is None
 
     def test_build_sam3_visual_hybrid_mode_disabled_passes_use_label_names_false(self, service, frame_repository):
-        """With sam3_hybrid_mode=False (default), SAM3 visual batches use ``"visual"`` placeholder."""
+        """With sam3_hybrid_mode=False (default), SAM3 visual batches omit category names."""
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=Sam3Config(), prompt_mode=PromptType.VISUAL)
 
         fake_sample = MagicMock(name="Sample")
@@ -546,7 +547,7 @@ class TestReferenceBatchServiceBuild:
 
         assert result is not None
         call_kwargs = mock_to_sample.call_args.kwargs
-        assert call_kwargs["label_info"].label_id_to_name == {label_id: "visual"}
+        assert call_kwargs["label_info"].label_id_to_name is None
         assert call_kwargs["output_bboxes"] is True
 
     def test_build_sam3_visual_hybrid_mode_enabled_passes_use_label_names_true(self, service, frame_repository):
@@ -606,7 +607,7 @@ class TestReferenceBatchServiceBuild:
         assert call_kwargs["output_bboxes"] is True
 
     def test_build_matcher_does_not_use_label_names(self, service, frame_repository):
-        """Non-bbox models (Matcher) use ``"visual"`` placeholder since use_label_names = needs_bboxes AND hybrid."""
+        """Non-bbox models (Matcher) omit category names since use_label_names = needs_bboxes AND hybrid."""
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)
 
         fake_sample = MagicMock(name="Sample")
@@ -656,4 +657,4 @@ class TestReferenceBatchServiceBuild:
 
         call_kwargs = mock_to_sample.call_args.kwargs
         assert call_kwargs["output_bboxes"] is False
-        assert call_kwargs["label_info"].label_id_to_name == {label_id: "visual"}
+        assert call_kwargs["label_info"].label_id_to_name is None

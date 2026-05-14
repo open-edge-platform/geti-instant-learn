@@ -493,7 +493,7 @@ name = "cuda-bindings"
 version = "12.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cuda-pathfinder", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "cuda-pathfinder", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/8b/b4b2d1c7775fa403b64333e720cfcfccef8dcb9cdeb99947061ca5a77628/cuda_bindings-12.9.4-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:cf8bfaedc238f3b115d957d1fd6562b7e8435ba57f6d0e2f87d0e7149ccb2da5", size = 11570071, upload-time = "2025-10-21T14:51:47.472Z" },
@@ -954,6 +954,7 @@ dependencies = [
     { name = "lvis" },
     { name = "markupsafe" },
     { name = "matplotlib" },
+    { name = "nncf" },
     { name = "numpy" },
     { name = "onnx" },
     { name = "onnxruntime" },
@@ -1048,6 +1049,7 @@ requires-dist = [
     { name = "markupsafe", specifier = "==3.0.2" },
     { name = "matplotlib", specifier = "==3.10.8" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
+    { name = "nncf", specifier = ">=2.16.0" },
     { name = "numpy", specifier = "~=2.2.6" },
     { name = "onnx", specifier = ">=1.19.1" },
     { name = "onnxruntime", specifier = ">=1.23.2" },
@@ -2027,11 +2029,11 @@ wheels = [
 
 [[package]]
 name = "networkx"
-version = "3.6.1"
+version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762", size = 2068504, upload-time = "2025-12-08T17:02:38.159Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/54/dd730b32ea14ea797530a4479b2ed46a6fb250f682a9cfb997e968bf0261/networkx-3.4.2-py3-none-any.whl", hash = "sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f", size = 1723263, upload-time = "2024-10-21T12:39:36.247Z" },
 ]
 
 [[package]]
@@ -2056,6 +2058,55 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/51/39/49f737907e6ab2b4ca71855d3bd63dd7958862e9c8b94fb4e5b18ccf6988/nh3-0.3.4-cp38-abi3-win32.whl", hash = "sha256:72e4e9ca1c4bd41b4a28b0190edc2e21e3f71496acd36a0162858e1a28db3d7e", size = 609542, upload-time = "2026-03-25T10:57:27.112Z" },
     { url = "https://files.pythonhosted.org/packages/73/4f/af8e9071d7464575a7316831938237ffc9d92d27f163dbdd964b1309cd9b/nh3-0.3.4-cp38-abi3-win_amd64.whl", hash = "sha256:c10b1f0c741e257a5cb2978d6bac86e7c784ab20572724b20c6402c2e24bce75", size = 624244, upload-time = "2026-03-25T10:57:28.302Z" },
     { url = "https://files.pythonhosted.org/packages/44/0c/37695d6b0168f6714b5c492331636a9e6123d6ec22d25876c68d06eab1b8/nh3-0.3.4-cp38-abi3-win_arm64.whl", hash = "sha256:43ad4eedee7e049b9069bc015b7b095d320ed6d167ecec111f877de1540656e9", size = 616649, upload-time = "2026-03-25T10:57:29.623Z" },
+]
+
+[[package]]
+name = "ninja"
+version = "1.13.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/73/79a0b22fc731989c708068427579e840a6cf4e937fe7ae5c5d0b7356ac22/ninja-1.13.0.tar.gz", hash = "sha256:4a40ce995ded54d9dc24f8ea37ff3bf62ad192b547f6c7126e7e25045e76f978", size = 242558, upload-time = "2025-08-11T15:10:19.421Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/74/d02409ed2aa865e051b7edda22ad416a39d81a84980f544f8de717cab133/ninja-1.13.0-py3-none-macosx_10_9_universal2.whl", hash = "sha256:fa2a8bfc62e31b08f83127d1613d10821775a0eb334197154c4d6067b7068ff1", size = 310125, upload-time = "2025-08-11T15:09:50.971Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/de/6e1cd6b84b412ac1ef327b76f0641aeb5dcc01e9d3f9eee0286d0c34fd93/ninja-1.13.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:3d00c692fb717fd511abeb44b8c5d00340c36938c12d6538ba989fe764e79630", size = 177467, upload-time = "2025-08-11T15:09:52.767Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/83/49320fb6e58ae3c079381e333575fdbcf1cca3506ee160a2dcce775046fa/ninja-1.13.0-py3-none-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:be7f478ff9f96a128b599a964fc60a6a87b9fa332ee1bd44fa243ac88d50291c", size = 187834, upload-time = "2025-08-11T15:09:54.115Z" },
+    { url = "https://files.pythonhosted.org/packages/56/c7/ba22748fb59f7f896b609cd3e568d28a0a367a6d953c24c461fe04fc4433/ninja-1.13.0-py3-none-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:60056592cf495e9a6a4bea3cd178903056ecb0943e4de45a2ea825edb6dc8d3e", size = 202736, upload-time = "2025-08-11T15:09:55.745Z" },
+    { url = "https://files.pythonhosted.org/packages/79/22/d1de07632b78ac8e6b785f41fa9aad7a978ec8c0a1bf15772def36d77aac/ninja-1.13.0-py3-none-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:1c97223cdda0417f414bf864cfb73b72d8777e57ebb279c5f6de368de0062988", size = 179034, upload-time = "2025-08-11T15:09:57.394Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/de/0e6edf44d6a04dabd0318a519125ed0415ce437ad5a1ec9b9be03d9048cf/ninja-1.13.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:fb46acf6b93b8dd0322adc3a4945452a4e774b75b91293bafcc7b7f8e6517dfa", size = 180716, upload-time = "2025-08-11T15:09:58.696Z" },
+    { url = "https://files.pythonhosted.org/packages/54/28/938b562f9057aaa4d6bfbeaa05e81899a47aebb3ba6751e36c027a7f5ff7/ninja-1.13.0-py3-none-manylinux_2_28_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:4be9c1b082d244b1ad7ef41eb8ab088aae8c109a9f3f0b3e56a252d3e00f42c1", size = 146843, upload-time = "2025-08-11T15:10:00.046Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/fb/d06a3838de4f8ab866e44ee52a797b5491df823901c54943b2adb0389fbb/ninja-1.13.0-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:6739d3352073341ad284246f81339a384eec091d9851a886dfa5b00a6d48b3e2", size = 154402, upload-time = "2025-08-11T15:10:01.657Z" },
+    { url = "https://files.pythonhosted.org/packages/31/bf/0d7808af695ceddc763cf251b84a9892cd7f51622dc8b4c89d5012779f06/ninja-1.13.0-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:11be2d22027bde06f14c343f01d31446747dbb51e72d00decca2eb99be911e2f", size = 552388, upload-time = "2025-08-11T15:10:03.349Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/70/c99d0c2c809f992752453cce312848abb3b1607e56d4cd1b6cded317351a/ninja-1.13.0-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:aa45b4037b313c2f698bc13306239b8b93b4680eb47e287773156ac9e9304714", size = 472501, upload-time = "2025-08-11T15:10:04.735Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/43/c217b1153f0e499652f5e0766da8523ce3480f0a951039c7af115e224d55/ninja-1.13.0-py3-none-musllinux_1_2_i686.whl", hash = "sha256:5f8e1e8a1a30835eeb51db05cf5a67151ad37542f5a4af2a438e9490915e5b72", size = 638280, upload-time = "2025-08-11T15:10:06.512Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/45/9151bba2c8d0ae2b6260f71696330590de5850e5574b7b5694dce6023e20/ninja-1.13.0-py3-none-musllinux_1_2_ppc64le.whl", hash = "sha256:3d7d7779d12cb20c6d054c61b702139fd23a7a964ec8f2c823f1ab1b084150db", size = 642420, upload-time = "2025-08-11T15:10:08.35Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/fb/95752eb635bb8ad27d101d71bef15bc63049de23f299e312878fc21cb2da/ninja-1.13.0-py3-none-musllinux_1_2_riscv64.whl", hash = "sha256:d741a5e6754e0bda767e3274a0f0deeef4807f1fec6c0d7921a0244018926ae5", size = 585106, upload-time = "2025-08-11T15:10:09.818Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/31/aa56a1a286703800c0cbe39fb4e82811c277772dc8cd084f442dd8e2938a/ninja-1.13.0-py3-none-musllinux_1_2_s390x.whl", hash = "sha256:e8bad11f8a00b64137e9b315b137d8bb6cbf3086fbdc43bf1f90fd33324d2e96", size = 707138, upload-time = "2025-08-11T15:10:11.366Z" },
+    { url = "https://files.pythonhosted.org/packages/34/6f/5f5a54a1041af945130abdb2b8529cbef0cdcbbf9bcf3f4195378319d29a/ninja-1.13.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:b4f2a072db3c0f944c32793e91532d8948d20d9ab83da9c0c7c15b5768072200", size = 581758, upload-time = "2025-08-11T15:10:13.295Z" },
+    { url = "https://files.pythonhosted.org/packages/95/97/51359c77527d45943fe7a94d00a3843b81162e6c4244b3579fe8fc54cb9c/ninja-1.13.0-py3-none-win32.whl", hash = "sha256:8cfbb80b4a53456ae8a39f90ae3d7a2129f45ea164f43fadfa15dc38c4aef1c9", size = 267201, upload-time = "2025-08-11T15:10:15.158Z" },
+    { url = "https://files.pythonhosted.org/packages/29/45/c0adfbfb0b5895aa18cec400c535b4f7ff3e52536e0403602fc1a23f7de9/ninja-1.13.0-py3-none-win_amd64.whl", hash = "sha256:fb8ee8719f8af47fed145cced4a85f0755dd55d45b2bddaf7431fa89803c5f3e", size = 309975, upload-time = "2025-08-11T15:10:16.697Z" },
+    { url = "https://files.pythonhosted.org/packages/df/93/a7b983643d1253bb223234b5b226e69de6cda02b76cdca7770f684b795f5/ninja-1.13.0-py3-none-win_arm64.whl", hash = "sha256:3c0b40b1f0bba764644385319028650087b4c1b18cdfa6f45cb39a3669b81aa9", size = 290806, upload-time = "2025-08-11T15:10:18.018Z" },
+]
+
+[[package]]
+name = "nncf"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "networkx" },
+    { name = "ninja" },
+    { name = "numpy" },
+    { name = "openvino-telemetry" },
+    { name = "packaging" },
+    { name = "psutil" },
+    { name = "pydot" },
+    { name = "rich" },
+    { name = "safetensors" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tabulate" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/46/56/98d83d947eb44a93956e8be1b16d55844512a2184874cfda3553b2cf9bcb/nncf-3.1.0.tar.gz", hash = "sha256:cabfdc32f42a04c6c106906d1b248ace0ed0748c46b193529ec7b4e945baa374", size = 561469, upload-time = "2026-04-08T10:47:31.266Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/08/a4/d4586fa0fc2f50e22e0ea6673a43d17e756902c4b5d53bed668024d310f6/nncf-3.1.0-py3-none-any.whl", hash = "sha256:f3bcd71c537554bb90100cd91fb999904e1e222cac61eee6df7af7cf58ccd646", size = 805566, upload-time = "2026-04-08T10:47:29.614Z" },
 ]
 
 [[package]]
@@ -2168,7 +2219,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -2181,7 +2232,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -2213,9 +2264,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -2228,7 +2279,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-12-instantlearn-cpu' and extra != 'extra-12-instantlearn-xpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-cuda') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -2302,8 +2353,8 @@ name = "oneccl"
 version = "2021.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "impi-rt", marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
-    { name = "intel-sycl-rt", marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "impi-rt", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-xpu') or (platform_machine == 's390x' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "intel-sycl-rt", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-xpu') or (platform_machine == 's390x' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/69/8050e96e5b099b349d9109f727ce39b4f57414a24d3eb71a12fdc48bad87/oneccl-2021.17.1-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:c77b16a1686d252ece7df331da8e4feeb3776c40bdd03a8f8e9942ad378d8ff8", size = 181268831, upload-time = "2025-11-17T20:43:27.546Z" },
@@ -2314,7 +2365,7 @@ name = "oneccl-devel"
 version = "2021.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "oneccl", marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
+    { name = "oneccl", marker = "(platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-12-instantlearn-xpu') or (platform_machine == 's390x' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6f/69/761af812bbccc4decd4f5b7492aa533654773ae9dfc3487edec44a4d8126/oneccl_devel-2021.17.1-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:c3f7438f12b9763dd2bcb3ce4f48b2462788534947545a68117f503b9ab01d2a", size = 45851455, upload-time = "2025-11-17T20:43:15.198Z" },
@@ -2616,7 +2667,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cpu') or (sys_platform == 'emscripten' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -2915,6 +2966,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/20/bb50f9de3a6de69e6abd6b087b52fa2418a0418b19597601605f855ad044/pydata_sphinx_theme-0.16.1.tar.gz", hash = "sha256:a08b7f0b7f70387219dc659bff0893a7554d5eb39b59d3b8ef37b8401b7642d7", size = 2412693, upload-time = "2024-12-17T10:53:39.537Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/0d/8ba33fa83a7dcde13eb3c1c2a0c1cc29950a048bfed6d9b0d8b6bd710b4c/pydata_sphinx_theme-0.16.1-py3-none-any.whl", hash = "sha256:225331e8ac4b32682c18fcac5a57a6f717c4e632cea5dd0e247b55155faeccde", size = 6723264, upload-time = "2024-12-17T10:53:35.645Z" },
+]
+
+[[package]]
+name = "pydot"
+version = "3.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/dd/e0e6a4fb84c22050f6a9701ad9fd6a67ef82faa7ba97b97eb6fdc6b49b34/pydot-3.0.4.tar.gz", hash = "sha256:3ce88b2558f3808b0376f22bfa6c263909e1c3981e2a7b629b65b451eee4a25d", size = 168167, upload-time = "2025-01-05T16:18:45.763Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/5f/1ebfd430df05c4f9e438dd3313c4456eab937d976f6ab8ce81a98f9fb381/pydot-3.0.4-py3-none-any.whl", hash = "sha256:bfa9c3fc0c44ba1d132adce131802d7df00429d1a79cc0346b0a5cd374dbe9c6", size = 35776, upload-time = "2025-01-05T16:18:42.836Z" },
 ]
 
 [[package]]
@@ -3984,17 +4047,17 @@ dependencies = [
     { name = "typing-extensions", marker = "(sys_platform == 'linux' and extra == 'extra-12-instantlearn-cpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-linux_aarch64.whl", hash = "sha256:fd215f3d0f681905c5b56b0630a3d666900a37fcc3ca5b937f95275c66f9fd9c" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-linux_s390x.whl", hash = "sha256:170a0623108055be5199370335cf9b41ba6875b3cb6f086db4aee583331a4899" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:e51994492cdb76edce29da88de3672a3022f9ef0ffd90345436948d4992be2c7" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:b719da5af01b59126ac13eefd6ba3dd12d002dc0e8e79b8b365e55267a8189d3" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-win_arm64.whl", hash = "sha256:b67d91326e4ed9eccbd6b7d84ed7ffa43f93103aa3f0b24145f3001f3b11b714" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-linux_aarch64.whl", hash = "sha256:5af75e5f49de21b0bdf7672bc27139bd285f9e8dbcabe2d617a2eb656514ac36" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-linux_s390x.whl", hash = "sha256:ba51ef01a510baf8fff576174f702c47e1aa54389a9f1fba323bb1a5003ff0bf" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:0fedcb1a77e8f2aaf7bfd21591bf6d1e0b207473268c9be16b17cb7783253969" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:106dd1930cb30a4a337366ba3f9b25318ebf940f51fd46f789281dd9e736bdc4" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:eb1bde1ce198f05c8770017de27e001d404499cf552aaaa014569eff56ca25c0" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-linux_aarch64.whl", hash = "sha256:fd215f3d0f681905c5b56b0630a3d666900a37fcc3ca5b937f95275c66f9fd9c", upload-time = "2026-01-23T15:10:34Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-linux_s390x.whl", hash = "sha256:170a0623108055be5199370335cf9b41ba6875b3cb6f086db4aee583331a4899", upload-time = "2026-01-23T15:10:35Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:e51994492cdb76edce29da88de3672a3022f9ef0ffd90345436948d4992be2c7", upload-time = "2026-01-23T15:10:37Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095", upload-time = "2026-01-23T15:10:38Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:b719da5af01b59126ac13eefd6ba3dd12d002dc0e8e79b8b365e55267a8189d3", upload-time = "2026-01-23T15:10:41Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-win_arm64.whl", hash = "sha256:b67d91326e4ed9eccbd6b7d84ed7ffa43f93103aa3f0b24145f3001f3b11b714", upload-time = "2026-01-23T15:10:42Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-linux_aarch64.whl", hash = "sha256:5af75e5f49de21b0bdf7672bc27139bd285f9e8dbcabe2d617a2eb656514ac36", upload-time = "2026-01-23T15:10:44Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-linux_s390x.whl", hash = "sha256:ba51ef01a510baf8fff576174f702c47e1aa54389a9f1fba323bb1a5003ff0bf", upload-time = "2026-01-23T15:10:48Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:0fedcb1a77e8f2aaf7bfd21591bf6d1e0b207473268c9be16b17cb7783253969", upload-time = "2026-01-23T15:10:48Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:106dd1930cb30a4a337366ba3f9b25318ebf940f51fd46f789281dd9e736bdc4", upload-time = "2026-01-23T15:10:50Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:eb1bde1ce198f05c8770017de27e001d404499cf552aaaa014569eff56ca25c0", upload-time = "2026-01-23T15:10:50Z" },
 ]
 
 [[package]]
@@ -4036,12 +4099,12 @@ dependencies = [
     { name = "typing-extensions", marker = "extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:bdbcc703382f948e951c063448c9406bf38ce66c41dd698d9e2733fcf96c037a" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:7b4bd23ed63de97456fcc81c26fea9f02ee02ce1112111c4dac0d8cfe574b23e" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:4d1b0b49c54223c7c04050b49eac141d77b6edbc34aea1dfc74a6fdb661baa8c" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:f1f8b840c64b645a4bc61a393db48effb9c92b2dc26c8373873911f0750d1ea7" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:23f58258012bcf1c349cb22af387e33aadca7f83ea617b080e774eb41e4fe8ff" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:01b216e097b17a5277cfb47c383cdcacf06abeadcb0daca0c76b59e72854c3b6" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:bdbcc703382f948e951c063448c9406bf38ce66c41dd698d9e2733fcf96c037a", upload-time = "2026-01-21T15:22:29Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:7b4bd23ed63de97456fcc81c26fea9f02ee02ce1112111c4dac0d8cfe574b23e", upload-time = "2026-01-21T15:22:51Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:4d1b0b49c54223c7c04050b49eac141d77b6edbc34aea1dfc74a6fdb661baa8c", upload-time = "2026-01-21T15:22:54Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:f1f8b840c64b645a4bc61a393db48effb9c92b2dc26c8373873911f0750d1ea7", upload-time = "2026-01-21T15:23:28Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:23f58258012bcf1c349cb22af387e33aadca7f83ea617b080e774eb41e4fe8ff", upload-time = "2026-01-21T15:23:31Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:01b216e097b17a5277cfb47c383cdcacf06abeadcb0daca0c76b59e72854c3b6", upload-time = "2026-01-21T15:23:53Z" },
 ]
 
 [[package]]
@@ -4088,10 +4151,10 @@ dependencies = [
     { name = "umf", marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313-linux_x86_64.whl", hash = "sha256:3bc64a746ff25a93de140902c60c9e819d7413f5cea1e88d80999c27a5901e9c" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313-win_amd64.whl", hash = "sha256:2b4b56dd6c792aef82006904fa888692e3782e4ae5da27526801bad4898f05a5" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313t-linux_x86_64.whl", hash = "sha256:e0536d112fe04deee60897de1f92f2705d129ce19ac9a98d5947877adf5d8e4c" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313t-win_amd64.whl", hash = "sha256:5979758de3e0563896bbf045a5dfbc36bff440f5fe669d8a5e71869013f0a802" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313-linux_x86_64.whl", hash = "sha256:3bc64a746ff25a93de140902c60c9e819d7413f5cea1e88d80999c27a5901e9c", upload-time = "2026-01-26T16:30:20Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313-win_amd64.whl", hash = "sha256:2b4b56dd6c792aef82006904fa888692e3782e4ae5da27526801bad4898f05a5", upload-time = "2026-01-26T16:30:22Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313t-linux_x86_64.whl", hash = "sha256:e0536d112fe04deee60897de1f92f2705d129ce19ac9a98d5947877adf5d8e4c", upload-time = "2026-01-26T16:30:24Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torch-2.10.0%2Bxpu-cp313-cp313t-win_amd64.whl", hash = "sha256:5979758de3e0563896bbf045a5dfbc36bff440f5fe669d8a5e71869013f0a802", upload-time = "2026-01-26T16:30:29Z" },
 ]
 
 [[package]]
@@ -4156,12 +4219,12 @@ dependencies = [
     { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'extra-12-instantlearn-cpu') or (sys_platform == 'win32' and extra == 'extra-12-instantlearn-cpu') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu') or (extra == 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:fe54cbd5942cd0b26a90f1748f0d4421caf67be35c281c6c3b8573733a03d630" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:90eec299e1f82cfaf080ccb789df3838cb9a54b57e2ebe33852cd392c692de5c" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:783c8fc580bbfc159bff52f4f72cdd538e42b32956e70dffa42b940db114e151" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:e985e12a9a232618e5a43476de5689e4b14989f5da6b93909c57afa57ec27012" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:813f0106eb3e268f3783da67b882458e544c6fb72f946e6ca64b5ed4e62c6a77" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:9212210f417888e6261c040495180f053084812cf873dedba9fc51ff4b24b2d3" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:fe54cbd5942cd0b26a90f1748f0d4421caf67be35c281c6c3b8573733a03d630", upload-time = "2026-01-20T18:32:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:90eec299e1f82cfaf080ccb789df3838cb9a54b57e2ebe33852cd392c692de5c", upload-time = "2026-01-20T18:32:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:783c8fc580bbfc159bff52f4f72cdd538e42b32956e70dffa42b940db114e151", upload-time = "2026-01-20T18:32:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:e985e12a9a232618e5a43476de5689e4b14989f5da6b93909c57afa57ec27012", upload-time = "2026-01-20T18:32:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:813f0106eb3e268f3783da67b882458e544c6fb72f946e6ca64b5ed4e62c6a77", upload-time = "2026-01-20T18:32:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.25.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:9212210f417888e6261c040495180f053084812cf873dedba9fc51ff4b24b2d3", upload-time = "2026-01-20T18:32:30Z" },
 ]
 
 [[package]]
@@ -4182,12 +4245,12 @@ dependencies = [
     { name = "torch", version = "2.10.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-12-instantlearn-cuda' or (extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:12c253520a26483fe3c614f63ff16eca6d9b0b4ebe510699b7d15d88e6c0cd35" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:a9c0de893dce9c2913c9c7ae88a916910f92d02b99da149678806d18e8079f29" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:e2e0317e3861bba1b5aeba7c1cb4bcd50937cf0bffdbea478619d1f5f73e9050" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:58b2971b55c761f1d2491bd80fcc4618ea97d363d387a9dd3aff23220cbee264" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:1b6878b043513ea3dea1b90bfb5193455d9b248b8c4d5e66ea9f5d1643a43f13" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:96cd2ba7b289117873b2a8f4c80605d38118d920b1045f3ce21a9f0ca68a701e" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:12c253520a26483fe3c614f63ff16eca6d9b0b4ebe510699b7d15d88e6c0cd35", upload-time = "2026-01-21T22:32:26Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:a9c0de893dce9c2913c9c7ae88a916910f92d02b99da149678806d18e8079f29", upload-time = "2026-01-21T22:32:27Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:e2e0317e3861bba1b5aeba7c1cb4bcd50937cf0bffdbea478619d1f5f73e9050", upload-time = "2026-01-21T22:32:27Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:58b2971b55c761f1d2491bd80fcc4618ea97d363d387a9dd3aff23220cbee264", upload-time = "2026-01-21T22:32:28Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:1b6878b043513ea3dea1b90bfb5193455d9b248b8c4d5e66ea9f5d1643a43f13", upload-time = "2026-01-21T22:32:29Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:96cd2ba7b289117873b2a8f4c80605d38118d920b1045f3ce21a9f0ca68a701e", upload-time = "2026-01-21T22:32:30Z" },
 ]
 
 [[package]]
@@ -4208,10 +4271,10 @@ dependencies = [
     { name = "torch", version = "2.10.0+xpu", source = { registry = "https://download.pytorch.org/whl/xpu" }, marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:80269f37865fcd8b57f20e4786efae2200bfa2b2727926c3c7acc82f0e7d3548" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313-win_amd64.whl", hash = "sha256:1c4b44b36a557f7381e3076fb8843366742238648441d607c8d049c6da0f8886" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:216ad249333993ed128368f996210cc9ceae3b4d15709b25aadba844d6c6e8b7" },
-    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313t-win_amd64.whl", hash = "sha256:7a04beba6859b76e9e010f2f0eccf13ce70ff5942944a552e83844c166051515" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:80269f37865fcd8b57f20e4786efae2200bfa2b2727926c3c7acc82f0e7d3548", upload-time = "2026-01-20T18:32:59Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313-win_amd64.whl", hash = "sha256:1c4b44b36a557f7381e3076fb8843366742238648441d607c8d049c6da0f8886", upload-time = "2026-01-20T18:32:59Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:216ad249333993ed128368f996210cc9ceae3b4d15709b25aadba844d6c6e8b7", upload-time = "2026-01-20T18:32:59Z" },
+    { url = "https://download-r2.pytorch.org/whl/xpu/torchvision-0.25.0%2Bxpu-cp313-cp313t-win_amd64.whl", hash = "sha256:7a04beba6859b76e9e010f2f0eccf13ce70ff5942944a552e83844c166051515", upload-time = "2026-01-20T18:32:59Z" },
 ]
 
 [[package]]
@@ -4292,10 +4355,10 @@ dependencies = [
     { name = "pyelftools", marker = "(extra == 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-cuda') or (extra != 'extra-12-instantlearn-cuda' and extra == 'extra-12-instantlearn-xpu') or (extra != 'extra-12-instantlearn-cpu' and extra == 'extra-12-instantlearn-xpu')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313-win_amd64.whl" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313t-win_amd64.whl" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", upload-time = "2026-01-20T18:40:17Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313-win_amd64.whl", upload-time = "2026-01-20T18:40:18Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", upload-time = "2026-01-20T18:40:19Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.6.0-cp313-cp313t-win_amd64.whl", upload-time = "2026-01-20T18:40:19Z" },
 ]
 
 [[package]]

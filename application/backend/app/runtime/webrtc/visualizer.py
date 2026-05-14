@@ -19,6 +19,24 @@ logger = logging.getLogger(__name__)
 _FALLBACK_ID = UUID(int=0)
 DEFAULT_FALLBACK_COLOR: tuple[int, int, int] = (128, 128, 128)
 
+_REFERENCE_AREA: int = 1920 * 1080
+_MIN_SCALE: float = 0.6
+_MAX_SCALE: float = 2.0
+
+
+class ResolutionScaler:
+    """Scale visualization parameters relative to a 1920x1080 reference."""
+
+    def __init__(self, multiplier: float = 1.0) -> None:
+        self._multiplier = multiplier
+
+    def factor(self, frame: np.ndarray) -> float:
+        """Return the combined resolution and user scale factor."""
+        h, w = frame.shape[:2]
+        area_factor = (w * h / _REFERENCE_AREA) ** 0.5
+        clamped = max(_MIN_SCALE, min(_MAX_SCALE, area_factor))
+        return clamped * self._multiplier
+
 
 class CategoryResolver:
     """Resolve category IDs to visualization labels.
@@ -88,10 +106,13 @@ class OverlayRenderer(Protocol):
 class MaskRenderer:
     """Render colored mask overlays and contours onto a frame."""
 
-    def __init__(self, mask_alpha: float, outline_thickness: int, resolver: CategoryResolver) -> None:
+    def __init__(
+        self, mask_alpha: float, outline_thickness: int, resolver: CategoryResolver, scaler: ResolutionScaler
+    ) -> None:
         self._alpha = mask_alpha
         self._outline_thickness = outline_thickness
         self._resolver = resolver
+        self._scaler = scaler
 
     def draw(
         self,
@@ -105,6 +126,7 @@ class MaskRenderer:
 
         labels_np = labels if labels is not None and labels.size > 0 else None
         overlay = frame.copy()
+        scale = self._scaler.factor(frame)
 
         for mask_idx, mask in enumerate(masks):
             category_id = self._resolver.extract_category_id(labels_np, mask_idx)
@@ -113,7 +135,7 @@ class MaskRenderer:
 
             mask_bool = mask > 0.5
             overlay = self._apply_overlay(overlay, mask_bool, color)
-            overlay = self._draw_contours(overlay, mask_bool, color)
+            overlay = self._draw_contours(overlay, mask_bool, color, scale)
 
         return overlay
 
@@ -123,11 +145,27 @@ class MaskRenderer:
         ).astype(np.uint8)
         return frame
 
-    def _draw_contours(self, frame: np.ndarray, mask_bool: np.ndarray, color: tuple[int, int, int]) -> np.ndarray:
+    def _draw_contours(
+        self, frame: np.ndarray, mask_bool: np.ndarray, color: tuple[int, int, int], scale: float
+    ) -> np.ndarray:
         mask_uint8 = (mask_bool * 255).astype(np.uint8)
         contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(frame, contours, -1, color, self._outline_thickness)
+        thickness = max(1, round(self._outline_thickness * scale))
+        cv2.drawContours(frame, contours, -1, color, thickness)
         return frame
+
+
+# Probe used to calibrate cv2 font scale to a target pixel height.
+_FONT_PROBE_TEXT = "Ag"
+_FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
+
+
+def _font_scale_for_pixel_height(target_height_px: float) -> float:
+    """Return the cv2 font scale that yields the requested pixel height."""
+    (_, probe_h), _ = cv2.getTextSize(_FONT_PROBE_TEXT, _FONT_FACE, 1.0, 1)
+    if probe_h <= 0:
+        return 1.0
+    return target_height_px / probe_h
 
 
 class BoxRenderer:
@@ -137,13 +175,15 @@ class BoxRenderer:
         self,
         box_thickness: int,
         visualize_labels: bool,
-        label_font_scale: float,
+        label_text_height_px: int,
         resolver: CategoryResolver,
+        scaler: ResolutionScaler,
     ) -> None:
         self._box_thickness = box_thickness
         self._visualize_labels = visualize_labels
-        self._label_font_scale = label_font_scale
+        self._label_text_height_px = label_text_height_px
         self._resolver = resolver
+        self._scaler = scaler
 
     def draw(
         self,
@@ -156,6 +196,7 @@ class BoxRenderer:
             return frame
 
         labels_np = labels if labels is not None and labels.size > 0 else None
+        scale = self._scaler.factor(frame)
 
         for box_idx, box in enumerate(boxes):
             category_id = self._resolver.extract_category_id(labels_np, box_idx)
@@ -163,11 +204,12 @@ class BoxRenderer:
             color = info.color.to_tuple()
 
             x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, self._box_thickness)
+            box_thick = max(1, round(self._box_thickness * scale))
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, box_thick)
 
             if self._visualize_labels:
                 score = float(box[4]) if len(box) > 4 else None
-                self._draw_caption(frame, x1, y1, info.object_name, score, color)
+                self._draw_caption(frame, x1, y1, info.object_name, score, color, scale)
 
         return frame
 
@@ -179,6 +221,7 @@ class BoxRenderer:
         label_name: str | None,
         score: float | None,
         color: tuple[int, int, int],
+        scale: float,
     ) -> None:
         parts: list[str] = []
         if label_name:
@@ -189,21 +232,24 @@ class BoxRenderer:
             return
 
         caption = " ".join(parts)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        thickness = 2
-        (text_w, text_h), baseline = cv2.getTextSize(caption, font, self._label_font_scale, thickness)
+        target_h = self._label_text_height_px * scale
+        font_scale = _font_scale_for_pixel_height(target_h)
+        thickness = max(1, round(target_h / 14))
+        (text_w, text_h), baseline = cv2.getTextSize(caption, _FONT_FACE, font_scale, thickness)
 
-        text_y = max(y1 - 6, text_h + 2)
+        pad = max(1, round(target_h * 0.25))
+        gap = max(1, round(target_h * 0.25))
+        text_y = max(y1 - gap, text_h + pad)
         text_x = x1
 
         cv2.rectangle(
             frame,
-            (text_x, text_y - text_h - 2),
-            (text_x + text_w + 2, text_y + baseline),
+            (text_x, text_y - text_h - pad),
+            (text_x + text_w + pad, text_y + baseline),
             color,
             cv2.FILLED,
         )
-        cv2.putText(frame, caption, (text_x + 1, text_y), font, self._label_font_scale, (255, 255, 255), thickness)
+        cv2.putText(frame, caption, (text_x + 1, text_y), _FONT_FACE, font_scale, (255, 255, 255), thickness)
 
 
 class InferenceVisualizer:
@@ -222,7 +268,8 @@ class InferenceVisualizer:
         self._mask_outline_thickness = settings.mask_outline_thickness
         self._box_thickness = settings.box_thickness
         self._visualize_labels = settings.visualize_labels
-        self._label_font_scale = settings.label_font_scale
+        self._label_text_height_px = settings.label_text_height_px
+        self._scaler = ResolutionScaler(multiplier=settings.visualization_scale)
 
     def _build_renderers(self, resolver: CategoryResolver) -> list[OverlayRenderer]:
         """Create renderer instances for the current visualization pass."""
@@ -230,7 +277,10 @@ class InferenceVisualizer:
         if self._visualize_masks:
             renderers.append(
                 MaskRenderer(
-                    mask_alpha=self._mask_alpha, outline_thickness=self._mask_outline_thickness, resolver=resolver
+                    mask_alpha=self._mask_alpha,
+                    outline_thickness=self._mask_outline_thickness,
+                    resolver=resolver,
+                    scaler=self._scaler,
                 )
             )
         if self._visualize_boxes:
@@ -238,8 +288,9 @@ class InferenceVisualizer:
                 BoxRenderer(
                     box_thickness=self._box_thickness,
                     visualize_labels=self._visualize_labels,
-                    label_font_scale=self._label_font_scale,
+                    label_text_height_px=self._label_text_height_px,
                     resolver=resolver,
+                    scaler=self._scaler,
                 )
             )
         return renderers

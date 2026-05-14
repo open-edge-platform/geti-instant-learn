@@ -28,6 +28,12 @@ jobs:
     outputs:
       head: ${{ steps.get-sha-commit.outputs.head }}
     steps:
+      - &harden-runner
+        name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
       - name: Validate and get sha commit
         id: get-sha-commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -71,6 +77,8 @@ jobs:
     outputs:
       build_version: ${{ steps.build-version.outputs.version }}
     steps:
+      - *harden-runner
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -99,6 +107,8 @@ jobs:
       pull-requests: write # to comment on a pull request
     if: ${{ always() && !cancelled() }}
     steps:
+      - *harden-runner
+
       - name: Success comment
         if: needs.distrib.result == 'success'
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0

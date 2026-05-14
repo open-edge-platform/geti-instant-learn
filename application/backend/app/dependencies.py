@@ -17,12 +17,15 @@ from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
 from domain.repositories.supported_model import SupportedModelRepository
+from domain.services.dataset_discovery import DatasetResolver
 from domain.services.label import LabelService
 from domain.services.model import ModelService
 from domain.services.project import ProjectService
 from domain.services.prompt import PromptService
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
+from runtime.core.components.factories.reader import StreamReaderFactory
+from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from domain.services.sink import SinkService
 from domain.services.source import SourceService
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
@@ -168,6 +171,18 @@ def get_sink_connection_validator() -> SinkConnectionValidator:
     return SinkConnectionValidator()
 
 
+def get_dataset_resolver(request: Request) -> DatasetResolver | None:
+    """Dependency that provides the startup-cached DatasetResolver instance."""
+    return request.app.state.dataset_resolver
+
+
+def get_reader_config_validator(
+    dataset_resolver: Annotated[DatasetResolver | None, Depends(get_dataset_resolver)],
+) -> ReaderConfigValidator:
+    """Dependency that provides a reader config validator instance."""
+    return ReaderConfigValidator(StreamReaderFactory(dataset_resolver=dataset_resolver))
+
+
 def get_discovery_service() -> SourceTypeService:
     """Dependency that provides a DiscoveryService instance."""
     return SourceTypeService()
@@ -188,6 +203,7 @@ PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
+ReaderConfigValidatorDep = Annotated[ReaderConfigValidator, Depends(get_reader_config_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]

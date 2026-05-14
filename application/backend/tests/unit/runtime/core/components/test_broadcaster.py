@@ -178,3 +178,26 @@ class TestFrameBroadcaster:
         broadcaster.clear()
 
         assert broadcaster.slot.latest is None
+
+
+class TestFrameSlot:
+    def test_initial_state_is_empty(self):
+        slot = FrameSlot()
+        assert slot.latest is None
+
+    def test_update_stores_frame(self):
+        slot = FrameSlot()
+        slot.update("frame_a")
+        assert slot.latest == "frame_a"
+
+    def test_update_replaces_previous_frame(self):
+        slot = FrameSlot()
+        slot.update("frame_a")
+        slot.update("frame_b")
+        assert slot.latest == "frame_b"
+
+    def test_clear_resets_to_none(self):
+        slot = FrameSlot()
+        slot.update("frame_a")
+        slot.clear()
+        assert slot.latest is None
