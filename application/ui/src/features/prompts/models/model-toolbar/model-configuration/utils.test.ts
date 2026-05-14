@@ -3,17 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { MatcherModel, SoftMatcherModel } from '@/api';
-import { getMockedModel, getMockedSam3Model } from '@/test-utils';
+import type { SoftMatcherModel } from '@/api';
+import { getMockedMatcherModel, getMockedModel, getMockedSam3Model } from '@/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { isMatcherModel, isPerDINOModel, isSam3Model, isSoftMatcherModel } from './utils';
 
 describe('model type guards', () => {
     it('isMatcherModel returns true for matcher models', () => {
-        const model = getMockedModel({
-            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
-        });
+        const model = getMockedMatcherModel();
         expect(isMatcherModel(model)).toBe(true);
         expect(isPerDINOModel(model)).toBe(false);
         expect(isSoftMatcherModel(model)).toBe(false);
@@ -23,6 +21,8 @@ describe('model type guards', () => {
         const model = getMockedModel();
         expect(isPerDINOModel(model)).toBe(true);
         expect(isMatcherModel(model)).toBe(false);
+        expect(isSoftMatcherModel(model)).toBe(false);
+        expect(isSam3Model(model)).toBe(false);
     });
     it('isSoftMatcherModel returns true for soft_matcher models', () => {
         const model = getMockedModel({
@@ -30,6 +30,8 @@ describe('model type guards', () => {
         });
         expect(isSoftMatcherModel(model)).toBe(true);
         expect(isMatcherModel(model)).toBe(false);
+        expect(isPerDINOModel(model)).toBe(false);
+        expect(isSam3Model(model)).toBe(false);
     });
     it('isSam3Model returns true for sam3 models', () => {
         const model = getMockedSam3Model();

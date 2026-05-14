@@ -4,8 +4,7 @@
         "baseUrl": ".",
         "paths": {
             "@/api": ["../src/api"],
-            "@/test-fixtures": ["./fixtures"],
-            "@/api/*": ["../src/api/*"]
+            "@/test-fixtures": ["./fixtures"]
         }
     },
     "include": ["./", "../src/env.d.ts"]

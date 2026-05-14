@@ -308,7 +308,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.categories == ["object"]
+        assert result.categories == ["object", "object"]
 
 
 def _make_single_polygon_prompt(
