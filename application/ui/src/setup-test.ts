@@ -207,6 +207,10 @@ const initialHandlers = [
         const body = await request.json();
         return HttpResponse.json(body);
     }),
+
+    http.get('/api/v1/projects/{project_id}/model-status', () => {
+        return HttpResponse.json({ loading: false });
+    }),
 ];
 
 // initialHandlers must come first so deterministic mocks take priority

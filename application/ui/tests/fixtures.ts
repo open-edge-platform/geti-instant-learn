@@ -238,6 +238,9 @@ const test = testBase.extend<Fixtures>({
                 const body = await request.json();
                 return response(200).json(body as never);
             }),
+            http.get('/api/v1/projects/{project_id}/model-status', ({ response }) => {
+                return response(200).json({ loading: false });
+            }),
             ...handlers,
         ],
     }),

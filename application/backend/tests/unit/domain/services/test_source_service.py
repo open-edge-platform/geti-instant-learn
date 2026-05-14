@@ -271,14 +271,14 @@ def test_update_source_success(service, dispatcher_mock):
     assert prev_active.active is False
     service.session.commit.assert_called_once()
 
-    # two events should be dispatched: one for disconnecting the previous source, one for updating the current
-    assert dispatcher_mock.dispatch.call_count == 2
-    events = [call.args[0] for call in dispatcher_mock.dispatch.call_args_list]
-    assert all(isinstance(ev, ComponentConfigChangeEvent) for ev in events)
-    assert all(ev.project_id == project_id for ev in events)
-    assert all(ev.component_type == ComponentType.SOURCE for ev in events)
-    assert events[0].component_id == prev_active.id
-    assert events[1].component_id == source_id
+    # Events for the same (project_id, component_type) are coalesced by BaseService,
+    # so only the last event (for the newly activated source) is dispatched.
+    assert dispatcher_mock.dispatch.call_count == 1
+    dispatched = dispatcher_mock.dispatch.call_args[0][0]
+    assert isinstance(dispatched, ComponentConfigChangeEvent)
+    assert dispatched.project_id == project_id
+    assert dispatched.component_type == ComponentType.SOURCE
+    assert dispatched.component_id == source_id
 
 
 def test_update_source_type_change_conflict(service, tmp_path):

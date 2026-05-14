@@ -4,6 +4,7 @@
  */
 
 import { $api, ModelType } from '@/api';
+import { setModelLoading } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
 import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,6 +22,8 @@ const useUpdateModelMutation = (projectId: string) => {
             },
         },
         onSuccess: ({ id }) => {
+            setModelLoading(queryClient, projectId);
+
             queryClient.invalidateQueries({
                 queryKey: getQueryKey([
                     'get',

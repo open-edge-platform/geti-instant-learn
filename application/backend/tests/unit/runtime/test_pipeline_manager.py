@@ -361,3 +361,48 @@ class TestPipelineManager:
             mgr._pipeline = None
             mgr.stop()
             assert mgr._pipeline is None
+
+
+
+class TestPipelineManagerModelLoadingFlag:
+    """Tests for the busy-flag toggled around processor (re)builds."""
+
+    def test_flag_defaults_to_false(self, dispatcher, session_factory):
+        mgr = PipelineManager(dispatcher, session_factory)
+        assert mgr.is_model_loading() is False
+
+    def test_flag_set_during_processor_rebuild(self, dispatcher, session_factory, mock_component_factory):
+        """While create_processor runs, is_model_loading() must report True; after it returns, False."""
+        mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        # A running pipeline is required for _update_pipeline_components to do anything.
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = uuid4()
+
+        observed: list[bool] = []
+
+        def fake_create_processor(*args, **kwargs):
+            observed.append(mgr.is_model_loading())
+            return Mock()
+
+        mock_component_factory.create_processor.side_effect = fake_create_processor
+
+        with patch.object(PipelineManager, "get_reference_batch", return_value=None):
+            mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
+
+        assert observed == [True]
+        assert mgr.is_model_loading() is False
+
+    def test_flag_cleared_when_processor_rebuild_fails(self, dispatcher, session_factory, mock_component_factory):
+        mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = uuid4()
+
+        mock_component_factory.create_processor.side_effect = RuntimeError("boom")
+
+        with (
+            patch.object(PipelineManager, "get_reference_batch", return_value=None),
+            pytest.raises(RuntimeError),
+        ):
+            mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
+
+        assert mgr.is_model_loading() is False
