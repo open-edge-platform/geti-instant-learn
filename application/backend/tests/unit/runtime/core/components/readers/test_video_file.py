@@ -52,6 +52,40 @@ class TestVideoFileReaderInitialization:
         assert r._next_frame_time_s is None
 
 
+class TestVideoFileReaderValidateConfig:
+    """Tests for the validate_config method."""
+
+    def test_validate_config_valid_file(self, video_path: Path) -> None:
+        """Test validation succeeds for valid video file."""
+        config = MagicMock(spec=ReaderConfig)
+        config.video_path = str(video_path)
+        reader = VideoFileReader(config)
+
+        # Should not raise
+        reader.validate_config()
+
+    def test_validate_config_nonexistent_path(self) -> None:
+        """Test validation fails for nonexistent path."""
+        config = MagicMock(spec=ReaderConfig)
+        config.video_path = "/nonexistent/video.mp4"
+        reader = VideoFileReader(config)
+
+        with pytest.raises(ValueError, match="Video file does not exist"):
+            reader.validate_config()
+
+    def test_validate_config_directory_not_file(self, tmp_path: Path) -> None:
+        """Test validation fails when path is a directory."""
+        folder = tmp_path / "videos"
+        folder.mkdir()
+
+        config = MagicMock(spec=ReaderConfig)
+        config.video_path = str(folder)
+        reader = VideoFileReader(config)
+
+        with pytest.raises(ValueError, match="Path is not a file"):
+            reader.validate_config()
+
+
 class TestVideoFileReaderConnect:
     def test_connect_success(
         self,

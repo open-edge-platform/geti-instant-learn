@@ -96,6 +96,52 @@ class TestImageFolderReaderConnect:
             reader.connect()
 
 
+class TestImageFolderReaderValidateConfig:
+    """Tests for the validate_config method."""
+
+    def test_validate_config_valid_folder(self, temp_image_folder):
+        """Test validation succeeds for valid folder."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(temp_image_folder)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        # Should not raise
+        reader.validate_config()
+
+    def test_validate_config_nonexistent_path(self):
+        """Test validation fails for nonexistent path."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = "/nonexistent/path"
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Images folder does not exist"):
+            reader.validate_config()
+
+    def test_validate_config_file_not_directory(self, tmp_path):
+        """Test validation fails when path is a file."""
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("test")
+
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(file_path)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Path is not a directory"):
+            reader.validate_config()
+
+    def test_validate_config_empty_folder(self, tmp_path):
+        """Test validation fails for empty folder."""
+        empty_folder = tmp_path / "empty"
+        empty_folder.mkdir()
+
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(empty_folder)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with pytest.raises(ValueError, match="Images folder is empty"):
+            reader.validate_config()
+
+
 def test_natural_sort_key():
     """Test natural sorting of filenames."""
     paths = [Path(f"img_{i}.jpg") for i in [1, 10, 2, 20, 3]]
@@ -314,10 +360,10 @@ class TestImageFolderReaderListFrames:
         reader.connect()
 
         # First call should use pre-generated cache
-        with patch.object(ImageFolderReader, "_generate_thumbnail") as mock_gen:
+        with patch("runtime.core.components.readers.image_folder_reader.generate_image_thumbnail") as mock_gen:
             result = reader.list_frames(offset=0, limit=3)
             assert len(result.frames) == 3
-            # Should not call _generate_thumbnail since thumbnails are cached
+            # Should not call generate_image_thumbnail since thumbnails are cached
             mock_gen.assert_not_called()
 
     def test_list_frames_generates_uncached(self, tmp_path):
@@ -366,31 +412,3 @@ class TestImageFolderReaderContextManager:
 
         # After exiting context, close should have been called
         assert reader._image_paths == []
-
-
-class TestImageFolderReaderThumbnailGeneration:
-    def test_generate_thumbnail_valid_image(self, tmp_path):
-        """Test thumbnail generation for valid image."""
-        img_path = tmp_path / "test.jpg"
-        cv2.imwrite(str(img_path), np.zeros((200, 200, 3), dtype=np.uint8))
-
-        thumbnail = ImageFolderReader._generate_thumbnail(img_path)
-
-        assert thumbnail is not None
-        assert isinstance(thumbnail, str)
-        assert len(thumbnail) > 0  # base64 encoded string
-
-    def test_generate_thumbnail_invalid_image(self, tmp_path):
-        """Test thumbnail generation for invalid image."""
-        img_path = tmp_path / "invalid.jpg"
-        img_path.write_bytes(b"not an image")
-
-        thumbnail = ImageFolderReader._generate_thumbnail(img_path)
-
-        assert thumbnail is None
-
-    def test_generate_thumbnail_nonexistent_file(self):
-        """Test thumbnail generation for non-existent file."""
-        thumbnail = ImageFolderReader._generate_thumbnail(Path("/nonexistent/file.jpg"))
-
-        assert thumbnail is None

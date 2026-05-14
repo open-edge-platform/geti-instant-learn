@@ -5,9 +5,19 @@
 
 import { $api, SourceConfig } from '@/api';
 import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
+import { useQueryClient } from '@tanstack/react-query';
 
+/**
+ * Hook for updating/connecting sources.
+ *
+ * @example
+ * const updateSource = useUpdateSource();
+ * updateSource.mutate({ sourceId, config, active }, onSuccess);
+ */
 export const useUpdateSource = () => {
     const { projectId } = useProjectIdentifier();
+    const queryClient = useQueryClient();
 
     const updateSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
         meta: {
@@ -31,22 +41,41 @@ export const useUpdateSource = () => {
     });
 
     const updateSource = (
-        sourceId: string,
-        body: { config: SourceConfig; active: boolean },
+        body: { config: SourceConfig; active: boolean; sourceId: string },
         onSuccess?: () => void
     ) => {
         updateSourceMutation.mutate(
             {
-                body,
+                body: {
+                    config: body.config,
+                    active: body.active,
+                },
                 params: {
                     path: {
                         project_id: projectId,
-                        source_id: sourceId,
+                        source_id: body.sourceId,
                     },
                 },
             },
             {
-                onSuccess,
+                onSuccess: () => {
+                    // Invalidate frames cache for the specific source
+                    queryClient.invalidateQueries({
+                        queryKey: getQueryKey([
+                            'get',
+                            '/api/v1/projects/{project_id}/sources/{source_id}/frames',
+                            {
+                                params: {
+                                    path: {
+                                        project_id: projectId,
+                                        source_id: body.sourceId,
+                                    },
+                                },
+                            },
+                        ]),
+                    });
+                    onSuccess?.();
+                },
             }
         );
     };

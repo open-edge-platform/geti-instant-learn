@@ -46,10 +46,19 @@ class ImageFolderReader(StreamReader):
         """
         return True
 
-    @staticmethod
-    def _generate_thumbnail(image_path: Path, max_size: int = 150) -> str | None:
-        """Generate a base64-encoded thumbnail for an image."""
-        return generate_image_thumbnail(image_path, max_size=max_size, jpeg_quality=80)
+    def validate_config(self) -> None:
+        """Validate the image folder configuration.
+
+        Raises:
+            ValueError: If the path does not exist, is not a directory, or is empty.
+        """
+        folder_path = Path(self._config.images_folder_path)
+        if not folder_path.exists():
+            raise ValueError(f"Images folder does not exist: {self._config.images_folder_path}")
+        if not folder_path.is_dir():
+            raise ValueError(f"Path is not a directory: {self._config.images_folder_path}")
+        if next(folder_path.iterdir(), None) is None:
+            raise ValueError(f"Images folder is empty: {self._config.images_folder_path}")
 
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
@@ -100,7 +109,7 @@ class ImageFolderReader(StreamReader):
 
             # Pre-generate thumbnails for first page (optimization)
             for idx, path in enumerate(self._image_paths[:30]):
-                thumbnail = self._generate_thumbnail(path)
+                thumbnail = generate_image_thumbnail(path)
                 if thumbnail:
                     self._thumbnail_cache[idx] = thumbnail
 
@@ -188,7 +197,7 @@ class ImageFolderReader(StreamReader):
             if idx in self._thumbnail_cache:
                 thumbnail = self._thumbnail_cache[idx]
             else:
-                thumbnail = self._generate_thumbnail(image_path)
+                thumbnail = generate_image_thumbnail(image_path)
                 if thumbnail is not None:
                     with self._lock:
                         self._thumbnail_cache[idx] = thumbnail

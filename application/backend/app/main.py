@@ -75,11 +75,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         logger.error("Dataset discovery failed during startup: %s", str(e))
 
     app.state.available_datasets = datasets
+    app.state.dataset_resolver = dataset_resolver
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
     component_factory = DefaultComponentFactory(
         available_devices=app.state.available_devices,
-        dataset_resolver=dataset_resolver,
+        dataset_resolver=app.state.dataset_resolver,
     )
     app.state.pipeline_manager = PipelineManager(
         event_dispatcher=app.state.config_dispatcher,

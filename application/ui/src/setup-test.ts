@@ -150,6 +150,7 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
                 encoder_model: 'dinov3_large',
                 use_mask_refinement: false,
                 num_grid_cells: 8,
+                preset: 'throughput',
             },
             active: true,
             name: 'Mega model',

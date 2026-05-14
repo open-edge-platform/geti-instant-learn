@@ -73,6 +73,11 @@ jobs:
       CONTAINER_REGISTRY: ${{ inputs.container_registry }}
       IMAGE_TAG_SUFFIX: ${{ inputs.image_tag_suffix }}
     steps:
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
       - name: Construct image name
         run: |
           IMAGE_NAME="${CONTAINER_REGISTRY}/instant-learn-${DEVICE}:${BUILD_VERSION}${IMAGE_TAG_SUFFIX}"

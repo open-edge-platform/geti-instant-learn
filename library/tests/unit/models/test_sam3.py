@@ -141,10 +141,6 @@ def _build_sam3(mock_deps: dict[str, Any], prompt_mode: Sam3PromptMode = Sam3Pro
         return SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
 
 
-# ---------------------------------------------------------------------------
-# Tests: SAM3 initialization
-# ---------------------------------------------------------------------------
-
 
 class TestSAM3Initialization:
     """Test SAM3 initialization for both prompt modes."""
@@ -209,11 +205,6 @@ class TestSAM3Initialization:
         assert model.exemplar_text_features is None
         assert model.exemplar_text_mask is None
         assert model.exemplar_category_ids is None
-
-
-# ---------------------------------------------------------------------------
-# Tests: Classic mode fit / predict
-# ---------------------------------------------------------------------------
 
 
 class TestSAM3Classic:

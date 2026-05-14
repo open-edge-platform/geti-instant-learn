@@ -10,4 +10,5 @@ export { getMockedSource } from './mocks/mock-source';
 export { getMockedModel, getMockedSam3Model } from './mocks/mock-model';
 export { getMockedImagesFolderSource } from './mocks/mock-images-folder-source';
 export { getMockedVideoFileSource } from './mocks/mock-video-file-source';
+export { getMockedSampleDatasetSource } from './mocks/mock-sample-dataset-source';
 export { clearMockedTauriContext, setMockedTauriContext } from './mocks/mock-tauri-context';

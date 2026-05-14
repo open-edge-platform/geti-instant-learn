@@ -59,6 +59,11 @@ jobs:
     runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
 
     steps:
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          egress-policy: audit
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -72,8 +77,10 @@ jobs:
           private-key: ${{ secrets.RENOVATE_APP_PEM }}
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@eb932558ad942cccfd8211cf535f17ff183a9f74 # v46.1.9
+        uses: renovatebot/github-action@79dc0ba74dc3de28db0a7aeb1d0b95d5bf5fde2a # v46.1.13
         with:
+          # renovate: datasource=github-releases depName=renovatebot/renovate
+          renovate-version: 43.163.4
           configurationFile: .github/renovate.json5
           token: "${{ steps.get-github-app-token.outputs.token }}"
         env:
@@ -82,3 +89,5 @@ jobs:
           RENOVATE_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run == 'true') && 'full' || null }}
           RENOVATE_PLATFORM: github
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # Feature freeze control: set RENOVATE_AUTOMERGE_ENABLED repository variable to 'false' to disable automerge
+          RENOVATE_AUTOMERGE: ${{ vars.RENOVATE_AUTOMERGE_ENABLED != 'false' }}

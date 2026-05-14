@@ -44,16 +44,24 @@ class TestResizeFrame:
         resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == settings.thumbnail_max_dimension
-        assert resized.shape[0] == 240
-        assert resized.shape[1] == 300
+        # With max_dimension and 1000x800 frame: scale = max_dim/1000
+        # Expected dimensions: max_dim x (800 * scale)
+        expected_width = settings.thumbnail_max_dimension
+        expected_height = int(800 * (settings.thumbnail_max_dimension / 1000))
+        assert resized.shape[0] == expected_height
+        assert resized.shape[1] == expected_width
 
     def test_resize_tall_frame(self):
         frame = create_test_frame(width=600, height=1200)
         resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == settings.thumbnail_max_dimension
-        assert resized.shape[0] == 300
-        assert resized.shape[1] == 150
+        # With max_dimension and 600x1200 frame: scale = max_dim/1200
+        # Expected dimensions: (600 * scale) x max_dim
+        expected_height = settings.thumbnail_max_dimension
+        expected_width = int(600 * (settings.thumbnail_max_dimension / 1200))
+        assert resized.shape[0] == expected_height
+        assert resized.shape[1] == expected_width
 
     def test_no_resize_small_frame(self):
         frame = create_test_frame(width=300, height=200)

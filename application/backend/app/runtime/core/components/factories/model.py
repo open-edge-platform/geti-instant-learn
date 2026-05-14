@@ -85,7 +85,12 @@ class ModelFactory:
                     device=selected_device,
                 )
                 if settings.processor_openvino_enabled:
-                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                    return OpenVINOModelHandler(
+                        model=model,
+                        reference_batch=reference_batch,
+                        precision=precision,
+                        compression_preset=config.preset,
+                    )
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(

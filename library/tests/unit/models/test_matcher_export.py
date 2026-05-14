@@ -12,7 +12,7 @@ import torch
 
 from instantlearn.components.feature_extractors import ReferenceFeatures
 from instantlearn.models.matcher import Matcher
-from instantlearn.utils.constants import Backend
+from instantlearn.utils.constants import Backend, CompressionMode
 
 
 class TestMatcherExport:
@@ -129,6 +129,7 @@ class TestMatcherExport:
             result = model.export(
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
+                compression=CompressionMode.FP32,
             )
 
         assert result == tmp_path / "matcher.xml"
@@ -192,6 +193,7 @@ class TestMatcherExport:
             model.export(
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
+                compression=CompressionMode.FP32,
             )
 
         mock_convert.assert_called_once()

@@ -7,9 +7,10 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
-from instantlearn.utils.constants import SAMModelName
+from instantlearn.utils.constants import CompressionMode, SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 from domain.services.schemas.frame_trace import FrameTrace
 
@@ -23,8 +24,24 @@ class ModelType(StrEnum):
 
 ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
     SAMModelName.SAM_HQ,
+    SAMModelName.SAM_HQ_BASE,
+    SAMModelName.SAM_HQ_LARGE,
     SAMModelName.SAM_HQ_TINY,
 )
+
+
+class CompressionPreset(StrEnum):
+    THROUGHPUT = "throughput"
+    ACCURACY = "accuracy"
+
+    def to_compression_mode(self) -> CompressionMode:
+        return _PRESET_TO_MODE[self]
+
+
+_PRESET_TO_MODE: dict[CompressionPreset, CompressionMode] = {
+    CompressionPreset.THROUGHPUT: CompressionMode.INT8_SYM,
+    CompressionPreset.ACCURACY: CompressionMode.FP16,
+}
 
 
 class BaseModelConfig(BaseModel):
@@ -86,6 +103,10 @@ class MatcherConfig(BaseModelConfig):
     use_mask_refinement: bool = Field(default=False)
     similarity_threshold: float | None = Field(default=None, gt=0.0, lt=1.0)
     num_grid_cells: int = Field(default=8, ge=0, le=100)
+    preset: CompressionPreset = Field(
+        default=CompressionPreset.THROUGHPUT,
+        description="Weight compression preset: 'throughput' (smaller/faster) or 'accuracy' (higher fidelity).",
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -100,6 +121,7 @@ class MatcherConfig(BaseModelConfig):
                 "use_mask_refinement": False,
                 "similarity_threshold": None,
                 "num_grid_cells": 8,
+                "preset": "throughput",
             }
         }
     }
@@ -200,6 +222,12 @@ class OutputData:
     def to_list(self) -> list[dict[str, list]]:
         # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
         return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
+
+
+@dataclass
+class ErrorData:
+    message: str
+    component: ComponentType
 
 
 class ProcessorSchema(BaseIDSchema):

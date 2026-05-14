@@ -10,8 +10,15 @@ import { Loading } from '@geti/ui';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
+import { EditSampleDataset } from '../sample-dataset/edit-sample-dataset.component';
 import { EditUsbCameraSource } from '../usb-camera/edit-usb-camera-source.component';
-import { isImagesFolderSource, isUsbCameraSource, isVideoFileSource, SourcesViews } from '../utils';
+import {
+    isImagesFolderSource,
+    isTestDatasetSource,
+    isUsbCameraSource,
+    isVideoFileSource,
+    SourcesViews,
+} from '../utils';
 import { EditVideoFile } from '../video-file/edit-video-file.component';
 
 interface EditSourceContainerProps {
@@ -61,6 +68,16 @@ export const EditSource = ({ source, onViewChange }: EditSourceProps) => {
         return (
             <EditSourceContainer onBackClick={handleGoBack} title={'Video file'}>
                 <EditVideoFile source={source} onSaved={handleGoBack} />
+            </EditSourceContainer>
+        );
+    }
+
+    if (isTestDatasetSource(source)) {
+        return (
+            <EditSourceContainer onBackClick={handleGoBack} title={'Sample dataset'}>
+                <Suspense fallback={<Loading mode={'inline'} size={'S'} />}>
+                    <EditSampleDataset source={source} onSaved={handleGoBack} />
+                </Suspense>
             </EditSourceContainer>
         );
     }
