@@ -10,7 +10,13 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_pipeline_manager, get_source_service
+from dependencies import (
+    SessionDep,
+    get_config_dispatcher,
+    get_pipeline_manager,
+    get_reader_config_validator,
+    get_source_service,
+)
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -52,6 +58,12 @@ def app():
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+
+    class NoOpReaderConfigValidator:
+        def validate(self, config):
+            pass
+
+    app.dependency_overrides[get_reader_config_validator] = lambda: NoOpReaderConfigValidator()
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)

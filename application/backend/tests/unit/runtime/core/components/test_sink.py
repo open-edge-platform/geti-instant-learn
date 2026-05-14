@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, call
 import numpy as np
 import pytest
 
-from domain.services.schemas.processor import OutputData
+from domain.dispatcher import ComponentType
+from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
@@ -64,3 +65,22 @@ class TestSink:
 
         expected_calls = [call(item) for item in expected_writes]
         assert self.mock_stream_writer.write.call_args_list == expected_calls
+
+    def test_error_data_is_forwarded_to_writer(self):
+        error = ErrorData(message="upstream failed", component=ComponentType.SOURCE)
+        data = make_output("data1")
+        items = [error, data]
+        iterator = iter(items)
+
+        def mock_get(*args, **kwargs):
+            try:
+                next_item = next(iterator)
+                return next_item
+            except StopIteration:
+                self.sink.stop()
+                raise Empty
+
+        self.out_queue.get.side_effect = mock_get
+        self.sink.run()
+
+        self.mock_stream_writer.write.assert_has_calls([call(error), call(data)])

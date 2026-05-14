@@ -8,7 +8,7 @@ from typing import Self
 from uuid import UUID
 
 from domain.repositories.frame import FrameRepository
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
@@ -43,9 +43,9 @@ class Pipeline:
         source (Source): The source component for reading input frames.
         processor (Processor): The processor component for inference.
         sink (Sink): The sink component for writing output.
-        inbound_broadcaster (FrameBroadcaster[InputData], optional): Broadcaster for raw frames.
+        inbound_broadcaster (FrameBroadcaster[InputData | ErrorData], optional): Broadcaster for raw frames.
             Defaults to a new instance.
-        outbound_broadcaster (FrameBroadcaster[OutputData], optional): Broadcaster for processed frames.
+        outbound_broadcaster (FrameBroadcaster[OutputData | ErrorData], optional): Broadcaster for processed frames.
             Defaults to a new instance.
     """
 
@@ -53,8 +53,12 @@ class Pipeline:
         self,
         project_id: UUID,
         frame_repository: FrameRepository,
-        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData]("inbound"),
-        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData]("outbound"),
+        inbound_broadcaster: FrameBroadcaster[InputData | ErrorData] = FrameBroadcaster[InputData | ErrorData](
+            "inbound"
+        ),
+        outbound_broadcaster: FrameBroadcaster[OutputData | ErrorData] = FrameBroadcaster[OutputData | ErrorData](
+            "outbound"
+        ),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id

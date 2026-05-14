@@ -78,6 +78,17 @@ class StreamReader(AbstractContextManager, ABC):
         """
         return False
 
+    def validate_config(self) -> None:
+        """Validate the reader configuration.
+
+        Called before activating a source to ensure the configuration is valid.
+        Default implementation does nothing. Readers should override this to
+        implement their own validation logic.
+
+        Raises:
+            ValueError: If the configuration is invalid.
+        """
+
     def connect(self) -> None:
         pass
 

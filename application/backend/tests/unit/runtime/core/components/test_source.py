@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import ErrorData, InputData
 from runtime.core.components.base import StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.source import Source
@@ -111,3 +111,27 @@ class TestSource:
 
         self.source.run()
         self.mock_stream_reader.connect.assert_called_once()
+
+    def test_source_connect_error_sets_slot_error(self):
+        """Test that Source broadcasts ErrorData when connect fails."""
+        self.mock_stream_reader.connect.side_effect = RuntimeError("File not found")
+
+        self.source.run()
+
+        self.mock_broadcaster.broadcast.assert_called_once()
+        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
+        assert isinstance(error_data, ErrorData)
+        assert "File not found" in error_data.message
+
+    def test_source_connect_error_terminates_gracefully(self):
+        """Test that Source thread terminates gracefully when connect fails."""
+        self.mock_stream_reader.connect.side_effect = RuntimeError("Connection error")
+
+        from threading import Thread
+
+        thread = Thread(target=self.source.run, daemon=True)
+        thread.start()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        self.mock_stream_reader.read.assert_not_called()

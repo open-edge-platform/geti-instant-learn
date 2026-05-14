@@ -25,7 +25,7 @@ from domain.services.project import ProjectService
 from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.mappers.prompt import visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
@@ -178,8 +178,8 @@ class PipelineManager:
             Pipeline(
                 project_id,
                 self._frame_repository,
-                FrameBroadcaster[InputData]("inbound"),
-                FrameBroadcaster[OutputData]("outbound"),
+                FrameBroadcaster[InputData | ErrorData]("inbound"),
+                FrameBroadcaster[OutputData | ErrorData]("outbound"),
             )
             .set_source(source)
             .set_processor(processor)

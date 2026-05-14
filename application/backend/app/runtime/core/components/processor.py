@@ -6,7 +6,7 @@ from queue import Empty, Queue
 
 import numpy as np
 
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
 
@@ -85,14 +85,16 @@ class Processor(PipelineComponent):
         self._initialized = False
 
     def setup(
-        self, inbound_broadcaster: FrameBroadcaster[InputData], outbound_broadcaster: FrameBroadcaster[OutputData]
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData | ErrorData],
+        outbound_broadcaster: FrameBroadcaster[OutputData | ErrorData],
     ) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
-        self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
+        self._in_queue: Queue[InputData | ErrorData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
-    def run(self) -> None:  # noqa: C901
+    def run(self) -> None:
         if not self._initialized:
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
@@ -107,45 +109,80 @@ class Processor(PipelineComponent):
 
         while not self._stop_event.is_set():
             try:
-                batch_data: list[InputData] = []
-                while len(batch_data) < self._batch_size and not self._stop_event.is_set():
-                    try:
-                        input_data: InputData = self._in_queue.get(timeout=0.1)
-                        if input_data.trace:
-                            input_data.trace.record_start("processor")
-                    except Empty:
-                        if batch_data:  # if we have partial batch data, process what we have
-                            break
-                        continue
-
-                    is_manual = input_data.context.get("requires_manual_control", False)
-
-                    if not is_manual and self._skip_policy.should_skip():
-                        logger.debug("Frame skipped (timestamp=%s)", input_data.timestamp)
-                        continue
-
-                    batch_data.append(input_data)
-
-                    if is_manual:
-                        break
-
-                if not batch_data or self._stop_event.is_set():
+                batch_data = self._collect_batch_data()
+                if not batch_data:
                     continue
 
-                results = self._model_handler.predict(batch_data)
+                if isinstance(batch_data, ErrorData):
+                    self._outbound_broadcaster.broadcast(batch_data)
+                    continue
 
-                for i, data in enumerate(batch_data):
-                    result = results[i] if i < len(results) else EMPTY_RESULT
-                    if data.trace:
-                        data.trace.record_end("processor")
-                    output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
-                    self._outbound_broadcaster.broadcast(output_data)
+                self._process_batch(batch_data)
 
             except Exception as e:
                 logger.exception("Error in pipeline runner loop: %s", e)
                 continue
 
         logger.debug("Stopping the pipeline runner loop")
+
+    def _collect_batch_data(self) -> list[InputData] | ErrorData:
+        """Collect a batch of input data from the queue.
+
+        Returns:
+            List of InputData items, empty if no data available, or ErrorData if an error was received.
+        """
+        batch_data: list[InputData] = []
+
+        # Fetch first item; check for startup errors (e.g. missing video file)
+        try:
+            initial_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
+        except Empty:
+            return []
+
+        if isinstance(initial_data, ErrorData):
+            return initial_data
+
+        while len(batch_data) < self._batch_size and not self._stop_event.is_set():
+            if initial_data is not None:
+                input_data, initial_data = initial_data, None
+            else:
+                try:
+                    input_data = self._in_queue.get(timeout=0.1)
+                except Empty:
+                    if batch_data:  # if we have partial batch data, process what we have
+                        break
+                    continue
+
+            if input_data.trace:
+                input_data.trace.record_start("processor")
+
+            is_manual = input_data.context.get("requires_manual_control", False)
+
+            if not is_manual and self._skip_policy.should_skip():
+                logger.debug("Frame skipped (timestamp=%s)", input_data.timestamp)
+                continue
+
+            batch_data.append(input_data)
+
+            if is_manual:
+                break
+
+        return batch_data if not self._stop_event.is_set() else []
+
+    def _process_batch(self, batch_data: list[InputData]) -> None:
+        """Process a batch of input data and broadcast results.
+
+        Args:
+            batch_data: List of InputData items to process.
+        """
+        results = self._model_handler.predict(batch_data)
+
+        for i, data in enumerate(batch_data):
+            result = results[i] if i < len(results) else EMPTY_RESULT
+            if data.trace:
+                data.trace.record_end("processor")
+            output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
+            self._outbound_broadcaster.broadcast(output_data)
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)

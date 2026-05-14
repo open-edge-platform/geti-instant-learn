@@ -61,6 +61,18 @@ class VideoFileReader(StreamReader):
         self._lock = Lock()
         super().__init__()
 
+    def validate_config(self) -> None:
+        """Validate the video file configuration.
+
+        Raises:
+            ValueError: If the path does not exist or is not a file.
+        """
+        video_path = Path(self._config.video_path)
+        if not video_path.exists():
+            raise ValueError(f"Video file does not exist: {self._config.video_path}")
+        if not video_path.is_file():
+            raise ValueError(f"Path is not a file: {self._config.video_path}")
+
     def connect(self) -> None:
         """Open the video file and initialize video properties."""
         video_path = Path(self._config.video_path)

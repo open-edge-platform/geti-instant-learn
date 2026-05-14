@@ -5,8 +5,9 @@ import logging
 import time
 from threading import Condition
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.frame_trace import FrameTrace
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import ErrorData, InputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -33,12 +34,12 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._initialized = False
-        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+        self._inbound_broadcaster: FrameBroadcaster[InputData | ErrorData] | None = None
         self._manual_mode = self._reader.requires_manual_control
         self._next_frame_condition = Condition()
         self._next_frame_requested = True
 
-    def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
+    def setup(self, inbound_broadcaster: FrameBroadcaster[InputData | ErrorData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._initialized = True
 
@@ -46,7 +47,12 @@ class Source(PipelineComponent):
         if not self._initialized or self._inbound_broadcaster is None:
             raise RuntimeError("The source should be initialized before being used")
 
-        self._reader.connect()
+        try:
+            self._reader.connect()
+        except Exception as e:
+            logger.exception(f"Failed to connect reader: {e}")
+            self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
+            return
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
         while not self._stop_event.is_set():

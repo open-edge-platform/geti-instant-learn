@@ -7,7 +7,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.base import StreamWriter
 
@@ -57,13 +57,17 @@ class MqttWriter(StreamWriter):
             f"after {MAX_RETRIES} attempts"
         )
 
-    def write(self, data: OutputData) -> None:
+    def write(self, data: OutputData | ErrorData) -> None:
         """Publish `data` to the configured MQTT topic."""
         if self._client is None:
             raise RuntimeError("MQTT client is not initialised")
 
         if not self._connected:
             raise RuntimeError("MQTT client is not connected")
+
+        if isinstance(data, ErrorData):
+            logger.warning("Received upstream error: %s", data.message)
+            return
 
         logger.info(f"Publishing data to MQTT topic: {self._config.topic}")
         try:

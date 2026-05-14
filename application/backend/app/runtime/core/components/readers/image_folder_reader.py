@@ -46,6 +46,20 @@ class ImageFolderReader(StreamReader):
         """
         return True
 
+    def validate_config(self) -> None:
+        """Validate the image folder configuration.
+
+        Raises:
+            ValueError: If the path does not exist, is not a directory, or is empty.
+        """
+        folder_path = Path(self._config.images_folder_path)
+        if not folder_path.exists():
+            raise ValueError(f"Images folder does not exist: {self._config.images_folder_path}")
+        if not folder_path.is_dir():
+            raise ValueError(f"Path is not a directory: {self._config.images_folder_path}")
+        if next(folder_path.iterdir(), None) is None:
+            raise ValueError(f"Images folder is empty: {self._config.images_folder_path}")
+
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
         Filter and collect supported image files from the given folder.

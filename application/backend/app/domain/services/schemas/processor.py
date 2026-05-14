@@ -10,6 +10,7 @@ from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils.constants import CompressionMode, SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
+from domain.dispatcher import ComponentType
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 from domain.services.schemas.frame_trace import FrameTrace
 
@@ -216,6 +217,12 @@ class OutputData:
     def to_list(self) -> list[dict[str, list]]:
         # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
         return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
+
+
+@dataclass
+class ErrorData:
+    message: str
+    component: ComponentType
 
 
 class ProcessorSchema(BaseIDSchema):
