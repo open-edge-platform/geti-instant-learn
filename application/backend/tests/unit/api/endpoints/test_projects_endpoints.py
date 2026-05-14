@@ -27,7 +27,7 @@ SECOND_PROJECT_ID_STR = str(SECOND_PROJECT_ID)
 
 
 def assert_project_schema(
-    data: dict, project_id: str, name: str, active: bool = False, device: str = "cpu", prompt_mode: str = "visual"
+    data: dict, project_id: str, name: str, active: bool = False, device: str = "cpu", prompt_mode: str = "VISUAL"
 ):
     assert data["id"] == project_id
     assert data["name"] == name
@@ -82,7 +82,7 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
         def create_project(self, payload):
             assert payload.name == "myproj"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="visual")
+                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="VISUAL")
             if behavior == "conflict":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
@@ -127,7 +127,7 @@ class TestCreateProject:
             def create_project(self, payload):
                 assert payload.name == "myproj"
                 if behavior == "success":
-                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="visual")
+                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="VISUAL")
                 if behavior == "conflict":
                     raise ResourceAlreadyExistsError(
                         resource_type=ResourceType.PROJECT,
@@ -227,7 +227,7 @@ def test_get_active_project(client, behavior, expected_status):
 
         def get_active_project_info(self):
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True, device="cpu", prompt_mode="visual")
+                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True, device="cpu", prompt_mode="VISUAL")
             if behavior == "notfound":
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.PROJECT,
@@ -268,8 +268,8 @@ def test_get_projects_list(client, behavior, expected_status, expected_count):
                 )
             if behavior == "some_projects":
                 projects = [
-                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="visual"),
-                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False, device="cpu", prompt_mode="visual"),
+                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="VISUAL"),
+                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False, device="cpu", prompt_mode="VISUAL"),
                 ]
                 return ProjectsListSchema(
                     projects=projects, pagination=Pagination(count=2, total=2, offset=offset, limit=limit)
@@ -307,7 +307,7 @@ def test_get_projects_list_with_pagination_params(client):
         def list_projects(self, offset=0, limit=20):
             assert offset == 10
             assert limit == 5
-            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="visual")]
+            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="VISUAL")]
             return ProjectsListSchema(projects=projects, pagination=Pagination(count=1, total=15, offset=10, limit=5))
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
@@ -339,7 +339,7 @@ def test_get_project(client, behavior, expected_status, expect_payload):
         def get_project(self, project_id: UUID):
             assert project_id == PROJECT_ID
             if behavior == "minimal":
-                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False, device="cpu", prompt_mode="visual")
+                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False, device="cpu", prompt_mode="VISUAL")
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
@@ -377,7 +377,7 @@ def test_update_project(client, behavior, expected_status):
             assert update_data.name == NEW_NAME
             assert update_data.device == "cuda"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, device="cuda", prompt_mode="visual")
+                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, device="cuda", prompt_mode="VISUAL")
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "conflict":

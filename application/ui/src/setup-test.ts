@@ -15,6 +15,7 @@ import {
     VisualPromptListType,
 } from '@/api';
 import { queryClient } from '@/query-client';
+import { getMockedMatcherModel, getMockedSupportedModels } from '@/test-utils';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
@@ -26,7 +27,7 @@ const MOCKED_PROJECT_RESPONSE: ProjectType = {
     name: 'Project #1',
     active: true,
     device: 'cpu',
-    prompt_mode: 'visual',
+    prompt_mode: 'VISUAL',
 };
 const MOCKED_PROJECTS_LIST_RESPONSE: ProjectsListType = {
     projects: [MOCKED_PROJECT_RESPONSE],
@@ -74,26 +75,12 @@ const MOCKED_SINKS_RESPONSE: SinksListType = {
         offset: 0,
     },
 };
+const MOCKED_SUPPORTED_MODELS_RESPONSE = {
+    pagination: { count: 4, total: 4, offset: 0, limit: 20 },
+    models: getMockedSupportedModels(),
+};
 const MOCKED_MODELS_RESPONSE: ModelListType = {
-    models: [
-        {
-            id: 'some-id',
-            config: {
-                confidence_threshold: 0.38,
-                model_type: 'matcher',
-                num_background_points: 2,
-                num_foreground_points: 40,
-                precision: 'bf16',
-                sam_model: 'SAM-HQ-tiny',
-                encoder_model: 'dinov3_large',
-                use_mask_refinement: false,
-                num_grid_cells: 8,
-                preset: 'throughput',
-            },
-            active: true,
-            name: 'Mega model',
-        },
-    ],
+    models: [getMockedMatcherModel({ id: 'some-id', name: 'Mega model' })],
     pagination: {
         count: 0,
         total: 0,
@@ -127,8 +114,22 @@ const initialHandlers = [
         return HttpResponse.json(MOCKED_SINKS_RESPONSE);
     }),
 
+    http.get('/api/v1/system/supported-models', () => {
+        return HttpResponse.json(MOCKED_SUPPORTED_MODELS_RESPONSE);
+    }),
+
     http.get('/api/v1/projects/{project_id}/models', () => {
         return HttpResponse.json(MOCKED_MODELS_RESPONSE);
+    }),
+
+    http.post('/api/v1/projects/{project_id}/models', async ({ request }) => {
+        const body = await request.json();
+        return HttpResponse.json(body, { status: 201 });
+    }),
+
+    http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request }) => {
+        const body = await request.json();
+        return HttpResponse.json(body);
     }),
 
     http.get('/api/v1/projects/{project_id}/model-status', () => {
@@ -136,7 +137,9 @@ const initialHandlers = [
     }),
 ];
 
-const server = setupServer(...handlers, ...initialHandlers);
+// initialHandlers must come first so deterministic mocks take priority
+// over the auto-generated fromOpenApi handlers
+const server = setupServer(...initialHandlers, ...handlers);
 export { http, server };
 
 beforeAll(() => {
