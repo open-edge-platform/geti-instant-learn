@@ -153,6 +153,9 @@ const test = testBase.extend<Fixtures>({
                     },
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/model-status', ({ response }) => {
+                return response(200).json({ loading: false });
+            }),
         ],
     }),
     streamPage: async ({ page }, use) => {

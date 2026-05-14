@@ -4,13 +4,16 @@
  */
 
 import { $api, VisualPromptType } from '@/api';
+import { setModelLoading } from '@/features/model-loading';
 import { useProjectIdentifier } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 
 const useEditPromptMutation = () => {
     const { projectId } = useProjectIdentifier();
+    const queryClient = useQueryClient();
 
     return $api.useMutation('put', '/api/v1/projects/{project_id}/prompts/{prompt_id}', {
         meta: {
@@ -20,6 +23,9 @@ const useEditPromptMutation = () => {
             error: {
                 notify: true,
             },
+        },
+        onSuccess: () => {
+            setModelLoading(queryClient, projectId);
         },
     });
 };

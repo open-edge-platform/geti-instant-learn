@@ -66,6 +66,17 @@ class PipelineManager:
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
         self._visualization_lock = threading.Lock()
+        self._model_loading: bool = False
+        self._model_loading_lock = threading.Lock()
+
+    def is_model_loading(self) -> bool:
+        """Return True while a processor (re)build is in progress."""
+        with self._model_loading_lock:
+            return self._model_loading
+
+    def _set_model_loading(self, value: bool) -> None:
+        with self._model_loading_lock:
+            self._model_loading = value
 
     def start(self) -> None:
         """
@@ -202,12 +213,17 @@ class PipelineManager:
                 source = self._component_factory.create_source(project_id)
                 self._pipeline.set_source(source, True)
             case ComponentType.PROCESSOR:
-                reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (
-                    None,
-                    {},
-                )
-                processor = self._component_factory.create_processor(project_id, reference_batch)
-                self._pipeline.set_processor(processor, True)
+                # Building the reference batch + downloading weights + initializing the model
+                # can take a while. Surface a "busy" flag so the UI can show a blocking overlay.
+                self._set_model_loading(True)
+                try:
+                    reference_batch, category_id_to_label_id = self.get_reference_batch(
+                        project_id, PromptType.VISUAL
+                    ) or (None, {})
+                    processor = self._component_factory.create_processor(project_id, reference_batch)
+                    self._pipeline.set_processor(processor, True)
+                finally:
+                    self._set_model_loading(False)
             case ComponentType.SINK:
                 sink = self._component_factory.create_sink(project_id)
                 self._pipeline.set_sink(sink, True)

@@ -130,6 +130,10 @@ const initialHandlers = [
     http.get('/api/v1/projects/{project_id}/models', () => {
         return HttpResponse.json(MOCKED_MODELS_RESPONSE);
     }),
+
+    http.get('/api/v1/projects/{project_id}/model-status', () => {
+        return HttpResponse.json({ loading: false });
+    }),
 ];
 
 const server = setupServer(...handlers, ...initialHandlers);
