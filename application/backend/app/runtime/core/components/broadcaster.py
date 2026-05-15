@@ -110,7 +110,7 @@ class FrameBroadcaster[T]:
                 try:
                     queue.put_nowait(frame)
                 except Full:
-                    self._handle_full_queue(queue, frame)
+                    self._handle_full_queue(consumer_name, queue, frame)
                 except Exception:
                     logger.exception("Error broadcasting to queue")
 
@@ -130,7 +130,7 @@ class FrameBroadcaster[T]:
                         break
             self._slot.clear()
 
-    def _handle_full_queue(self, queue: Queue[T], frame: T) -> None:
+    def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
         try:
             queue.get_nowait()
@@ -140,6 +140,6 @@ class FrameBroadcaster[T]:
         try:
             queue.put_nowait(frame)
         except Full:
-            logger.debug("Queue still full after clearing, skipping frame")
+            logger.debug("Queue still full after clearing for consumer '%s', skipping frame", consumer_name)
         except Exception:
-            logger.exception("Error replacing frame in full queue")
+            logger.exception("Error replacing frame in full queue for consumer '%s'", consumer_name)
