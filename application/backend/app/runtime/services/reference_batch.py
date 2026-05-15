@@ -95,7 +95,7 @@ class ReferenceBatchService:
             return None
 
         category_ids = list(range(len(categories)))
-        sample = Sample(categories=categories, category_ids=category_ids)
+        sample = Sample(categories=categories, category_ids=category_ids, is_reference=[True] * len(categories))
         batch = Batch.collate([sample])
         category_id_to_text = dict(enumerate(categories))
 

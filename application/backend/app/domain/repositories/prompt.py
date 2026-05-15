@@ -33,6 +33,8 @@ class PromptRepository(ProjectComponentRepository[PromptDB]):
         if prompt_type is not None:
             stmt = stmt.where(PromptDB.type == prompt_type)
 
+        stmt = stmt.order_by(PromptDB.created_at)
+
         return self.session.scalars(stmt).unique().all()
 
     def list_with_pagination_by_project(

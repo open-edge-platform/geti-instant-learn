@@ -375,6 +375,7 @@ class TestReferenceBatchServiceBuild:
         sample = collated_samples[0]
         assert sample.categories == ["cat", "dog"]
         assert list(sample.category_ids) == [0, 1]
+        assert sample.is_reference == [True, True]
         assert sample.image is None
 
     def test_build_text_mode_skips_prompts_with_empty_text(self, service):
