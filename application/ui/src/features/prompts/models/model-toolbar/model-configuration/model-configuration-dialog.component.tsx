@@ -23,6 +23,8 @@ const ENCODER_MODELS = [
 // ATM backend does not provide a list of available models, so we have to hardcode them here.
 type EncoderModel = (typeof ENCODER_MODELS)[number]['value'];
 
+// sam_model type is shared across Matcher/PerDINO/SoftMatcher configs;
+// extracted from MatcherModel since Sam3Config does not include this field.
 type DecoderModel = MatcherModel['config']['sam_model'];
 
 const DECODER_MODELS: { label: string; value: DecoderModel }[] = [

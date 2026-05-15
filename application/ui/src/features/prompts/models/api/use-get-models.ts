@@ -25,7 +25,7 @@ const useGetModelsQuery = (): ModelListType => {
     return data;
 };
 
-const MODEL_TYPE_DISPLAY_NAMES: Record<string, string> = {
+const MODEL_TYPE_DISPLAY_NAMES: Record<ModelType['config']['model_type'], string> = {
     matcher: 'Matcher',
     perdino: 'PerDINO',
     soft_matcher: 'SoftMatcher',

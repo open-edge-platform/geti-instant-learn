@@ -4,10 +4,8 @@
  */
 
 import { $api } from '@/api';
-import type { SchemaSupportedModelMetadataSchema, SchemaSupportedPromptType } from '@/api/openapi-spec';
 
-export type SupportedModelMetadata = SchemaSupportedModelMetadataSchema;
-export type SupportedPromptType = SchemaSupportedPromptType;
+export type { SupportedModelMetadataType as SupportedModelMetadata, SupportedPromptType } from '@/api';
 
 export const useGetSupportedModels = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/system/supported-models', {

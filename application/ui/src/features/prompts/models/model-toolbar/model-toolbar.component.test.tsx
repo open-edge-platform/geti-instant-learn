@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { MatcherModel } from '@/api';
-import { getMockedModel, getMockedSam3Model, render } from '@/test-utils';
+import { getMockedMatcherModel, getMockedModel, getMockedSam3Model, render } from '@/test-utils';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
@@ -92,12 +91,7 @@ describe('ModelToolbar', () => {
             http.get('/api/v1/projects/{project_id}/models', () => {
                 return HttpResponse.json({
                     models: [
-                        getMockedModel({
-                            id: 'matcher-1',
-                            name: 'Matcher',
-                            active: true,
-                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
-                        }),
+                        getMockedMatcherModel({ id: 'matcher-1', name: 'Matcher', active: true }),
                         getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
                     ],
                     pagination: { total: 2, count: 2, offset: 0, limit: 10 },
@@ -115,6 +109,8 @@ describe('ModelToolbar', () => {
         const listbox = screen.getByRole('listbox');
         expect(within(listbox).getByRole('option', { name: 'Matcher' })).toBeVisible();
         expect(within(listbox).getByRole('option', { name: 'SAM3' })).toBeVisible();
+        expect(within(listbox).queryByRole('option', { name: 'PerDINO' })).not.toBeInTheDocument();
+        expect(within(listbox).queryByRole('option', { name: 'SoftMatcher' })).not.toBeInTheDocument();
     });
 
     it('only shows text-compatible models in text prompt mode', async () => {
@@ -124,12 +120,7 @@ describe('ModelToolbar', () => {
             http.get('/api/v1/projects/{project_id}/models', () => {
                 return HttpResponse.json({
                     models: [
-                        getMockedModel({
-                            id: 'matcher-1',
-                            name: 'Matcher',
-                            active: true,
-                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
-                        }),
+                        getMockedMatcherModel({ id: 'matcher-1', name: 'Matcher', active: true }),
                         getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
                     ],
                     pagination: { total: 2, count: 2, offset: 0, limit: 10 },
@@ -158,12 +149,7 @@ describe('ModelToolbar', () => {
                 return HttpResponse.json({
                     models: [
                         // Matcher is marked active but is incompatible with text mode
-                        getMockedModel({
-                            id: 'matcher-1',
-                            name: 'Matcher',
-                            active: true,
-                            config: { ...getMockedModel().config, model_type: 'matcher' } as MatcherModel['config'],
-                        }),
+                        getMockedMatcherModel({ id: 'matcher-1', name: 'Matcher', active: true }),
                         getMockedSam3Model({ id: 'sam3-1', name: 'SAM3', active: false }),
                     ],
                     pagination: { total: 2, count: 2, offset: 0, limit: 10 },

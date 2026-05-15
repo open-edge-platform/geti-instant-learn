@@ -207,7 +207,7 @@ class ReferenceBatchService:
         return samples
 
     @staticmethod
-    def _visual_prompt_to_sample(  # noqa: C901, PLR0912
+    def _visual_prompt_to_sample(  # noqa: C901
         prompt: PromptDB,
         frame: np.ndarray,
         label_info: LabelInfo,
@@ -264,7 +264,7 @@ class ReferenceBatchService:
                 continue
 
             category_id = label_to_category_id[label_id]
-            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else None
+            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else "object"
 
             if output_bboxes:
                 for polygon in polygons:
@@ -279,8 +279,7 @@ class ReferenceBatchService:
                 instance_masks = polygons_to_masks(polygons, height, width)
                 semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)
                 all_masks.append(semantic_mask)
-                if category_name is not None:
-                    categories.append(category_name)
+                categories.append(category_name)
                 category_ids.append(category_id)
                 is_reference.append(True)
 
@@ -288,15 +287,12 @@ class ReferenceBatchService:
         if not has_annotations:
             raise ServiceError(f"No valid annotations for prompt {prompt.id}")
 
-        sample_kwargs: dict[str, Any] = {
-            "image": frame_chw,
-            "masks": np.stack(all_masks, axis=0) if all_masks else None,
-            "bboxes": np.array(all_bboxes, dtype=np.float32) if all_bboxes else None,
-            "category_ids": np.array(category_ids, dtype=np.int32),
-            "is_reference": is_reference,
-            "image_path": str(prompt.frame_id),
-        }
-        if categories:
-            sample_kwargs["categories"] = categories
-
-        return Sample(**sample_kwargs)
+        return Sample(
+            image=frame_chw,
+            masks=np.stack(all_masks, axis=0) if all_masks else None,
+            bboxes=np.array(all_bboxes, dtype=np.float32) if all_bboxes else None,
+            category_ids=np.array(category_ids, dtype=np.int32),
+            categories=categories,
+            is_reference=is_reference,
+            image_path=str(prompt.frame_id),
+        )

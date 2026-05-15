@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from sqlalchemy.orm import Session
 
-from domain.dispatcher import ConfigChangeDispatcher, ConfigChangeEvent
+from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher, ConfigChangeEvent
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +46,23 @@ class BaseService:
     def _dispatch_pending_events(self) -> None:
         """
         Dispatch and clear queued events (call only after a successful commit).
+
+        Events are coalesced by (project_id, component_type) for ``ComponentConfigChangeEvent``,
+        keeping only the last event per key.
+        This avoids duplicate processing when a single transaction emits multiple events for the same component
+        (e.g. deactivate old model + activate new model).
         """
         if self._dispatcher and self._pending_events:
+            coalesced: dict[tuple, ConfigChangeEvent] = {}
             for event in self._pending_events:
+                if isinstance(event, ComponentConfigChangeEvent):
+                    key: tuple = (event.project_id, event.component_type)
+                else:
+                    # Activation/deactivation events use a unique key per instance.
+                    key = (type(event).__name__, getattr(event, "project_id", id(event)))
+                coalesced[key] = event
+
+            for event in coalesced.values():
                 try:
                     self._dispatcher.dispatch(event)
                 except Exception:
