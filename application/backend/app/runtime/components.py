@@ -11,7 +11,7 @@ from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
-from runtime.core.components.factories.model import ModelFactory
+from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
@@ -39,7 +39,7 @@ class DefaultComponentFactory(ComponentFactory):
         available_devices: list[AvailableDeviceSchema] | None = None,
         dataset_resolver: DatasetResolver | None = None,
     ) -> None:
-        self._model_factory = ModelFactory(available_devices=available_devices)
+        self._model_factory = ModelFactory(device_resolver=DeviceResolver(available_devices=available_devices))
         self._reader_factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
     def create_source(self, reader_cfg: ReaderConfig | None) -> Source:

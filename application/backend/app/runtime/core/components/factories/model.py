@@ -48,10 +48,9 @@ class DeviceResolver:
 class ModelFactory:
     def __init__(
         self,
-        device_resolver: DeviceResolver | None = None,
-        available_devices: list[AvailableDeviceSchema] | None = None,
+        device_resolver: DeviceResolver,
     ) -> None:
-        self._device_resolver = device_resolver or DeviceResolver(available_devices=available_devices)
+        self._device_resolver = device_resolver
 
     def create(  # noqa: PLR0911
         self,
