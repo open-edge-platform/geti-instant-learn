@@ -82,6 +82,7 @@ class Source(PipelineComponent):
 
             except Exception as e:
                 logger.exception(f"Error reading from stream: {e}.")
+                self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
                 time.sleep(0.1)
         logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
         # TODO: To investigate why reader.close() is fixing issue when switching cameras
@@ -101,7 +102,12 @@ class Source(PipelineComponent):
         Seek to a specific frame index.
         Delegates to reader.seek().
         """
-        self._reader.seek(index)
+        try:
+            self._reader.seek(index)
+        except Exception as e:
+            if self._inbound_broadcaster is not None:
+                self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
+            raise
         if self._manual_mode:
             with self._next_frame_condition:
                 self._next_frame_requested = True
@@ -119,4 +125,9 @@ class Source(PipelineComponent):
         Get paginated list of all frames.
         Delegates to reader.list_frames().
         """
-        return self._reader.list_frames(offset=offset, limit=limit)
+        try:
+            return self._reader.list_frames(offset=offset, limit=limit)
+        except Exception as e:
+            if self._inbound_broadcaster is not None:
+                self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
+            raise

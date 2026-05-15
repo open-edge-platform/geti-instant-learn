@@ -94,6 +94,18 @@ class TestSource:
         self.mock_stream_reader.list_frames.assert_called_once_with(offset=0, limit=100)
         assert result == expected_response
 
+    def test_source_list_frames_error_broadcasts_error_data_and_reraises(self):
+        """Test that Source broadcasts ErrorData and re-raises when list_frames() fails."""
+        self.mock_stream_reader.list_frames.side_effect = ValueError("Images folder no longer accessible")
+
+        with pytest.raises(ValueError, match="Images folder no longer accessible"):
+            self.source.list_frames()
+
+        self.mock_broadcaster.broadcast.assert_called_once()
+        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
+        assert isinstance(error_data, ErrorData)
+        assert "Images folder no longer accessible" in error_data.message
+
     def test_source_requires_initialization(self):
         """Test that Source raises an error if run without initialization."""
         uninitialized_source = Source(self.mock_stream_reader)
@@ -135,3 +147,30 @@ class TestSource:
 
         assert not thread.is_alive()
         self.mock_stream_reader.read.assert_not_called()
+
+    def test_source_read_error_broadcasts_error_data(self):
+        """Test that Source broadcasts ErrorData when read() raises."""
+
+        def raise_then_stop():
+            self.source.stop()
+            raise ValueError("Image file no longer accessible")
+
+        self.mock_stream_reader.read.side_effect = raise_then_stop
+        self.source.run()
+
+        self.mock_broadcaster.broadcast.assert_called_once()
+        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
+        assert isinstance(error_data, ErrorData)
+        assert "Image file no longer accessible" in error_data.message
+
+    def test_source_seek_error_broadcasts_error_data_and_reraises(self):
+        """Test that Source broadcasts ErrorData and re-raises when seek() fails."""
+        self.mock_stream_reader.seek.side_effect = ValueError("Image file no longer accessible")
+
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            self.source.seek(3)
+
+        self.mock_broadcaster.broadcast.assert_called_once()
+        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
+        assert isinstance(error_data, ErrorData)
+        assert "Image file no longer accessible" in error_data.message

@@ -122,6 +122,8 @@ class ImageFolderReader(StreamReader):
             return None
 
         image_path = self._image_paths[self._current_index]
+        if not image_path.exists():
+            raise ValueError(f"Image file no longer accessible: {image_path}")
         # cache image to avoid repeated disk reads
         if self._last_image is None or self._last_image_path != image_path:
             image = cv2.imread(str(image_path))
@@ -178,6 +180,10 @@ class ImageFolderReader(StreamReader):
         Returns:
             FrameListResponse with frame metadata including thumbnails and pagination info.
         """
+        folder_path = Path(self._config.images_folder_path)
+        if not folder_path.exists():
+            raise ValueError(f"Images folder no longer accessible: {self._config.images_folder_path}")
+
         timeout = 5.0
         start_time = time.time()
         while not self._initialized:

@@ -1,3 +1,4 @@
+import shutil
 import threading
 import time
 from pathlib import Path
@@ -412,3 +413,47 @@ class TestImageFolderReaderContextManager:
 
         # After exiting context, close should have been called
         assert reader._image_paths == []
+
+
+class TestImageFolderReaderMissingFiles:
+    def test_read_raises_when_current_file_is_deleted(self, reader, temp_image_folder):
+        reader.connect()
+        reader._image_paths[0].unlink()
+        # _last_image is None after connect, so exists() check catches the missing file
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            reader.read()
+
+    def test_read_raises_for_cached_image_when_folder_is_deleted(self, reader, temp_image_folder):
+        reader.connect()
+        reader.read()  # warm _last_image cache
+        shutil.rmtree(str(temp_image_folder))
+        # exists() check runs before the cache guard, so error is still raised
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            reader.read()
+
+    def test_read_raises_when_folder_is_deleted(self, reader, temp_image_folder):
+        reader.connect()
+        shutil.rmtree(str(temp_image_folder))
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            reader.read()
+
+    def test_seek_raises_when_target_file_is_deleted(self, reader, temp_image_folder):
+        reader.connect()
+        reader._image_paths[2].unlink()
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            reader.seek(2)
+
+    def test_list_frames_raises_when_folder_is_deleted(self, reader, temp_image_folder):
+        reader.connect()
+        shutil.rmtree(str(temp_image_folder))
+        with pytest.raises(ValueError, match="Images folder no longer accessible"):
+            reader.list_frames()
+
+    def test_list_frames_raises_immediately_when_folder_never_existed(self):
+        """On restart with a missing directory, list_frames should fail fast without waiting."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = "/nonexistent/path"
+        reader = ImageFolderReader(config, settings.supported_extensions)
+        # connect() is never called (simulates restart before pipeline initialises)
+        with pytest.raises(ValueError, match="Images folder no longer accessible"):
+            reader.list_frames()
