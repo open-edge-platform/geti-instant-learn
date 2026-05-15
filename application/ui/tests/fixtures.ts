@@ -8,11 +8,18 @@ import { expect, test as testBase } from '@playwright/test';
 import { HttpResponse } from 'msw';
 
 import { handlers, http } from '../src/api/utils';
+import { getMockedModel, getMockedSupportedModels } from '../src/test-utils/mocks/mock-model';
 import { AnnotatorPage } from './annotator/annotator-page';
 import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
+
+const MOCK_SUPPORTED_MODELS = {
+    pagination: { count: 4, total: 4, offset: 0, limit: 20 },
+    models: getMockedSupportedModels(),
+};
+const MOCK_DEFAULT_MODEL = getMockedModel({ id: 'default-model-id' });
 
 interface Fixtures {
     network: NetworkFixture;
@@ -26,7 +33,6 @@ interface Fixtures {
 const test = testBase.extend<Fixtures>({
     network: createNetworkFixture({
         initialHandlers: [
-            ...handlers,
             http.get('/health', ({ response }) => {
                 return response(200).json({
                     status: 'ok',
@@ -41,7 +47,7 @@ const test = testBase.extend<Fixtures>({
                             name: 'Project #1',
                             active: true,
                             device: 'cpu',
-                            prompt_mode: 'visual',
+                            prompt_mode: 'VISUAL',
                         },
                     ],
                     pagination: { total: 1, count: 1, offset: 0, limit: 10 },
@@ -53,7 +59,7 @@ const test = testBase.extend<Fixtures>({
                     name: 'Project #1',
                     active: true,
                     device: 'cpu',
-                    prompt_mode: 'visual',
+                    prompt_mode: 'VISUAL',
                 });
             }),
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
@@ -142,17 +148,32 @@ const test = testBase.extend<Fixtures>({
 
                 return HttpResponse.json({ id: promptId, ...body } as never);
             }),
+            http.get('/api/v1/system/supported-models', ({ response }) => {
+                return response(200).json(MOCK_SUPPORTED_MODELS);
+            }),
             http.get('/api/v1/projects/{project_id}/models', ({ response }) => {
                 return response(200).json({
-                    models: [],
+                    models: [MOCK_DEFAULT_MODEL],
                     pagination: {
-                        total: 0,
-                        count: 0,
+                        total: 1,
+                        count: 1,
                         offset: 0,
                         limit: 10,
                     },
                 });
             }),
+            http.post('/api/v1/projects/{project_id}/models', async ({ request, response }) => {
+                const body = await request.json();
+                return response(201).json(body as never);
+            }),
+            http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request, response }) => {
+                const body = await request.json();
+                return response(200).json(body as never);
+            }),
+            http.get('/api/v1/projects/{project_id}/model-status', ({ response }) => {
+                return response(200).json({ loading: false });
+            }),
+            ...handlers,
         ],
     }),
     streamPage: async ({ page }, use) => {

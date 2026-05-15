@@ -70,7 +70,7 @@ def make_project(
         name=name,
         active=active,
         device="auto",
-        prompt_mode="visual",
+        prompt_mode="VISUAL",
         sources=sources,
         processors=processors,
         sinks=sinks,

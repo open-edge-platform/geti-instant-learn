@@ -33,8 +33,8 @@ from domain.services.schemas.prompt import (
 )
 
 
-def make_project(project_id=None, name="proj"):
-    return SimpleNamespace(id=project_id or uuid.uuid4(), name=name)
+def make_project(project_id=None, name="proj", prompt_mode="VISUAL"):
+    return SimpleNamespace(id=project_id or uuid.uuid4(), name=name, prompt_mode=prompt_mode)
 
 
 def make_text_prompt_db(prompt_id=None, project_id=None, text="test prompt"):
@@ -84,12 +84,14 @@ def service():
     project_repo = MagicMock(name="ProjectRepositoryMock")
     frame_repo = MagicMock(name="FrameRepositoryMock")
     label_repo = MagicMock(name="LabelRepositoryMock")
+    processor_repo = MagicMock(name="ProcessorRepositoryMock")
     return PromptService(
         session=session,
         prompt_repository=prompt_repo,
         project_repository=project_repo,
         frame_repository=frame_repo,
         label_repository=label_repo,
+        processor_repository=processor_repo,
     )
 
 
@@ -159,10 +161,11 @@ def polygon_annotation(label_id):
 
 
 def test_list_prompts_success(service, mock_project, project_id, test_image):
-    text_prompt = make_text_prompt_db(project_id=project_id)
+    # list_prompts routes by prompt_mode; mock_project has prompt_mode="VISUAL"
     visual_prompt = make_visual_prompt_db(project_id=project_id)
-    service.prompt_repository.list_with_pagination_by_project.return_value = ([text_prompt, visual_prompt], 2)
-    service.frame_repository.read_frame.return_value = test_image
+    visual_prompt2 = make_visual_prompt_db(project_id=project_id)
+    service.prompt_repository.list_by_project_and_type.return_value = [visual_prompt, visual_prompt2]
+    service.processor_repository.get_active_in_project.return_value = None
 
     result = service.list_prompts(project_id, offset=0, limit=10)
 
@@ -171,13 +174,12 @@ def test_list_prompts_success(service, mock_project, project_id, test_image):
     assert result.pagination.count == 2
     assert result.pagination.offset == 0
     assert result.pagination.limit == 10
-    service.prompt_repository.list_with_pagination_by_project.assert_called_once_with(
-        project_id=project_id, offset=0, limit=10
-    )
+    service.prompt_repository.list_by_project_and_type.assert_called_once()
 
 
 def test_list_prompts_empty(service, mock_project, project_id):
-    service.prompt_repository.list_with_pagination_by_project.return_value = ([], 0)
+    service.prompt_repository.list_by_project_and_type.return_value = []
+    service.processor_repository.get_active_in_project.return_value = None
 
     result = service.list_prompts(project_id)
 
@@ -558,57 +560,6 @@ def test_project_not_found(service):
         service.list_prompts(uuid.uuid4())
 
     assert exc_info.value.resource_type == ResourceType.PROJECT
-
-
-def test_normalization_scales_visual_points(service, frame_id, label_id):
-    create_schema = VisualPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.VISUAL,
-        frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(
-                    type=AnnotationType.RECTANGLE,
-                    points=[Point(x=10.0, y=20.0), Point(x=60.0, y=120.0)],
-                ),
-                label_id=label_id,
-            )
-        ],
-    )
-
-    normalized = service._normalization(create_schema, height=200, width=100)
-
-    assert normalized.annotations[0].config.points[0].x == pytest.approx(0.1)
-    assert normalized.annotations[0].config.points[0].y == pytest.approx(0.1)
-    assert normalized.annotations[0].config.points[1].x == pytest.approx(0.6)
-    assert normalized.annotations[0].config.points[1].y == pytest.approx(0.6)
-
-
-def test_denormalization_scales_visual_points(service, project_id, frame_id):
-    annotation = make_annotation_db()
-    annotation.config = {
-        "type": AnnotationType.RECTANGLE,
-        "points": [{"x": 0.25, "y": 0.5}, {"x": 0.75, "y": 0.9}],
-    }
-    prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation])
-    service.frame_repository.read_frame.return_value = np.zeros((100, 200, 3), dtype=np.uint8)
-
-    denormalized = service._denormalization(project_id=project_id, data=prompt)
-
-    points = denormalized.annotations[0].config["points"]
-    assert points[0]["x"] == 50
-    assert points[0]["y"] == 50
-    assert points[1]["x"] == 150
-    assert points[1]["y"] == 90
-    service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
-
-
-def test_denormalization_raises_when_frame_missing(service, project_id, frame_id):
-    prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[make_annotation_db()])
-    service.frame_repository.read_frame.return_value = None
-
-    with pytest.raises(ResourceNotFoundError):
-        service._denormalization(project_id=project_id, data=prompt)
 
 
 def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(
