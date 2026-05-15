@@ -14,7 +14,6 @@ import { MainContent } from '../components/main-content/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar/toolbar.component';
 import { paths } from '../constants/paths';
-import { ModelLoadingDialog } from '../features/model-loading';
 import { useActivateProject } from '../features/project/api/use-activate-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
@@ -54,9 +53,13 @@ const useEnsureValidAndActiveProject = () => {
     }, [data.active]);
 };
 
-const ProjectContent = () => {
+export const ProjectRoute = () => {
+    useEnsureValidAndActiveProject();
+
+    const { projectId } = useProjectIdentifier();
+
     return (
-        <>
+        <WebRTCConnectionProvider key={projectId}>
             <Grid areas={['header', 'main']} rows={['size-800', minmax(0, '1fr')]} columns={'1fr'} height={'100vh'}>
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
@@ -66,19 +69,6 @@ const ProjectContent = () => {
                     <MainLayout />
                 </SelectedFrameProvider>
             </Grid>
-            <ModelLoadingDialog />
-        </>
-    );
-};
-
-export const ProjectRoute = () => {
-    useEnsureValidAndActiveProject();
-
-    const { projectId } = useProjectIdentifier();
-
-    return (
-        <WebRTCConnectionProvider key={projectId}>
-            <ProjectContent />
         </WebRTCConnectionProvider>
     );
 };
