@@ -59,6 +59,8 @@ class OpenVINOModelHandler(ModelHandler):
         # Export on CPU to avoid XPU/CUDA compilation issues during tracing.
         # The exported OpenVINO model can then be run on any device (CPU, GPU, etc.)
         original_device = next(self._model.parameters()).device
+        logger.info("Original device %s", original_device)
+
         self._model.cpu()
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
