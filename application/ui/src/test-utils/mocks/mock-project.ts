@@ -11,7 +11,7 @@ export const getMockedProject = (customProject: Partial<ProjectType>): ProjectTy
         name: 'animals',
         active: false,
         device: 'cpu',
-        prompt_mode: 'visual',
+        prompt_mode: 'VISUAL',
         ...customProject,
     };
 };

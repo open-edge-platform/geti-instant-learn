@@ -123,6 +123,14 @@ class Settings(BaseSettings):
     )  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = Field(default=90, ge=0, le=100, alias="THUMBNAIL_JPEG_QUALITY")
 
+    # SAM3
+    sam3_hybrid_mode: bool = Field(
+        default=False,
+        alias="SAM3_HYBRID_MODE",
+        description="When enabled, SAM3 canvas-mode prompts include real label names alongside bounding boxes. "
+        "Disabled by default to avoid degraded performance from conflicting or nonsensical label names.",
+    )
+
     # Processor configuration
     processor_batch_size: int = Field(default=1, alias="PROCESSOR_BATCH_SIZE")
     processor_frame_skip_interval: int = Field(default=3, ge=0, alias="PROCESSOR_FRAME_SKIP_INTERVAL")
