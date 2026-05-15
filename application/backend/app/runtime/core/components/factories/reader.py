@@ -69,8 +69,6 @@ class StreamReaderFactory:
 
                 dataset_path = self._dataset_resolver.get_dataset_path(dataset_id=config.dataset_id)
 
-                logger.info("Using sample dataset path '%s'.", dataset_path)
-
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
                     images_folder_path=str(dataset_path),

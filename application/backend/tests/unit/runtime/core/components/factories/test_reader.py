@@ -8,7 +8,6 @@ from uuid import uuid4
 
 import pytest
 
-from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
@@ -89,7 +88,7 @@ class TestStreamReaderFactory:
         assert result._config.images_folder_path == str(dataset_dir)
         dataset_resolver.get_dataset_path.assert_called_once_with(dataset_id=dataset_id)
 
-    def test_factory_raises_for_unknown_sample_dataset_id(self, monkeypatch) -> None:
+    def test_factory_creates_image_folder_reader_when_dataset_not_found(self, monkeypatch) -> None:
         dataset_id = uuid4()
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=dataset_id)
         monkeypatch.setattr(
@@ -98,11 +97,14 @@ class TestStreamReaderFactory:
         )
 
         dataset_resolver = Mock(spec=DatasetResolver)
-        dataset_resolver.get_dataset_path.side_effect = DatasetNotFoundError(f"Dataset {dataset_id} not found")
+        error_message = f"{dataset_id} does not correspond to any cached dataset."
+        dataset_resolver.get_dataset_path.return_value = error_message
         factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
-        with pytest.raises(DatasetNotFoundError, match="not found"):
-            factory.create(config)
+        result = factory.create(config)
+
+        assert isinstance(result, ImageFolderReader)
+        assert result._config.images_folder_path == error_message
 
     def test_factory_uses_first_cached_sample_dataset_when_dataset_id_missing(
         self,
@@ -128,7 +130,7 @@ class TestStreamReaderFactory:
         assert result._config.images_folder_path == str(first_dataset_dir)
         dataset_resolver.get_dataset_path.assert_called_once_with(dataset_id=None)
 
-    def test_factory_raises_when_no_cached_sample_datasets_are_available(self, monkeypatch) -> None:
+    def test_factory_creates_image_folder_reader_when_no_cached_sample_datasets(self, monkeypatch) -> None:
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
         monkeypatch.setattr(
             "runtime.core.components.factories.reader.get_settings",
@@ -136,11 +138,14 @@ class TestStreamReaderFactory:
         )
 
         dataset_resolver = Mock(spec=DatasetResolver)
-        dataset_resolver.get_dataset_path.side_effect = DatasetNotFoundError("No sample datasets available")
+        error_message = "No sample datasets available in the startup cache."
+        dataset_resolver.get_dataset_path.return_value = error_message
         factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
-        with pytest.raises(DatasetNotFoundError, match="No sample datasets available"):
-            factory.create(config)
+        result = factory.create(config)
+
+        assert isinstance(result, ImageFolderReader)
+        assert result._config.images_folder_path == error_message
 
     def test_factory_raises_when_dataset_resolver_not_provided_for_sample_dataset(self, monkeypatch) -> None:
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
