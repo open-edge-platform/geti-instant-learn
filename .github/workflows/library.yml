@@ -19,10 +19,27 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Harden the runner (audit all outbound calls)
+      - name: Harden the runner
         uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
         with:
-          egress-policy: audit
+          disable-sudo: true
+          disable-telemetry: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            cas-bridge.xethub.hf.com:443
+            cas-server.xethub.hf.com:443
+            download.pytorch.org:443
+            download-r2.pytorch.org:443
+            files.pythonhosted.org:443
+            github.com:443
+            huggingface.co:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            releases.astral.sh:443
+            release-assets.githubusercontent.com:443
+            transfer.xethub.hf.co:443
+            us.aws.cdn.hf.co:443
 
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

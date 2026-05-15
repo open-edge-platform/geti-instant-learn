@@ -12,11 +12,26 @@ jobs:
     permissions:
       contents: read # to checkout code
     steps:
-      - &harden-runner
-        name: Harden the runner (audit all outbound calls)
+      - name: Harden the runner (audit all outbound calls)
         uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
         with:
-          egress-policy: audit
+          disable-sudo: false
+          disable-telemetry: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            azure.archive.ubuntu.com:80
+            download.pytorch.org:443
+            download-r2.pytorch.org:443
+            esm.ubuntu.com:443
+            files.pythonhosted.org:443
+            dl.google.com:443
+            github.com:443
+            packages.microsoft.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            releases.astral.sh:443
 
       - &checkout
         name: Checkout code
@@ -53,7 +68,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - *harden-runner
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          disable-sudo: true
+          disable-telemetry: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
 
       - *checkout
 
@@ -108,7 +133,17 @@ jobs:
       pull-requests: write
 
     steps:
-      - *harden-runner
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.19.0
+        with:
+          disable-sudo: true
+          disable-telemetry: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
 
       - *checkout
 
@@ -202,7 +237,7 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.57.0-jammy@sha256:6aca677c27a967caf7673d108ac67ffaf8fed134f27e17b27a05464ca0ace831
     steps:
-      - *harden-runner
+      # This job is running in a container. Such jobs can be monitored by installing Harden Runner in a custom VM image for GitHub-hosted runners.
 
       - *checkout
 

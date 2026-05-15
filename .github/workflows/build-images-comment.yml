@@ -94,6 +94,8 @@ jobs:
     needs: [get-sha-commit, get-build-version]
     permissions:
       contents: read
+      packages: write # Permission to push packages to GHCR
+      id-token: write # Permission to request OIDC token for signing images
     uses: ./.github/workflows/distrib.yml
     with:
       build_version: ${{ needs.get-build-version.outputs.build_version }}
