@@ -8,10 +8,7 @@ import { $api, type ProjectUpdateType } from '@/api';
 export const useUpdateProject = () => {
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
         meta: {
-            invalidates: [
-                ['get', '/api/v1/projects'],
-                ['get', '/api/v1/projects/{project_id}'],
-            ],
+            invalidates: [['get', '/api/v1/projects']],
             error: {
                 notify: true,
             },
