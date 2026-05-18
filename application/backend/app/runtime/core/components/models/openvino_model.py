@@ -72,14 +72,7 @@ class OpenVINOModelHandler(ModelHandler):
             core = openvino.Core()
             ov_device = self._ov_device
             logger.info("Available OV devices: %s", core.available_devices)
-            logger.info("Compiling exported model for OpenVINO device %s", ov_device)
-
-            # Diagnostic: do NOT force inference_precision — let OV pick the device default
-            # (fp16 on GPU, fp32 on CPU). Forcing fp32 on GPU disables fp16 kernels and
-            # tanks performance.
-
             logger.debug("Compiling exported model from %s for device %s...", path, ov_device)
-            logger.debug("Reading model %s...", path)
             ov_model = core.read_model(str(path))
 
             input_size = getattr(self._model, "input_size", None)
