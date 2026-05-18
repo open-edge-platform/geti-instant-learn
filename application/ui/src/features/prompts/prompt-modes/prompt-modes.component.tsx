@@ -13,8 +13,8 @@ const TEXT_PROMPT_MODE = 'Text Prompt';
 
 const OPTIONS = [VISUAL_PROMPT_MODE, TEXT_PROMPT_MODE];
 
-const getSelectedUIPromptMode = (mode: PromptMode = 'visual') => {
-    if (mode === 'visual') {
+const getSelectedUIPromptMode = (mode: PromptMode = 'VISUAL') => {
+    if (mode === 'VISUAL') {
         return VISUAL_PROMPT_MODE;
     }
     return TEXT_PROMPT_MODE;

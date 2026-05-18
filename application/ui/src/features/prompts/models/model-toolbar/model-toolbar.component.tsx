@@ -21,7 +21,7 @@ const isModelCompatible = (
     promptTypesMap: Map<string, SupportedPromptType[]>
 ): boolean => {
     const supportedTypes = promptTypesMap.get(model.config.model_type) ?? [];
-    if (promptMode === 'visual') {
+    if (promptMode === 'VISUAL') {
         return supportedTypes.some((t) => t.startsWith('visual'));
     }
     return supportedTypes.includes('text');

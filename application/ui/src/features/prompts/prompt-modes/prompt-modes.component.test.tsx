@@ -91,16 +91,16 @@ describe('usePromptMode', () => {
         return <div aria-label='mode'>{mode}</div>;
     };
 
-    it('returns visual when project prompt_mode is VISUAL', async () => {
+    it('returns VISUAL when project prompt_mode is VISUAL', async () => {
         render(<TestComponent />);
 
-        expect(await screen.findByLabelText('mode')).toHaveTextContent('visual');
+        expect(await screen.findByLabelText('mode')).toHaveTextContent('VISUAL');
     });
 
-    it('returns text when project prompt_mode is TEXT', async () => {
+    it('returns TEXT when project prompt_mode is TEXT', async () => {
         mockProjectWithMode('TEXT');
         render(<TestComponent />);
 
-        expect(await screen.findByLabelText('mode')).toHaveTextContent('text');
+        expect(await screen.findByLabelText('mode')).toHaveTextContent('TEXT');
     });
 });

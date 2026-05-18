@@ -45,7 +45,7 @@ export const TextPrompt = () => {
     const { data: sourcesData } = useGetSources();
 
     const hasSource = sourcesData.sources.length > 0;
-    const isSubmitDisabled = !hasSource || content.trim() === '' || createMutation.isPending;
+    const isSubmitDisabled = !hasSource || content.trim().length === 0 || createMutation.isPending;
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
