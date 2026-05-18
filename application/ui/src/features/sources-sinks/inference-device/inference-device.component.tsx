@@ -6,8 +6,10 @@
 import { Key, useMemo } from 'react';
 
 import { $api, type DeviceInfoType } from '@/api';
+import { setModelLoading } from '@/features/model-loading';
 import { useCurrentProject, useProjectIdentifier } from '@/hooks';
 import { Item, Picker } from '@geti/ui';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateProject } from '../../project/api/use-update-project.hook';
 
@@ -39,6 +41,7 @@ export const InferenceDevice = () => {
     const { projectId } = useProjectIdentifier();
     const { data: project } = useCurrentProject();
     const { mutate: updateProject } = useUpdateProject();
+    const queryClient = useQueryClient();
 
     const { data: devices } = $api.useSuspenseQuery('get', '/api/v1/system/devices');
 
@@ -58,7 +61,9 @@ export const InferenceDevice = () => {
         if (value === project.device) {
             return;
         }
-        updateProject(projectId, { device: value });
+        updateProject(projectId, { device: value }, () => {
+            setModelLoading(queryClient, projectId);
+        });
     };
 
     return (

@@ -4,6 +4,7 @@
  */
 
 import { type DeviceInfoType } from '@/api';
+import { queryClient } from '@/query-client';
 import { render } from '@/test-utils';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
@@ -87,5 +88,45 @@ describe('InferenceDevice', () => {
         await waitFor(() => {
             expect(updatePayload).toEqual({ device: 'cuda-0' });
         });
+    });
+
+    it('flags the model as loading after a device change so the blocking dialog can appear', async () => {
+        mockDevices([
+            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
+            { type: 'cuda', name: 'NVIDIA GPU', memory: null, index: 0 },
+        ]);
+
+        let modelStatusCalls = 0;
+        server.use(
+            http.put('/api/v1/projects/{project_id}', async () =>
+                HttpResponse.json({
+                    id: '1',
+                    name: 'Project #1',
+                    active: true,
+                    device: 'cuda-0',
+                    prompt_mode: 'VISUAL',
+                })
+            ),
+            http.get('/api/v1/projects/{project_id}/model-status', () => {
+                modelStatusCalls += 1;
+                return HttpResponse.json({ loading: false });
+            })
+        );
+
+        renderComponent();
+
+        const picker = await screen.findByRole('button', { name: /inference device/i });
+        fireEvent.click(picker);
+        fireEvent.click(await screen.findByRole('option', { name: 'NVIDIA GPU' }));
+
+        await waitFor(() => {
+            const cached = queryClient.getQueryData([
+                'get',
+                '/api/v1/projects/{project_id}/model-status',
+                { params: { path: { project_id: '1' } } },
+            ]);
+            expect(cached).toEqual({ loading: true });
+        });
+        expect(modelStatusCalls).toBe(0);
     });
 });
