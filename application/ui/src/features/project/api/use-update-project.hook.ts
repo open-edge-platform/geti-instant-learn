@@ -4,8 +4,11 @@
  */
 
 import { $api, type ProjectUpdateType } from '@/api';
+import { getQueryKey } from '@/query-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useUpdateProject = () => {
+    const queryClient = useQueryClient();
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
         meta: {
             invalidates: [['get', '/api/v1/projects']],
@@ -16,6 +19,12 @@ export const useUpdateProject = () => {
     });
 
     const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void> | void): void => {
+        const projectQueryKey = getQueryKey([
+            'get',
+            '/api/v1/projects/{project_id}',
+            { params: { path: { project_id: id } } },
+        ]);
+
         updateProjectMutation.mutate(
             {
                 body,
@@ -27,6 +36,7 @@ export const useUpdateProject = () => {
             },
             {
                 onSuccess: async () => {
+                    await queryClient.invalidateQueries({ queryKey: projectQueryKey });
                     await onSuccess?.();
                 },
             }
