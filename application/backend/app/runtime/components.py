@@ -7,16 +7,16 @@ from abc import ABC, abstractmethod
 from instantlearn.data.base.batch import Batch
 
 from domain.services.dataset_discovery import DatasetResolver
-from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
-from runtime.core.components.factories.model import DeviceResolver, ModelFactory
+from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
+from runtime.services.device import DeviceService
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -36,10 +36,10 @@ class ComponentFactory(ABC):
 class DefaultComponentFactory(ComponentFactory):
     def __init__(
         self,
-        available_devices: list[AvailableDeviceSchema] | None = None,
+        device_service: DeviceService,
         dataset_resolver: DatasetResolver | None = None,
     ) -> None:
-        self._model_factory = ModelFactory(device_resolver=DeviceResolver(available_devices=available_devices))
+        self._model_factory = ModelFactory(device_service=device_service)
         self._reader_factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
     def create_source(self, reader_cfg: ReaderConfig | None) -> Source:

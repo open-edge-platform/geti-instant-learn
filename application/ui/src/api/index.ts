@@ -70,4 +70,5 @@ export {
     type SchemaSinkCreateSchema as SinkCreateType,
     type SchemaSinkUpdateSchema as SinkUpdateType,
     type SchemaSinksListSchema as SinksListType,
+    type SchemaDeviceInfo as DeviceInfoType,
 } from './openapi-spec';

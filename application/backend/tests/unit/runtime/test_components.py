@@ -15,7 +15,7 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
     cfg = PipelineConfig(project_id=project_id, device="xpu", reader=None, processor=None, writer=None)
     reference_batch = Mock(name="reference_batch")
 
-    factory = DefaultComponentFactory()
+    factory = DefaultComponentFactory(device_service=Mock(name="device_service"))
     factory._model_factory = Mock(name="model_factory")
     model_handler = Mock(name="model_handler")
     factory._model_factory.create.return_value = model_handler
@@ -50,7 +50,7 @@ def test_create_source_passes_dataset_resolver_to_stream_reader_factory():
     dataset_resolver = Mock(name="dataset_resolver")
     source_reader = Mock(name="stream_reader")
 
-    factory = DefaultComponentFactory(dataset_resolver=dataset_resolver)
+    factory = DefaultComponentFactory(device_service=Mock(name="device_service"), dataset_resolver=dataset_resolver)
 
     with (
         patch.object(factory._reader_factory, "create", return_value=source_reader) as create_reader,

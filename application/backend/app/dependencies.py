@@ -27,11 +27,11 @@ from domain.services import (
 )
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.dataset import DatasetsListSchema
-from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.validators.reader_config import ReaderConfigValidator
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.device import DeviceService
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService
 from runtime.services.source_type import SourceTypeService
@@ -66,9 +66,9 @@ def get_available_datasets(request: Request) -> DatasetsListSchema:
     return available_datasets
 
 
-def get_available_devices(request: Request) -> list[AvailableDeviceSchema]:
-    """Dependency that provides startup-cached available devices list."""
-    return request.app.state.available_devices
+def get_device_service(request: Request) -> DeviceService:
+    """Dependency that provides the startup-cached :class:`DeviceService`."""
+    return request.app.state.device_service
 
 
 # --- DB session dependency ---
@@ -115,9 +115,10 @@ def get_supported_model_repository() -> SupportedModelRepository:
 def get_project_service(
     session: SessionDep,
     dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)],
+    device_service: Annotated[DeviceService, Depends(get_device_service)],
 ) -> ProjectService:
     """Dependency that provides a ProjectService instance."""
-    return ProjectService(session=session, config_change_dispatcher=dispatcher)
+    return ProjectService(session=session, config_change_dispatcher=dispatcher, device_service=device_service)
 
 
 def get_source_service(
@@ -209,5 +210,5 @@ ReaderConfigValidatorDep = Annotated[ReaderConfigValidator, Depends(get_reader_c
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
-AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]
+DeviceServiceDep = Annotated[DeviceService, Depends(get_device_service)]
 SupportedModelRepoDep = Annotated[SupportedModelRepository, Depends(get_supported_model_repository)]
