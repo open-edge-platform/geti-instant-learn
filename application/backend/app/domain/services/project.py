@@ -131,7 +131,7 @@ class ProjectService(BaseService):
         projects, total = self.project_repository.list_with_pagination(offset=offset, limit=limit)
         return projects_db_to_list_items(projects, total=total, offset=offset, limit=limit)
 
-    def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:
+    def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:  # noqa: C901
         """
         Update a project:
           - Rename if `name` provided and different (enforces uniqueness via DB constraint).
