@@ -148,14 +148,9 @@ class TestSource:
         assert not thread.is_alive()
         self.mock_stream_reader.read.assert_not_called()
 
-    def test_source_read_error_broadcasts_error_data(self):
-        """Test that Source broadcasts ErrorData when read() raises."""
-
-        def raise_then_stop():
-            self.source.stop()
-            raise ValueError("Image file no longer accessible")
-
-        self.mock_stream_reader.read.side_effect = raise_then_stop
+    def test_source_read_error_broadcasts_error_data_and_stops_loop(self):
+        """Test that Source broadcasts ErrorData once and exits the loop when read() raises."""
+        self.mock_stream_reader.read.side_effect = ValueError("Image file no longer accessible")
         self.source.run()
 
         self.mock_broadcaster.broadcast.assert_called_once()
