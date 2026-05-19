@@ -33,6 +33,7 @@ export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
 
 export type { SchemaSupportedModelMetadataSchema as SupportedModelMetadataType } from './openapi-spec';
 export type { SchemaSupportedPromptType as SupportedPromptType } from './openapi-spec';
+export type { SchemaPromptType as PromptMode } from './openapi-spec';
 
 type MatcherConfig = components['schemas']['MatcherConfig'];
 type PerDINOConfig = components['schemas']['PerDinoConfig'];

@@ -5,10 +5,11 @@
 
 import { useCallback } from 'react';
 
+import { type PromptMode } from '../../api';
 import { useUpdateProject } from '../../features/project/api/use-update-project.hook';
 import { useCurrentProject } from './use-current-project.hook';
 
-export type PromptMode = 'TEXT' | 'VISUAL';
+export type { PromptMode };
 
 export const usePromptMode = (): [PromptMode, (mode: PromptMode) => void] => {
     const { data: project } = useCurrentProject();
