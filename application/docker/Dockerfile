@@ -68,7 +68,7 @@ RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git=1:2.47.3-0+deb13u1 \
     libgl1=1.7.0-1+b2 \
-    libglib2.0-0=2.84.4-3~deb13u2 \
+    libglib2.0-0=2.84.4-3~deb13u3 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
