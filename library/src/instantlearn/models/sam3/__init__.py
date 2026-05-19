@@ -11,6 +11,7 @@ from .model import Sam3Model
 from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 from .sam3 import SAM3, SAM3_APPLICATION_MODEL_ID, SAM3_LIBRARY_MODEL_ID, CanvasConfig, Sam3PromptMode
+from .sam3_openvino import SAM3OpenVINO, SAM3OVVariant
 
 __all__ = [
     "SAM3",
@@ -18,6 +19,8 @@ __all__ = [
     "SAM3_LIBRARY_MODEL_ID",
     "CanvasConfig",
     "PostProcessingConfig",
+    "SAM3OVVariant",
+    "SAM3OpenVINO",
     "Sam3Model",
     "Sam3Postprocessor",
     "Sam3Preprocessor",

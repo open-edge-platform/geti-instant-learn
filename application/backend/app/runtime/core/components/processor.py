@@ -159,7 +159,6 @@ class Processor(PipelineComponent):
             is_manual = input_data.context.get("requires_manual_control", False)
 
             if not is_manual and self._skip_policy.should_skip():
-                logger.debug("Frame skipped (timestamp=%s)", input_data.timestamp)
                 continue
 
             batch_data.append(input_data)

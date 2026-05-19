@@ -34,12 +34,11 @@ class TestDeviceResolver:
         ],
     )
     def test_resolve_device_auto_priority(self, available_devices, expected_device):
-        resolver = DeviceResolver()
-        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
-            assert resolver.resolve_device("auto") == expected_device
+        resolver = DeviceResolver(available_devices=available_devices)
+        assert resolver.resolve_device("auto") == expected_device
 
     def test_resolve_device_keeps_explicit_device(self):
-        resolver = DeviceResolver()
+        resolver = DeviceResolver(available_devices=[])
         assert resolver.resolve_device("cuda") == "cuda"
 
     @pytest.mark.parametrize(
@@ -58,9 +57,8 @@ class TestDeviceResolver:
         ],
     )
     def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):
-        resolver = DeviceResolver()
-        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
-            assert resolver.resolve_device(None) == expected_device
+        resolver = DeviceResolver(available_devices=available_devices)
+        assert resolver.resolve_device(None) == expected_device
 
 
 class TestModelFactory:

@@ -6,6 +6,7 @@
 from .constants import Backend, CompressionMode
 from .similarity_resize import resize_similarity_maps
 from .utils import (
+    device_to_openvino_device,
     download_file,
     precision_to_torch_dtype,
     setup_logger,
@@ -14,6 +15,7 @@ from .utils import (
 __all__ = [
     "Backend",
     "CompressionMode",
+    "device_to_openvino_device",
     "download_file",
     "precision_to_torch_dtype",
     "resize_similarity_maps",

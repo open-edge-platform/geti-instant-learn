@@ -48,6 +48,9 @@ dependencies = [
     # ONNXScript is used for authoring and transforming ONNX graphs in
     # Instant Learn's ONNX-based model export and optimization utilities.
     "onnxscript>=0.6.0",
+    # huggingface_hub is required for auto-downloading pre-exported SAM3
+    # OpenVINO models from HuggingFace Hub.
+    "huggingface_hub>=0.25.0",
 ]
 
 [dependency-groups]
@@ -105,7 +108,7 @@ docs = [
 ]
 
 full = [
-    "instantlearn[dev, notebook]",
+    "instantlearn[dev, notebook, demo]",
 ]
 
 [project.scripts]
@@ -240,6 +243,12 @@ notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-Li
 "tests/**/*.py" = [
     "PLR6301",  # Ignore no-self-use for test methods
     "S101",     # Use of assert detected
+]
+"scripts/**/*.py" = [
+    "INP001",   # Scripts are standalone, not packages
+]
+"examples/**/*.py" = [
+    "INP001",   # Examples are standalone, not packages
 ]
 "tools/**/*.py" = [
     "T201",     # print() is intentional for CLI output

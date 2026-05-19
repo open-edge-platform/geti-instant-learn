@@ -84,7 +84,7 @@ class FrameBroadcaster[T]:
                 try:
                     queue.put_nowait(self._slot.latest)
                 except Full:
-                    logging.warning("Could not send latest frame to new consumer - queue full")
+                    logging.debug("Could not send latest frame to new consumer - queue full")
 
             logging.info(
                 "%s: registered consumer '%s'. Total consumers: %d", self.name, consumer_name, len(self._consumers)
@@ -113,8 +113,6 @@ class FrameBroadcaster[T]:
                     self._handle_full_queue(consumer_name, queue, frame)
                 except Exception:
                     logger.exception("Error broadcasting to queue")
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("%s/%s depth: %d/%d", self.name, consumer_name, queue.qsize(), queue.maxsize)
 
     def clear(self) -> None:
         """
@@ -134,9 +132,6 @@ class FrameBroadcaster[T]:
 
     def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
-        logger.debug(
-            "%s/%s full (%d/%d), dropping oldest frame", self.name, consumer_name, queue.qsize(), queue.maxsize
-        )
         try:
             queue.get_nowait()
         except Empty:
@@ -145,6 +140,6 @@ class FrameBroadcaster[T]:
         try:
             queue.put_nowait(frame)
         except Full:
-            logger.warning("Queue still full after clearing, skipping frame")
+            logger.debug("Queue still full after clearing for consumer '%s', skipping frame", consumer_name)
         except Exception:
-            logger.exception("Error replacing frame in full queue")
+            logger.exception("Error replacing frame in full queue for consumer '%s'", consumer_name)

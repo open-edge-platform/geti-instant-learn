@@ -55,6 +55,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         format=settings.log_format,
         force=True,
     )
+    # Suppress noise from aiortc when logging level is set to DEBUG
+    logging.getLogger("aiortc").setLevel(logging.INFO)
+
     logger.info(f"Starting {settings.app_name} application...")
     logger.info(settings.format_for_logging())
     run_db_migrations()

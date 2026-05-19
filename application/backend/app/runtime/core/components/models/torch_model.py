@@ -30,7 +30,6 @@ class TorchModelHandler(ModelHandler):
         self._model.fit(self._reference_batch)
 
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
-        logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(inputs))
         batch = self._build_batch(inputs)
         torch_results = self._model.predict(batch)
         results = []

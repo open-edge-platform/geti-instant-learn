@@ -10,10 +10,159 @@ tensors and arrays without requiring model state.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
 from torchvision.ops import nms as torchvision_nms
+
+if TYPE_CHECKING:
+    from instantlearn.data.base.sample import Sample
+
+
+def group_references_by_category(
+    samples: list[Sample],
+) -> dict[int, dict]:
+    """Group reference samples by category id for canvas mode.
+
+    Samples without bounding boxes are silently skipped.
+
+    Args:
+        samples: Reference samples with images, bboxes, categories.
+
+    Returns:
+        ``{cat_id: {"images": [Tensor], "bboxes": [ndarray], "text": str}}``
+
+    Raises:
+        ValueError: If no sample contains bboxes.
+    """
+    refs_by_category: dict[int, dict] = {}
+
+    for sample in samples:
+        if sample.bboxes is None or len(sample.bboxes) == 0:
+            continue
+        bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
+        cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
+        cat_text = (
+            sample.categories[0]
+            if sample.categories and sample.categories[0] != "visual"
+            else "visual"
+        )
+
+        if cat_id not in refs_by_category:
+            refs_by_category[cat_id] = {"images": [], "bboxes": [], "text": cat_text}
+        refs_by_category[cat_id]["images"].append(sample.image)
+        refs_by_category[cat_id]["bboxes"].append(bbox)
+        if cat_text != "visual":
+            refs_by_category[cat_id]["text"] = cat_text
+
+    if not refs_by_category:
+        msg = "CANVAS mode requires at least one reference sample with bboxes."
+        raise ValueError(msg)
+
+    return refs_by_category
+
+
+def build_canvas_shared_grouped(
+    refs_by_category: dict[int, dict],
+    tgt_image: torch.Tensor,
+    split_ratio: float,
+) -> tuple[torch.Tensor, dict[int, list[np.ndarray]], tuple[int, int, int, int]]:
+    """Build a single canvas with grouped-category layout.
+
+    Same-category references are packed side-by-side in one group, with
+    gaps between category groups. Layout::
+
+        [target image                ]   <- top (1 - split_ratio)
+        [cat1_ref1 cat1_ref2] [gap] [cat2_ref1 cat2_ref2]  <- bottom strip
+
+    Args:
+        refs_by_category: Per-category references as returned by
+            :func:`group_references_by_category`.
+        tgt_image: Target image tensor ``(C, H, W)``.
+        split_ratio: Fraction of canvas height for the reference strip.
+
+    Returns:
+        ``(canvas, per_cat_bboxes, tgt_region)`` where *per_cat_bboxes*
+        maps ``cat_id -> list[ndarray]`` of canvas-space bounding boxes.
+
+    Raises:
+        ValueError: If the canvas is too narrow for the number of category slots.
+    """
+    C = tgt_image.shape[0]
+    canvas_w = tgt_image.shape[2]
+    for cat_refs in refs_by_category.values():
+        for img in cat_refs["images"]:
+            canvas_w = max(canvas_w, img.shape[2])
+    canvas_h = max(canvas_w, 2)
+
+    ref_strip_h = int(canvas_h * split_ratio)
+    ref_strip_h = min(max(ref_strip_h, 1), canvas_h - 1)
+    tgt_canvas_h = canvas_h - ref_strip_h
+
+    tgt_resized = F.interpolate(
+        tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
+        mode="bilinear", align_corners=False,
+    ).squeeze(0)
+
+    cat_items = list(refs_by_category.items())
+    n_cats = len(cat_items)
+    n_slots = 2 * n_cats - 1
+    if n_slots > canvas_w:
+        msg = (
+            "Grouped canvas layout requires at least one pixel per slot. "
+            f"Got canvas width {canvas_w} for {n_slots} slots across {n_cats} "
+            "categories. Reduce the number of categories or increase canvas width."
+        )
+        raise ValueError(msg)
+    slot_w = canvas_w // n_slots
+
+    ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+    per_cat_bboxes: dict[int, list[np.ndarray]] = {}
+
+    for cat_idx, (cat_id, cat_refs) in enumerate(cat_items):
+        group_x = cat_idx * 2 * slot_w
+        group_w = slot_w if cat_idx < n_cats - 1 else canvas_w - group_x
+
+        n_refs = len(cat_refs["images"])
+        cat_bboxes_list: list[np.ndarray] = []
+
+        for ref_idx, (ref_img, ref_bbox) in enumerate(zip(
+            cat_refs["images"], cat_refs["bboxes"], strict=True,
+        )):
+            sub_x = group_x + ref_idx * (group_w // n_refs)
+            sub_w = (
+                group_w // n_refs
+                if ref_idx < n_refs - 1
+                else group_w - ref_idx * (group_w // n_refs)
+            )
+
+            ref_h, ref_w = ref_img.shape[1], ref_img.shape[2]
+            ref_resized = F.interpolate(
+                ref_img.unsqueeze(0).float(),
+                size=(ref_strip_h, sub_w),
+                mode="bilinear", align_corners=False,
+            ).squeeze(0)
+            ref_strip[:, :, sub_x:sub_x + sub_w] = ref_resized
+
+            sx = sub_w / ref_w
+            sy = ref_strip_h / ref_h
+            x1, y1, x2, y2 = ref_bbox[:4]
+            cat_bboxes_list.append(np.array([
+                x1 * sx + sub_x,
+                y1 * sy + tgt_canvas_h,
+                x2 * sx + sub_x,
+                y2 * sy + tgt_canvas_h,
+            ], dtype=np.float32))
+
+        per_cat_bboxes[cat_id] = cat_bboxes_list
+
+    canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+    canvas[:, :tgt_canvas_h, :] = tgt_resized
+    canvas[:, tgt_canvas_h:, :] = ref_strip
+
+    return canvas, per_cat_bboxes, (0, 0, canvas_w, tgt_canvas_h)
 
 
 def crop_around_bbox(
