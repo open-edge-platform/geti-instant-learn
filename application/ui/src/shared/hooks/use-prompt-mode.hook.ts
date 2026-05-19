@@ -10,24 +10,15 @@ import { useCurrentProject } from './use-current-project.hook';
 
 export type PromptMode = 'TEXT' | 'VISUAL';
 
-const toBackendMode = (mode: string): PromptMode => {
-    if (mode.toLowerCase().includes('text')) {
-        return 'TEXT';
-    }
-    return 'VISUAL';
-};
-
-export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
+export const usePromptMode = (): [PromptMode, (mode: PromptMode) => void] => {
     const { data: project } = useCurrentProject();
     const updateProject = useUpdateProject();
 
     const handleModeChange = useCallback(
-        (option: string) => {
-            const backendMode = toBackendMode(option);
+        (mode: PromptMode) => {
+            if (mode === project.prompt_mode) return;
 
-            if (backendMode === project.prompt_mode) return;
-
-            updateProject.mutate(project.id, { prompt_mode: backendMode });
+            updateProject.mutate(project.id, { prompt_mode: mode });
         },
         [project.id, project.prompt_mode, updateProject]
     );
