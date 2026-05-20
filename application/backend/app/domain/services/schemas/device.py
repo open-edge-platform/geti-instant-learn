@@ -6,7 +6,8 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 # Canonical user-facing device string format: `auto`, `cpu`, `xpu`, `cuda`, `xpu-<N>`, `cuda-<N>`.
-DEVICE_STR_PATTERN = r"^(?:auto|cpu|(?:xpu|cuda)(?:-\d+)?)$"
+# Device index: 0, or a positive integer with no leading zeros
+DEVICE_STR_PATTERN = r"^(?:auto|cpu|(?:xpu|cuda)(?:-(?:0|[1-9]\d*))?)$"
 
 
 class DeviceType(StrEnum):
