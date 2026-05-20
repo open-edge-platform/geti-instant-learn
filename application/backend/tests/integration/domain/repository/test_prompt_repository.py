@@ -180,37 +180,6 @@ def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_aft
     assert all(p.type == PromptType.VISUAL for p in visual_prompts)
 
 
-def test_get_text_prompt_by_project(prompt_repo, fxt_session, clean_after):
-    project = make_project()
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    text_prompt = make_text_prompt(project.id, text="search query")
-    visual_prompt = make_visual_prompt(project.id)
-    prompt_repo.add(text_prompt)
-    prompt_repo.add(visual_prompt)
-    fxt_session.commit()
-
-    fetched = prompt_repo.get_text_prompt_by_project(project.id)
-    assert fetched is not None
-    assert fetched.id == text_prompt.id
-    assert fetched.type == PromptType.TEXT
-    assert fetched.text == "search query"
-
-
-def test_get_text_prompt_by_project_none(prompt_repo, fxt_session, clean_after):
-    project = make_project()
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    visual_prompt = make_visual_prompt(project.id)
-    prompt_repo.add(visual_prompt)
-    fxt_session.commit()
-
-    fetched = prompt_repo.get_text_prompt_by_project(project.id)
-    assert fetched is None
-
-
 def test_delete_prompt(prompt_repo, fxt_session, clean_after):
     project = make_project()
     fxt_session.add(project)
@@ -266,7 +235,7 @@ def test_project_deletion_cascades_prompts(prompt_repo, fxt_session, clean_after
         assert prompt_repo.get_by_id(pid) is None
 
 
-def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, clean_after):
+def test_multiple_text_prompts_allowed(prompt_repo, fxt_session, clean_after):
     project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
@@ -277,13 +246,11 @@ def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, cle
     prompt_repo.add(first)
     fxt_session.commit()
 
-    with pytest.raises(IntegrityError):
-        prompt_repo.add(second)
-    fxt_session.rollback()
+    prompt_repo.add(second)
+    fxt_session.commit()
 
-    fetched = prompt_repo.get_text_prompt_by_project(project.id)
-    assert fetched is not None
-    assert fetched.text == "first"
+    prompts = prompt_repo.list_by_project_and_type(project.id, PromptType.TEXT)
+    assert len(prompts) == 2
 
 
 def test_multiple_visual_prompts_allowed(prompt_repo, fxt_session, clean_after):

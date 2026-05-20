@@ -211,7 +211,6 @@ def test_get_prompt_not_found(service, mock_project, project_id):
 
 def test_create_text_prompt_success(service, mock_project, project_id):
     new_id = uuid.uuid4()
-    service.prompt_repository.get_text_prompt_by_project.return_value = None
 
     create_schema = TextPromptCreateSchema(id=new_id, type=PromptType.TEXT, content="find red car")
 
@@ -221,22 +220,6 @@ def test_create_text_prompt_success(service, mock_project, project_id):
     assert result.type == PromptType.TEXT
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
-
-
-def test_create_text_prompt_already_exists(service, mock_project, project_id):
-    existing_id = uuid.uuid4()
-    existing_prompt = make_text_prompt_db(prompt_id=existing_id, project_id=project_id)
-    service.prompt_repository.get_text_prompt_by_project.return_value = existing_prompt
-
-    create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="another prompt")
-
-    with pytest.raises(ResourceAlreadyExistsError) as exc_info:
-        service.create_prompt(project_id=project_id, create_data=create_schema)
-
-    assert exc_info.value.resource_type == ResourceType.PROMPT
-    assert exc_info.value.field == "type"
-    assert str(existing_id) in str(exc_info.value)
-    service.prompt_repository.add.assert_not_called()
 
 
 def test_create_visual_prompt_success(service, setup_visual_prompt_test, rectangle_annotation):
@@ -329,26 +312,7 @@ def test_create_visual_prompt_label_not_found(service, mock_project, mock_frame,
     service.prompt_repository.add.assert_not_called()
 
 
-def test_create_prompt_integrity_error_text_duplicate(service, mock_project, project_id):
-    service.prompt_repository.get_text_prompt_by_project.return_value = None
-
-    create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="test")
-
-    mock_error = IntegrityError("statement", "params", "orig")
-    mock_error.orig = Exception("UNIQUE constraint failed: uq_single_text_prompt_per_project")
-    service.session.commit.side_effect = mock_error
-
-    with pytest.raises(ResourceAlreadyExistsError) as exc_info:
-        service.create_prompt(project_id=project_id, create_data=create_schema)
-
-    assert exc_info.value.resource_type == ResourceType.PROMPT
-    assert exc_info.value.field == "type"
-    service.session.rollback.assert_called_once()
-
-
 def test_create_prompt_integrity_error_check_constraint(service, mock_project, project_id):
-    service.prompt_repository.get_text_prompt_by_project.return_value = None
-
     create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="test")
 
     mock_error = IntegrityError("statement", "params", "orig")

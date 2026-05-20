@@ -3,6 +3,7 @@
 
 """In-memory repository for supported model metadata."""
 
+from domain.db.models import PromptType
 from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.processor import (
     MatcherConfig,
@@ -38,18 +39,24 @@ _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
 }
 
 
+_VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_RECTANGLE}
+
+
 class SupportedModelRepository:
     """Read-only repository exposing supported model metadata."""
 
-    def get_all(self) -> list[SupportedModelMetadataSchema]:
+    @staticmethod
+    def get_all() -> list[SupportedModelMetadataSchema]:
         """Return metadata for all supported models."""
         return list(_SUPPORTED_MODELS_METADATA.values())
 
-    def get_by_model_type(self, model_type: ModelType) -> SupportedModelMetadataSchema | None:
+    @staticmethod
+    def get_by_model_type(model_type: ModelType) -> SupportedModelMetadataSchema | None:
         """Return metadata for a single model type, or None if unknown."""
         return _SUPPORTED_MODELS_METADATA.get(model_type)
 
-    def get_supported_annotation_types(self, model_type: ModelType) -> set[AnnotationType]:
+    @staticmethod
+    def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:
         """Derive supported annotation types for a model."""
         metadata = _SUPPORTED_MODELS_METADATA.get(model_type)
         if metadata is None:
@@ -59,3 +66,23 @@ class SupportedModelRepository:
             for pt in metadata.supported_prompt_types
             if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
         }
+
+    @staticmethod
+    def model_type_supports_prompt_mode(model_type: ModelType, prompt_mode: PromptType) -> bool:
+        """Check if a model type supports the given prompt mode.
+
+        Args:
+            model_type: The model type to check.
+            prompt_mode: The prompt mode to filter by.
+
+        Returns:
+            True if the model type supports the prompt mode.
+        """
+        metadata = _SUPPORTED_MODELS_METADATA.get(model_type)
+        if metadata is None:
+            return False
+        if prompt_mode == PromptType.VISUAL:
+            return bool(_VISUAL_PROMPT_TYPES & set(metadata.supported_prompt_types))
+        if prompt_mode == PromptType.TEXT:
+            return SupportedPromptType.TEXT in metadata.supported_prompt_types
+        return False

@@ -61,8 +61,8 @@ class BaseRepository[ModelType: Base]:
         return self.session.execute(stmt).scalar() or False
 
     def list_all(self) -> Sequence[ModelType]:
-        """List all items of the model."""
-        return self.session.execute(select(self.model)).scalars().all()
+        """List all items of the model, ordered by most recently updated first."""
+        return self.session.execute(select(self.model).order_by(self.model.updated_at.desc())).scalars().all()
 
     def list_with_pagination(self, offset: int = 0, limit: int = 20) -> tuple[Sequence[ModelType], int]:
         """
@@ -72,7 +72,7 @@ class BaseRepository[ModelType: Base]:
         """
         total_count = self.session.scalar(select(func.count()).select_from(self.model)) or 0
         items = self.session.scalars(
-            select(self.model).order_by(self.model.created_at).offset(offset).limit(limit)
+            select(self.model).order_by(self.model.updated_at.desc()).offset(offset).limit(limit)
         ).all()
         return items, total_count
 
@@ -117,8 +117,8 @@ class ProjectComponentRepository[ModelType: Base](BaseRepository):
         super().__init__(session=session, model=model)
 
     def list_all_by_project(self, project_id: UUID) -> Sequence[ModelType]:
-        """List all items belonging to the project."""
-        stmt = select(self.model).where(self.model.project_id == project_id)
+        """List all items belonging to the project, ordered by most recently updated first."""
+        stmt = select(self.model).where(self.model.project_id == project_id).order_by(self.model.updated_at.desc())
         return self.session.execute(stmt).scalars().all()
 
     def get_by_id_and_project(self, object_id: UUID, project_id: UUID) -> ModelType | None:
@@ -137,7 +137,7 @@ class ProjectComponentRepository[ModelType: Base](BaseRepository):
         items_query = (
             select(self.model)
             .where(self.model.project_id == project_id)
-            .order_by(self.model.created_at)
+            .order_by(self.model.updated_at.desc())
             .offset(offset)
             .limit(limit)
         )

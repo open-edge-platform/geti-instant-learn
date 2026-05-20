@@ -41,7 +41,6 @@ from domain.services.schemas.prompt import (
     PromptSchema,
     PromptsListSchema,
     PromptUpdateSchema,
-    TextPromptCreateSchema,
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
@@ -157,21 +156,6 @@ class PromptService(BaseService):
         """
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
-
-        if isinstance(create_data, TextPromptCreateSchema):
-            existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
-            if existing_text_prompt:
-                logger.error(
-                    "Text prompt creation failed: text prompt already exists for project_id=%s (prompt_id=%s)",
-                    project_id,
-                    existing_text_prompt.id,
-                )
-                raise ResourceAlreadyExistsError(
-                    resource_type=ResourceType.PROMPT,
-                    field="type",
-                    message=f"A text prompt already exists for this project (ID: {existing_text_prompt.id}). "
-                    "Only one text prompt is allowed per project. Please update the existing text prompt instead.",
-                )
 
         thumbnail = None
         if isinstance(create_data, VisualPromptCreateSchema):
@@ -485,17 +469,6 @@ class PromptService(BaseService):
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
                 message="Referenced project does not exist.",
-            )
-
-        if ("unique" in error_msg or constraint_name) and (
-            constraint_name == UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT
-            or ("text" in error_msg and "type" in error_msg)
-        ):
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.PROMPT,
-                field="type",
-                message="A text prompt already exists for this project. "
-                "Please update or delete the existing text prompt.",
             )
 
         if ("unique" in error_msg or constraint_name) and (

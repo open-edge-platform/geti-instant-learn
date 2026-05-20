@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from domain.db.constraints import UniqueConstraintName
-from domain.db.models import ProcessorDB, ProjectDB
+from domain.db.models import ProcessorDB, ProjectDB, PromptType
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -127,6 +127,72 @@ class TestListModels:
             service.list_models(sample_project_id)
 
         assert exc_info.value.resource_type == ResourceType.PROJECT
+
+    def test_list_models_filtered_by_text_prompt_mode(
+        self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
+    ):
+        """Text filter excludes visual-only models (e.g. matcher) and keeps text-capable ones (e.g. sam3)."""
+        matcher_db = Mock(spec=ProcessorDB)
+        matcher_db.id = uuid4()
+        matcher_db.name = "Matcher"
+        matcher_db.active = False
+        matcher_db.config = {"model_type": "matcher"}
+
+        sam3_db = Mock(spec=ProcessorDB)
+        sam3_db.id = uuid4()
+        sam3_db.name = "SAM3"
+        sam3_db.active = True
+        sam3_db.config = {"model_type": "sam3"}
+
+        mock_project_repository.get_by_id.return_value = sample_project_db
+        mock_processor_repository.list_with_pagination_by_project.return_value = ([matcher_db, sam3_db], 2)
+
+        result = service.list_models(sample_project_id, prompt_mode=PromptType.TEXT)
+
+        assert isinstance(result, ProcessorListSchema)
+        assert len(result.models) == 1
+        assert result.models[0].config.model_type.value == "sam3"
+        assert result.pagination.total == 1
+
+    def test_list_models_filtered_by_visual_prompt_mode(
+        self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
+    ):
+        """Visual filter includes all models that support visual prompts."""
+        matcher_db = Mock(spec=ProcessorDB)
+        matcher_db.id = uuid4()
+        matcher_db.name = "Matcher"
+        matcher_db.active = False
+        matcher_db.config = {"model_type": "matcher"}
+
+        sam3_db = Mock(spec=ProcessorDB)
+        sam3_db.id = uuid4()
+        sam3_db.name = "SAM3"
+        sam3_db.active = True
+        sam3_db.config = {"model_type": "sam3"}
+
+        mock_project_repository.get_by_id.return_value = sample_project_db
+        mock_processor_repository.list_with_pagination_by_project.return_value = ([matcher_db, sam3_db], 2)
+
+        result = service.list_models(sample_project_id, prompt_mode=PromptType.VISUAL)
+
+        assert isinstance(result, ProcessorListSchema)
+        # Both matcher (visual_polygon) and sam3 (visual_rectangle) support visual
+        assert len(result.models) == 2
+        assert result.pagination.total == 2
+
+    def test_list_models_no_prompt_mode_returns_all(
+        self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
+    ):
+        """Without prompt_mode, all models are returned using DB pagination."""
+        mock_project_repository.get_by_id.return_value = sample_project_db
+        mock_processor_repository.list_with_pagination_by_project.return_value = ([], 0)
+
+        result = service.list_models(sample_project_id, prompt_mode=None)
+
+        assert isinstance(result, ProcessorListSchema)
+        mock_processor_repository.list_with_pagination_by_project.assert_called_once_with(
+            project_id=sample_project_id, offset=0, limit=20
+        )
 
 
 class TestGetModel:

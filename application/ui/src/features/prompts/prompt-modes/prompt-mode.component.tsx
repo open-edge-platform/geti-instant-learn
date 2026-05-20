@@ -12,7 +12,7 @@ import { VisualPrompt } from '../visual-prompt/visual-prompt.component';
 export const PromptMode = () => {
     const [mode] = usePromptMode();
 
-    if (mode === 'visual') {
+    if (mode === 'VISUAL') {
         return (
             <VisualPromptProvider>
                 <VisualPrompt />

@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
-from domain.db.models import ProcessorDB, ProjectDB
+from domain.db.models import ProcessorDB, ProjectDB, PromptType
 from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
+from domain.repositories.supported_model import SupportedModelRepository
 from domain.services.base import BaseService
 from domain.services.schemas.mappers.processor import (
     processor_db_to_schema,
@@ -21,6 +22,7 @@ from domain.services.schemas.mappers.processor import (
     processors_db_to_list_items,
 )
 from domain.services.schemas.processor import (
+    ModelType,
     ProcessorCreateSchema,
     ProcessorListSchema,
     ProcessorSchema,
@@ -57,7 +59,9 @@ class ModelService(BaseService):
         self.processor_repository = processor_repository or ProcessorRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
 
-    def list_models(self, project_id: UUID, offset: int = 0, limit: int = 20) -> ProcessorListSchema:
+    def list_models(
+        self, project_id: UUID, offset: int = 0, limit: int = 20, prompt_mode: PromptType | None = None
+    ) -> ProcessorListSchema:
         """
         List all model configurations belonging to a project.
 
@@ -65,6 +69,8 @@ class ModelService(BaseService):
             project_id: Owning project UUID.
             offset: Starting index (0-based)
             limit: Maximum number of items to return
+            prompt_mode: Optional filter. When set, only models whose type
+                supports the given prompt mode are returned.
 
         Returns:
             Pydantic list wrapper with processor schemas.
@@ -73,10 +79,38 @@ class ModelService(BaseService):
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
+
+        if prompt_mode is not None:
+            return self._list_models_filtered_by_prompt_mode(
+                project_id=project_id, prompt_mode=prompt_mode, offset=offset, limit=limit
+            )
+
         db_models, total = self.processor_repository.list_with_pagination_by_project(
             project_id=project_id, offset=offset, limit=limit
         )
         return processors_db_to_list_items(db_models, total=total, offset=offset, limit=limit)
+
+    def _list_models_filtered_by_prompt_mode(
+        self, project_id: UUID, prompt_mode: PromptType, offset: int = 0, limit: int = 20
+    ) -> ProcessorListSchema:
+        """Filter models by supported prompt mode.
+
+        Fetches all models for the project, filters by prompt mode compatibility,
+        then applies pagination to the filtered set.
+        """
+        all_models, _ = self.processor_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=0, limit=10000
+        )
+        filtered = [
+            m
+            for m in all_models
+            if SupportedModelRepository.model_type_supports_prompt_mode(
+                ModelType(m.config.get("model_type", "")), prompt_mode
+            )
+        ]
+        total = len(filtered)
+        paginated = filtered[offset : offset + limit]
+        return processors_db_to_list_items(paginated, total=total, offset=offset, limit=limit)
 
     def get_model(self, project_id: UUID, model_id: UUID) -> ProcessorSchema:
         """

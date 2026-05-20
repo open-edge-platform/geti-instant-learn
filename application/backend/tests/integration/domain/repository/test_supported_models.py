@@ -1,13 +1,13 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-
 from domain.repositories.supported_model import SupportedModelRepository
+from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.processor import ModelType
 
 
 class TestSupportedModelRepository:
-    """Unit tests for the SupportedModelRepository"""
+    """Integration tests for the SupportedModelRepository."""
 
     def test_get_all_returns_all_model_types(self):
         repo = SupportedModelRepository()
@@ -20,8 +20,6 @@ class TestSupportedModelRepository:
         assert repo.get_by_model_type("nonexistent") is None  # type: ignore[arg-type]
 
     def test_get_supported_annotation_types(self):
-        from domain.services.schemas.annotation import AnnotationType
-
         repo = SupportedModelRepository()
         assert AnnotationType.POLYGON in repo.get_supported_annotation_types(ModelType.MATCHER)
         assert AnnotationType.RECTANGLE in repo.get_supported_annotation_types(ModelType.SAM3)

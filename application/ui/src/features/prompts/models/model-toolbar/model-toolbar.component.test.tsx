@@ -10,8 +10,21 @@ import { HttpResponse } from 'msw';
 import { http, server } from '../../../../setup-test';
 import { ModelToolbar } from './model-toolbar.component';
 
-const renderToolbar = (route = '/projects/1?mode=visual') =>
-    render(<ModelToolbar />, { route, path: '/projects/:projectId' });
+const mockProjectWithMode = (promptMode: 'TEXT' | 'VISUAL') => {
+    server.use(
+        http.get('/api/v1/projects/{project_id}', () => {
+            return HttpResponse.json({
+                id: '1',
+                name: 'Project #1',
+                active: true,
+                device: 'cpu',
+                prompt_mode: promptMode,
+            });
+        })
+    );
+};
+
+const renderToolbar = () => render(<ModelToolbar />, { route: '/projects/1', path: '/projects/:projectId' });
 
 describe('ModelToolbar', () => {
     it('does not render picker if there are no models', async () => {
@@ -72,6 +85,8 @@ describe('ModelToolbar', () => {
     });
 
     it('only shows visual-compatible models in visual prompt mode', async () => {
+        mockProjectWithMode('VISUAL');
+
         server.use(
             http.get('/api/v1/projects/{project_id}/models', () => {
                 return HttpResponse.json({
@@ -86,7 +101,7 @@ describe('ModelToolbar', () => {
 
         // Default mode is "visual" — matcher supports visual_polygon, SAM3 supports visual_rectangle
         // Both should be visible
-        renderToolbar('/projects/1?mode=visual');
+        renderToolbar();
 
         const pickerButton = await screen.findByRole('button', { name: /Matcher/i });
         fireEvent.click(pickerButton);
@@ -99,6 +114,8 @@ describe('ModelToolbar', () => {
     });
 
     it('only shows text-compatible models in text prompt mode', async () => {
+        mockProjectWithMode('TEXT');
+
         server.use(
             http.get('/api/v1/projects/{project_id}/models', () => {
                 return HttpResponse.json({
@@ -112,7 +129,7 @@ describe('ModelToolbar', () => {
         );
 
         // Text mode — only SAM3 supports "text"
-        renderToolbar('/projects/1?mode=text');
+        renderToolbar();
 
         // SAM3 is the only text-compatible model
         await waitFor(() => {
@@ -123,6 +140,8 @@ describe('ModelToolbar', () => {
     });
 
     it('activates a compatible model on mount when the backend active model is incompatible', async () => {
+        mockProjectWithMode('TEXT');
+
         let activatedModelId: string | null = null;
 
         server.use(
@@ -144,7 +163,7 @@ describe('ModelToolbar', () => {
         );
 
         // Text mode — Matcher is active but incompatible, SAM3 should be auto-activated
-        renderToolbar('/projects/1?mode=text');
+        renderToolbar();
 
         await waitFor(() => {
             expect(activatedModelId).toBe('sam3-1');

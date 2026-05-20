@@ -111,7 +111,7 @@ class TestGetModels:
             def __init__(self, session):
                 pass
 
-            def list_models(self, project_id, offset=0, limit=100):
+            def list_models(self, project_id, offset=0, limit=100, prompt_mode=None):
                 items = [sample_processor_schema]
                 pagination = Pagination(
                     count=len(items),
@@ -133,7 +133,7 @@ class TestGetModels:
             def __init__(self, session):
                 pass
 
-            def list_models(self, project_id, offset=0, limit=100):
+            def list_models(self, project_id, offset=0, limit=100, prompt_mode=None):
                 pagination = Pagination(count=0, total=0, offset=offset, limit=limit)
                 return ProcessorListSchema(models=[], pagination=pagination)
 
@@ -149,7 +149,7 @@ class TestGetModels:
             def __init__(self, session):
                 pass
 
-            def list_models(self, project_id, offset=0, limit=100):
+            def list_models(self, project_id, offset=0, limit=100, prompt_mode=None):
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
@@ -164,7 +164,7 @@ class TestGetModels:
             def __init__(self, session):
                 pass
 
-            def list_models(self, project_id, offset=0, limit=100):
+            def list_models(self, project_id, offset=0, limit=100, prompt_mode=None):
                 raise RuntimeError("Database error")
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
