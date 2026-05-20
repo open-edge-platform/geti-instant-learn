@@ -8,11 +8,16 @@ import { Flex, Text, ToggleButtons } from '@geti/ui';
 
 import styles from './prompt-modes.module.scss';
 
-const OPTIONS: PromptMode[] = ['VISUAL', 'TEXT'];
-
 const LABELS: Record<PromptMode, string> = {
     VISUAL: 'Visual Prompt',
     TEXT: 'Text Prompt',
+};
+
+const OPTIONS = Object.values(LABELS);
+
+const LABEL_TO_MODE: Record<string, PromptMode> = {
+    'Visual Prompt': 'VISUAL',
+    'Text Prompt': 'TEXT',
 };
 
 export const PromptModes = () => {
@@ -23,9 +28,8 @@ export const PromptModes = () => {
             <Text UNSAFE_className={styles.label}>Prompt Mode</Text>
             <ToggleButtons
                 options={OPTIONS}
-                selectedOption={mode}
-                onOptionChange={setPromptMode}
-                getOptionLabel={(option) => LABELS[option]}
+                selectedOption={LABELS[mode]}
+                onOptionChange={(label) => setPromptMode(LABEL_TO_MODE[label])}
             />
         </Flex>
     );
