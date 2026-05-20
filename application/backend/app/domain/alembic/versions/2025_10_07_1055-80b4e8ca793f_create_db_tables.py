@@ -89,13 +89,6 @@ def upgrade() -> None:
         name=CheckConstraintName.PROMPT_CONTENT)
     )
     op.create_index(
-        UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
-        'Prompt',
-        ['project_id', 'type'],
-        unique=True,
-        sqlite_where=sa.text("type = 'TEXT'")
-    )
-    op.create_index(
         UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT,
         'Prompt',
         ['frame_id'],
@@ -204,7 +197,6 @@ def downgrade() -> None:
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))
     op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT, table_name='Sink')
     op.drop_table('Sink')
-    op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
     op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')
     op.drop_table('Prompt')
     op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_PROCESSOR_PER_PROJECT, table_name='Processor')

@@ -3,42 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
-import { useSearchParams } from 'react-router-dom';
+import { type PromptMode } from '../../api';
+import { useUpdateProject } from '../../features/project/api/use-update-project.hook';
+import { useCurrentProject } from './use-current-project.hook';
 
-export type PromptMode = 'visual' | 'text';
+export type { PromptMode };
 
-const getSelectedPromptMode = (mode: string): PromptMode => {
-    if (mode.toLocaleLowerCase().includes('visual')) {
-        return 'visual';
-    }
-    return 'text';
-};
-
-export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
-    const [searchParams, setSearchParams] = useSearchParams();
+export const usePromptMode = (): [PromptMode, (mode: PromptMode) => void] => {
+    const { data: project } = useCurrentProject();
+    const updateProject = useUpdateProject();
 
     const handleModeChange = useCallback(
-        (option: string) => {
-            const newMode = getSelectedPromptMode(option);
+        (mode: PromptMode) => {
+            if (mode === project.prompt_mode) return;
 
-            setSearchParams((previousSearchParams) => {
-                previousSearchParams.set('mode', newMode);
-
-                return previousSearchParams;
-            });
+            updateProject.mutate(project.id, { prompt_mode: mode });
         },
-        [setSearchParams]
+        [project.id, project.prompt_mode, updateProject]
     );
 
-    const mode = searchParams.get('mode');
-
-    useEffect(() => {
-        if (mode === null) {
-            handleModeChange('visual');
-        }
-    }, [mode, handleModeChange]);
-
-    return [(mode ?? 'visual') as PromptMode, handleModeChange] as const;
+    return [project.prompt_mode as PromptMode, handleModeChange] as const;
 };

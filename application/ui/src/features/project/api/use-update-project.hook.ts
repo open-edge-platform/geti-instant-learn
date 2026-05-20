@@ -19,6 +19,12 @@ export const useUpdateProject = () => {
     });
 
     const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void> | void): void => {
+        const projectQueryKey = getQueryKey([
+            'get',
+            '/api/v1/projects/{project_id}',
+            { params: { path: { project_id: id } } },
+        ]);
+
         updateProjectMutation.mutate(
             {
                 body,
@@ -30,21 +36,8 @@ export const useUpdateProject = () => {
             },
             {
                 onSuccess: async () => {
+                    await queryClient.invalidateQueries({ queryKey: projectQueryKey });
                     await onSuccess?.();
-
-                    await queryClient.invalidateQueries({
-                        queryKey: getQueryKey([
-                            'get',
-                            '/api/v1/projects/{project_id}',
-                            {
-                                params: {
-                                    path: {
-                                        project_id: id,
-                                    },
-                                },
-                            },
-                        ]),
-                    });
                 },
             }
         );

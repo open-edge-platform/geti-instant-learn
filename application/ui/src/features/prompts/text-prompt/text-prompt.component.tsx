@@ -5,7 +5,7 @@
 
 import { KeyboardEvent, Suspense, useState } from 'react';
 
-import { useProjectIdentifier } from '@/hooks';
+import { useGetSources, useProjectIdentifier } from '@/hooks';
 import { ActionButton, Flex, Loading, Text, TextArea } from '@geti/ui';
 import { Add } from '@geti/ui/icons';
 
@@ -42,8 +42,10 @@ export const TextPrompt = () => {
     const [content, setContent] = useState('');
     const { projectId } = useProjectIdentifier();
     const createMutation = useCreateTextPrompt();
+    const { data: sourcesData } = useGetSources();
 
-    const isSubmitDisabled = content.trim() === '' || createMutation.isPending;
+    const hasSource = sourcesData.sources.length > 0;
+    const isSubmitDisabled = !hasSource || content.trim().length === 0 || createMutation.isPending;
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
@@ -73,10 +75,11 @@ export const TextPrompt = () => {
             <Flex gap={'size-100'} alignItems={'end'}>
                 <TextArea
                     aria-label={'New text prompt'}
-                    placeholder={'e.g. red car'}
+                    placeholder={hasSource ? 'e.g. red car' : 'Add an input source first'}
                     value={content}
                     onChange={setContent}
                     onKeyDown={handleKeyDown}
+                    isDisabled={!hasSource}
                     flex={1}
                 />
                 <ActionButton isDisabled={isSubmitDisabled} onPress={handleAddTextPrompt} aria-label={'Add prompt'}>

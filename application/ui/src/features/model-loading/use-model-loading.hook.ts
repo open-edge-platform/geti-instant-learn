@@ -24,7 +24,7 @@ const modelStatusOptions = (projectId: string) =>
  * until the backend confirms the actual state.
  *
  * Call this from mutation `onSuccess` callbacks for any operation that
- * triggers a model reload (prompt CRUD, model create/update, etc.).
+ * triggers a model reload (prompt CRUD, model update, etc.).
  */
 export const setModelLoading = (queryClient: QueryClient, projectId: string): void => {
     const { queryKey } = modelStatusOptions(projectId);
@@ -36,7 +36,7 @@ export const setModelLoading = (queryClient: QueryClient, projectId: string): vo
  *
  * Polling strategy:
  *   - Idle (`loading` is false): no polling.
- *   - Active loading (`loading` is true): poll every POLL_MS, capped by
+ *   - Active loading (`loading` is true): poll every POLL_MS.
  */
 export const useModelLoading = (): boolean => {
     const { projectId } = useProjectIdentifier();

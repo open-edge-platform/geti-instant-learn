@@ -9,6 +9,7 @@ from fastapi import Query, Response, status
 
 from api.routers import projects_router, system_router
 from dependencies import ModelServiceDep, SupportedModelRepoDep
+from domain.db.models import PromptType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
@@ -141,11 +142,15 @@ def get_all_models(
     model_service: ModelServiceDep,
     offset: Annotated[int, Query(ge=0, le=1000)] = 0,
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
+    prompt_mode: Annotated[PromptType | None, Query(description="Filter by supported prompt mode")] = None,
 ) -> ProcessorListSchema:
     """
     Retrieve the all model configurations of the project.
+
+    Optionally filter by prompt_mode to return only models whose type supports
+    the given prompt mode ('VISUAL' or 'TEXT').
     """
-    return model_service.list_models(project_id=project_id, offset=offset, limit=limit)
+    return model_service.list_models(project_id=project_id, offset=offset, limit=limit, prompt_mode=prompt_mode)
 
 
 # needs to be before /{project_id}/models/{model_id} to avoid path conflict

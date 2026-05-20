@@ -117,14 +117,6 @@ class PromptDB(Base):
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
     )
     __table_args__ = (
-        # ensure only one text prompt per project
-        Index(
-            UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
-            "project_id",
-            "type",
-            unique=True,
-            sqlite_where=sa_text("type = 'TEXT'"),
-        ),
         # ensure each frame can only be used once across all prompts
         Index(
             UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT,

@@ -68,7 +68,6 @@ def get_prompt(project_id: UUID, prompt_id: UUID, prompt_service: PromptServiceD
 def create_prompt(project_id: UUID, payload: PromptCreateSchema, prompt_service: PromptServiceDep) -> PromptSchema:
     """
     Create a new text or visual prompt for the project.
-    Text prompts are limited to one per project.
     Visual prompts must reference an existing frame and include annotations.
     """
     return prompt_service.create_prompt(project_id=project_id, create_data=payload)

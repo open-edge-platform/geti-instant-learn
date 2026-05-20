@@ -73,3 +73,4 @@ class VisualizationInfo:
 
     label_colors: list[VisualizationLabel]
     category_mappings: CategoryMappings
+    text_categories: dict[int, str] | None = None

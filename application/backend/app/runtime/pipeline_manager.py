@@ -20,7 +20,7 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
-from domain.services.schemas.label import VisualizationInfo
+from domain.services.schemas.label import CategoryMappings, VisualizationInfo
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
@@ -125,14 +125,29 @@ class PipelineManager:
             prompt_repo = PromptRepository(session=session)
 
             vis_labels = label_svc.get_visualization_labels(project_id)
-            prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
-            all_label_ids: set[UUID] = set()
-            for prompt in prompts:
-                all_label_ids.update(ann.label_id for ann in prompt.annotations)
 
-            category_mappings = label_svc.build_category_mappings(all_label_ids)
+            prompt_mode = self._current_config.prompt_mode if self._current_config else PromptType.VISUAL
 
-        self._visualization_info = VisualizationInfo(label_colors=vis_labels, category_mappings=category_mappings)
+            if prompt_mode == PromptType.TEXT:
+                text_prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.TEXT)
+                text_categories = {idx: prompt.text for idx, prompt in enumerate(text_prompts) if prompt.text}
+                empty_mappings = CategoryMappings(label_to_category_id={}, category_id_to_label_id={})
+                self._visualization_info = VisualizationInfo(
+                    label_colors=vis_labels,
+                    category_mappings=empty_mappings,
+                    text_categories=text_categories,
+                )
+            else:
+                prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.VISUAL)
+                all_label_ids: set[UUID] = set()
+                for prompt in prompts:
+                    all_label_ids.update(ann.label_id for ann in prompt.annotations)
+
+                category_mappings = label_svc.build_category_mappings(all_label_ids)
+                self._visualization_info = VisualizationInfo(
+                    label_colors=vis_labels, category_mappings=category_mappings
+                )
+
         logger.debug("Refreshed visualization info for project %s", project_id)
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:

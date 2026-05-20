@@ -57,9 +57,7 @@ class ReferenceBatchService:
         model_type = ModelType(config.processor.model_type)
 
         if model_type == ModelType.SAM3 and config.prompt_mode == PromptType.TEXT:
-            # TODO: text-only batch for SAM3 — issue #758
-            logger.warning("Text prompts not yet supported for SAM3: project_id=%s", config.project_id)
-            return None
+            return self._build_text_batch(project_id=config.project_id)
 
         supported_types = self._supported_model_repo.get_supported_annotation_types(model_type)
         needs_bboxes = AnnotationType.RECTANGLE in supported_types
@@ -67,6 +65,47 @@ class ReferenceBatchService:
         return self._build_visual_batch(
             project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
         )
+
+    def _build_text_batch(self, project_id: UUID) -> tuple[Batch, dict[int, str]] | None:
+        """Build a text-only reference batch from text prompts.
+
+        Each text prompt becomes one category. No image is needed.
+
+        Args:
+            project_id: Project to build the batch for.
+
+        Returns:
+            (Batch, category_id → prompt text mapping) or None if no text prompts.
+        """
+        with self._session_factory() as session:
+            prompt_repo = PromptRepository(session=session)
+            db_prompts = prompt_repo.list_by_project_and_type(project_id=project_id, prompt_type=PromptType.TEXT)
+
+        if not db_prompts:
+            logger.info("No text prompts found: project_id=%s", project_id)
+            return None
+
+        categories: list[str] = []
+        for prompt in db_prompts:
+            if prompt.text:
+                categories.append(prompt.text)
+
+        if not categories:
+            logger.info("No valid text prompts found: project_id=%s", project_id)
+            return None
+
+        category_ids = list(range(len(categories)))
+        sample = Sample(categories=categories, category_ids=category_ids, is_reference=[True] * len(categories))
+        batch = Batch.collate([sample])
+        category_id_to_text = dict(enumerate(categories))
+
+        logger.info(
+            "Created text reference batch: project_id=%s, categories=%d, names=%s",
+            project_id,
+            len(categories),
+            categories,
+        )
+        return batch, category_id_to_text
 
     def _build_visual_batch(
         self, project_id: UUID, output_bboxes: bool = False, use_label_names: bool = True
