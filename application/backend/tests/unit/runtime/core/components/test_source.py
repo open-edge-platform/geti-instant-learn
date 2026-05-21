@@ -148,22 +148,25 @@ class TestSource:
         assert not thread.is_alive()
         self.mock_stream_reader.read.assert_not_called()
 
-    def test_source_read_error_broadcasts_error_data_and_stops_loop(self):
-        """Test that Source broadcasts ErrorData once and exits the loop when read() raises."""
-        self.mock_stream_reader.read.side_effect = ValueError("Image file no longer accessible")
+    def test_source_read_error_broadcasts_error_data(self):
+        """Test that Source broadcasts ErrorData when read() raises."""
+
+        def stop(*args, **kwargs):
+            self.source.stop()
+            raise ValueError("Image file no longer accessible")
+
+        self.mock_stream_reader.read.side_effect = stop
         self.source.run()
 
-        self.mock_broadcaster.broadcast.assert_called_once()
-        error_data = self.mock_broadcaster.broadcast.call_args[0][0]
-        assert isinstance(error_data, ErrorData)
+        broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
+        error_data = next(c for c in broadcast_calls if isinstance(c, ErrorData))
         assert "Image file no longer accessible" in error_data.message
 
-    def test_source_seek_error_broadcasts_error_data_and_reraises(self):
-        """Test that Source broadcasts ErrorData and re-raises when seek() fails."""
+    def test_source_seek_error_broadcasts_error_data(self):
+        """Test that Source broadcasts ErrorData when seek() fails."""
         self.mock_stream_reader.seek.side_effect = ValueError("Image file no longer accessible")
 
-        with pytest.raises(ValueError, match="Image file no longer accessible"):
-            self.source.seek(3)
+        self.source.seek(3)
 
         self.mock_broadcaster.broadcast.assert_called_once()
         error_data = self.mock_broadcaster.broadcast.call_args[0][0]

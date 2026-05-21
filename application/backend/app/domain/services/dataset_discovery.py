@@ -102,23 +102,24 @@ class DatasetResolver:
         """
         return self._datasets_schema
 
-    def get_dataset_path(self, dataset_id: UUID | None = None) -> Path | str:
+    def get_dataset_path(self, dataset_id: UUID | None = None) -> Path:
         """Resolve a dataset path from the cache.
 
         Args:
             dataset_id: Dataset UUID, or None to use the lexicographically first cached dataset.
 
         Returns:
-            Resolved dataset path, or a descriptive string if the dataset is not found in the cache.
+            Resolved dataset path.
+
+        Raises:
+            DatasetNotFoundError: If the dataset id is not found in the cache or no cached datasets exist.
         """
         if dataset_id is not None:
             if dataset_id not in self._dataset_paths:
-                logger.warning("Sample dataset id '%s' was not found in the startup cache.", dataset_id)
-                return f"{dataset_id} does not correspond to any cached dataset."
+                raise DatasetNotFoundError(f"Dataset '{dataset_id}' was not found in the startup cache.")
             return self._dataset_paths[dataset_id]
 
         if not self._dataset_paths:
-            logger.warning("No sample datasets available in the startup cache.")
-            return "No sample datasets available in the startup cache."
+            raise DatasetNotFoundError("No sample datasets were found in the startup cache.")
 
         return min(self._dataset_paths.values(), key=lambda dataset_path: (dataset_path.name, str(dataset_path)))

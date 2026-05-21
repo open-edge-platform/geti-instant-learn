@@ -161,7 +161,7 @@ class TestDatasetResolver:
 
         assert result == aquarium_dir
 
-    def test_get_dataset_path_returns_descriptive_string_when_id_not_found(self, tmp_path: Path, monkeypatch) -> None:
+    def test_get_dataset_path_raises_when_id_not_found(self, tmp_path: Path, monkeypatch) -> None:
         dataset_dir = tmp_path / "aquarium"
         dataset_dir.mkdir()
         (dataset_dir / "image.jpg").touch()
@@ -171,23 +171,17 @@ class TestDatasetResolver:
         resolver = DatasetResolver(tmp_path)
         unknown_id = uuid4()
 
-        result = resolver.get_dataset_path(dataset_id=unknown_id)
+        with pytest.raises(DatasetNotFoundError, match="was not found"):
+            resolver.get_dataset_path(dataset_id=unknown_id)
 
-        assert isinstance(result, str)
-        assert str(unknown_id) in result
-
-    def test_get_dataset_path_returns_descriptive_string_when_no_datasets_available(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_get_dataset_path_raises_when_no_datasets_available(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
         monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
         (tmp_path / "README.txt").write_text("no datasets here")
         resolver = DatasetResolver(tmp_path)
 
-        result = resolver.get_dataset_path(dataset_id=None)
-
-        assert isinstance(result, str)
-        assert "No sample datasets" in result
+        with pytest.raises(DatasetNotFoundError, match="No sample datasets"):
+            resolver.get_dataset_path(dataset_id=None)
 
     def test_raises_when_datasets_root_does_not_exist(self, tmp_path: Path) -> None:
         missing_dir = tmp_path / "missing"
