@@ -13,7 +13,10 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateProject } from '../../project/api/use-update-project.hook';
 
-const AUTO_KEY = 'auto';
+type DeviceItem = {
+    key: string;
+    label: string;
+}
 
 const hasIndex = (device: DeviceInfoType): device is DeviceInfoType & { index: number } =>
     device.index !== null && device.index !== undefined;
