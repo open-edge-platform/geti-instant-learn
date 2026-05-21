@@ -13,7 +13,6 @@ import {
     DialogTrigger,
     Divider,
     Flex,
-    Heading,
     Item,
     Loading,
     TabList,
@@ -81,9 +80,6 @@ export const SourcesSinks = () => {
             </Button>
             <Dialog>
                 <Content UNSAFE_style={{ scrollbarGutter: 'stable' }}>
-                    <Heading level={4} marginTop={0}>
-                        Inference device
-                    </Heading>
                     <Suspense
                         fallback={
                             <View padding={'size-100'}>

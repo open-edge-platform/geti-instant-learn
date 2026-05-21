@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, useMemo } from 'react';
+import { Key } from 'react';
 
 import { $api, type DeviceInfoType } from '@/api';
 import { setModelLoading } from '@/features/model-loading';
@@ -13,26 +13,24 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateProject } from '../../project/api/use-update-project.hook';
 
+const AUTO_KEY = 'auto';
+
 type DeviceItem = {
     key: string;
     label: string;
-}
+};
 
 const hasIndex = (device: DeviceInfoType): device is DeviceInfoType & { index: number } =>
     device.index !== null && device.index !== undefined;
 
 const getDeviceKey = (device: DeviceInfoType): string =>
     device.type === 'cpu' || !hasIndex(device) ? device.type : `${device.type}-${device.index}`;
-    if (device.type === 'cpu' || device.index === null || device.index === undefined) {
-        return device.type;
-    }
-    return `${device.type}-${device.index}`;
-};
 
 const deviceLabel = (device: DeviceInfoType, all: DeviceInfoType[]): string => {
     let label = device.name;
     if (device.memory) {
         const BYTES_PER_GB = 1024 ** 3;
+        const gb = Math.round(device.memory / BYTES_PER_GB);
         label += ` (${gb} GB)`;
     }
     const collidesWithSibling = all.some(
@@ -52,13 +50,10 @@ export const InferenceDevice = () => {
 
     const { data: devices } = $api.useSuspenseQuery('get', '/api/v1/system/devices');
 
-    const items = useMemo(
-        () => [
-            { key: AUTO_KEY, label: 'Auto' },
-            ...devices.map((d) => ({ key: deviceKey(d), label: deviceLabel(d, devices) })),
-        ],
-        [devices]
-    );
+    const items: DeviceItem[] = [
+        { key: AUTO_KEY, label: 'Auto' },
+        ...devices.map((d) => ({ key: getDeviceKey(d), label: deviceLabel(d, devices) })),
+    ];
 
     const handleSelectionChange = (key: Key | null) => {
         if (key === null) {
@@ -81,7 +76,7 @@ export const InferenceDevice = () => {
             selectedKey={project.device ?? AUTO_KEY}
             onSelectionChange={handleSelectionChange}
         >
-            {(item) => <Item key={item.key}>{item.label}</Item>}
+            {(item: DeviceItem) => <Item key={item.key}>{item.label}</Item>}
         </Picker>
     );
 };

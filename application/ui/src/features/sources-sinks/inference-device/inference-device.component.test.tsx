@@ -4,9 +4,10 @@
  */
 
 import { type DeviceInfoType } from '@/api';
+import { ModelLoadingDialog } from '@/features/model-loading';
 import { queryClient } from '@/query-client';
 import { render } from '@/test-utils';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
 import { http, server } from '../../../setup-test';
@@ -128,5 +129,47 @@ describe('InferenceDevice', () => {
             expect(cached).toEqual({ loading: true });
         });
         expect(modelStatusCalls).toBe(0);
+    });
+
+    it('shows the blocking dialog after a device change', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        mockDevices([
+            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
+            { type: 'cuda', name: 'NVIDIA GPU', memory: null, index: 0 },
+        ]);
+        server.use(
+            http.put('/api/v1/projects/{project_id}', async () =>
+                HttpResponse.json({
+                    id: '1',
+                    name: 'Project #1',
+                    active: true,
+                    device: 'cuda-0',
+                    prompt_mode: 'VISUAL',
+                })
+            )
+        );
+
+        render(
+            <>
+                <InferenceDevice />
+                <ModelLoadingDialog />
+            </>,
+            { route: '/projects/1?mode=visual', path: '/projects/:projectId' }
+        );
+
+        const picker = await screen.findByRole('button', { name: /inference device/i });
+        fireEvent.click(picker);
+        fireEvent.click(await screen.findByRole('option', { name: 'NVIDIA GPU' }));
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(500);
+        });
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog', { name: /loading model/i })).toBeVisible();
+        });
+
+        vi.useRealTimers();
     });
 });
