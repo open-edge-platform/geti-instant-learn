@@ -128,7 +128,7 @@ class TestPipelineManager:
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = None
 
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             mgr.start()
 
             svc_inst.get_active_pipeline_config.assert_called_once()
@@ -229,13 +229,13 @@ class TestPipelineManager:
 
     def test_get_visualization_info_raises_when_pipeline_inactive(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.FrameRepository"), patch("runtime.pipeline_manager.ReferenceBatchService"):
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             with pytest.raises(PipelineNotActiveError):
                 mgr.get_visualization_info(uuid4())
 
     def test_get_visualization_info_raises_when_project_mismatched(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.FrameRepository"), patch("runtime.pipeline_manager.ReferenceBatchService"):
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             running = Mock()
             running.project_id = uuid4()
             mgr._pipeline = running
@@ -245,7 +245,7 @@ class TestPipelineManager:
 
     def test_get_visualization_info_returns_cached_value(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.FrameRepository"), patch("runtime.pipeline_manager.ReferenceBatchService"):
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             pid = uuid4()
             running = Mock()
             running.project_id = pid
@@ -267,7 +267,7 @@ class TestPipelineManager:
             running = Mock()
             running.project_id = pid
 
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             mgr._pipeline = running
 
             ev = ProjectDeactivationEvent(project_id=pid)
@@ -284,7 +284,7 @@ class TestPipelineManager:
         ):
             running = Mock()
             running.project_id = uuid4()
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             mgr._pipeline = running
 
             ev = ProjectDeactivationEvent(project_id=uuid4())
@@ -334,7 +334,7 @@ class TestPipelineManager:
             running = Mock()
             running.project_id = pid_running
 
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             mgr._pipeline = running
 
             ev = ComponentConfigChangeEvent(
@@ -346,7 +346,7 @@ class TestPipelineManager:
 
     def test_stop_stops_pipeline_if_present(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.FrameRepository"), patch("runtime.pipeline_manager.ReferenceBatchService"):
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             running = Mock()
             mgr._pipeline = running
 
@@ -357,7 +357,7 @@ class TestPipelineManager:
 
     def test_stop_no_pipeline_noop(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.FrameRepository"), patch("runtime.pipeline_manager.ReferenceBatchService"):
-            mgr = PipelineManager(dispatcher, session_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
             mgr._pipeline = None
             mgr.stop()
             assert mgr._pipeline is None
@@ -367,7 +367,7 @@ class TestPipelineManagerModelLoadingFlag:
     """Tests for the busy-flag toggled around processor (re)builds."""
 
     def test_flag_defaults_to_false(self, dispatcher, session_factory):
-        mgr = PipelineManager(dispatcher, session_factory)
+        mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
         assert mgr.is_model_loading() is False
 
     def test_flag_set_during_processor_rebuild(self, dispatcher, session_factory, mock_component_factory):

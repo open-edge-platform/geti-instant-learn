@@ -10,8 +10,6 @@ import openvino
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend
-from instantlearn.utils.utils import device_to_openvino_device, precision_to_openvino_type
-from openvino import properties
 
 from domain.services.schemas.processor import CompressionPreset, InputData
 from runtime.core.components.base import ModelHandler
@@ -25,11 +23,13 @@ class OpenVINOModelHandler(ModelHandler):
         model: Model,
         reference_batch: Batch,
         precision: str,
+        ov_device: str,
         compression_preset: CompressionPreset = CompressionPreset.THROUGHPUT,
     ) -> None:
         self._model = model
         self._reference_batch = reference_batch
         self._precision = precision
+        self._ov_device = ov_device
         self._compression_preset = compression_preset
         self._compiled_model: openvino.CompiledModel | None = None
         self._infer_request: openvino.InferRequest | None = None
@@ -62,50 +62,43 @@ class OpenVINOModelHandler(ModelHandler):
         logger.info("Original device %s", original_device)
 
         self._model.cpu()
-        try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                path = self._model.export(
-                    export_dir=tmp_dir,
-                    backend=Backend.OPENVINO,
-                    compression=self._compression_preset.to_compression_mode(),
-                )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = self._model.export(
+                export_dir=tmp_dir,
+                backend=Backend.OPENVINO,
+                compression=self._compression_preset.to_compression_mode(),
+            )
 
-                core = openvino.Core()
-                ov_device = device_to_openvino_device("CPU")
-                core.set_property(
-                    ov_device, {properties.hint.inference_precision: precision_to_openvino_type(self._precision)}
-                )
+            core = openvino.Core()
+            ov_device = self._ov_device
+            logger.info("Available OV devices: %s", core.available_devices)
+            logger.debug("Compiling exported model from %s for device %s...", path, ov_device)
+            ov_model = core.read_model(str(path))
 
-                logger.debug("Compiling exported model from %s for device %s...", path, ov_device)
-                logger.debug("Reading model %s...", path)
-                ov_model = core.read_model(str(path))
+            input_size = getattr(self._model, "input_size", None)
+            if input_size is not None:
+                input_name = ov_model.inputs[0].get_any_name()
+                ov_model.reshape({input_name: [1, 3, input_size, input_size]})
 
-                input_size = getattr(self._model, "input_size", None)
-                if input_size is not None:
-                    input_name = ov_model.inputs[0].get_any_name()
-                    ov_model.reshape({input_name: [1, 3, input_size, input_size]})
+            logger.debug("Compiling model to %s (this may take a few minutes)...", ov_device)
 
-                logger.debug("Compiling model to %s (this may take a few minutes)...", ov_device)
+            start_time = time.time()
+            self._compiled_model = core.compile_model(ov_model, ov_device)
+            logger.debug("Model compilation finished in %.2fs.", time.time() - start_time)
 
-                start_time = time.time()
-                self._compiled_model = core.compile_model(ov_model, ov_device)
-                logger.debug("Model compilation finished in %.2fs.", time.time() - start_time)
+            self._infer_request = self._compiled_model.create_infer_request()
+            self._input_port = self._compiled_model.input(0)
 
-                self._infer_request = self._compiled_model.create_infer_request()
-                self._input_port = self._compiled_model.input(0)
+            outputs = list(self._compiled_model.outputs)
+            output_by_name = {}
+            for output in outputs:
+                for name in output.get_names():
+                    output_by_name[name] = output
 
-                outputs = list(self._compiled_model.outputs)
-                output_by_name = {}
-                for output in outputs:
-                    for name in output.get_names():
-                        output_by_name[name] = output
-
-                # Fall back to positional outputs if names are not available.
-                self._masks_output_port = output_by_name.get("masks", outputs[0])
-                self._scores_output_port = output_by_name.get("scores", outputs[1])
-                self._labels_output_port = output_by_name.get("labels", outputs[2])
-        finally:
-            self._model.to(original_device)
+            # Fall back to positional outputs if names are not available.
+            self._masks_output_port = output_by_name.get("masks", outputs[0])
+            self._scores_output_port = output_by_name.get("scores", outputs[1])
+            self._labels_output_port = output_by_name.get("labels", outputs[2])
 
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         if self._compiled_model is None or self._infer_request is None:

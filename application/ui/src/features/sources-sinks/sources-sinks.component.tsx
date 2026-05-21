@@ -11,6 +11,7 @@ import {
     Content,
     Dialog,
     DialogTrigger,
+    Divider,
     Flex,
     Item,
     Loading,
@@ -22,6 +23,7 @@ import {
 } from '@geti/ui';
 
 import { usePrefetchPipelineConfiguration } from './api/use-prefetch-pipeline-configuration.hook';
+import { InferenceDevice } from './inference-device/inference-device.component';
 import { Sinks } from './sinks/sinks.component';
 import { Sources } from './sources/sources.component';
 
@@ -78,6 +80,16 @@ export const SourcesSinks = () => {
             </Button>
             <Dialog>
                 <Content UNSAFE_style={{ scrollbarGutter: 'stable' }}>
+                    <Suspense
+                        fallback={
+                            <View padding={'size-100'}>
+                                <Loading mode={'inline'} size={'S'} />
+                            </View>
+                        }
+                    >
+                        <InferenceDevice />
+                    </Suspense>
+                    <Divider size='S' marginY='size-200' />
                     <SourcesSinksTabs />
                 </Content>
             </Dialog>

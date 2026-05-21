@@ -23,7 +23,7 @@ class TestOpenVINOModelHandler:
         return MagicMock()
 
     def test_initialise_exports_and_compiles_model_on_cpu(self, mock_model, mock_reference_batch, monkeypatch):
-        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
+        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16", ov_device="CPU")
 
         original_device = MagicMock()
         parameter = MagicMock()
@@ -42,12 +42,7 @@ class TestOpenVINOModelHandler:
         mock_core.read_model.return_value = ov_model
         mock_core.compile_model.return_value = compiled_model
 
-        mock_device_to_openvino_device = MagicMock(return_value="CPU")
-        mock_precision_to_openvino_type = MagicMock(return_value="f16")
-
         monkeypatch.setattr(openvino_model.openvino, "Core", MagicMock(return_value=mock_core))
-        monkeypatch.setattr(openvino_model, "device_to_openvino_device", mock_device_to_openvino_device)
-        monkeypatch.setattr(openvino_model, "precision_to_openvino_type", mock_precision_to_openvino_type)
 
         handler.initialise()
 
@@ -56,20 +51,14 @@ class TestOpenVINOModelHandler:
         mock_model.export.assert_called_once()
         assert mock_model.export.call_args.kwargs["backend"] == openvino_model.Backend.OPENVINO
 
-        mock_device_to_openvino_device.assert_called_once_with("CPU")
-        mock_precision_to_openvino_type.assert_called_once_with("fp16")
-        mock_core.set_property.assert_called_once_with(
-            "CPU", {openvino_model.properties.hint.inference_precision: "f16"}
-        )
         mock_core.read_model.assert_called_once_with("/tmp/model.xml")
         mock_core.compile_model.assert_called_once_with(ov_model, "CPU")
 
         assert handler._compiled_model is compiled_model
         assert handler._infer_request is not None
-        mock_model.to.assert_called_once_with(original_device)
 
     def test_predict_raises_when_not_initialised(self, mock_model, mock_reference_batch):
-        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
+        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16", ov_device="CPU")
 
         input_data = InputData(
             timestamp=0,
@@ -81,7 +70,7 @@ class TestOpenVINOModelHandler:
             handler.predict([input_data])
 
     def test_predict_formats_input_and_maps_outputs(self, mock_model, mock_reference_batch):
-        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
+        handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16", ov_device="CPU")
         mock_model.input_size = 512  # Expose input_size at model level
 
         masks = np.array([[[1, 0, 1], [0, 1, 0]]], dtype=np.float32)  # [1, H, W] matches frame (H=2, W=3)
@@ -131,6 +120,7 @@ class TestOpenVINOModelHandler:
             model=mock_model,
             reference_batch=mock_reference_batch,
             precision="fp32",
+            ov_device="CPU",
             compression_preset=compression_preset,
         )
 
@@ -150,8 +140,6 @@ class TestOpenVINOModelHandler:
         mock_core.compile_model.return_value = compiled_model
 
         monkeypatch.setattr(openvino_model.openvino, "Core", MagicMock(return_value=mock_core))
-        monkeypatch.setattr(openvino_model, "device_to_openvino_device", MagicMock(return_value="CPU"))
-        monkeypatch.setattr(openvino_model, "precision_to_openvino_type", MagicMock(return_value="f32"))
 
         handler.initialise()
 

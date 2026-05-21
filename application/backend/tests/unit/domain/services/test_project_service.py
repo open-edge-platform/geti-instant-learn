@@ -654,3 +654,50 @@ def test_update_activate_replaces_existing_active_emits_two_events(service, repo
     assert event_1.project_id == project_current_active.id
     assert isinstance(event_2, ProjectActivationEvent)
     assert event_2.project_id == project_target.id
+
+
+@pytest.fixture
+def device_service_mock():
+    m = MagicMock(name="DeviceService")
+    m.validate.return_value = True
+    return m
+
+
+def test_create_project_rejects_unavailable_device(session_mock, dispatcher_mock, repo_mock, device_service_mock):
+    device_service_mock.validate.return_value = False
+    svc = ProjectService(
+        session=session_mock,
+        config_change_dispatcher=dispatcher_mock,
+        device_service=device_service_mock,
+    )
+    svc.project_repository = repo_mock
+    repo_mock.get_active.return_value = None
+
+    with pytest.raises(ValueError, match="not available"):
+        svc.create_project(ProjectCreateSchema(name="x", device="cuda-9"))
+
+    device_service_mock.validate.assert_called_once_with("cuda-9")
+    repo_mock.add.assert_not_called()
+
+
+def test_update_project_rejects_unavailable_device(
+    session_mock, dispatcher_mock, repo_mock, processor_repo_mock, device_service_mock
+):
+    device_service_mock.validate.return_value = False
+    svc = ProjectService(
+        session=session_mock,
+        config_change_dispatcher=dispatcher_mock,
+        device_service=device_service_mock,
+    )
+    svc.project_repository = repo_mock
+    svc.processor_repository = processor_repo_mock
+
+    pid = uuid.uuid4()
+    existing = make_project(project_id=pid)
+    repo_mock.get_by_id.return_value = existing
+
+    with pytest.raises(ValueError, match="not available"):
+        svc.update_project(pid, ProjectUpdateSchema(device="cuda-9"))
+
+    device_service_mock.validate.assert_called_once_with("cuda-9")
+    repo_mock.update.assert_not_called()

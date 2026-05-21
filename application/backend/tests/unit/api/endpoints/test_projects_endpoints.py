@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_license_service, get_project_service
+from dependencies import SessionDep, get_config_dispatcher, get_device_service, get_license_service, get_project_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -49,6 +49,10 @@ def app():
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+
+    dummy_device_service = MagicMock(name="DeviceService")
+    dummy_device_service.validate.return_value = True
+    app.dependency_overrides[get_device_service] = lambda: dummy_device_service
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)

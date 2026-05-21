@@ -35,7 +35,6 @@ from domain.services.schemas.mappers.project import (
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelConfig, ModelType
 from domain.services.schemas.project import (
-    Device,
     ProjectCreateSchema,
     ProjectSchema,
     ProjectsListSchema,
@@ -43,6 +42,7 @@ from domain.services.schemas.project import (
 )
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
+from runtime.services.device import DeviceService
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ class ProjectService(BaseService):
         project_repository: ProjectRepository | None = None,
         processor_repository: ProcessorRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
+        device_service: DeviceService | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
@@ -71,6 +72,7 @@ class ProjectService(BaseService):
         super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.project_repository = project_repository or ProjectRepository(session=session)
         self.processor_repository = processor_repository or ProcessorRepository(session=session)
+        self.device_service = device_service
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -82,6 +84,7 @@ class ProjectService(BaseService):
             create_data.name,
             create_data.id or "AUTO",
         )
+        self._ensure_device_available(create_data.device)
         project: ProjectDB = project_schema_to_db(create_data)
         try:
             with self.db_transaction():
@@ -148,6 +151,9 @@ class ProjectService(BaseService):
         if not project:
             logger.error("Update failed; project not found id=%s", project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
+        if update_data.device is not None:
+            self._ensure_device_available(update_data.device)
 
         device_changed = update_data.device is not None and update_data.device != project.device
         prompt_mode_changed = update_data.prompt_mode is not None and update_data.prompt_mode != project.prompt_mode
@@ -279,7 +285,7 @@ class ProjectService(BaseService):
             except Exception:
                 logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
 
-        project_device = Device(project.device)
+        project_device = project.device
 
         return PipelineConfig(
             project_id=project.id,
@@ -385,6 +391,13 @@ class ProjectService(BaseService):
                     component_id=active_processor.id,
                 )
             )
+
+    def _ensure_device_available(self, device_str: str) -> None:
+        """Reject device strings that aren't available on the current system."""
+        if self.device_service is None:
+            return
+        if not self.device_service.validate(device_str):
+            raise ValueError(f"Device {device_str!r} is not available on this system.")
 
     def _ensure_compatible_active_model(self, project_id: UUID, prompt_mode: PromptType) -> None:
         """Switch active model to a compatible one if needed after a prompt_mode change.
