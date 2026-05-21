@@ -32,7 +32,7 @@ const getDeviceKey = (device: DeviceInfoType): string =>
 const deviceLabel = (device: DeviceInfoType, all: DeviceInfoType[]): string => {
     let label = device.name;
     if (device.memory) {
-        const gb = Math.round(device.memory / (1024 * 1024 * 1024));
+        const BYTES_PER_GB = 1024 ** 3;
         label += ` (${gb} GB)`;
     }
     const collidesWithSibling = all.some(
