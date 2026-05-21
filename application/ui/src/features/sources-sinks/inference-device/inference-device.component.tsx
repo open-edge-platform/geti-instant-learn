@@ -15,7 +15,11 @@ import { useUpdateProject } from '../../project/api/use-update-project.hook';
 
 const AUTO_KEY = 'auto';
 
-const deviceKey = (device: DeviceInfoType): string => {
+const hasIndex = (device: DeviceInfoType): device is DeviceInfoType & { index: number } =>
+    device.index !== null && device.index !== undefined;
+
+const getDeviceKey = (device: DeviceInfoType): string =>
+    device.type === 'cpu' || !hasIndex(device) ? device.type : `${device.type}-${device.index}`;
     if (device.type === 'cpu' || device.index === null || device.index === undefined) {
         return device.type;
     }
