@@ -32,7 +32,7 @@ from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.components import DefaultComponentFactory
 from runtime.pipeline_manager import PipelineManager
-from runtime.services.device import list_available_devices
+from runtime.services.device import DeviceService
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(settings.format_for_logging())
     run_db_migrations()
 
-    app.state.available_devices = list_available_devices()
+    app.state.device_service = DeviceService.from_system()
     session_factory = get_session_factory()
 
     # Dataset cache is startup-static by design and refreshed only on app restart.
@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
     component_factory = DefaultComponentFactory(
-        available_devices=app.state.available_devices,
+        device_service=app.state.device_service,
         dataset_resolver=app.state.dataset_resolver,
     )
     app.state.pipeline_manager = PipelineManager(

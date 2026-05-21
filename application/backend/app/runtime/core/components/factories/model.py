@@ -9,54 +9,43 @@ from instantlearn.models.per_dino import PerDino
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 
-from domain.services.schemas.device import AvailableDeviceSchema, Device
+from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.models.torch_model import TorchModelHandler
-from runtime.services.device import list_available_devices
+from runtime.services.device import DeviceService
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class DeviceResolver:
-    def __init__(self, available_devices: list[AvailableDeviceSchema] | None = None) -> None:
-        self._available_devices = available_devices
-
-    def resolve_device(self, configured_device: Device | None) -> Device:
-        """Resolve `auto` device selection to a concrete backend.
-
-        Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
-        """
-        if configured_device is not None and configured_device != Device.AUTO:
-            return configured_device
-
-        if self._available_devices is None:
-            available_devices = list_available_devices()
-        else:
-            available_devices = self._available_devices
-
-        if any(device.backend == Device.XPU for device in available_devices):
-            return Device.XPU
-        if any(device.backend == Device.CUDA for device in available_devices):
-            return Device.CUDA
-        return Device.CPU
-
-
 class ModelFactory:
     def __init__(
         self,
-        device_resolver: DeviceResolver,
+        device_service: DeviceService,
     ) -> None:
-        self._device_resolver = device_resolver
+        self._device_service = device_service
+
+    def _resolve_device(self, configured_device: str | None) -> DeviceInfo:
+        """Resolve a configured device string into a concrete :class:`DeviceInfo`."""
+        device_info = self._device_service.resolve(configured_device or "auto")
+        if device_info.type == DeviceType.AUTO:
+            device_info = self._device_service.resolve_auto()
+        logger.info(
+            "Accelerator selected: torch=%s ov=%s (configured=%r)",
+            device_info.as_torch,
+            device_info.as_openvino,
+            configured_device,
+        )
+        return device_info
 
     def create(  # noqa: PLR0911
         self,
         reference_batch: Batch | None,
         config: ModelConfig | None,
-        configured_device: Device | None = None,
+        configured_device: str | None = None,
     ) -> ModelHandler:
         logger.info("Initializing a model: %s", config)
 
@@ -71,8 +60,8 @@ class ModelFactory:
             logger.info("No model config is provided, creating a passthrough model")
             return PassThroughModelHandler()
 
-        selected_device = self._device_resolver.resolve_device(configured_device)
-        logger.info("Accelerator selected: %s", selected_device)
+        device_info = self._resolve_device(configured_device)
+        selected_device = device_info.as_torch
 
         match config:
             case MatcherConfig() as config:
@@ -100,6 +89,7 @@ class ModelFactory:
                         model=model,
                         reference_batch=reference_batch,
                         precision=precision,
+                        ov_device=device_info.as_openvino,
                         compression_preset=config.preset,
                     )
                 logger.info("Using the Torch backend for Matcher")
