@@ -88,6 +88,7 @@ def sample_processor_db(sample_model_id, sample_project_id):
     processor.project_id = sample_project_id
     processor.name = "test_processor"
     processor.active = True
+    processor.prompt_mode = "VISUAL"
     processor.config = {
         "confidence_threshold": 0.38,
         "model_type": "matcher",
@@ -131,21 +132,16 @@ class TestListModels:
     def test_list_models_filtered_by_text_prompt_mode(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
     ):
-        """Text filter excludes visual-only models (e.g. matcher) and keeps text-capable ones (e.g. sam3)."""
-        matcher_db = Mock(spec=ProcessorDB)
-        matcher_db.id = uuid4()
-        matcher_db.name = "Matcher"
-        matcher_db.active = False
-        matcher_db.config = {"model_type": "matcher"}
-
+        """Text filter delegates to repository with prompt_mode=TEXT."""
         sam3_db = Mock(spec=ProcessorDB)
         sam3_db.id = uuid4()
-        sam3_db.name = "SAM3"
+        sam3_db.name = "sam3"
         sam3_db.active = True
+        sam3_db.prompt_mode = "TEXT"
         sam3_db.config = {"model_type": "sam3"}
 
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.list_with_pagination_by_project.return_value = ([matcher_db, sam3_db], 2)
+        mock_processor_repository.list_with_pagination_by_project_and_mode.return_value = ([sam3_db], 1)
 
         result = service.list_models(sample_project_id, prompt_mode=PromptType.TEXT)
 
@@ -153,32 +149,39 @@ class TestListModels:
         assert len(result.models) == 1
         assert result.models[0].config.model_type.value == "sam3"
         assert result.pagination.total == 1
+        mock_processor_repository.list_with_pagination_by_project_and_mode.assert_called_once_with(
+            project_id=sample_project_id, prompt_mode="TEXT", offset=0, limit=20
+        )
 
     def test_list_models_filtered_by_visual_prompt_mode(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
     ):
-        """Visual filter includes all models that support visual prompts."""
+        """Visual filter delegates to repository with prompt_mode=VISUAL."""
         matcher_db = Mock(spec=ProcessorDB)
         matcher_db.id = uuid4()
-        matcher_db.name = "Matcher"
+        matcher_db.name = "matcher"
         matcher_db.active = False
+        matcher_db.prompt_mode = "VISUAL"
         matcher_db.config = {"model_type": "matcher"}
 
         sam3_db = Mock(spec=ProcessorDB)
         sam3_db.id = uuid4()
-        sam3_db.name = "SAM3"
+        sam3_db.name = "sam3"
         sam3_db.active = True
+        sam3_db.prompt_mode = "VISUAL"
         sam3_db.config = {"model_type": "sam3"}
 
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.list_with_pagination_by_project.return_value = ([matcher_db, sam3_db], 2)
+        mock_processor_repository.list_with_pagination_by_project_and_mode.return_value = ([matcher_db, sam3_db], 2)
 
         result = service.list_models(sample_project_id, prompt_mode=PromptType.VISUAL)
 
         assert isinstance(result, ProcessorListSchema)
-        # Both matcher (visual_polygon) and sam3 (visual_rectangle) support visual
         assert len(result.models) == 2
         assert result.pagination.total == 2
+        mock_processor_repository.list_with_pagination_by_project_and_mode.assert_called_once_with(
+            project_id=sample_project_id, prompt_mode="VISUAL", offset=0, limit=20
+        )
 
     def test_list_models_no_prompt_mode_returns_all(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
@@ -340,7 +343,7 @@ class TestCreateModel:
             patch("domain.services.model.processor_schema_to_db") as mock_schema_to_db,
             patch(
                 "domain.services.model.extract_constraint_name",
-                return_value=UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+                return_value=UniqueConstraintName.PROCESSOR_NAME_MODE_PER_PROJECT,
             ),
         ):
             # Create mock with proper UUID
@@ -512,7 +515,7 @@ class TestHandleSourceIntegrityError:
 
         with patch(
             "domain.services.model.extract_constraint_name",
-            return_value=UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+            return_value=UniqueConstraintName.PROCESSOR_NAME_MODE_PER_PROJECT,
         ):
             with pytest.raises(ResourceAlreadyExistsError) as exc_info:
                 service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "duplicate_name")

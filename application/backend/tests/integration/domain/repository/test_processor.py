@@ -21,9 +21,9 @@ def clean_after(request, fxt_clean_table):
     request.addfinalizer(lambda: fxt_clean_table(ProjectDB))
 
 
-def make_processor(project_id, name=None, active=False, **extra_cfg) -> ProcessorDB:
+def make_processor(project_id, name=None, active=False, prompt_mode="VISUAL", **extra_cfg) -> ProcessorDB:
     cfg = {"type": "sam2", **extra_cfg}
-    return ProcessorDB(name=name, config=cfg, project_id=project_id, active=active)
+    return ProcessorDB(name=name, config=cfg, project_id=project_id, active=active, prompt_mode=prompt_mode)
 
 
 def test_add_and_get_by_id(processor_repo, fxt_session, clean_after):
@@ -182,15 +182,76 @@ def test_unique_processor_name_per_project(processor_repo, fxt_session, clean_af
     fxt_session.add(project)
     fxt_session.commit()
 
-    first = make_processor(project.id, name="my_processor")
+    # Same name + same mode → constraint violation
+    first = make_processor(project.id, name="my_processor", prompt_mode="VISUAL")
     processor_repo.add(first)
     fxt_session.commit()
 
-    second = make_processor(project.id, name="my_processor")
+    second = make_processor(project.id, name="my_processor", prompt_mode="VISUAL")
     with pytest.raises(IntegrityError):
         processor_repo.add(second)
         fxt_session.flush()
     fxt_session.rollback()
+
+
+def test_same_name_different_mode_allowed(processor_repo, fxt_session, clean_after):
+    """Same processor name with different prompt_mode is allowed (dual-mode models like SAM3)."""
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    visual = make_processor(project.id, name="sam3", prompt_mode="VISUAL")
+    text = make_processor(project.id, name="sam3", prompt_mode="TEXT")
+    processor_repo.add(visual)
+    processor_repo.add(text)
+    fxt_session.commit()
+
+    result = processor_repo.list_all_by_project(project.id)
+    assert len(result) == 2
+
+
+def test_list_by_project_and_mode(processor_repo, fxt_session, clean_after):
+    """list_by_project_and_mode returns only processors for the given mode, newest first."""
+    project = ProjectDB(name="proj", active=True)
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    visual1 = make_processor(project.id, name="matcher", prompt_mode="VISUAL")
+    visual2 = make_processor(project.id, name="soft_matcher", prompt_mode="VISUAL")
+    text1 = make_processor(project.id, name="sam3", prompt_mode="TEXT")
+    for p in [visual1, visual2, text1]:
+        processor_repo.add(p)
+    fxt_session.commit()
+
+    visual_result = processor_repo.list_by_project_and_mode(project.id, "VISUAL")
+    assert len(visual_result) == 2
+    assert all(p.prompt_mode == "VISUAL" for p in visual_result)
+
+    text_result = processor_repo.list_by_project_and_mode(project.id, "TEXT")
+    assert len(text_result) == 1
+    assert text_result[0].name == "sam3"
+
+
+def test_list_with_pagination_by_project_and_mode(processor_repo, fxt_session, clean_after):
+    """list_with_pagination_by_project_and_mode paginates correctly within a mode."""
+    project = ProjectDB(name="proj", active=True)
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    for i in range(3):
+        processor_repo.add(make_processor(project.id, name=f"visual{i}", prompt_mode="VISUAL"))
+    processor_repo.add(make_processor(project.id, name="sam3", prompt_mode="TEXT"))
+    fxt_session.commit()
+
+    items, total = processor_repo.list_with_pagination_by_project_and_mode(project.id, "VISUAL", offset=0, limit=2)
+    assert total == 3
+    assert len(items) == 2
+
+    items_all, total_all = processor_repo.list_with_pagination_by_project_and_mode(
+        project.id, "VISUAL", offset=0, limit=10
+    )
+    assert total_all == 3
+    assert len(items_all) == 3
 
 
 def test_processor_name_optional(processor_repo, fxt_session, clean_after):

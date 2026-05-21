@@ -38,8 +38,10 @@ _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
     ),
 }
 
-
 _VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_RECTANGLE}
+
+# the model+mode that will be set active when a new project is created
+DEFAULT_ACTIVE_MODEL: tuple[ModelType, PromptType] = (ModelType.SOFT_MATCHER, PromptType.VISUAL)
 
 
 class SupportedModelRepository:
@@ -54,6 +56,22 @@ class SupportedModelRepository:
     def get_by_model_type(model_type: ModelType) -> SupportedModelMetadataSchema | None:
         """Return metadata for a single model type, or None if unknown."""
         return _SUPPORTED_MODELS_METADATA.get(model_type)
+
+    @staticmethod
+    def get_all_model_mode_pairs() -> list[tuple[ModelType, PromptType]]:
+        """Return all (model_type, prompt_mode) pairs that should exist per project.
+
+        Single-mode models yield one pair. Dual-mode models (e.g. SAM3) yield two pairs.
+        """
+        pairs: list[tuple[ModelType, PromptType]] = []
+        for model_type, metadata in _SUPPORTED_MODELS_METADATA.items():
+            supports_visual = bool(_VISUAL_PROMPT_TYPES & set(metadata.supported_prompt_types))
+            supports_text = SupportedPromptType.TEXT in metadata.supported_prompt_types
+            if supports_visual:
+                pairs.append((model_type, PromptType.VISUAL))
+            if supports_text:
+                pairs.append((model_type, PromptType.TEXT))
+        return pairs
 
     @staticmethod
     def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:

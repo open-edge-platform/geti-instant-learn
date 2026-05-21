@@ -19,6 +19,7 @@ def processor_db_to_schema(processor: ProcessorDB) -> ProcessorSchema:
         active=processor.active,
         config=processor.config,
         name=processor.name,
+        prompt_mode=processor.prompt_mode,
     )
 
 
@@ -32,6 +33,7 @@ def processor_schema_to_db(schema: ProcessorCreateSchema, project_id: UUID) -> P
         active=schema.active,
         project_id=project_id,
         name=schema.name,
+        prompt_mode=schema.prompt_mode,
     )
 
 

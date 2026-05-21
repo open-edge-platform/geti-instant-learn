@@ -55,6 +55,7 @@ def sample_processor_schema(model_id):
         id=model_id,
         name="Test Model",
         active=True,
+        prompt_mode="VISUAL",
         config=MatcherConfig(
             confidence_threshold=0.38,
             model_type=ModelType.MATCHER,
@@ -73,6 +74,7 @@ def create_payload():
         "name": "New Model",
         "id": str(uuid4()),
         "active": True,
+        "prompt_mode": "VISUAL",
         "config": {
             "confidence_threshold": 0.38,
             "model_type": "matcher",
@@ -306,6 +308,7 @@ class TestCreateModel:
                     id=model_id,
                     name=create_data.name,
                     active=False,
+                    prompt_mode=create_data.prompt_mode,
                     config=create_data.config,
                 )
 

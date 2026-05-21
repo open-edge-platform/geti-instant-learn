@@ -49,6 +49,7 @@ def upgrade() -> None:
     op.create_table('Processor',
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('prompt_mode', sa.String(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
@@ -58,9 +59,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(
-        UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+        UniqueConstraintName.PROCESSOR_NAME_MODE_PER_PROJECT,
         'Processor',
-        ['project_id', 'name'],
+        ['project_id', 'name', 'prompt_mode'],
         unique=True,
         sqlite_where=sa.text('name IS NOT NULL')
     )
@@ -200,7 +201,7 @@ def downgrade() -> None:
     op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')
     op.drop_table('Prompt')
     op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_PROCESSOR_PER_PROJECT, table_name='Processor')
-    op.drop_index(UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT, table_name='Processor')
+    op.drop_index(UniqueConstraintName.PROCESSOR_NAME_MODE_PER_PROJECT, table_name='Processor')
     op.drop_table('Processor')
     op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_PROJECT, table_name='Project')
     op.drop_table('Project')

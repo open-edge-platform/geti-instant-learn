@@ -86,7 +86,7 @@ class BaseRepository[ModelType: Base]:
         """Add a batch of items to the session."""
         current_time = datetime.now(UTC)
         for item in items:
-            item.updated_at = current_time
+            item.created_at, item.updated_at = current_time, current_time
         self.session.add_all(items)
         self.session.flush()
         return items

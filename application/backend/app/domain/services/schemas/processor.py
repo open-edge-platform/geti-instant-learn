@@ -234,6 +234,7 @@ class ProcessorSchema(BaseIDSchema):
     config: ModelConfig
     active: bool
     name: str = Field(max_length=80, min_length=1)
+    prompt_mode: str
 
 
 class ProcessorListSchema(PaginatedResponse):
@@ -244,6 +245,7 @@ class ProcessorCreateSchema(BaseIDPayload):
     config: ModelConfig
     active: bool
     name: str = Field(max_length=80, min_length=1)
+    prompt_mode: str
 
 
 class ProcessorUpdateSchema(BaseModel):

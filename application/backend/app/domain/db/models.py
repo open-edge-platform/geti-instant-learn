@@ -138,13 +138,15 @@ class ProcessorDB(Base):
     name: Mapped[str | None] = mapped_column(nullable=True)
     active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    prompt_mode: Mapped[str] = mapped_column(nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="processors", single_parent=True)
     __table_args__ = (
         Index(
-            UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+            UniqueConstraintName.PROCESSOR_NAME_MODE_PER_PROJECT,
             "project_id",
             "name",
+            "prompt_mode",
             unique=True,
             sqlite_where=sa_text("name IS NOT NULL"),
         ),
