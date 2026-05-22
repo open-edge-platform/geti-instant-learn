@@ -3,55 +3,70 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState } from 'react';
-
+import {
+    SegmentAnythingWorkerApi,
+    SegmentAnythingWorkerInstance,
+} from '@/features/annotator/webworkers/segment-anything.worker.interface';
 import { EncodingOutput, SegmentAnythingModel } from '@geti/smart-tools/segment-anything';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, usePrefetchQuery, useQuery } from '@tanstack/react-query';
 import { Remote, wrap } from 'comlink';
 
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { convertToolShapeToGetiShape } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 
-const useSegmentAnythingWorker = (algorithmType: 'SEGMENT_ANYTHING_DECODER' | 'SEGMENT_ANYTHING_ENCODER') => {
-    const { data } = useQuery<Remote<SegmentAnythingModel>>({
-        queryKey: ['workers', algorithmType],
-        queryFn: async () => {
-            const baseWorker = new Worker(new URL('../../webworkers/segment-anything.worker', import.meta.url), {
+type SegmentAnythingRemoteInstance = Remote<SegmentAnythingWorkerInstance>;
+
+const segmentAnythingQueryOptions = () =>
+    queryOptions<SegmentAnythingRemoteInstance>({
+        queryKey: ['workers', 'SEGMENT_ANYTHING'],
+        queryFn: async ({ signal }) => {
+            const worker = new Worker(new URL('../../webworkers/segment-anything.worker', import.meta.url), {
                 type: 'module',
             });
-            const samWorker = wrap(baseWorker);
 
-            // @ts-expect-error build exists on every worker
-            return samWorker.build();
+            // addEventListener invokes the listener with `this = signal`, and
+            // `Worker.prototype.terminate` requires `this` to be a Worker — it
+            // throws "Illegal invocation" silently and the worker is never
+            // killed. With React StrictMode double-mounting effects (or any
+            // transient cancellation), every cycle leaked a fresh worker, each
+            // of which independently re-fetched opencv (~1MB), the ort bundle,
+            // ort wasm, and the SAM `.onnx` models. That was the dominant
+            // source of the "ort/opencv fetched 6 times" symptom.
+            signal.addEventListener('abort', () => worker.terminate(), { once: true });
+
+            try {
+                const samWorker = wrap<SegmentAnythingWorkerApi>(worker);
+                const instance = await samWorker.build();
+
+                await Promise.all([
+                    instance.init('SEGMENT_ANYTHING_ENCODER'),
+                    instance.init('SEGMENT_ANYTHING_DECODER'),
+                ]);
+
+                if (signal.aborted) {
+                    throw signal.reason;
+                }
+
+                return instance;
+            } catch (error) {
+                worker.terminate();
+
+                throw error;
+            }
         },
         staleTime: Infinity,
+        gcTime: Infinity,
     });
 
-    const modelRef = useRef<Remote<SegmentAnythingModel>>(undefined);
-    const [modelIsLoading, setModelIsLoading] = useState(false);
+export const usePrefetchSegmentAnythingWorker = () => {
+    usePrefetchQuery(segmentAnythingQueryOptions());
+};
 
-    useEffect(() => {
-        const loadWorker = async () => {
-            setModelIsLoading(true);
+const useSegmentAnythingWorker = () => {
+    const { data } = useQuery(segmentAnythingQueryOptions());
 
-            if (data) {
-                const model = data;
-
-                await model.init(algorithmType);
-
-                modelRef.current = model;
-            }
-
-            setModelIsLoading(false);
-        };
-
-        if (data && modelRef.current === undefined && !modelIsLoading) {
-            loadWorker();
-        }
-    }, [data, modelIsLoading, algorithmType]);
-
-    return modelRef.current;
+    return data;
 };
 
 const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, frameId: string, image: ImageData) => {
@@ -103,13 +118,12 @@ const useDecodingFn = (model: Remote<SegmentAnythingModel> | undefined, encoding
 };
 
 export const useSegmentAnythingModel = () => {
-    const encoderModel = useSegmentAnythingWorker('SEGMENT_ANYTHING_ENCODER');
-    const decoderModel = useSegmentAnythingWorker('SEGMENT_ANYTHING_DECODER');
-    const isLoadingWorkers = encoderModel === undefined || decoderModel === undefined;
+    const model = useSegmentAnythingWorker();
+    const isLoadingWorkers = model === undefined;
 
     const { frameId, image } = useAnnotator();
-    const encodingQuery = useEncodingQuery(encoderModel, frameId, image);
-    const decodingQueryFn = useDecodingFn(decoderModel, encodingQuery.data);
+    const encodingQuery = useEncodingQuery(model, frameId, image);
+    const decodingQueryFn = useDecodingFn(model, encodingQuery.data);
 
     const isLoading = isLoadingWorkers || encodingQuery.isLoading;
     const isProcessing = encodingQuery.isFetching;

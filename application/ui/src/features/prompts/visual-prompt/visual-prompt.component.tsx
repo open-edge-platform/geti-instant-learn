@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { usePrefetchSegmentAnythingWorker } from '@/features/annotator/tools/segment-anything-tool/use-segment-anything.hook';
 import { Flex } from '@geti/ui';
 
 import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
@@ -13,6 +14,8 @@ import { SavePrompt } from './save-prompt/save-prompt.component';
 
 export const VisualPrompt = () => {
     const { selectedFrameId } = useSelectedFrame();
+
+    usePrefetchSegmentAnythingWorker();
 
     return (
         <Flex direction={'column'} gap={'size-300'} height={'100%'}>
