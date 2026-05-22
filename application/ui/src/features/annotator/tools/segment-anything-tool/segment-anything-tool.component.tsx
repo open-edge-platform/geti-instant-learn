@@ -21,6 +21,7 @@ import { CreateLabelPopover } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
+import { useWithCancel } from './use-with-cancel';
 
 import classes from './segment-anything.module.scss';
 
@@ -67,6 +68,7 @@ export const SegmentAnythingTool = () => {
     const { selectedLabel, labels } = useVisualPrompt();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
+    const cancellableThrottledDecodingQueryFn = useWithCancel(throttledDecodingQueryFn);
 
     const canvasRef = useRef<SVGRectElement>(null);
 
@@ -85,7 +87,8 @@ export const SegmentAnythingTool = () => {
             getRelativePoint(canvasRef.current, { x: event.clientX, y: event.clientY }, zoom.scale)
         );
 
-        throttledDecodingQueryFn([{ ...point, positive: true }])
+        cancellableThrottledDecodingQueryFn
+            .call([{ ...point, positive: true }])
             .then((shapes) => {
                 setPreviewShapes(shapes.map((shape) => removeOffLimitPoints(shape, roi)));
             })
@@ -137,6 +140,7 @@ export const SegmentAnythingTool = () => {
         }
 
         handleAddAnnotations(previewShapes, selectedLabel);
+        cancellableThrottledDecodingQueryFn.cancel();
     };
 
     const previewAnnotations = (acceptedShapes ?? previewShapes).map((shape, idx): AnnotationType => {
@@ -148,6 +152,11 @@ export const SegmentAnythingTool = () => {
             id: `${idx}`,
         };
     });
+
+    const handlePointerLeave = () => {
+        setPreviewShapes([]);
+        cancellableThrottledDecodingQueryFn.cancel();
+    };
 
     const handleClose = () => {
         setCreateLabelFormPosition(null);
@@ -167,9 +176,7 @@ export const SegmentAnythingTool = () => {
                 canvasRef={canvasRef}
                 onPointerMove={handleMouseMove}
                 onPointerDown={handlePointerDown}
-                onPointerLeave={() => {
-                    setPreviewShapes([]);
-                }}
+                onPointerLeave={handlePointerLeave}
                 style={{
                     cursor: `url("/icons/selection.svg") 8 8, auto`,
                 }}
