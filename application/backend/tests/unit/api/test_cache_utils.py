@@ -10,6 +10,7 @@ from starlette.routing import Mount
 
 from api.cache_utils import CachedStaticFiles
 
+
 @pytest.fixture
 def static_dir(tmp_path):
     """Create a temporary directory with test static files."""
