@@ -8,7 +8,9 @@ import { ReactNode } from 'react';
 import { Flex, View } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
-import getiLogo from './assets/icons/geti-instant-learn-logo.webp';
+import getiLogo from '../../assets/icons/geti-instant-learn-logo.webp';
+
+import styles from './header.component.scss';
 
 export const Header = ({ homeLink, children }: { homeLink: string; children: ReactNode }) => {
     return (
@@ -16,7 +18,7 @@ export const Header = ({ homeLink, children }: { homeLink: string; children: Rea
             <Flex height='100%' alignItems={'center'} justifyContent={'space-between'} marginX='1rem' gap='size-200'>
                 <Link to={homeLink}>
                     <Flex alignItems='center' gap='size-50'>
-                        <img src={getiLogo} alt={'Geti Instant Learn'} className={classes.logo} />
+                        <img src={getiLogo} alt={'Geti Instant Learn'} className={styles.logo} />
                         Geti™ Instant Learn
                     </Flex>
                 </Link>
