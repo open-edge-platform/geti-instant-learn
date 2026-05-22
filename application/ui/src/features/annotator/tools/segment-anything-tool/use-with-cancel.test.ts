@@ -1,13 +1,25 @@
-// Copyright (C) 2025-2026 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0
+/**
+ * Copyright (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
+import { Shape } from '@/features/annotator/types';
+import { renderHook } from '@/test-utils';
 import { act } from '@testing-library/react';
-import { getMockedShape } from 'mocks/mock-annotation';
-import { renderHook } from 'test-utils/render';
 
-import { Shape } from '../../../../shared/types';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useWithCancel } from './use-with-cancel';
+
+const getMockedShape = (): Shape => {
+    return {
+        type: 'polygon',
+        points: [
+            { x: 1, y: 1 },
+            { x: 2, y: 2 },
+            { x: 3, y: 3 },
+        ],
+    };
+};
 
 const getMockedInteractivePoint = (x: number, y: number, positive = true): InteractiveAnnotationPoint => ({
     x,
