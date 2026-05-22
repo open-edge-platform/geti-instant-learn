@@ -10,13 +10,13 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
+from api.cache_utils import CachedStaticFiles
 from api.error_handler import custom_exception_handler
 from api.routers import (
     projects_router,
@@ -140,7 +140,7 @@ if (
 ):
     asset_prefix = os.getenv("ASSET_PREFIX", "/html")
     logger.info("Serving static files from %s by context %s", settings.static_files_dir, asset_prefix)
-    fastapi_app.mount(asset_prefix, StaticFiles(directory=settings.static_files_dir), name="static")
+    fastapi_app.mount(asset_prefix, CachedStaticFiles(directory=settings.static_files_dir), name="static")
 
     @fastapi_app.get("/", include_in_schema=False)
     @fastapi_app.get("/{full_path:path}", include_in_schema=False)
