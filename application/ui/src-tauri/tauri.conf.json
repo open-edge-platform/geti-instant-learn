@@ -28,6 +28,7 @@
         "active": true,
         "targets": ["app"],
         "externalBin": ["instant-learn-backend"],
-        "resources": ["_internal", "InitialData"]
+        "resources": ["_internal", "InitialData"],
+        "icon": ["icons/icon.ico"]
     }
 }
