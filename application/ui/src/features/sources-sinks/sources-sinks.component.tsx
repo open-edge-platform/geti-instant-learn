@@ -89,7 +89,6 @@ export const SourcesSinks = () => {
                     >
                         <InferenceDevice />
                     </Suspense>
-                    <Divider size='S' marginY='size-200' />
                     <SourcesSinksTabs />
                 </Content>
             </Dialog>
