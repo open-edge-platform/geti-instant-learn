@@ -11,7 +11,6 @@ import {
     Content,
     Dialog,
     DialogTrigger,
-    Divider,
     Flex,
     Item,
     Loading,
