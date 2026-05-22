@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 
 import getiLogo from '../../assets/icons/geti-instant-learn-logo.webp';
 
-import styles from './header.component.scss';
+import styles from './header.component.module.scss';
 
 export const Header = ({ homeLink, children }: { homeLink: string; children: ReactNode }) => {
     return (
