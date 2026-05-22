@@ -35,6 +35,13 @@ export class AnnotatorPage {
             const hoverX = x;
             const hoverY = y;
 
+            // Wait for SAM encoding to complete (toBeHidden passes even if element never appears)
+            await expect(this.scope.getByText('Processing image, please wait...')).toBeHidden({ timeout: 10000 });
+
+            // Move away slightly first to guarantee a pointermove event fires even if the cursor
+            // is already at the target position (Playwright skips moves to the current position)
+            await this.page.mouse.move(hoverX + 5, hoverY + 5);
+
             // Hover to trigger preview
             await this.page.mouse.move(hoverX, hoverY);
 

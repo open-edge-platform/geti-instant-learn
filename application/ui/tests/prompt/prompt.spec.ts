@@ -5,6 +5,7 @@
 
 import { expect, http, test } from '@/test-fixtures';
 import { Page } from '@playwright/test';
+import { HttpResponse } from 'msw';
 
 import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
 import { PromptPage } from '../annotator/prompt-page';
@@ -105,6 +106,13 @@ test.describe('Prompt', () => {
 
         await test.step('Edits prompt', async () => {
             // Create a second prompt (we already have one from previous steps)
+            network.use(
+                http.post('/api/v1/projects/{project_id}/frames', () => {
+                    return HttpResponse.json({
+                        frame_id: 'second-frame-id',
+                    });
+                })
+            );
             await streamPage.captureFrame();
 
             await expect(annotatorPage.getCapturedFrame()).toBeVisible();
