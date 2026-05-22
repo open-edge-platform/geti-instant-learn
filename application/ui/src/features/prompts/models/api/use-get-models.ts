@@ -4,17 +4,20 @@
  */
 
 import { $api, ModelListType } from '@/api';
-import { useProjectIdentifier } from '@/hooks';
+import { useProjectIdentifier, usePromptMode } from '@/hooks';
 
 export const useGetModels = () => {
     const { projectId } = useProjectIdentifier();
+    const [promptMode] = usePromptMode();
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}/models', {
         params: {
             path: {
                 project_id: projectId,
             },
+            query: {
+                prompt_mode: promptMode,
+            },
         },
     });
-
     return (data as ModelListType).models;
 };

@@ -22,6 +22,7 @@ export const getMockedModel = (model?: Partial<ModelType>): ModelType => {
         },
         active: true,
         name: 'PerDINO',
+        prompt_mode: 'VISUAL',
         ...model,
     };
 };
@@ -43,6 +44,7 @@ export const getMockedMatcherModel = (model?: Partial<MatcherModel>): MatcherMod
         },
         active: true,
         name: 'Matcher',
+        prompt_mode: 'VISUAL',
         ...model,
     };
 };
@@ -58,6 +60,7 @@ export const getMockedSam3Model = (model?: Partial<Sam3Model>): Sam3Model => {
         },
         active: false,
         name: 'SAM3',
+        prompt_mode: 'TEXT',
         ...model,
     };
 };
@@ -77,6 +80,7 @@ export const getMockedSupportedModels = (): SupportedModelMetadataType[] => [
             preset: 'throughput',
         },
         supported_prompt_types: ['visual_polygon'],
+        display_name: 'Matcher',
     },
     {
         default_config: {
@@ -91,6 +95,7 @@ export const getMockedSupportedModels = (): SupportedModelMetadataType[] => [
             confidence_threshold: 0.01,
         },
         supported_prompt_types: ['visual_polygon'],
+        display_name: 'PerDINO',
     },
     {
         default_config: {
@@ -108,6 +113,7 @@ export const getMockedSupportedModels = (): SupportedModelMetadataType[] => [
             softmatching_bidirectional: false,
         },
         supported_prompt_types: ['visual_polygon'],
+        display_name: 'SoftMatcher',
     },
     {
         default_config: {
@@ -117,5 +123,6 @@ export const getMockedSupportedModels = (): SupportedModelMetadataType[] => [
             precision: 'fp32',
         },
         supported_prompt_types: ['text', 'visual_rectangle'],
+        display_name: 'SAM3',
     },
 ];

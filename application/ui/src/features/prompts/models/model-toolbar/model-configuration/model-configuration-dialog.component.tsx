@@ -136,6 +136,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                 active: model.active,
                 name: model.name,
                 id: model.id,
+                prompt_mode: model.prompt_mode,
                 config: {
                     model_type: model.config.model_type,
                     num_foreground_points: numberOfForegroundPoints,
@@ -271,6 +272,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                 active: model.active,
                 name: model.name,
                 id: model.id,
+                prompt_mode: model.prompt_mode,
                 config: {
                     model_type: model.config.model_type,
                     num_foreground_points: numberOfForegroundPoints,
@@ -412,6 +414,7 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                 active: model.active,
                 name: model.name,
                 id: model.id,
+                prompt_mode: model.prompt_mode,
                 config: {
                     model_type: model.config.model_type,
                     num_foreground_points: numberOfForegroundPoints,
@@ -538,6 +541,7 @@ const Sam3Configuration = ({ model, onClose }: Sam3ConfigurationProps) => {
                 active: model.active,
                 name: model.name,
                 id: model.id,
+                prompt_mode: model.prompt_mode,
                 config: {
                     model_type: model.config.model_type,
                     confidence_threshold: confidenceThreshold,

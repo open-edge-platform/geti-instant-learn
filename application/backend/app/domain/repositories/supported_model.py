@@ -22,19 +22,24 @@ PROMPT_TYPE_TO_ANNOTATION_TYPE: dict[SupportedPromptType, AnnotationType] = {
 
 _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
     ModelType.MATCHER: SupportedModelMetadataSchema(
-        default_config=MatcherConfig(), supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON]
+        default_config=MatcherConfig(),
+        supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
+        display_name="Matcher",
     ),
     ModelType.PERDINO: SupportedModelMetadataSchema(
         default_config=PerDinoConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
+        display_name="PerDINO",
     ),
     ModelType.SOFT_MATCHER: SupportedModelMetadataSchema(
         default_config=SoftMatcherConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
+        display_name="SoftMatcher",
     ),
     ModelType.SAM3: SupportedModelMetadataSchema(
         default_config=Sam3Config(),
         supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
+        display_name="SAM3",
     ),
 }
 

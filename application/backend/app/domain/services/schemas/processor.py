@@ -199,6 +199,7 @@ class SupportedModelMetadataSchema(BaseModel):
 
     default_config: ModelConfig
     supported_prompt_types: list[SupportedPromptType]
+    display_name: str
 
 
 class SupportedModelsListSchema(PaginatedResponse):

@@ -124,8 +124,10 @@ def test_create_project_success(service, repo_mock, processor_repo_mock, session
     repo_mock.add.assert_called_once()
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
-    # 5 processor rows: Matcher(VISUAL), PerDino(VISUAL), SoftMatcher(VISUAL), SAM3(VISUAL), SAM3(TEXT)
-    assert processor_repo_mock.add.call_count == 5
+    # 5 processor rows seeded via add_batch: Matcher(VISUAL), PerDino(VISUAL), SoftMatcher(VISUAL), SAM3(VISUAL), SAM3(TEXT)
+    processor_repo_mock.add_batch.assert_called_once()
+    batch = processor_repo_mock.add_batch.call_args.args[0]
+    assert len(batch) == 5
 
 
 def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):
@@ -597,12 +599,13 @@ def test_create_project_seeds_all_processors(service, repo_mock, processor_repo_
     service.create_project(data)
 
     # Matcher(VISUAL), PerDino(VISUAL), SoftMatcher(VISUAL), SAM3(VISUAL), SAM3(TEXT)
-    assert processor_repo_mock.add.call_count == 5
-    added_calls = processor_repo_mock.add.call_args_list
-    modes = {call.args[0].prompt_mode for call in added_calls}
+    processor_repo_mock.add_batch.assert_called_once()
+    batch = processor_repo_mock.add_batch.call_args.args[0]
+    assert len(batch) == 5
+    modes = {p.prompt_mode for p in batch}
     assert modes == {"VISUAL", "TEXT"}
-    names = {call.args[0].name for call in added_calls}
-    assert names == {"matcher", "perdino", "soft_matcher", "sam3"}
+    names = {p.name for p in batch}
+    assert names == {"Matcher", "PerDINO", "SoftMatcher", "SAM3"}
 
 
 def test_create_project_default_active_model_is_soft_matcher_visual(
@@ -614,10 +617,10 @@ def test_create_project_default_active_model_is_soft_matcher_visual(
 
     service.create_project(data)
 
-    added_calls = processor_repo_mock.add.call_args_list
-    active_processors = [call.args[0] for call in added_calls if call.args[0].active]
+    batch = processor_repo_mock.add_batch.call_args.args[0]
+    active_processors = [p for p in batch if p.active]
     assert len(active_processors) == 1
-    assert active_processors[0].name == "soft_matcher"
+    assert active_processors[0].name == "SoftMatcher"
     assert active_processors[0].prompt_mode == "VISUAL"
 
 
@@ -633,14 +636,14 @@ def test_ensure_compatible_active_model_switches_to_most_recently_updated(
     most_recent_text.config = {"model_type": "sam3"}
 
     processor_repo_mock.get_active_in_project.return_value = active_visual
-    processor_repo_mock.list_by_project_and_mode.return_value = [most_recent_text]
+    processor_repo_mock.get_most_recent_by_project_and_mode.return_value = most_recent_text
     processor_repo_mock.update.side_effect = lambda m: m
 
     service._ensure_compatible_active_model(pid, PromptType.TEXT)
 
     assert active_visual.active is False
     assert most_recent_text.active is True
-    processor_repo_mock.list_by_project_and_mode.assert_called_once_with(project_id=pid, prompt_mode="TEXT")
+    processor_repo_mock.get_most_recent_by_project_and_mode.assert_called_once_with(project_id=pid, prompt_mode="TEXT")
 
 
 def test_ensure_compatible_active_model_no_candidates_leaves_no_active(service, repo_mock, processor_repo_mock):
@@ -649,7 +652,7 @@ def test_ensure_compatible_active_model_no_candidates_leaves_no_active(service, 
     active_visual = make_model(pid, active=True)
 
     processor_repo_mock.get_active_in_project.return_value = active_visual
-    processor_repo_mock.list_by_project_and_mode.return_value = []
+    processor_repo_mock.get_most_recent_by_project_and_mode.return_value = None
     processor_repo_mock.update.side_effect = lambda m: m
 
     service._ensure_compatible_active_model(pid, PromptType.TEXT)
@@ -663,7 +666,7 @@ def test_ensure_compatible_active_model_no_current_active(service, repo_mock, pr
     candidate = make_model(pid, active=False)
 
     processor_repo_mock.get_active_in_project.return_value = None
-    processor_repo_mock.list_by_project_and_mode.return_value = [candidate]
+    processor_repo_mock.get_most_recent_by_project_and_mode.return_value = candidate
     processor_repo_mock.update.side_effect = lambda m: m
 
     service._ensure_compatible_active_model(pid, PromptType.VISUAL)

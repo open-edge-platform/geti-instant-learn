@@ -23,6 +23,16 @@ class ProcessorRepository(PipelineComponentRepository[ProcessorDB]):
         """Initialize the repository."""
         super().__init__(session=session, model=ProcessorDB)
 
+    def get_most_recent_by_project_and_mode(self, project_id: UUID, prompt_mode: str) -> ProcessorDB | None:
+        """Return the most recently updated processor for a project and prompt_mode, or None."""
+        stmt = (
+            select(ProcessorDB)
+            .where(ProcessorDB.project_id == project_id, ProcessorDB.prompt_mode == prompt_mode)
+            .order_by(ProcessorDB.updated_at.desc())
+            .limit(1)
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def list_by_project_and_mode(self, project_id: UUID, prompt_mode: str) -> Sequence[ProcessorDB]:
         """List all processors for a project and prompt_mode, ordered by most recently updated first."""
         stmt = (

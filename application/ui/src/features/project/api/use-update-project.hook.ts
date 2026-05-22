@@ -17,14 +17,17 @@ export const useUpdateProject = () => {
             },
         },
     });
-
     const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void> | void): void => {
         const projectQueryKey = getQueryKey([
             'get',
             '/api/v1/projects/{project_id}',
             { params: { path: { project_id: id } } },
         ]);
-
+        const modelsQueryKey = getQueryKey([
+            'get',
+            '/api/v1/projects/{project_id}/models',
+            { params: { path: { project_id: id } } },
+        ]);
         updateProjectMutation.mutate(
             {
                 body,
@@ -37,12 +40,13 @@ export const useUpdateProject = () => {
             {
                 onSuccess: async () => {
                     await queryClient.invalidateQueries({ queryKey: projectQueryKey });
+                    // Invalidate models — backend may have switched the active model (e.g. on prompt_mode change)
+                    await queryClient.invalidateQueries({ queryKey: modelsQueryKey });
                     await onSuccess?.();
                 },
             }
         );
     };
-
     return {
         mutate: updateProject,
         isPending: updateProjectMutation.isPending,

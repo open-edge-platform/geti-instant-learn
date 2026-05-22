@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
-from domain.db.models import ProcessorDB, ProjectDB, PromptType
+from domain.db.models import ProjectDB, PromptType
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ComponentType,
@@ -27,13 +27,14 @@ from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.supported_model import DEFAULT_ACTIVE_MODEL, SupportedModelRepository
 from domain.services.base import BaseService
+from domain.services.schemas.mappers.processor import processor_schema_to_db
 from domain.services.schemas.mappers.project import (
     project_db_to_schema,
     project_schema_to_db,
     projects_db_to_list_items,
 )
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import ModelConfig
+from domain.services.schemas.processor import ModelConfig, ProcessorCreateSchema
 from domain.services.schemas.project import (
     ProjectCreateSchema,
     ProjectSchema,
@@ -402,8 +403,6 @@ class ProjectService(BaseService):
             raise ValueError(f"Device {device_str!r} is not available on this system.")
 
     def _ensure_compatible_active_model(self, project_id: UUID, prompt_mode: PromptType) -> None:
-        """Switch active model to a compatible one if needed after a prompt_mode change.
-    def _ensure_compatible_active_model(self, project_id: UUID, prompt_mode: PromptType) -> None:  #todo since backend takes care of it, maybe remove duplicated logic from UI and just make sure UI invalidates models listing on project mode switches
         """Switch the active model to the most recently used compatible one after a prompt_mode change.
 
         Deactivates the current active model, then activates the most recently updated processor
@@ -419,11 +418,10 @@ class ProjectService(BaseService):
                 prompt_mode,
             )
 
-        candidates = self.processor_repository.list_by_project_and_mode(  #todo maybe add dedicated method to the ProcessorRepository? we don't need an entire list here
+        next_model = self.processor_repository.get_most_recent_by_project_and_mode(
             project_id=project_id, prompt_mode=prompt_mode.value
         )
-        if candidates:
-            next_model = candidates[0]  # ordered by updated_at DESC
+        if next_model is not None:
             next_model.active = True
             self.processor_repository.update(next_model)
             logger.info(
@@ -441,32 +439,22 @@ class ProjectService(BaseService):
         The DEFAULT_ACTIVE_MODEL pair is set active=True; all others are inactive.
         Called inside an open transaction from create_project.
         """
-        #todo this method looks a bit problematic:
-        # 1) `name` for the processor (model) will be user-facing, shown in UI - we want it to be nice and readable (e.f. "SoftMatcher", not soft_matcher, "PerDINO", not perdino)
-        # 2) we shouldn't create ProcessorDB directly, we have dedicated mapper: processor_schema_to_db and dedicated schema ProcessorCreateSchema
-        # 3) consider using ModelService.create_model() - handles processor integrity errors, although they are unlikely for a new project I guess, and we don't really need ComponentChange events, because project activation will reload the entire pipeline; or consider using processor_repository.add_batch() - but think whether it's alright that this method sets the same `updated_at` value for all items
-
         default_model_type, default_prompt_mode = DEFAULT_ACTIVE_MODEL
+        processors = []
         for model_type, prompt_mode in SupportedModelRepository.get_all_model_mode_pairs():
             metadata = SupportedModelRepository.get_by_model_type(model_type)
             if metadata is None:
                 continue
             is_default = model_type == default_model_type and prompt_mode == default_prompt_mode
-            processor = ProcessorDB(
-                config=metadata.default_config.model_dump(),
+            schema = ProcessorCreateSchema(
+                config=metadata.default_config,
                 active=is_default,
-                project_id=project.id,
-                name=model_type.value,
+                name=metadata.display_name,
                 prompt_mode=prompt_mode.value,
             )
-            self.processor_repository.add(processor)
-            logger.debug(
-                "Seeded processor: project_id=%s model_type=%s prompt_mode=%s active=%s",
-                project.id,
-                model_type,
-                prompt_mode,
-                is_default,
-            )
+            processors.append(processor_schema_to_db(schema, project_id=project.id))
+        self.processor_repository.add_batch(processors)
+        logger.debug("Seeded %d processors for project_id=%s", len(processors), project.id)
 
     def _handle_project_integrity_error(
         self, exc: IntegrityError, project_id: UUID, project_name: str | None = None
