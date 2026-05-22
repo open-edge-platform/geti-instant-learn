@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from collections.abc import Sequence
 from uuid import UUID
 
@@ -10,8 +9,6 @@ from sqlalchemy.orm import Session
 
 from domain.db.models import ProcessorDB
 from domain.repositories.base import PipelineComponentRepository
-
-logger = logging.getLogger(__name__)
 
 
 class ProcessorRepository(PipelineComponentRepository[ProcessorDB]):

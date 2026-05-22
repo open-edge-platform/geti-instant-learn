@@ -10,6 +10,7 @@ from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils.constants import CompressionMode, SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
+from domain.db.models import PromptType
 from domain.dispatcher import ComponentType
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 from domain.services.schemas.frame_trace import FrameTrace
@@ -246,7 +247,7 @@ class ProcessorCreateSchema(BaseIDPayload):
     config: ModelConfig
     active: bool
     name: str = Field(max_length=80, min_length=1)
-    prompt_mode: str
+    prompt_mode: PromptType
 
 
 class ProcessorUpdateSchema(BaseModel):
