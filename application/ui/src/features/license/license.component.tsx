@@ -1,8 +1,9 @@
 /**
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useAcceptLicense } from '@/features/license/api/use-accept-license.hook';
 import { Button, Content, Divider, Flex, Heading, Link, Text, View } from '@geti/ui';
 
 import { Layout } from '../project/projects-list-entry/layout.component';
@@ -12,7 +13,7 @@ type LicenseProps = {
     isAccepting?: boolean;
 };
 
-export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
+export const LicenseContent = ({ onAccept, isAccepting = false }: LicenseProps) => {
     return (
         <Layout>
             <Flex justifyContent={'center'} alignItems={'center'} height={'100%'}>
@@ -65,4 +66,10 @@ export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
             </Flex>
         </Layout>
     );
+};
+
+export const License = () => {
+    const { mutate: acceptLicense, isPending: isAccepting } = useAcceptLicense();
+
+    return <LicenseContent onAccept={() => acceptLicense(undefined)} isAccepting={isAccepting} />;
 };

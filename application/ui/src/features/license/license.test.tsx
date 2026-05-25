@@ -8,13 +8,13 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
-import { License } from './license.component';
+import { LicenseContent } from './license.component';
 
 const renderLicense = (onAccept = vi.fn(), isAccepting = false) => {
-    render(<License onAccept={onAccept} isAccepting={isAccepting} />);
+    render(<LicenseContent onAccept={onAccept} isAccepting={isAccepting} />);
 };
 
-describe('License', () => {
+describe('LicenseContent', () => {
     it('renders the acknowledgement text and license links', () => {
         renderLicense();
 
