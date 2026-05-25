@@ -11,6 +11,25 @@ import { pluginSvgr } from '@rsbuild/plugin-svgr';
 
 const { publicVars } = loadEnv();
 
+// Platform target selection. When building for the Tauri desktop shell we
+// prepend `.tauri.*` extensions so the bundler resolves platform-specific
+// overrides (e.g. `foo.tauri.ts` wins over `foo.ts`). Files not shadowed by
+// a `.tauri.*` twin resolve as usual. This keeps Tauri-specific code out of
+// the web graph entirely, and removes the need for runtime `isTauri` checks.
+const isTauriBuild = process.env.BUILD_TARGET === 'tauri';
+
+// `TAURI_ENV_DEBUG` is set by the Tauri CLI: `tauri dev` / `start:desktop`
+// propagate it as `true`, and `tauri build` sets it to `false`. We disable
+// minification and emit inline JS source maps for debug desktop builds so
+// stack traces are readable inside the embedded WebView.
+const isTauriDebugBuild = isTauriBuild && process.env.TAURI_ENV_DEBUG === 'true';
+
+const platformExtensions = isTauriBuild ? ['.tauri.tsx', '.tauri.ts', '.tauri.jsx', '.tauri.js', '.tauri.scss'] : [];
+// `.scss` is appended unconditionally so extensionless SCSS imports (used
+// to opt in to the platform-override mechanism, e.g. `import './foo'`)
+// still resolve to `foo.scss` on the web build.
+const styleExtensions = ['.scss'];
+
 const getPublicApiUrl = () => {
     if (publicVars['import.meta.env.PUBLIC_API_URL'] !== undefined) {
         return JSON.parse(publicVars['import.meta.env.PUBLIC_API_URL']);
@@ -41,6 +60,13 @@ export default defineConfig({
     ],
     output: {
         assetPrefix: process.env.ASSET_PREFIX,
+        minify: isTauriDebugBuild ? false : undefined,
+        sourceMap: isTauriDebugBuild
+            ? {
+                  js: 'inline-source-map',
+                  css: false,
+              }
+            : undefined,
     },
     source: {
         define: {
@@ -57,6 +83,39 @@ export default defineConfig({
     html: {
         title: 'Geti™ Instant Learn',
         favicon: './src/assets/icons/favicon.ico',
+    },
+
+    performance: {
+        preload: {
+            type: 'initial',
+            include: [
+                /roboto-flex-v30-latin-regular.*\.woff2$/,
+                // The branded loading spinner is the LCP element on the initial
+                // route (it's rendered by the root <Suspense> fallback while the
+                // route chunk loads). Without a preload, the browser can't
+                // discover its URL until ~2 MB of JS parses and React mounts,
+                // pushing LCP to ~4 s. Preloading shrinks resourceLoadDelay
+                // dramatically and lets the spinner paint near FCP.
+                /intel-loading\..*\.webp$/,
+            ],
+        },
+    },
+
+    tools: {
+        rspack: (config) => {
+            // `resolve.extensions` is order-sensitive: the first match wins.
+            // Rsbuild's defaults put `.ts` near the front, so a plain object
+            // merge would let it shadow our `.tauri.ts` overrides. Prepend
+            // explicitly and dedupe to keep the platform suffixes first.
+            const existing = config.resolve?.extensions ?? [];
+            const extensions = Array.from(new Set([...platformExtensions, ...existing, ...styleExtensions]));
+
+            return {
+                ...config,
+                resolve: { ...config.resolve, extensions },
+                watchOptions: { ...config.watchOptions, ignored: ['**/src-tauri/**'] },
+            };
+        },
     },
 
     server: {

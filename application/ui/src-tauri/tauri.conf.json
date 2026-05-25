@@ -6,8 +6,8 @@
     "build": {
         "frontendDist": "../dist",
         "devUrl": "http://localhost:3000",
-        "beforeDevCommand": "npm run dev",
-        "beforeBuildCommand": "npm run build"
+        "beforeDevCommand": "npm run start:tauri",
+        "beforeBuildCommand": "npm run build:tauri"
     },
     "app": {
         "windows": [
@@ -16,7 +16,8 @@
                 "width": 800,
                 "height": 600,
                 "resizable": true,
-                "fullscreen": false
+                "fullscreen": false,
+                "additionalBrowserArgs": "--enable-unsafe-webgpu --enable-features=Vulkan"
             }
         ],
         "security": {
