@@ -259,7 +259,7 @@ jobs:
         working-directory: "application/ui"
         env:
           PUBLIC_API_URL: "http://localhost:9100"
-        run: npm run build:tauri:test
+        run: npm run build:tauri
 
       - name: Run Playwright tests
         working-directory: "application/ui"

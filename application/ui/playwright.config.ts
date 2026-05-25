@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'path';
 
@@ -17,6 +18,23 @@ const dirname = path.dirname(file);
 dotenv.config({
     path: path.resolve(dirname, '.env.test'),
 });
+
+// In CI we serve pre-built bundles via `rsbuild preview`, which requires the
+// output directories to already exist. Failing fast here produces a clearer
+// error than waiting for `webServer.timeout` to elapse on a 404-returning
+// preview server.
+if (CI) {
+    const requiredDirs = ['dist', 'dist-tauri'];
+    for (const dir of requiredDirs) {
+        const absolute = path.resolve(dirname, dir);
+        if (!existsSync(absolute)) {
+            throw new Error(
+                `Missing build output at ${absolute}. ` +
+                    `Run \`npm run build\` (web) and \`npm run build:tauri\` (tauri) before \`npm run test:component\`.`
+            );
+        }
+    }
+}
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -69,13 +87,13 @@ export default defineConfig({
     /* Run your local dev server before starting the tests */
     webServer: [
         {
-            command: CI ? 'npx serve -s dist -p 3000 -c ../serve.json' : 'npm start',
+            command: CI ? 'npm run preview' : 'npm start',
             name: 'client',
             url: 'http://localhost:3000',
             reuseExistingServer: CI === false,
         },
         {
-            command: CI ? 'npx serve -s dist-tauri -p 3001 -c ../serve.json' : 'npm run start:tauri -- --port 3001',
+            command: CI ? 'npm run preview:tauri' : 'npm run start:tauri -- --port 3001',
             name: 'tauri-client',
             url: 'http://localhost:3001',
             reuseExistingServer: CI === false,
