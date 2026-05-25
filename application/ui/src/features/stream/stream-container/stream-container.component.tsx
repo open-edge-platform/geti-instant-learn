@@ -52,7 +52,6 @@ export const StreamContainer = () => {
                         color={'currentColor'}
                         width={dimensionValue('size-400')}
                         height={dimensionValue('size-400')}
-                        aria-label={'Start stream'}
                     />
                     <Text>Start stream</Text>
                 </ActionButton>
