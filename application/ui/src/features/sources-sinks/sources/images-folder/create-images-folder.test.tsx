@@ -4,7 +4,7 @@
  */
 
 import { SourceCreateType } from '@/api';
-import { clearMockedTauriContext, render, setMockedTauriContext } from '@/test-utils';
+import { render } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -48,18 +48,6 @@ const renderImagesFolder = (onSaved = vi.fn()) => {
 };
 
 describe('CreateImagesFolder', () => {
-    afterEach(() => {
-        clearMockedTauriContext();
-    });
-
-    it('shows browse button in tauri context', () => {
-        setMockedTauriContext();
-
-        const { imagesFolderSourcePage } = renderImagesFolder();
-
-        expect(imagesFolderSourcePage.browseButton).toBeInTheDocument();
-    });
-
     it('disables submit button when path is empty', () => {
         const { imagesFolderSourcePage } = renderImagesFolder();
 

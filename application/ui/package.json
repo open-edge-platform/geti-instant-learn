@@ -12,6 +12,7 @@
         "build:api:types": "npx openapi-typescript ./src/api/openapi-spec.json -o ./src/api/openapi-spec.d.ts --root-types && prettier --write ./src/api/openapi-spec.d.ts",
         "build:api": "npm run build:api:download && npm run build:api:types",
         "build:tauri": "cross-env BUILD_TARGET=tauri rsbuild build",
+        "build:tauri:test": "cross-env BUILD_TARGET=tauri rsbuild build --output-path dist-tauri",
         "build": "rsbuild build",
         "cyclic-deps-check": "npx madge --circular ./**/*.ts*",
         "dev": "concurrently -n Server,UI -c blue,yellow \"npm run server\" \"npm start\"",

@@ -255,11 +255,17 @@ jobs:
           PUBLIC_API_URL: "http://localhost:9100"
         run: npm run build
 
+      - name: Build UI (Tauri target)
+        working-directory: "application/ui"
+        env:
+          PUBLIC_API_URL: "http://localhost:9100"
+        run: npm run build:tauri:test
+
       - name: Run Playwright tests
         working-directory: "application/ui"
         env:
           PUBLIC_API_URL: "http://localhost:9100"
-        run: npm run test:component -- --project "Component tests"
+        run: npm run test:component -- --project "Component tests" --project "Tauri component tests"
 
       - name: Upload blob report to GitHub Actions Artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

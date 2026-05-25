@@ -53,14 +53,32 @@ export default defineConfig({
         {
             name: 'Component tests',
             use: { ...devices['Desktop Chrome'] },
+            testIgnore: /.*\.tauri\.spec\.ts$/,
+        },
+        {
+            // Tauri-flavored specs run against a bundle built with
+            // `BUILD_TARGET=tauri`, which substitutes `*.tauri.tsx` overrides
+            // for their web counterparts (see rsbuild.config.ts). They are
+            // served on a separate port so both bundles can coexist.
+            name: 'Tauri component tests',
+            use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3001' },
+            testMatch: /.*\.tauri\.spec\.ts$/,
         },
     ],
 
     /* Run your local dev server before starting the tests */
-    webServer: {
-        command: CI ? 'npx serve -s dist -p 3000 -c ../serve.json' : 'npm start',
-        name: 'client',
-        url: 'http://localhost:3000',
-        reuseExistingServer: CI === false,
-    },
+    webServer: [
+        {
+            command: CI ? 'npx serve -s dist -p 3000 -c ../serve.json' : 'npm start',
+            name: 'client',
+            url: 'http://localhost:3000',
+            reuseExistingServer: CI === false,
+        },
+        {
+            command: CI ? 'npx serve -s dist-tauri -p 3001 -c ../serve.json' : 'npm run start:tauri -- --port 3001',
+            name: 'tauri-client',
+            url: 'http://localhost:3001',
+            reuseExistingServer: CI === false,
+        },
+    ],
 });
