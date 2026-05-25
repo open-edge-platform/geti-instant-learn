@@ -89,7 +89,7 @@ class TestStreamReaderFactory:
         assert result._config.images_folder_path == str(dataset_dir)
         dataset_resolver.get_dataset_path.assert_called_once_with(dataset_id=dataset_id)
 
-    def test_factory_creates_image_folder_reader_when_dataset_not_found(self, monkeypatch) -> None:
+    def test_factory_raises_when_dataset_not_found(self, monkeypatch) -> None:
         dataset_id = uuid4()
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=dataset_id)
         monkeypatch.setattr(
@@ -103,10 +103,8 @@ class TestStreamReaderFactory:
         )
         factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
-        result = factory.create(config)
-
-        assert isinstance(result, ImageFolderReader)
-        assert str(dataset_id) in result._config.images_folder_path
+        with pytest.raises(DatasetNotFoundError):
+            factory.create(config)
 
     def test_factory_uses_first_cached_sample_dataset_when_dataset_id_missing(
         self,
@@ -132,7 +130,7 @@ class TestStreamReaderFactory:
         assert result._config.images_folder_path == str(first_dataset_dir)
         dataset_resolver.get_dataset_path.assert_called_once_with(dataset_id=None)
 
-    def test_factory_creates_image_folder_reader_when_no_cached_sample_datasets(self, monkeypatch) -> None:
+    def test_factory_raises_when_no_cached_sample_datasets(self, monkeypatch) -> None:
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
         monkeypatch.setattr(
             "runtime.core.components.factories.reader.get_settings",
@@ -145,10 +143,8 @@ class TestStreamReaderFactory:
         )
         factory = StreamReaderFactory(dataset_resolver=dataset_resolver)
 
-        result = factory.create(config)
-
-        assert isinstance(result, ImageFolderReader)
-        assert "No sample datasets" in result._config.images_folder_path
+        with pytest.raises(DatasetNotFoundError):
+            factory.create(config)
 
     def test_factory_raises_when_dataset_resolver_not_provided_for_sample_dataset(self, monkeypatch) -> None:
         config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)

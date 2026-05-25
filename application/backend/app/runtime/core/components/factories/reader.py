@@ -3,7 +3,6 @@
 
 import logging
 
-from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
@@ -68,13 +67,9 @@ class StreamReaderFactory:
                 else:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
 
-                try:
-                    dataset_path = self._dataset_resolver.get_dataset_path(dataset_id=config.dataset_id)
-                except DatasetNotFoundError as e:
-                    images_folder_path = str(e)
-                else:
-                    logger.info("Using sample dataset path '%s'.", dataset_path)
-                    images_folder_path = str(dataset_path)
+                dataset_path = self._dataset_resolver.get_dataset_path(dataset_id=config.dataset_id)
+                logger.info("Using sample dataset path '%s'.", dataset_path)
+                images_folder_path = str(dataset_path)
 
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,

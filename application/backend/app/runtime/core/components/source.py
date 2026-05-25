@@ -102,11 +102,7 @@ class Source(PipelineComponent):
         Seek to a specific frame index.
         Delegates to reader.seek().
         """
-        try:
-            self._reader.seek(index)
-        except Exception as e:
-            if self._inbound_broadcaster is not None:
-                self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
+        self._reader.seek(index)
         if self._manual_mode:
             with self._next_frame_condition:
                 self._next_frame_requested = True
@@ -124,9 +120,4 @@ class Source(PipelineComponent):
         Get paginated list of all frames.
         Delegates to reader.list_frames().
         """
-        try:
-            return self._reader.list_frames(offset=offset, limit=limit)
-        except Exception as e:
-            if self._inbound_broadcaster is not None:
-                self._inbound_broadcaster.broadcast(ErrorData(message=str(e), component=ComponentType.SOURCE))
-            raise
+        return self._reader.list_frames(offset=offset, limit=limit)
