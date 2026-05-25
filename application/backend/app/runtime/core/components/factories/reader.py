@@ -68,12 +68,12 @@ class StreamReaderFactory:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
 
                 dataset_path = self._dataset_resolver.get_dataset_path(dataset_id=config.dataset_id)
+
                 logger.info("Using sample dataset path '%s'.", dataset_path)
-                images_folder_path = str(dataset_path)
 
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
-                    images_folder_path=images_folder_path,
+                    images_folder_path=str(dataset_path),
                     seekable=config.seekable,
                 )
                 return ImageFolderReader(template_config, supported_extensions=settings.supported_extensions)
