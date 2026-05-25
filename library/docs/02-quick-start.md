@@ -4,7 +4,7 @@ Get up and running with the Geti Instant Learn Library in minutes.
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.13
 - [uv](https://github.com/astral-sh/uv) (recommended) or pip
 
 ## Installation
@@ -13,13 +13,13 @@ Get up and running with the Geti Instant Learn Library in minutes.
 cd library
 uv sync --extra xpu    # Intel XPU (recommended)
 uv sync --extra cpu    # CPU only
-uv sync --extra gpu    # CUDA support
+uv sync --extra cuda    # CUDA support
 ```
 
 Or with pip:
 
 ```bash
-pip install ./library[xpu]  # or [cpu], [gpu]
+pip install ./library[xpu]  # or [cpu], [cuda]
 ```
 
 <details>

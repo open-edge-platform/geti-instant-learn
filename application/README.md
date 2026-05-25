@@ -23,7 +23,7 @@ In order to consent, set an environment variable `INSTANTLEARN_LICENSE_ACCEPTED=
 
 ### Run from Source (Development)
 
-**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.12+, Node.js v24+
+**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13, Node.js v24+
 
 ```bash
 # Start backend and frontend in development mode
@@ -39,7 +39,7 @@ just device=xpu application/dev
 | :--- | :--- | :--- |
 | `port` | `9100` | Backend API port |
 | `ui-port` | `3000` | UI development server port |
-| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu128`) |
+| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cuda`) |
 | `enable-coturn` | `false` | Enable local TURN server for WebRTC |
 | `stun-server` | `""` | External STUN server URL |
 | `coturn-port` | `443` | Port for local TURN server |
@@ -64,7 +64,7 @@ just device=xpu application/build-image
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cu128` |
+| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cuda` |
 | `build-target` | `cpu` | Docker build stage: `cpu`, `xpu`, `cuda` |
 | `version` | `latest` | Image version tag |
 
@@ -98,7 +98,7 @@ just device=xpu application/run-image
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cu128` |
+| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cuda` |
 | `webcam-device` | `/dev/video0` | Path to webcam device |
 
 </details>

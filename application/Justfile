@@ -14,7 +14,7 @@ host := "0.0.0.0"
 enable-coturn := "false"
 stun-server := ""
 webrtc-ports := "50000-51000"
-device := "cpu"  # cpu, cu128, xpu
+device := "cpu"  # cpu, cuda, xpu
 render-node := ""  # override XPU render device node (e.g. /dev/dri/renderD128); auto-detected when empty
 
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
