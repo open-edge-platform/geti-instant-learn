@@ -55,7 +55,7 @@ export default defineConfig({
     },
 
     html: {
-        title: 'Geti Instant Learn',
+        title: 'Geti™ Instant Learn',
         favicon: './src/assets/icons/favicon.ico',
     },
 
