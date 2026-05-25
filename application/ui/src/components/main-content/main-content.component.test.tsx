@@ -60,6 +60,6 @@ describe('MainContent', () => {
             </WebRTCConnectionProvider>
         );
 
-        expect(await screen.findByLabelText('Start stream')).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Start stream' })).toBeInTheDocument();
     });
 });
