@@ -44,7 +44,7 @@ export const StreamContainer = () => {
         );
     }
 
-    if (status === 'idle' || status === 'failed') {
+    if (['idle', 'disconnected', 'failed'].includes(status)) {
         return (
             <Container>
                 <ActionButton onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
