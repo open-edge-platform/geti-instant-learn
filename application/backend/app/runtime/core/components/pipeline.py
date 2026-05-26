@@ -158,8 +158,10 @@ class Pipeline:
             new_component: The new component instance.
         """
         component_cls = new_component.__class__
-        self._inbound_broadcaster.clear()
-        self._outbound_broadcaster.clear()
+        if isinstance(new_component, Source):
+            self._inbound_broadcaster.clear()
+        if isinstance(new_component, (Source | Processor)):
+            self._outbound_broadcaster.clear()
         self._components[component_cls] = new_component
         if start:
             thread = Thread(target=new_component, daemon=False)
