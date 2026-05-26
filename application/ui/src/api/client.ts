@@ -6,9 +6,10 @@
 import createFetchClient from 'openapi-fetch';
 import createClient from 'openapi-react-query';
 
+import { getBaseUrl } from './get-base-url';
 import type { paths } from './openapi-spec';
 
-export const baseUrl = import.meta.env.PUBLIC_API_URL || '';
+export const baseUrl = await getBaseUrl();
 
 export const client = createFetchClient<paths>({
     baseUrl,

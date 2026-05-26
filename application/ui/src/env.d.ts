@@ -22,3 +22,18 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
+
+/**
+ * Tauri injects the `__TAURI__` object onto `window` when `withGlobalTauri: true`
+ * is set in tauri.conf.json. This allows web code to detect if it's running
+ * inside a Tauri context and invoke Tauri commands.
+ *
+ * @see https://v2.tauri.app/reference/config/#withglobaltauri
+ */
+interface Window {
+    __TAURI__?: {
+        core?: {
+            invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+        };
+    };
+}
