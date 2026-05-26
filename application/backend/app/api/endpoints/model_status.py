@@ -27,4 +27,6 @@ def get_model_status(
 ) -> ModelStatusSchema:
     """Return the current processor load state for the given project."""
     project_service.get_project(project_id)  # validates project_id, 404 if missing
-    return pipeline_manager.get_model_status()
+    model_status = pipeline_manager.get_model_status()
+    print(model_status)
+    return model_status

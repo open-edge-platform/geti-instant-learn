@@ -19,7 +19,7 @@ logger = getLogger("Geti Instant Learn")
 def load_image_encoder(
     model_id: str = "dinov3_large",
     device: str = "cuda",
-    backend: str | Backend = Backend.TIMM,
+    backend: str | Backend = Backend.HUGGINGFACE,
     precision: str = "bf16",
     compile_models: bool = False,
     input_size: int = 512,
@@ -112,7 +112,7 @@ class ImageEncoder(nn.Module):
     def __init__(
         self,
         model_id: str = "dinov3_large",
-        backend: str | Backend = Backend.TIMM,
+        backend: str | Backend = Backend.HUGGINGFACE,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
