@@ -14,7 +14,8 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.schemas.pipeline import PipelineConfig
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from domain.services.schemas.processor import ModelStatus, ModelStatusErrorType
+from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, PipelineReloadInProgressError
 from runtime.pipeline_manager import PipelineManager
 
 
@@ -364,14 +365,18 @@ class TestPipelineManager:
 
 
 class TestPipelineManagerModelLoadingFlag:
-    """Tests for the busy-flag toggled around processor (re)builds."""
+    """Tests for the processor load status tracked around processor (re)builds."""
 
-    def test_flag_defaults_to_false(self, dispatcher, session_factory):
+    def test_status_defaults_to_ready(self, dispatcher, session_factory):
         mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
         assert mgr.is_model_loading() is False
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.READY
+        assert status.error_type is None
+        assert status.error_message is None
 
-    def test_flag_set_during_processor_rebuild(self, dispatcher, session_factory, mock_component_factory):
-        """While create_processor runs, is_model_loading() must report True; after it returns, False."""
+    def test_status_set_during_processor_rebuild(self, dispatcher, session_factory, mock_component_factory):
+        """While create_processor runs, the status must report loading and then return to ready."""
         with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
             batch_svc_cls.return_value.build.return_value = None
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
@@ -379,10 +384,10 @@ class TestPipelineManagerModelLoadingFlag:
         mgr._pipeline = Mock()
         mgr._pipeline.project_id = uuid4()
 
-        observed: list[bool] = []
+        observed: list[ModelStatus] = []
 
         def fake_create_processor(*args, **kwargs):
-            observed.append(mgr.is_model_loading())
+            observed.append(mgr.get_model_status().status)
             return Mock()
 
         mock_component_factory.create_processor.side_effect = fake_create_processor
@@ -391,10 +396,16 @@ class TestPipelineManagerModelLoadingFlag:
             svc_cls.return_value.get_pipeline_config.return_value = PipelineConfig(project_id=mgr._pipeline.project_id)
             mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
 
-        assert observed == [True]
+        assert observed == [ModelStatus.LOADING]
         assert mgr.is_model_loading() is False
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.READY
+        assert status.error_type is None
+        assert status.error_message is None
 
-    def test_flag_cleared_when_processor_rebuild_fails(self, dispatcher, session_factory, mock_component_factory):
+    def test_status_set_to_generic_error_when_processor_rebuild_fails(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
         with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
             batch_svc_cls.return_value.build.return_value = None
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
@@ -411,3 +422,154 @@ class TestPipelineManagerModelLoadingFlag:
             mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
 
         assert mgr.is_model_loading() is False
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.ERROR
+        assert status.error_type == ModelStatusErrorType.LOAD_FAILED
+        assert status.error_message is not None
+        assert "Check the backend logs" in status.error_message
+
+    def test_status_set_to_auth_error_when_processor_rebuild_hits_gated_repo(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = uuid4()
+
+        auth_exc = OSError(
+            "You are trying to access a gated repo. Make sure to have access to it at "
+            "https://huggingface.co/facebook/sam3.1. Please log in."
+        )
+        mock_component_factory.create_processor.side_effect = auth_exc
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            pytest.raises(OSError),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = PipelineConfig(project_id=mgr._pipeline.project_id)
+            mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
+
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.ERROR
+        assert status.error_type == ModelStatusErrorType.AUTH_REQUIRED
+        assert status.error_message is not None
+        assert "hf auth login" in status.error_message
+
+    def test_wrapped_huggingface_auth_failure_is_classified_as_auth_required(self):
+        exc = OSError(
+            "You are trying to access a gated repo. Make sure to have access to it at "
+            "https://huggingface.co/facebook/sam3.1. Please log in."
+        )
+
+        error_type, error_message = PipelineManager._build_model_load_error(exc)
+
+        assert error_type == ModelStatusErrorType.AUTH_REQUIRED
+        assert "hf auth login" in error_message
+
+    def test_wrapped_huggingface_access_failure_is_classified_as_access_required(self):
+        exc = OSError(
+            "Cannot access gated repo for url https://huggingface.co/facebook/sam3.1/resolve/main/tokenizer_config.json. "
+            "Access to model facebook/sam3.1 is restricted and you are not in the authorized list. "
+            "Visit https://huggingface.co/facebook/sam3.1 to ask for access."
+        )
+
+        error_type, error_message = PipelineManager._build_model_load_error(exc)
+
+        assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
+        assert "request access" in error_message.lower()
+        assert "hf auth login" not in error_message
+
+    def test_huggingface_value_error_access_failure_is_classified_as_access_required(self):
+        exc = ValueError(
+            "User does not have access to the weights of the DinoV3 model.\n"
+            "Please follow these steps:\n"
+            "1. Request access on the HuggingFace website: "
+            "https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m\n"
+            "2. Set your HuggingFace credentials using one of these methods:\n"
+            "   - Run: hf auth login\n"
+            "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token"
+        )
+
+        error_type, error_message = PipelineManager._build_model_load_error(exc)
+
+        assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
+        assert "request access" in error_message.lower()
+        assert "hf auth login" not in error_message
+
+    def test_mixed_access_and_auth_wording_is_classified_as_access_required(self):
+        exc = OSError(
+            "Access to model foo is restricted. You must have access to it and be authenticated to access it."
+        )
+
+        error_type, error_message = PipelineManager._build_model_load_error(exc)
+
+        assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
+        assert "request access" in error_message.lower()
+        assert "hf auth login" not in error_message
+
+    def test_successful_rebuild_clears_previous_error(self, dispatcher, session_factory, mock_component_factory):
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = uuid4()
+        mgr._set_model_status(
+            ModelStatus.ERROR,
+            error_type=ModelStatusErrorType.LOAD_FAILED,
+            error_message="old error",
+        )
+
+        with patch("runtime.pipeline_manager.ProjectService") as svc_cls:
+            svc_cls.return_value.get_pipeline_config.return_value = PipelineConfig(project_id=mgr._pipeline.project_id)
+            mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
+
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.READY
+        assert status.error_type is None
+        assert status.error_message is None
+
+    def test_reload_pipeline_restarts_full_pipeline(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        old_pipeline = Mock()
+        old_pipeline.project_id = pipeline_cfg.project_id
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameBroadcaster"),
+            patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
+            patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls,
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
+            batch_svc_cls.return_value.build.return_value = None
+            repo_inst = repo_cls.return_value
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
+
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+            mgr._pipeline = old_pipeline
+
+            mgr.reload_pipeline(pipeline_cfg.project_id)
+
+            old_pipeline.stop.assert_called_once()
+            pipeline_cls.assert_called_once()
+            call_args = pipeline_cls.call_args.args
+            assert call_args[0] == pipeline_cfg.project_id
+            assert call_args[1] == repo_inst
+            pipeline_inst.start.assert_called_once()
+            assert mgr._pipeline == pipeline_inst
+            assert mgr.get_model_status().status == ModelStatus.READY
+
+    def test_reload_pipeline_raises_conflict_when_loading_is_already_in_progress(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
+        mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._set_model_status(ModelStatus.LOADING)
+
+        with pytest.raises(PipelineReloadInProgressError):
+            mgr.reload_pipeline(uuid4())

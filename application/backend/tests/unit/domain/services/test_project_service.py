@@ -15,7 +15,7 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError
+from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceUpdateConflictError
 from domain.services.project import ProjectService
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
@@ -411,6 +411,31 @@ def test_get_active_project_not_found(service, repo_mock):
     repo_mock.get_active.return_value = None
     with pytest.raises(ResourceNotFoundError):
         service.get_active_project_info()
+
+
+def test_ensure_project_is_active_success(service, repo_mock):
+    active = make_project(active=True)
+    repo_mock.get_by_id.return_value = active
+    repo_mock.get_active.return_value = active
+
+    service.ensure_project_is_active(active.id)
+
+
+def test_ensure_project_is_active_rejects_inactive_project(service, repo_mock):
+    requested = make_project(active=False)
+    active = make_project(active=True)
+    repo_mock.get_by_id.return_value = requested
+    repo_mock.get_active.return_value = active
+
+    with pytest.raises(ResourceUpdateConflictError, match="active project pipeline"):
+        service.ensure_project_is_active(requested.id)
+
+
+def test_ensure_project_is_active_rejects_missing_project(service, repo_mock):
+    repo_mock.get_by_id.return_value = None
+
+    with pytest.raises(ResourceNotFoundError):
+        service.ensure_project_is_active(uuid.uuid4())
 
 
 def test_delete_project_success(service, repo_mock, session_mock):

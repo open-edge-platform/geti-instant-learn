@@ -14,6 +14,10 @@ class PipelineProjectMismatchError(PipelineManagerError):
     """Exception raised when the project ID does not match the active pipeline's project ID."""
 
 
+class PipelineReloadInProgressError(PipelineManagerError):
+    """Exception raised when a full pipeline reload is requested while loading is already in progress."""
+
+
 class SourceNotSeekableError(PipelineManagerError):
     """Exception raised when the source is not seekable but a seekable operation is attempted."""
 

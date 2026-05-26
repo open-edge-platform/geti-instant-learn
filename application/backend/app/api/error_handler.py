@@ -19,6 +19,7 @@ from domain.errors import (
 from runtime.errors import (
     PipelineNotActiveError,
     PipelineProjectMismatchError,
+    PipelineReloadInProgressError,
     SinkConnectionError,
     SourceMismatchError,
     SourceNotSeekableError,
@@ -28,7 +29,7 @@ from runtime.services.license import LicenseNotAcceptedError
 logger = logging.getLogger(__name__)
 
 
-def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: PLR0911
+def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: PLR0911,C901
     """
     Centralized exception handler for FastAPI routes.
     Maps domain exceptions to appropriate HTTP status codes and returns consistent error responses.
@@ -75,6 +76,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
             f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
         )
         message = str(exc) if str(exc) else "A conflict occurred with the current state of the resource."
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": message})
+
+    if isinstance(exc, PipelineReloadInProgressError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The pipeline is already reloading."
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": message})
 
     if isinstance(

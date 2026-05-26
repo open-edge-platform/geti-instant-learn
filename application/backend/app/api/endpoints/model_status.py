@@ -25,6 +25,6 @@ logger = logging.getLogger(__name__)
 def get_model_status(
     project_id: UUID, project_service: ProjectServiceDep, pipeline_manager: PipelineManagerDep
 ) -> ModelStatusSchema:
-    """Return whether the model is currently being prepared for the given project."""
+    """Return the current processor load state for the given project."""
     project_service.get_project(project_id)  # validates project_id, 404 if missing
-    return ModelStatusSchema(loading=pipeline_manager.is_model_loading())
+    return pipeline_manager.get_model_status()

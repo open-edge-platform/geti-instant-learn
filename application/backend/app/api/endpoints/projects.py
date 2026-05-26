@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from api.routers import projects_router
-from dependencies import LicenseServiceDep, ProjectServiceDep
+from dependencies import LicenseServiceDep, PipelineManagerDep, ProjectServiceDep
 from domain.services.schemas.project import (
     ProjectCreateSchema,
     ProjectSchema,
@@ -162,6 +162,32 @@ def get_project(
 ) -> ProjectSchema:
     """Retrieve the project's configuration."""
     return project_service.get_project(project_id)
+
+
+@projects_router.post(
+    path="/{project_id}/reload",
+    tags=["Projects"],
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        status.HTTP_202_ACCEPTED: {
+            "description": "Successfully restarted the pipeline for the project.",
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_409_CONFLICT: {"description": "A model load is already in progress for this project."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected error occurred while restarting the pipeline for the project.",
+        },
+    },
+)
+def reload_project_pipeline(
+    project_id: UUID,
+    project_service: ProjectServiceDep,
+    pipeline_manager: PipelineManagerDep,
+) -> Response:
+    """Stop and rebuild the full pipeline for the specified project."""
+    project_service.ensure_project_is_active(project_id)
+    pipeline_manager.reload_pipeline(project_id)
+    return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 @projects_router.put(

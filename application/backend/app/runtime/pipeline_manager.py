@@ -22,16 +22,50 @@ from domain.services.label import LabelService
 from domain.services.project import ProjectService
 from domain.services.schemas.label import CategoryMappings, VisualizationInfo
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import ErrorData, InputData, OutputData
+from domain.services.schemas.processor import (
+    ErrorData,
+    InputData,
+    ModelStatus,
+    ModelStatusErrorType,
+    ModelStatusSchema,
+    OutputData,
+)
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    PipelineReloadInProgressError,
+    SourceNotSeekableError,
+)
 from runtime.services.reference_batch import ReferenceBatchService
 
 logger = logging.getLogger(__name__)
+
+_HF_AUTH_ERROR_MESSAGE = (
+    "Model loading failed because Hugging Face authentication is required. Run `hf auth login`, then try again."
+)
+_HF_ACCESS_ERROR_MESSAGE = (
+    "Model loading failed because access to this Hugging Face model has not been granted. "
+    "Request access for the model on Hugging Face and try again."
+)
+_GENERIC_MODEL_LOAD_ERROR_MESSAGE = "Model loading failed. Check the backend logs for details and try again."
+_HF_ACCESS_ERROR_MARKERS = (
+    "ask for access",
+    "not in the authorized list",
+    "requires approved access",
+    "does not have access to the weights",
+    "request access on the huggingface website",
+    "must have access to it and be authenticated",
+)
+_HF_AUTH_ERROR_MARKERS = (
+    "cannot access gated repo",
+    "you are trying to access a gated repo",
+    "please log in",
+)
 
 
 class PipelineManager:
@@ -65,17 +99,111 @@ class PipelineManager:
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
         self._lock = threading.Lock()
-        self._model_loading: bool = False
+        self._model_status = ModelStatusSchema(status=ModelStatus.READY)
         self._model_loading_lock = threading.Lock()
 
     def is_model_loading(self) -> bool:
         """Return True while a processor (re)build is in progress."""
         with self._model_loading_lock:
-            return self._model_loading
+            return self._model_status.status == ModelStatus.LOADING
 
-    def _set_model_loading(self, value: bool) -> None:
+    def get_model_status(self) -> ModelStatusSchema:
+        """Return the current processor load status and the last load error, if any."""
         with self._model_loading_lock:
-            self._model_loading = value
+            return self._model_status.model_copy(deep=True)
+
+    def _set_model_status(
+        self,
+        status: ModelStatus,
+        error_type: ModelStatusErrorType | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        with self._model_loading_lock:
+            self._model_status = ModelStatusSchema(
+                status=status,
+                error_type=error_type,
+                error_message=error_message,
+            )
+
+    @staticmethod
+    def _exception_chain_contains(exc: Exception, markers: tuple[str, ...]) -> bool:
+        pending: list[BaseException] = [exc]
+        visited: set[int] = set()
+
+        while pending:
+            current = pending.pop()
+            current_id = id(current)
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            message = str(current).lower()
+            if any(marker in message for marker in markers):
+                return True
+
+            cause = getattr(current, "__cause__", None)
+            if cause is not None:
+                pending.append(cause)
+
+            context = getattr(current, "__context__", None)
+            if context is not None:
+                pending.append(context)
+
+        return False
+
+    @classmethod
+    def _is_huggingface_access_error(cls, exc: Exception) -> bool:
+        return cls._exception_chain_contains(exc, _HF_ACCESS_ERROR_MARKERS)
+
+    @classmethod
+    def _is_huggingface_auth_error(cls, exc: Exception) -> bool:
+        return cls._exception_chain_contains(exc, _HF_AUTH_ERROR_MARKERS)
+
+    @classmethod
+    def _build_model_load_error(cls, exc: Exception) -> tuple[ModelStatusErrorType, str]:
+        if cls._is_huggingface_access_error(exc):
+            return ModelStatusErrorType.ACCESS_REQUIRED, _HF_ACCESS_ERROR_MESSAGE
+        if cls._is_huggingface_auth_error(exc):
+            return ModelStatusErrorType.AUTH_REQUIRED, _HF_AUTH_ERROR_MESSAGE
+        return ModelStatusErrorType.LOAD_FAILED, _GENERIC_MODEL_LOAD_ERROR_MESSAGE
+
+    def reload_pipeline(self, project_id: UUID) -> None:
+        """Stop and fully rebuild the active pipeline for the given project."""
+        if self.is_model_loading():
+            raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
+
+        with self._lock:
+            if self._model_status.status == ModelStatus.LOADING:
+                raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
+            self._restart_pipeline_locked(project_id)
+
+        logger.info("Pipeline reloaded for project %s", project_id)
+
+    def _restart_pipeline_locked(self, project_id: UUID) -> None:
+        """Stop the current pipeline, rebuild it, and refresh cached state. Must be called while self._lock is held."""
+        if self._pipeline:
+            self._pipeline.stop()
+
+        self._pipeline = None
+        self._current_config = None
+        self._visualization_info = None
+        self._set_model_status(ModelStatus.LOADING)
+
+        try:
+            pipeline = self._create_pipeline(project_id)
+            self._pipeline = pipeline
+            self._refresh_visualization_info(project_id)
+            self._pipeline.start()
+        except Exception as exc:
+            error_type, error_message = self._build_model_load_error(exc)
+            self._pipeline = None
+            self._current_config = None
+            self._visualization_info = None
+            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+            logger.exception("Pipeline restart failed for project %s", project_id)
+            raise
+        else:
+            self._set_model_status(ModelStatus.READY)
 
     def start(self) -> None:
         """
@@ -86,10 +214,7 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             with self._lock:
-                self._current_config = cfg
-                self._pipeline = self._create_pipeline(cfg.project_id)
-                self._refresh_visualization_info(cfg.project_id)
-                self._pipeline.start()
+                self._restart_pipeline_locked(cfg.project_id)
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
@@ -155,11 +280,7 @@ class PipelineManager:
         with self._lock:
             match event:
                 case ProjectActivationEvent() as e:
-                    if self._pipeline:
-                        self._pipeline.stop()
-                    self._pipeline = self._create_pipeline(e.project_id)
-                    self._refresh_visualization_info(e.project_id)
-                    self._pipeline.start()
+                    self._restart_pipeline_locked(e.project_id)
                     logger.info("Pipeline started for activated project %s", e.project_id)
 
                 case ProjectDeactivationEvent() as e:
@@ -230,13 +351,18 @@ class PipelineManager:
             case ComponentType.PROCESSOR:
                 # Building the reference batch + downloading weights + initializing the model
                 # can take a while. Surface a "busy" flag so the UI can show a blocking overlay.
-                self._set_model_loading(True)
+                self._set_model_status(ModelStatus.LOADING)
                 try:
                     reference_batch, _ = self._batch_service.build(cfg) or (None, {})
                     processor = self._component_factory.create_processor(cfg, reference_batch)
                     self._pipeline.set_processor(processor, True)
-                finally:
-                    self._set_model_loading(False)
+                except Exception as exc:
+                    error_type, error_message = self._build_model_load_error(exc)
+                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                    logger.exception("Processor rebuild failed for project %s", project_id)
+                    raise
+                else:
+                    self._set_model_status(ModelStatus.READY)
             case ComponentType.SINK:
                 sink = self._component_factory.create_sink(cfg.writer)
                 self._pipeline.set_sink(sink, True)
