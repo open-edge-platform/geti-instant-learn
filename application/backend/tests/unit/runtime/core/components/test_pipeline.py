@@ -438,7 +438,7 @@ class TestPipeline:
         mock_outbound_broadcaster,
         mock_frame_repository,
     ):
-        """Replacing the processor must not clear the inbound broadcaster slot,
+        """Replacing the processor must not clear the inbound broadcaster data,
         so that a manual-mode source (e.g. ImageFolderReader) can replay the
         last frame to the newly registered processor."""
         pipeline = Pipeline(
