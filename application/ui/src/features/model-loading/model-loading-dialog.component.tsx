@@ -17,7 +17,7 @@ import { useModelLoading } from './use-model-loading.hook';
  */
 export const useShowModelLoadingDialog = (): boolean => {
     const loading = useModelLoading();
-    return useSpinDelay(loading, { delay: 300, minDuration: 400 });
+    return useSpinDelay(loading, { delay: 300, minDuration: 500 });
 };
 
 /**
