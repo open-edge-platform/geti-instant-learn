@@ -18,7 +18,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture()
 def mqtt_broker():
-    with MosquittoContainer(image="eclipse-mosquitto:2.0.20") as container:
+    with MosquittoContainer(image="eclipse-mosquitto:2.0.22") as container:
         host = container.get_container_host_ip()
         port = int(container.get_exposed_port(1883))
         # Wait for the broker to accept connections
