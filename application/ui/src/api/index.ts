@@ -27,19 +27,11 @@ export type SampleDatasetSourceType = SourceWithoutConfig & { config: SampleData
 export type SinkConfig = components['schemas']['SinkSchema'];
 export type SinkType = SinkConfig['config']['sink_type'];
 type SinkWithoutConfig = Omit<SinkConfig, 'config'>;
-type SchemaByKeyOrFallback<
-    Primary extends string,
-    Fallback extends string,
-> = Primary extends keyof components['schemas']
-    ? components['schemas'][Primary]
-    : Fallback extends keyof components['schemas']
-      ? components['schemas'][Fallback]
-      : never;
 
 export type MQTTConfig = components['schemas']['MqttConfig'];
 export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
-export type AnnotationPostType = SchemaByKeyOrFallback<'AnnotationSchema-Input', 'AnnotationSchema'>;
-export type AnnotationType = SchemaByKeyOrFallback<'AnnotationSchema-Output', 'AnnotationSchema'>;
+export type AnnotationPostType = components['schemas']['AnnotationSchema-Input'];
+export type AnnotationType = components['schemas']['AnnotationSchema-Output'];
 
 export type { SchemaSupportedModelMetadataSchema as SupportedModelMetadataType } from './openapi-spec';
 export type { SchemaSupportedPromptType as SupportedPromptType } from './openapi-spec';
