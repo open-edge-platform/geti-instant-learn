@@ -430,7 +430,7 @@ class TestPipeline:
         mock_outbound_broadcaster.clear.assert_called_once()
         pipeline.stop()
 
-    def test_set_processor_clears_inbound_and_outbound_broadcasters(
+    def test_set_processor_clears_only_outbound_broadcaster(
         self,
         project_id,
         mock_processor,
@@ -438,6 +438,9 @@ class TestPipeline:
         mock_outbound_broadcaster,
         mock_frame_repository,
     ):
+        """Replacing the processor must not clear the inbound broadcaster data,
+        so that a manual-mode source (e.g. ImageFolderReader) can replay the
+        last frame to the newly registered processor."""
         pipeline = Pipeline(
             project_id=project_id,
             frame_repository=mock_frame_repository,
@@ -447,11 +450,11 @@ class TestPipeline:
 
         pipeline.set_processor(mock_processor)
 
-        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_inbound_broadcaster.clear.assert_not_called()
         mock_outbound_broadcaster.clear.assert_called_once()
         pipeline.stop()
 
-    def test_set_sink_clears_inbound_and_outbound_broadcasters(
+    def test_set_sink_does_not_clear_any_broadcaster(
         self,
         project_id,
         mock_sink,
@@ -459,6 +462,8 @@ class TestPipeline:
         mock_outbound_broadcaster,
         mock_frame_repository,
     ):
+        """Replacing the sink must not clear either broadcaster — it has no bearing
+        on frame flow between source and processor."""
         pipeline = Pipeline(
             project_id=project_id,
             frame_repository=mock_frame_repository,
@@ -468,6 +473,6 @@ class TestPipeline:
 
         pipeline.set_sink(mock_sink)
 
-        mock_inbound_broadcaster.clear.assert_called_once()
-        mock_outbound_broadcaster.clear.assert_called_once()
+        mock_inbound_broadcaster.clear.assert_not_called()
+        mock_outbound_broadcaster.clear.assert_not_called()
         pipeline.stop()

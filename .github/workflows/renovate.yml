@@ -83,6 +83,8 @@ jobs:
             pkg-containers.githubusercontent.com:443
             raw.githubusercontent.com:443
             release-assets.githubusercontent.com:443
+            static.rust-lang.org:443
+            index.crates.io:443
             www.python.org:443
 
       - name: Checkout
