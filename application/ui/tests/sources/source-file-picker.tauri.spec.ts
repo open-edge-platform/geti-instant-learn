@@ -25,8 +25,9 @@ const openSourceTypePanel = async (page: Page, sourceType: 'Video file' | 'Image
 
 test.describe('Source file picker fields', () => {
     test.beforeEach(async ({ page }) => {
-        await page.addInitScript(() => {
+        await page.addInitScript((apiUrl) => {
             const invoke = async (cmd: string, args?: Record<string, unknown>) => {
+                if (cmd === 'get_public_api_url') return apiUrl;
                 if (cmd === 'plugin:dialog|open') {
                     const opts = args?.options as { directory?: boolean } | undefined;
                     return opts?.directory === true ? '/home/user/images' : '/home/user/video.mp4';
@@ -38,7 +39,7 @@ test.describe('Source file picker fields', () => {
             Object.assign(window, {
                 __TAURI_INTERNALS__: { invoke, transformCallback: () => 1, unregisterCallback: () => undefined },
             });
-        });
+        }, process.env.PUBLIC_API_URL);
     });
 
     test('updates the video file path after selecting a file from the dialog', async ({ page }) => {
