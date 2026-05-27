@@ -70,11 +70,8 @@ export {
     type SchemaSourcesListSchema as SourcesListType,
     type SchemaSourceCreateSchema as SourceCreateType,
     type SchemaSourceUpdateSchema as SourceUpdateType,
-<<<<<<< michalad/wrap-hf-exception
-=======
     type SchemaAnnotationSchema as AnnotationPostType,
     type SchemaAnnotationSchema as AnnotationType,
->>>>>>> main
     type SchemaVisualPromptSchema as VisualPromptType,
     type SchemaPromptsListSchema as VisualPromptListType,
     type SchemaVisualPromptListItemSchema as VisualPromptItemType,
