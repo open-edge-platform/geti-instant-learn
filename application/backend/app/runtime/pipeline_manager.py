@@ -21,13 +21,11 @@ from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
 from domain.services.schemas.label import CategoryMappings, VisualizationInfo
+from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorType, ModelStatusSchema
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import (
     ErrorData,
     InputData,
-    ModelStatus,
-    ModelStatusErrorType,
-    ModelStatusSchema,
     OutputData,
 )
 from domain.services.schemas.reader import FrameListResponse
@@ -127,6 +125,14 @@ class PipelineManager:
 
     @staticmethod
     def _exception_chain_contains(exc: Exception, markers: tuple[str, ...]) -> bool:
+        """Return True when any exception in the cause/context chain contains a marker.
+
+        Libraries such as `transformers` and `huggingface_hub` often wrap the
+        original access/auth failure in a higher-level exception. Walking the
+        chain keeps classification stable when the top-level exception message is
+        generic but the nested cause still contains the useful Hugging Face
+        wording.
+        """
         pending: list[BaseException] = [exc]
         visited: set[int] = set()
 
@@ -173,7 +179,7 @@ class PipelineManager:
             raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
 
         with self._lock:
-            if self._model_status.status == ModelStatus.LOADING:
+            if self.is_model_loading():
                 raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
             self._restart_pipeline_locked(project_id)
 

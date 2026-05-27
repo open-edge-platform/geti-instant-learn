@@ -13,8 +13,8 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorType
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import ModelStatus, ModelStatusErrorType
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, PipelineReloadInProgressError
 from runtime.pipeline_manager import PipelineManager
 

@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Query, Response, status
+from fastapi import HTTPException, Query, Response, status
 
 from api.routers import projects_router
 from dependencies import LicenseServiceDep, PipelineManagerDep, ProjectServiceDep
@@ -15,6 +15,7 @@ from domain.services.schemas.project import (
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
+from runtime.errors import PipelineReloadInProgressError
 from runtime.services.license import LicenseNotAcceptedError
 
 logger = logging.getLogger(__name__)
@@ -172,8 +173,13 @@ def get_project(
         status.HTTP_202_ACCEPTED: {
             "description": "Successfully restarted the pipeline for the project.",
         },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The requested project is not the active project and cannot be reloaded.",
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
-        status.HTTP_409_CONFLICT: {"description": "A model load is already in progress for this project."},
+        status.HTTP_409_CONFLICT: {
+            "description": "A pipeline reload is already in progress for this project.",
+        },
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
             "description": "Unexpected error occurred while restarting the pipeline for the project.",
         },
@@ -186,7 +192,10 @@ def reload_project_pipeline(
 ) -> Response:
     """Stop and rebuild the full pipeline for the specified project."""
     project_service.ensure_project_is_active(project_id)
-    pipeline_manager.reload_pipeline(project_id)
+    try:
+        pipeline_manager.reload_pipeline(project_id)
+    except PipelineReloadInProgressError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 

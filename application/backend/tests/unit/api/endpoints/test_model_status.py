@@ -13,7 +13,7 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from dependencies import get_pipeline_manager, get_project_service
 from domain.errors import ResourceNotFoundError, ResourceType
-from domain.services.schemas.processor import ModelStatus, ModelStatusErrorType, ModelStatusSchema
+from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorType, ModelStatusSchema
 
 
 @pytest.fixture
