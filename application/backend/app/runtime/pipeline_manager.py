@@ -39,31 +39,10 @@ from runtime.errors import (
     PipelineReloadInProgressError,
     SourceNotSeekableError,
 )
+from runtime.services.model_load_error import build_model_load_error
 from runtime.services.reference_batch import ReferenceBatchService
 
 logger = logging.getLogger(__name__)
-
-_HF_AUTH_ERROR_MESSAGE = (
-    "Model loading failed because Hugging Face authentication is required. Run `hf auth login`, then try again."
-)
-_HF_ACCESS_ERROR_MESSAGE = (
-    "Model loading failed because access to this Hugging Face model has not been granted. "
-    "Request access for the model on Hugging Face and try again."
-)
-_GENERIC_MODEL_LOAD_ERROR_MESSAGE = "Model loading failed. Check the backend logs for details and try again."
-_HF_ACCESS_ERROR_MARKERS = (
-    "ask for access",
-    "not in the authorized list",
-    "requires approved access",
-    "does not have access to the weights",
-    "request access on the huggingface website",
-    "must have access to it and be authenticated",
-)
-_HF_AUTH_ERROR_MARKERS = (
-    "cannot access gated repo",
-    "you are trying to access a gated repo",
-    "please log in",
-)
 
 
 class PipelineManager:
@@ -123,56 +102,6 @@ class PipelineManager:
                 error_message=error_message,
             )
 
-    @staticmethod
-    def _exception_chain_contains(exc: Exception, markers: tuple[str, ...]) -> bool:
-        """Return True when any exception in the cause/context chain contains a marker.
-
-        Libraries such as `transformers` and `huggingface_hub` often wrap the
-        original access/auth failure in a higher-level exception. Walking the
-        chain keeps classification stable when the top-level exception message is
-        generic but the nested cause still contains the useful Hugging Face
-        wording.
-        """
-        pending: list[BaseException] = [exc]
-        visited: set[int] = set()
-
-        while pending:
-            current = pending.pop()
-            current_id = id(current)
-            if current_id in visited:
-                continue
-            visited.add(current_id)
-
-            message = str(current).lower()
-            if any(marker in message for marker in markers):
-                return True
-
-            cause = getattr(current, "__cause__", None)
-            if cause is not None:
-                pending.append(cause)
-
-            context = getattr(current, "__context__", None)
-            if context is not None:
-                pending.append(context)
-
-        return False
-
-    @classmethod
-    def _is_huggingface_access_error(cls, exc: Exception) -> bool:
-        return cls._exception_chain_contains(exc, _HF_ACCESS_ERROR_MARKERS)
-
-    @classmethod
-    def _is_huggingface_auth_error(cls, exc: Exception) -> bool:
-        return cls._exception_chain_contains(exc, _HF_AUTH_ERROR_MARKERS)
-
-    @classmethod
-    def _build_model_load_error(cls, exc: Exception) -> tuple[ModelStatusErrorType, str]:
-        if cls._is_huggingface_access_error(exc):
-            return ModelStatusErrorType.ACCESS_REQUIRED, _HF_ACCESS_ERROR_MESSAGE
-        if cls._is_huggingface_auth_error(exc):
-            return ModelStatusErrorType.AUTH_REQUIRED, _HF_AUTH_ERROR_MESSAGE
-        return ModelStatusErrorType.LOAD_FAILED, _GENERIC_MODEL_LOAD_ERROR_MESSAGE
-
     def reload_pipeline(self, project_id: UUID) -> None:
         """Stop and fully rebuild the active pipeline for the given project."""
         if self.is_model_loading():
@@ -201,7 +130,7 @@ class PipelineManager:
             self._refresh_visualization_info(project_id)
             self._pipeline.start()
         except Exception as exc:
-            error_type, error_message = self._build_model_load_error(exc)
+            error_type, error_message = build_model_load_error(exc)
             self._pipeline = None
             self._current_config = None
             self._visualization_info = None
@@ -363,7 +292,7 @@ class PipelineManager:
                     processor = self._component_factory.create_processor(cfg, reference_batch)
                     self._pipeline.set_processor(processor, True)
                 except Exception as exc:
-                    error_type, error_message = self._build_model_load_error(exc)
+                    error_type, error_message = build_model_load_error(exc)
                     self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
                     logger.exception("Processor rebuild failed for project %s", project_id)
                     raise
