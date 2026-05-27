@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { components, SchemaSourceSchema, SchemaSourcesListSchema } from './openapi-spec';
+import { components, type SchemaSourceSchema, type SchemaSourcesListSchema } from './openapi-spec';
 
 export type SourcesType = SchemaSourcesListSchema['sources'];
 export type SourceType = SourcesType[number]['config']['source_type'];
@@ -30,8 +30,6 @@ type SinkWithoutConfig = Omit<SinkConfig, 'config'>;
 
 export type MQTTConfig = components['schemas']['MqttConfig'];
 export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
-export type AnnotationPostType = components['schemas']['AnnotationSchema-Input'];
-export type AnnotationType = components['schemas']['AnnotationSchema-Output'];
 
 export type { SchemaSupportedModelMetadataSchema as SupportedModelMetadataType } from './openapi-spec';
 export type { SchemaSupportedPromptType as SupportedPromptType } from './openapi-spec';
@@ -74,4 +72,3 @@ export {
     type SchemaSinkUpdateSchema as SinkUpdateType,
     type SchemaSinksListSchema as SinksListType,
     type SchemaDeviceInfo as DeviceInfoType,
-} from './openapi-spec';
