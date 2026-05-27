@@ -236,7 +236,7 @@ class Matcher(Model):
         # Image encoder
         self.encoder = ImageEncoder(
             model_id=encoder_model,
-            backend=Backend.HUGGINGFACE,
+            backend=Backend.TIMM,
             device=device,
             precision=precision,
             compile_models=compile_models,
