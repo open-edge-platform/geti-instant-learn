@@ -1,0 +1,7 @@
+.container {
+    width: clamp(var(--spectrum-global-dimension-size-6000), 60vw, 42.5rem);
+}
+
+.content {
+    overflow-y: auto;
+}

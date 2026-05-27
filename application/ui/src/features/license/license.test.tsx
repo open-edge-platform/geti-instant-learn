@@ -18,15 +18,7 @@ describe('LicenseContent', () => {
     it('renders the acknowledgement text and license links', () => {
         renderLicense();
 
-        expect(screen.getByText(/By installing, using, or distributing this application/i)).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /SAM3 License/i })).toHaveAttribute(
-            'href',
-            'https://github.com/facebookresearch/sam3/blob/main/LICENSE'
-        );
-        expect(screen.getByRole('link', { name: /DINOv3 License/i })).toHaveAttribute(
-            'href',
-            'https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md'
-        );
+        expect(screen.getByText(/Intel Simplified Software License/i)).toBeInTheDocument();
     });
 
     it('calls onAccept when Accept and continue is pressed', async () => {

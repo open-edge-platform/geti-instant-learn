@@ -29,8 +29,7 @@ test.describe('License agreement', () => {
             await page.goto(paths.root({}));
 
             await expect(page.getByRole('heading', { name: /License Agreement/i })).toBeVisible();
-            await expect(page.getByRole('link', { name: /SAM3 License/i })).toBeVisible();
-            await expect(page.getByRole('link', { name: /DINOv3 License/i })).toBeVisible();
+            await expect(page.getByText(/Intel Simplified Software License/i)).toBeVisible();
         });
 
         await test.step('accepting the license loads the app', async () => {
