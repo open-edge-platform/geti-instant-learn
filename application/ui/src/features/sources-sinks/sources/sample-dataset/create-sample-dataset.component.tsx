@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 import { Button, ButtonGroup, Flex, Form, Heading, Item, Picker, Text, View } from '@geti/ui';
 import { isNull } from 'lodash-es';
@@ -41,7 +41,9 @@ export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
         }
     }, [datasets, selectedDatasetId]);
 
-    const handleCreateSampleDataset = () => {
+    const handleCreateSampleDataset = (event: FormEvent) => {
+        event.preventDefault();
+
         if (!selectedDatasetId) {
             return;
         }

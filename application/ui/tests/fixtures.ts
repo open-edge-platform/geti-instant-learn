@@ -14,6 +14,7 @@ import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
+import { SourcesPage } from './sources/sources-page';
 
 const MOCK_SUPPORTED_MODELS = {
     pagination: { count: 4, total: 4, offset: 0, limit: 20 },
@@ -28,6 +29,7 @@ interface Fixtures {
     annotatorPage: AnnotatorPage;
     projectPage: ProjectPage;
     promptPage: PromptPage;
+    sourcesPage: SourcesPage;
 }
 
 const test = testBase.extend<Fixtures>({
@@ -198,6 +200,10 @@ const test = testBase.extend<Fixtures>({
     promptPage: async ({ page }, use) => {
         const promptPage = new PromptPage(page);
         await use(promptPage);
+    },
+    sourcesPage: async ({ page }, use) => {
+        const sourcesPage = new SourcesPage(page);
+        await use(sourcesPage);
     },
 });
 

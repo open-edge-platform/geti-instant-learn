@@ -51,7 +51,11 @@ const PipelineEntityCardParametersList = ({ parameters }: { parameters: string[]
 
 export const PipelineEntityCard = ({ isActive, children, icon, menu, title }: PipelineEntityCardProps) => {
     return (
-        <View padding={'size-250'} UNSAFE_className={isActive ? styles.active : styles.inactive}>
+        <View
+            padding={'size-250'}
+            UNSAFE_className={isActive ? styles.active : styles.inactive}
+            data-testid={`pipeline-entity-card-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        >
             <Flex alignItems={'center'} gap={'size-100'}>
                 {icon}
                 <Heading margin={0} UNSAFE_className={styles.title}>
