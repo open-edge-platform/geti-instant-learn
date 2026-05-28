@@ -137,6 +137,30 @@ class TestPipelineManager:
             assert mgr._pipeline is None
             assert dispatcher._listeners == [mgr.on_config_change]
 
+    def test_start_with_active_project_stores_error_and_keeps_running(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls,
+        ):
+            svc_inst = svc_cls.return_value
+            svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
+            svc_inst.get_pipeline_config.return_value = pipeline_cfg
+            batch_svc_cls.return_value.build.return_value = None
+            mock_component_factory.create_processor.side_effect = RuntimeError("boom")
+
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+
+            mgr.start()
+
+            status = mgr.get_model_status()
+            assert mgr._pipeline is None
+            assert status.status == ModelStatus.ERROR
+            assert status.error_type == ModelStatusErrorType.LOAD_FAILED
+            assert status.error_message is not None
+            assert dispatcher._listeners == [mgr.on_config_change]
+
     def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,

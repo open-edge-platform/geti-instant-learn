@@ -77,17 +77,14 @@ class PipelineManager:
         self._visualization_info: VisualizationInfo | None = None
         self._lock = threading.Lock()
         self._model_status = ModelStatusSchema(status=ModelStatus.READY)
-        self._model_loading_lock = threading.Lock()
 
     def is_model_loading(self) -> bool:
         """Return True while a processor (re)build is in progress."""
-        with self._model_loading_lock:
-            return self._model_status.status == ModelStatus.LOADING
+        return self._model_status.status == ModelStatus.LOADING
 
     def get_model_status(self) -> ModelStatusSchema:
         """Return the current processor load status and the last load error, if any."""
-        with self._model_loading_lock:
-            return self._model_status.model_copy(deep=True)
+        return self._model_status.model_copy(deep=True)
 
     def _set_model_status(
         self,
@@ -95,50 +92,31 @@ class PipelineManager:
         error_type: ModelStatusErrorType | None = None,
         error_message: str | None = None,
     ) -> None:
-        with self._model_loading_lock:
-            self._model_status = ModelStatusSchema(
-                status=status,
-                error_type=error_type,
-                error_message=error_message,
-            )
+        self._model_status = ModelStatusSchema(
+            status=status,
+            error_type=error_type,
+            error_message=error_message,
+        )
 
     def reload_pipeline(self, project_id: UUID) -> None:
         """Stop and fully rebuild the active pipeline for the given project."""
-        if self.is_model_loading():
-            raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
-
         with self._lock:
             if self.is_model_loading():
                 raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
-            self._restart_pipeline_locked(project_id)
-
+            if self._pipeline:
+                self._pipeline.stop()
+            self._set_model_status(ModelStatus.LOADING)
+            try:
+                self._pipeline = self._create_pipeline(project_id)
+                self._refresh_visualization_info(project_id)
+                self._pipeline.start()
+            except Exception as exc:
+                error_type, error_message = build_model_load_error(exc)
+                self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                logger.error("Pipeline restart failed for project %s", project_id)
+            else:
+                self._set_model_status(ModelStatus.READY)
         logger.info("Pipeline reloaded for project %s", project_id)
-
-    def _restart_pipeline_locked(self, project_id: UUID) -> None:
-        """Stop the current pipeline, rebuild it, and refresh cached state. Must be called while self._lock is held."""
-        if self._pipeline:
-            self._pipeline.stop()
-
-        self._pipeline = None
-        self._current_config = None
-        self._visualization_info = None
-        self._set_model_status(ModelStatus.LOADING)
-
-        try:
-            pipeline = self._create_pipeline(project_id)
-            self._pipeline = pipeline
-            self._refresh_visualization_info(project_id)
-            self._pipeline.start()
-        except Exception as exc:
-            error_type, error_message = build_model_load_error(exc)
-            self._pipeline = None
-            self._current_config = None
-            self._visualization_info = None
-            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-            logger.exception("Pipeline restart failed for project %s", project_id)
-            raise
-        else:
-            self._set_model_status(ModelStatus.READY)
 
     def start(self) -> None:
         """
@@ -149,7 +127,17 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             with self._lock:
-                self._restart_pipeline_locked(cfg.project_id)
+                self._set_model_status(ModelStatus.LOADING)
+                try:
+                    self._pipeline = self._create_pipeline(cfg.project_id)
+                    self._refresh_visualization_info(cfg.project_id)
+                    self._pipeline.start()
+                except Exception as exc:
+                    error_type, error_message = build_model_load_error(exc)
+                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                    logger.exception("Pipeline restart failed for project %s", cfg.project_id)
+                else:
+                    self._set_model_status(ModelStatus.READY)
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
@@ -215,7 +203,20 @@ class PipelineManager:
         with self._lock:
             match event:
                 case ProjectActivationEvent() as e:
-                    self._restart_pipeline_locked(e.project_id)
+                    if self._pipeline:
+                        self._pipeline.stop()
+                    self._set_model_status(ModelStatus.LOADING)
+                    try:
+                        self._pipeline = self._create_pipeline(e.project_id)
+                        self._refresh_visualization_info(e.project_id)
+                        self._pipeline.start()
+                    except Exception as exc:
+                        error_type, error_message = build_model_load_error(exc)
+                        self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                        logger.exception("Pipeline restart failed for project %s", e.project_id)
+                        raise
+                    else:
+                        self._set_model_status(ModelStatus.READY)
                     logger.info("Pipeline started for activated project %s", e.project_id)
 
                 case ProjectDeactivationEvent() as e:
