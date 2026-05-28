@@ -64,9 +64,9 @@ jobs:
           uv pip install twine
           uv run python -m twine check dist/*
 
-      - name: Publish package distributions to PyPI
-        working-directory: library
-        run:  |
-          TAG=$(cat VERSION)
-          echo "Publishing to PyPI with tag: ${TAG}"
-          uv publish
+      # - name: Publish package distributions to PyPI
+      #   working-directory: library
+      #   run:  |
+      #     TAG=$(cat VERSION)
+      #     echo "Publishing to PyPI with tag: ${TAG}"
+      #     uv publish

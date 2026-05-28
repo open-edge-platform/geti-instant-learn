@@ -30,3 +30,14 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Debug release-please outputs
+        env:
+          RELEASES_CREATED: ${{ steps.release.outputs.releases_created }}
+          PATHS_RELEASED: ${{ steps.release.outputs.paths_released }}
+          RELEASE_OUTPUTS: ${{ toJSON(steps.release.outputs) }}
+        run: |
+          echo "releases_created: $RELEASES_CREATED"
+          echo "paths_released: $PATHS_RELEASED"
+          echo "--- Full JSON outputs ---"
+          echo "$RELEASE_OUTPUTS"
