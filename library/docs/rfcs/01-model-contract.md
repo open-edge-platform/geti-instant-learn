@@ -1,19 +1,12 @@
 # Backend-Agnostic Model Contract
 
-| Field | Value |
-|-------|-------|
-| Status | Draft |
-| Tracking issue | #1001 |
-| Scope | `library/src/instantlearn/` |
-| Affects | `application/backend/app/runtime/` |
-
 ---
 
 ## Problem
 
 `Model` inherits from `nn.Module`. This forces every model — including OpenVINO-only ones — to import PyTorch. That makes OV-only deployments impossible without shipping the full torch wheel (~2 GB), and it adds unnecessary startup latency.
 
-Current pain points:
+Current problem examples:
 
 - `SAM3OpenVINO` inherits `nn.Module` just to satisfy the base class, then wraps numpy arrays in tensors at the boundary for no real reason.
 - `predict()` returns `list[dict[str, torch.Tensor]]` — callers without torch can't use the output.
@@ -26,12 +19,6 @@ Current pain points:
 3. Torch models retain full tensor ergonomics for training and metrics.
 4. App layer calls `model.predict(batch)` directly — no handler indirection.
 
-## Non-goals
-
-- Plugin/registry for third-party models.
-- Distributed training.
-- Device management refactor (separate RFC).
-- Formal fit() state machine (defer until needed).
 
 ---
 
@@ -42,13 +29,13 @@ Current pain points:
 ```
                      Model(ABC)          ← torch-free
                     /          \
-          TorchModel            OV siblings
+          TorchModel            OVModels
         (Model, nn.Module)      (SAM3OpenVINO, MatcherOV, ...)
            /     \
         SAM3    Matcher ...
 ```
 
-Sibling-per-backend: each backend gets its own class. No runtime branching on backend inside a single class.
+Sibling models: each backend gets its own class. No runtime branching on backend inside a single class.
 
 ### `Model` — base contract
 
@@ -248,9 +235,4 @@ One model per PR, mechanical:
 
 ---
 
-## Open questions
 
-1. **`from_pretrained` signature** — HF-style `(repo_id, revision=None, cache_dir=None, **kwargs)` or simpler `(repo_id_or_path, **kwargs)`?
-2. **`Prediction.labels` dtype** — always `int32` (caller maps to strings), or allow `object` dtype for string labels?
-3. **`to_openvino()` location** — generic on `TorchModel`, or per-model overrides only?
-4. **`ModelCard.exportable_to`** — should it include `Backend.TORCH` for torch models (tautological but consistent)?
