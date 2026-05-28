@@ -22,8 +22,12 @@ docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-ak
 
 # Lib
 library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
+library/CHANGELOG.md @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
+library/VERSION @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
 library/pyproject.toml @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
 library/uv.lock @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
+release-please-config.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @open-edge-platform/geti-ci-maintain
+.release-please-manifest.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @open-edge-platform/geti-ci-maintain
 
 # CI and security
 .github/actions/                        @open-edge-platform/geti-ci-maintain

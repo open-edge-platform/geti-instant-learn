@@ -1,0 +1,42 @@
+name: Validate PR title
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions: {} # No permissions by default
+
+jobs:
+  validate:
+    name: Conventional Commit title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    timeout-minutes: 10
+    steps:
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+        with:
+          egress-policy: audit
+
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          REGEX='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([[:alnum:]._/-]+\))?(!)?: .+$'
+
+          echo "Validating PR title: $PR_TITLE"
+
+          if [[ ! "$PR_TITLE" =~ $REGEX ]]; then
+            echo "PR title must follow Conventional Commits."
+            echo "Expected format: type(scope): summary"
+            echo "Examples:"
+            echo "  feat(library): add prompt export"
+            echo "  fix(docs): correct quick start example"
+            echo "  chore(main): release lib v0.1.1"
+            exit 1
+          fi
