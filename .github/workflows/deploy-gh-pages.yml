@@ -1,0 +1,61 @@
+name: Deploy Docs to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'site/**'
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+permissions: {} # No permissions by default
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: application/ui/.nvmrc
+
+      - name: Install Node.js dependencies
+        working-directory: ./site
+        shell: bash
+        run: npm ci
+
+      - name: Build static for GitHub Pages
+        working-directory: ./site
+        shell: bash
+        run: npm run build
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ./site/build
+
+  deploy-github-pages:
+    runs-on: ubuntu-latest
+    needs: build-assets
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="45" fill="#2e8555" stroke="#29784c" stroke-width="2"/>
+  <text x="50" y="55" font-size="24" font-weight="bold" fill="white" text-anchor="middle">GL</text>
+</svg>

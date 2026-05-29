@@ -8,10 +8,7 @@ This open-source Python application facilitates users to prompt, run and manage 
 
 Geti Instant Learn is part of the Geti Apps ecosystem and comes with its own VisionPrompt model framework. This open-source, modular framework facilitates easy experimentation with different state-of-the-art algorithms, backbones like SAM and Dino family models, and pipeline components.
 
-<div align="center">
-
-<img src="media/workflow.png" width="600px" alt="An image showing the application workflow"/>
-</div>
+![An image showing the application workflow](./media/workflow.png)
 
 1. **View input source** – After installing Geti Instant Learn, users can directly connect a data source of choice, including usb camera, a watched folder with video and image files, to the application via its UI.
 2. **Prompt** – Geti Instant Learn offers two ways for users to prompt a model: using a visual prompt on one or few reference images that can be captured from the input source, or a text prompt.
