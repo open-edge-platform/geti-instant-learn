@@ -21,10 +21,11 @@ export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
     const [sinkConfig, setSinkConfig] = useState<MQTTSinkType['config']>({
         sink_type: 'mqtt',
         name: '',
-        broker_port: 0,
         broker_host: '',
         topic: '',
-        auth_required: false,
+        // These are the defaults based on the MqttConfig API schema
+        broker_port: 1883,
+        auth_required: true,
     });
 
     const isApplyDisabled =
