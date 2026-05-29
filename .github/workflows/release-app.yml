@@ -76,3 +76,4 @@ jobs:
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
       device: xpu
+ 
