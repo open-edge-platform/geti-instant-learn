@@ -18,6 +18,7 @@
   "ignores": [
     "SECURITY.md",
     ".github/copilot-instructions.md",
+    "application/CHANGELOG.md",
     "library/CHANGELOG.md"
   ]
 }
