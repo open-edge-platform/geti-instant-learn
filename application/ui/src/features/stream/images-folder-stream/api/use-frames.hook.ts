@@ -51,6 +51,7 @@ const useFramesQuery = (sourceId: string, activeFrameIdx: number) => {
 
                 return previousPage;
             },
+            staleTime: 1000 * 60,
         }
     );
 };
