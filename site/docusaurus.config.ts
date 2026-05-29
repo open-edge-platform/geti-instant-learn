@@ -129,7 +129,7 @@ const config: Config = {
         path: '../library/docs',
         routeBasePath: 'docs/library',
         sidebarPath: './sidebars.library.ts',
-        editUrl: `https://github.com/${organizationName}/${projectName}/tree/main/library`,
+        editUrl: `https://github.com/${organizationName}/${projectName}/tree/main/library/docs`,
       },
     ],
     [
