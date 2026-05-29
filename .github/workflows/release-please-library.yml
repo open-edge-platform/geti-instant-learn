@@ -1,0 +1,43 @@
+name: Release Please Library
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {} # No permissions by default
+
+jobs:
+  release-please:
+    name: Manage library release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    timeout-minutes: 15
+    steps:
+      - name: Harden the runner (audit all outbound calls)
+        uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+        with:
+          egress-policy: audit
+
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        with:
+          # Use a PAT in RELEASE_PLEASE_TOKEN if release tags should trigger downstream workflows.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Debug release-please outputs
+        env:
+          RELEASES_CREATED: ${{ steps.release.outputs.releases_created }}
+          PATHS_RELEASED: ${{ steps.release.outputs.paths_released }}
+          RELEASE_OUTPUTS: ${{ toJSON(steps.release.outputs) }}
+        run: |
+          echo "releases_created: $RELEASES_CREATED"
+          echo "paths_released: $PATHS_RELEASED"
+          echo "--- Full JSON outputs ---"
+          echo "$RELEASE_OUTPUTS"
