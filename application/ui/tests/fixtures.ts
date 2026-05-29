@@ -8,12 +8,13 @@ import { expect, test as testBase } from '@playwright/test';
 import { HttpResponse } from 'msw';
 
 import { handlers, http } from '../src/api/utils';
-import { getMockedModel, getMockedSupportedModels } from '../src/test-utils/mocks/mock-model';
+import { getMockedModel, getMockedSupportedModels } from '../src/test-utils';
 import { AnnotatorPage } from './annotator/annotator-page';
 import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
+import { SinksPage } from './sinks/sinks-page';
 import { SourcesPage } from './sources/sources-page';
 
 const MOCK_SUPPORTED_MODELS = {
@@ -30,6 +31,7 @@ interface Fixtures {
     projectPage: ProjectPage;
     promptPage: PromptPage;
     sourcesPage: SourcesPage;
+    sinksPage: SinksPage;
 }
 
 const test = testBase.extend<Fixtures>({
@@ -204,6 +206,10 @@ const test = testBase.extend<Fixtures>({
     sourcesPage: async ({ page }, use) => {
         const sourcesPage = new SourcesPage(page);
         await use(sourcesPage);
+    },
+    sinksPage: async ({ page }, use) => {
+        const sinksPage = new SinksPage(page);
+        await use(sinksPage);
     },
 });
 
