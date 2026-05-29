@@ -39,13 +39,7 @@ This command generates static content into the `build` directory and can be serv
 
 ### Deployment
 
-```bash
-npm run deploy
-# or
-yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The site deploys through the `Deploy Docs to GitHub Pages` GitHub Actions workflow. It runs on pushes to `main` that change the site or documentation sources, and it can also be started manually with `workflow_dispatch`.
 
 ## Project Structure
 
