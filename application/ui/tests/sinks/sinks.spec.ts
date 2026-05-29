@@ -152,9 +152,11 @@ test.describe('Sinks', () => {
     });
 
     test('Connects an inactive MQTT sink directly from the card menu', async ({ network, sinksPage }) => {
+        let sinks = [INACTIVE_MQTT_SINK];
+
         network.use(
             http.get('/api/v1/projects/{project_id}/sinks', ({ response }) => {
-                return response(200).json(mockSinksResponse([INACTIVE_MQTT_SINK]));
+                return response(200).json(mockSinksResponse(sinks));
             })
         );
 
@@ -166,7 +168,9 @@ test.describe('Sinks', () => {
         network.use(
             http.put('/api/v1/projects/{project_id}/sinks/{sink_id}', async ({ request, response }) => {
                 updateBody = await request.json();
-                return response(200).json({ ...INACTIVE_MQTT_SINK, active: true });
+                sinks = [{ ...INACTIVE_MQTT_SINK, active: true }];
+
+                return response(200).json(sinks[0]);
             })
         );
 
