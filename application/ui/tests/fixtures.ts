@@ -8,7 +8,7 @@ import { expect, test as testBase } from '@playwright/test';
 import { HttpResponse } from 'msw';
 
 import { handlers, http } from '../src/api/utils';
-import { getMockedModel, getMockedSupportedModels } from '../src/test-utils';
+import { getMockedModel, getMockedSupportedModels } from '../src/test-utils/mocks/mock-model';
 import { AnnotatorPage } from './annotator/annotator-page';
 import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';

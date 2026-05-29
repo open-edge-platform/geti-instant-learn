@@ -7,8 +7,6 @@ import { SinksListType } from '@/api';
 
 import { getMockedMQTTSink } from '../../src/test-utils/mocks/mock-mqtt-sink';
 
-export { getMockedMQTTSink };
-
 export const ACTIVE_MQTT_SINK = getMockedMQTTSink({ active: true });
 export const INACTIVE_MQTT_SINK = getMockedMQTTSink({ active: false });
 
