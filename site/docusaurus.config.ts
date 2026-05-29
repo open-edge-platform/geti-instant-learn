@@ -139,7 +139,7 @@ const config: Config = {
         path: '../application/docs',
         routeBasePath: 'docs/application',
         sidebarPath: './sidebars.application.ts',
-        editUrl: `https://github.com/${organizationName}/${projectName}/tree/main/application`,
+        editUrl: `https://github.com/${organizationName}/${projectName}/tree/main/application/docs`,
       },
     ],
     [
