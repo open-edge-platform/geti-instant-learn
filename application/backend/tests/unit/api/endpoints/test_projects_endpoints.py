@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -70,6 +70,7 @@ def mock_license_service():
     return MagicMock()
 
 
+@patch("sys.platform", "linux")
 @pytest.mark.parametrize(
     "behavior,expected_status,expect_location,expect_substring",
     [
@@ -78,7 +79,9 @@ def mock_license_service():
         ("error", 500, False, "internal server error"),
     ],
 )
-def test_create_project(client, behavior, expected_status, expect_location, expect_substring):
+def test_create_project_skips_license_check_outside_windows(
+    app, client, mock_license_service, behavior, expected_status, expect_location, expect_substring
+):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -98,7 +101,22 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
                 raise RuntimeError("Database connection failed")
             raise AssertionError("Unhandled behavior")
 
-    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+    app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+    app.dependency_overrides[get_license_service] = lambda: mock_license_service
+
+    payload = {"name": "myproj"}
+    resp = client.post("/api/v1/projects", json=payload)
+
+    assert resp.status_code == expected_status
+    mock_license_service.is_accepted.assert_not_called()
+    if expect_location:
+        assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}"
+        response_data = resp.json()
+        assert_project_schema(response_data, PROJECT_ID_STR, "myproj", active=True)
+    else:
+        assert "Location" not in resp.headers
+        if expect_substring:
+            assert expect_substring.lower() in resp.json()["detail"].lower()
 
 
 class TestCreateProject:
@@ -118,6 +136,7 @@ class TestCreateProject:
             ("error", 500, False, "internal server error"),
         ],
     )
+    @patch("sys.platform", "win32")
     def test_create_project_with_license_accepted(
         self, app, client, mock_license_service, behavior, expected_status, expect_location, expect_substring
     ):
@@ -159,6 +178,7 @@ class TestCreateProject:
             if expect_substring:
                 assert expect_substring.lower() in resp.json()["detail"].lower()
 
+    @patch("sys.platform", "win32")
     def test_create_project_license_not_accepted(self, app, client, mock_license_service):
         """Creating a project without accepting license returns 403."""
         mock_license_service.is_accepted.return_value = False

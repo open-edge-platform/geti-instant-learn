@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import sys
 from typing import Annotated
 from uuid import UUID
 
@@ -61,7 +62,7 @@ def create_project(
     license_service: LicenseServiceDep,
 ) -> Response:
     """Create a new project with the given name."""
-    if not license_service.is_accepted():
+    if sys.platform == "win32" and not license_service.is_accepted():
         raise LicenseNotAcceptedError("Geti Instant Learn License must be accepted before creating projects.")
 
     project = project_service.create_project(payload)
