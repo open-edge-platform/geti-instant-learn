@@ -3,6 +3,8 @@
 
 # Backend
 application/backend/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
+application/CHANGELOG.md @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN
+application/VERSION @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN
 application/docker/Dockerfile @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
 application/backend/pyproject.toml @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
 application/backend/uv.lock @mpryahin @LenaRudaya @michalad1 @piotrgrubicki @sys-geti
@@ -13,6 +15,7 @@ application/ui/package.json @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camilo
 application/ui/package-lock.json @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
 application/ui/src-tauri/Cargo.toml @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
 application/ui/src-tauri/Cargo.lock @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
+application/ui/src-tauri/tauri.conf.json @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @sys-geti
 
 # Deploy
 deploy/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
@@ -26,8 +29,8 @@ library/CHANGELOG.md @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @
 library/VERSION @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
 library/pyproject.toml @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
 library/uv.lock @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @sys-geti
-release-please-config.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @open-edge-platform/geti-ci-maintain
-.release-please-manifest.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @open-edge-platform/geti-ci-maintain
+release-please-config.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @michalad1 @piotrgrubicki @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @open-edge-platform/geti-ci-maintain
+.release-please-manifest.json @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy @michalad1 @piotrgrubicki @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @ActiveChooN @open-edge-platform/geti-ci-maintain
 
 # CI and security
 .github/actions/                        @open-edge-platform/geti-ci-maintain

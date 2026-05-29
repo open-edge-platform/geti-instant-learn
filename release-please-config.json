@@ -2,6 +2,33 @@
     "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
     "bootstrap-sha": "9c9dcf26136cfe6ad0509fef3b81401b5391b080",
     "packages": {
+        "application": {
+            "release-type": "simple",
+            "version-file": "VERSION",
+            "component": "app",
+            "include-component-in-tag": true,
+            "include-v-in-tag": true,
+            "tag-separator": "/",
+            "changelog-path": "CHANGELOG.md",
+            "pull-request-title-pattern": "chore${scope}: release${component} ${version}",
+            "extra-files": [
+                {
+                    "type": "toml",
+                    "path": "backend/pyproject.toml",
+                    "jsonpath": "$.project.version"
+                },
+                {
+                    "type": "toml",
+                    "path": "ui/src-tauri/Cargo.toml",
+                    "jsonpath": "$.package.version"
+                },
+                {
+                    "type": "json",
+                    "path": "ui/src-tauri/tauri.conf.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
         "library": {
             "release-type": "simple",
             "version-file": "VERSION",
@@ -14,4 +41,3 @@
         }
     }
 }
-

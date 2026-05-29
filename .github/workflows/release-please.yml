@@ -1,4 +1,4 @@
-name: Release Please Library
+name: Release Please
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions: {} # No permissions by default
 
 jobs:
   release-please:
-    name: Manage library release
+    name: Manage releases
     runs-on: ubuntu-latest
     permissions:
       contents: write
