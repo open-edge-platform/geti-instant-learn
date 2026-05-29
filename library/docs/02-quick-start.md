@@ -184,3 +184,4 @@ instantlearn benchmark --model all --dataset_name all
 - [How-To: Benchmarking](how-to-guides/02-benchmarking.md) — Evaluate model performance
 
 added for tests 2
+again 0.1.1

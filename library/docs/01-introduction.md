@@ -80,3 +80,4 @@ predictions = model.predict(Sample(image_path=target_image))
 This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/geti-instant-learn/blob/main/third-party-programs.txt) file for the full list.
 
 added to test
+for version 0.1.2
