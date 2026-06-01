@@ -3,7 +3,7 @@ name: Application Release
 on:
   push:
     tags:
-      - 'app/v[0-9]+\.[0-9]+\.[0-9]+'
+      - 'app/v*'
 
 permissions: {} # No permissions by default
 
