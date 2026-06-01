@@ -185,3 +185,4 @@ instantlearn benchmark --model all --dataset_name all
 
 added for tests 2
 again 0.1.1
+separate
