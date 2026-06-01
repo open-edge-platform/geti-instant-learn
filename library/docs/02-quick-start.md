@@ -182,7 +182,3 @@ instantlearn benchmark --model all --dataset_name all
 - [Tutorials: Getting Started](tutorials/01-getting-started.md) — Step-by-step walkthrough
 - [How-To: Custom Datasets](how-to-guides/01-custom-dataset.md) — Use your own images
 - [How-To: Benchmarking](how-to-guides/02-benchmarking.md) — Evaluate model performance
-
-added for tests 2
-again 0.1.1
-separate
