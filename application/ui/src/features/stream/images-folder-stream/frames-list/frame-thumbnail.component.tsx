@@ -5,8 +5,7 @@
 
 import { RefObject, useLayoutEffect, useRef } from 'react';
 
-import { DOMRefValue, Loading, View } from '@geti/ui';
-import { useUnwrapDOMRef } from '@react-spectrum/utils';
+import { DOMRefValue, Loading, useUnwrapDOMRef, View } from '@geti/ui';
 import { clsx } from 'clsx';
 
 import { type FrameType } from '../api/interface';
