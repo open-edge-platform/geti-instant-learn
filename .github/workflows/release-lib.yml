@@ -3,7 +3,7 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'lib/v[0-9]+\.[0-9]+\.[0-9]+'
+      - 'lib/v*'
 
 permissions: {} # No permissions by default
 
