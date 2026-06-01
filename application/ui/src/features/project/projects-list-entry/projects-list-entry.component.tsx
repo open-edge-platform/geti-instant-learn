@@ -171,9 +171,12 @@ export const ProjectsListEntry = () => {
         <Layout>
             <View maxWidth={'70vw'} minWidth={'50rem'} marginX={'auto'} height={'100%'}>
                 <Flex direction={'column'} height={'100%'}>
-                    <Heading level={1} UNSAFE_className={styles.header} marginBottom={'size-500'}>
+                    <Heading level={1} UNSAFE_className={styles.header} marginBottom={'size-100'}>
                         Projects
                     </Heading>
+                    <Text UNSAFE_className={styles.description} marginBottom={'size-500'}>
+                        Create projects to keep each task focused, with its own prompts, examples, and results.
+                    </Text>
 
                     <Grid
                         columns={repeat(2, '1fr')}
