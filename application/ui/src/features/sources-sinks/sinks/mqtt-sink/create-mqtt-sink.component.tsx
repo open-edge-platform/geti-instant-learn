@@ -7,7 +7,6 @@ import { FormEvent, useState } from 'react';
 
 import { MQTTSinkType } from '@/api';
 import { Button, ButtonGroup, Form } from '@geti/ui';
-import { isEmpty } from 'lodash-es';
 
 import { useCreateSink } from '../api/use-create-sink';
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
