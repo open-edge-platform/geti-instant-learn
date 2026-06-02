@@ -96,7 +96,11 @@ const CurrentProjectCard = ({ selectedProject, projectNames }: CurrentProjectCar
     const navigate = useNavigate();
 
     const handleNavigateAfterDeletion = () => {
-        navigate(paths.projects({}));
+        if (projectNames.length === 0) {
+            navigate(paths.welcome({}));
+        } else {
+            navigate(paths.projects({}));
+        }
     };
 
     return (

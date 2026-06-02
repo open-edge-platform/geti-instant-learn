@@ -211,7 +211,7 @@ export const ProjectActions = ({
     return (
         <>
             <MenuTrigger>
-                <ActionButton isQuiet aria-label={'Project actions'} UNSAFE_style={actionButtonStyle}>
+                <ActionButton isQuiet aria-label={`Project actions ${projectName}`} UNSAFE_style={actionButtonStyle}>
                     <MoreMenu />
                 </ActionButton>
                 <Menu onAction={handleAction}>
