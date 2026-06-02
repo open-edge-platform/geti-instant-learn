@@ -97,12 +97,15 @@ class TorchModel(Model, nn.Module):
     def export(self, path: Path) -> Path:
         """Export to OV IR. Returns .xml path."""
 
+    @abstractmethod
     def to_openvino(self) -> Model:
-        """Export + load the OV sibling."""
+        """Export + load the OV sibling. Each model implements its own conversion."""
         ...
 ```
 
 Subclasses implement `predict()` directly — no indirection through a separate method. The conversion from internal torch tensors to the numpy-based `Prediction` output is the subclass's responsibility (just a `.cpu().numpy()` at the return boundary).
+
+`to_openvino()` is abstract — each model knows its own export quirks (graph tracing, dynamic axes, which submodels to export separately).
 
 ### `OpenVINOModel` — OV-aware intermediate
 
@@ -128,8 +131,10 @@ class OpenVINOModel(Model):
         return Backend.OPENVINO
 
     @classmethod
-    def from_pretrained(cls, repo_id: str, **kwargs) -> "OpenVINOModel":
-        """Load from HF repo or local path. Subclasses override for custom loading."""
+    def from_pretrained(
+        cls, repo_id: str, revision: str | None = None, cache_dir: str | None = None, **kwargs
+    ) -> "OpenVINOModel":
+        """Load from HF repo or local path. HF-style signature."""
         ...
 ```
 
@@ -146,7 +151,9 @@ class SAM3OpenVINO(OpenVINOModel):
         ...
 
     @classmethod
-    def from_pretrained(cls, repo_id: str, **kwargs) -> "SAM3OpenVINO":
+    def from_pretrained(
+        cls, repo_id: str, revision: str | None = None, cache_dir: str | None = None, **kwargs
+    ) -> "SAM3OpenVINO":
         # most models won't load from HF due to license, but useful for future models
         ...
 
@@ -186,7 +193,8 @@ However, we might need torch tensor output sometimes - maybe another model consu
 class Prediction:
     masks: np.ndarray               # (N, H, W) bool/uint8
     scores: np.ndarray              # (N,) float32
-    labels: np.ndarray              # (N,) int32
+    label_ids: np.ndarray           # (N,) int32
+    label_names: np.ndarray         # (N,) str/object
     boxes: np.ndarray | None = None # (N, 4) xyxy float32
     points: np.ndarray | None = None
     metadata: dict = field(default_factory=dict)
