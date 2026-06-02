@@ -1,9 +1,10 @@
-.panelButtons {
-    padding-block-start: 0;
+.buttonsGroup {
+    padding: 0;
 }
 
 .createProjectButton {
     color: var(--spectrum-global-color-gray-900);
+    padding: var(--spectrum-global-dimension-size-275) var(--spectrum-global-dimension-size-275);
 
     & span[class*='spectrum-ActionButton-label'] {
         text-align: start;
@@ -14,26 +15,25 @@
 .dialog {
     & div[class*='spectrum-Dialog-grid'] {
         --spectrum-dialog-padding-x: 0px;
-        --spectrum-dialog-padding-y: var(--spectrum-global-dimension-size-250);
+        --spectrum-dialog-padding-y: 0px;
     }
-}
-
-.dialogContent {
-    padding-inline: var(--spectrum-global-dimension-size-250);
 }
 
 .projectList {
     list-style: none;
     padding-inline-start: 0;
+    margin: 0;
 }
 
 .currentProject {
-    background-color: var(--spectrum-global-color-gray-100);
-    margin-inline: var(--spectrum-global-dimension-size-250);
     padding: var(--spectrum-global-dimension-size-200);
 }
 
 .currentProjectHeaderText {
     font-weight: 700;
     font-size: var(--spectrum-global-dimension-font-size-75);
+}
+
+.selectedProjectButton {
+    padding: var(--spectrum-global-dimension-size-100) var(--spectrum-global-dimension-size-150);
 }
