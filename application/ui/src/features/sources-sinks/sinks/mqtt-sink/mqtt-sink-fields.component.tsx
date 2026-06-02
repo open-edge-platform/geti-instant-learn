@@ -17,14 +17,12 @@ export const MQTTSinkFields = ({ sinkConfig, onSetSinkConfig }: MQTTSinkFieldsPr
     return (
         <>
             <TextField
-                isRequired
                 label={'Name'}
                 name={'name'}
                 value={sinkConfig.name}
                 onChange={(name) => onSetSinkConfig((prevSinkConfig) => ({ ...prevSinkConfig, name }))}
             />
             <TextField
-                isRequired
                 label={'Broker host'}
                 name={'broker_host'}
                 value={sinkConfig.broker_host}
@@ -34,7 +32,6 @@ export const MQTTSinkFields = ({ sinkConfig, onSetSinkConfig }: MQTTSinkFieldsPr
             />
             <Flex alignItems={'center'} gap={'size-200'}>
                 <TextField
-                    isRequired
                     flex={1}
                     label={'Topic'}
                     name={'topic'}
@@ -42,7 +39,9 @@ export const MQTTSinkFields = ({ sinkConfig, onSetSinkConfig }: MQTTSinkFieldsPr
                     onChange={(topic) => onSetSinkConfig((prevSinkConfig) => ({ ...prevSinkConfig, topic }))}
                 />
                 <NumberField
-                    isRequired
+                    formatOptions={{
+                        useGrouping: false,
+                    }}
                     flexBasis={'40%'}
                     label={'Broker port'}
                     name={'broker_port'}

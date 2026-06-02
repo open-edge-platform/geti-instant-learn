@@ -4,6 +4,8 @@
  */
 
 import { $api, SourceType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { usePrefetchQuery } from '@tanstack/react-query';
 
 export const useAvailableSources = (sourceType: SourceType) => {
     return $api.useSuspenseQuery('get', '/api/v1/system/source-types/{source_type}/sources', {
@@ -23,4 +25,18 @@ export const usePrefetchAvailableSources = (sourceType: SourceType) => {
             },
         },
     });
+};
+
+export const usePrefetchSources = () => {
+    const { projectId } = useProjectIdentifier();
+
+    return usePrefetchQuery(
+        $api.queryOptions('get', '/api/v1/projects/{project_id}/sources', {
+            params: {
+                path: {
+                    project_id: projectId,
+                },
+            },
+        })
+    );
 };
