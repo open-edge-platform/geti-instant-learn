@@ -94,7 +94,7 @@ export const EditProjectNameDialog = ({
             return;
         }
 
-        editProjectName(newProjectName);
+        editProjectName(trimmedProjectName);
     };
 
     return (
