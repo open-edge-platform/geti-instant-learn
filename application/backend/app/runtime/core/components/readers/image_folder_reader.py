@@ -154,10 +154,8 @@ class ImageFolderReader(StreamReader):
                 raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
 
             self._current_index = index
-            current_image = self._read_image_at_current_index()
-            if current_image is None:
-                self._last_image = None
-                self._last_image_path = None
+            self._last_image = None
+            self._last_image_path = None
 
     def __len__(self) -> int:
         """Return the total number of images in the folder."""
@@ -199,6 +197,9 @@ class ImageFolderReader(StreamReader):
 
         frames: list[FrameMetadata] = []
         for idx, image_path in enumerate(image_paths, start=offset):
+            if not image_path.exists():
+                raise ValueError(f"Image file no longer accessible: {image_path}")
+
             thumbnail: str | None
             if idx in self._thumbnail_cache:
                 thumbnail = self._thumbnail_cache[idx]
