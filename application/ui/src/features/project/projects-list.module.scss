@@ -1,4 +1,6 @@
 .buttonsGroup {
+    margin-top: var(--spectrum-global-dimension-size-100);
+    border-top: var(--spectrum-alias-border-size-thick) solid var(--spectrum-global-color-gray-300);
     padding: 0;
 }
 
@@ -36,4 +38,8 @@
 
 .selectedProjectButton {
     padding: var(--spectrum-global-dimension-size-100) var(--spectrum-global-dimension-size-150);
+}
+
+.projectTitle {
+    word-break: break-word;
 }

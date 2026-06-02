@@ -40,7 +40,7 @@ type EditProjectNameDialogProps = {
     projectNames: string[];
 };
 
-const PROJECT_NAME_MAX_LENGTH = 100;
+const PROJECT_NAME_MAX_LENGTH = 80;
 
 export const EditProjectNameDialog = ({
     onClose,

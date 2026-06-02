@@ -6,7 +6,7 @@
 import { MouseEventHandler } from 'react';
 
 import { $api, type ProjectType } from '@/api';
-import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
+import { ActionButton, dimensionValue, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { clsx } from 'clsx';
 import { Link } from 'react-router-dom';
@@ -69,25 +69,37 @@ const ProjectCard = ({ project, projectNames, activeProject }: ProjectCardProps)
     };
 
     return (
-        <Link
-            data-active={project.active}
-            to={paths.project({ projectId: project.id })}
-            className={clsx(classes.projectCard, classes.projectCardHovered)}
-            onClick={handleCardClick}
-            role={'listitem'}
-            aria-label={`Project ${project.name}`}
-        >
-            <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
-            <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
-                <Flex justifyContent={'space-between'} alignItems={'center'} height={'100%'}>
-                    <Heading UNSAFE_className={classes.projectCardTitle} margin={0}>
-                        {project.name}
-                    </Heading>
+        <View position={'relative'}>
+            <Link
+                data-active={project.active}
+                to={paths.project({ projectId: project.id })}
+                className={clsx(classes.projectCard, classes.projectCardHovered)}
+                onClick={handleCardClick}
+                role={'listitem'}
+                aria-label={`Project ${project.name}`}
+            >
+                <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
+                <View flex={1} paddingStart={'size-200'} paddingEnd={'size-500'}>
+                    <Flex justifyContent={'space-between'} alignItems={'center'} height={'100%'}>
+                        <Heading UNSAFE_className={classes.projectCardTitle} margin={0}>
+                            {project.name}
+                        </Heading>
+                    </Flex>
+                </View>
+            </Link>
 
-                    <ProjectActions projectId={project.id} projectName={project.name} projectNames={projectNames} />
-                </Flex>
-            </View>
-        </Link>
+            <ProjectActions
+                projectId={project.id}
+                projectName={project.name}
+                projectNames={projectNames}
+                actionButtonStyle={{
+                    position: 'absolute',
+                    right: dimensionValue('size-200'),
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                }}
+            />
+        </View>
     );
 };
 
@@ -109,7 +121,7 @@ export const ProjectsListEntry = () => {
                     </Text>
 
                     <Grid
-                        columns={repeat(2, '1fr')}
+                        columns={repeat(2, 'minmax(0, 1fr)')}
                         gap={'size-300'}
                         flex={1}
                         alignContent={'start'}

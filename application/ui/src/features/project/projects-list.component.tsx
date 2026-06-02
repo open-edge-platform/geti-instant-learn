@@ -4,7 +4,6 @@
  */
 
 import { ProjectType } from '@/api';
-import { useProjectIdentifier } from '@/hooks';
 
 import { useActivateProject } from './api/use-activate-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';
@@ -16,7 +15,6 @@ interface ProjectListProps {
 }
 
 export const ProjectsList = ({ projects }: ProjectListProps) => {
-    const { projectId } = useProjectIdentifier();
     const activateProject = useActivateProject();
 
     const projectNames = projects.map((project) => project.name);
@@ -31,16 +29,14 @@ export const ProjectsList = ({ projects }: ProjectListProps) => {
 
     return (
         <ul className={classes.projectList}>
-            {projects
-                .filter((project) => project.id !== projectId)
-                .map((project) => (
-                    <ProjectListItem
-                        key={project.id}
-                        projectNames={projectNames.filter((name) => name !== project.name)}
-                        project={project}
-                        onActivateProject={handleActivateProject}
-                    />
-                ))}
+            {projects.map((project) => (
+                <ProjectListItem
+                    key={project.id}
+                    projectNames={projectNames.filter((name) => name !== project.name)}
+                    project={project}
+                    onActivateProject={handleActivateProject}
+                />
+            ))}
         </ul>
     );
 };

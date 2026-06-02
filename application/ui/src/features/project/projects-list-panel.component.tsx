@@ -22,6 +22,7 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
 
 import { paths } from '../../constants/paths';
@@ -118,7 +119,7 @@ const CurrentProjectCard = ({ selectedProject, projectNames }: CurrentProjectCar
 
                     <View position={'relative'} width={'100%'} marginTop={'size-225'}>
                         <Flex alignItems={'center'} justifyContent={'center'}>
-                            <Heading level={2} margin={0}>
+                            <Heading level={2} margin={0} marginX={'size-500'} UNSAFE_className={classes.projectTitle}>
                                 {selectedProject.name}
                             </Heading>
                         </Flex>
@@ -147,6 +148,7 @@ export const ProjectsListPanel = () => {
     const { data: currentProject } = useCurrentProject();
 
     const projectsNames = data.projects.map((project) => project.name);
+    const restProjects = data.projects.filter((project) => project.id !== currentProject.id);
 
     return (
         <>
@@ -159,13 +161,14 @@ export const ProjectsListPanel = () => {
                         projectNames={projectsNames.filter((projectName) => projectName !== currentProject.name)}
                     />
 
-                    <Content>
-                        <Divider size={'S'} marginBottom={'size-100'} />
-
-                        <ProjectsList projects={data.projects} />
-
-                        <Divider size={'S'} marginTop={'size-100'} />
-                    </Content>
+                    {!isEmpty(restProjects) && (
+                        <>
+                            <Divider size={'S'} marginBottom={'size-100'} marginTop={0} />
+                            <Content>
+                                <ProjectsList projects={restProjects} />
+                            </Content>
+                        </>
+                    )}
 
                     <ButtonGroup UNSAFE_className={classes.buttonsGroup}>
                         <CreateProjectButton projectsNames={projectsNames} />
