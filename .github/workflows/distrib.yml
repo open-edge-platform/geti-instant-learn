@@ -100,6 +100,7 @@ jobs:
             registry.npmjs.org:443
             storage.geti.intel.com:443
             www.google-analytics.com:443
+            production.cloudfront.docker.com:443
 
       - name: Construct image name
         run: |
