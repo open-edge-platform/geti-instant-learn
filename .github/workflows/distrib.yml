@@ -83,6 +83,7 @@ jobs:
             auth.docker.io:443
             api.github.com:443
             deb.debian.org:80
+            developer.download.nvidia.com:443
             dl-cdn.alpinelinux.org:443
             download.pytorch.org:443
             download-r2.pytorch.org:443
