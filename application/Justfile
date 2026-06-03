@@ -31,7 +31,6 @@ version := "latest"
 image-name := container-registry / component-name / build-target + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets"
-target-dataset-dir := "/instant_learn/data/templates/datasets"
 
 # Coturn settings
 coturn-image := "quay.io/coturn/coturn"
@@ -66,7 +65,6 @@ build-image: (download-datasets source-dataset-dir)
         {{ docker-build-context }} \
         --build-context libs=../library \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
-        --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
         --build-arg DEVICE={{ device }} \
         --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
@@ -120,6 +118,7 @@ run-image: build-image
         --publish {{ port }}:{{ port }} \
         --env PORT={{ port }} \
         --env HOST={{ host }} \
+        --volume "{{ component-name }}-data":/instant_learn/data \
         {{ if enable-coturn == "true" { "--env COTURN_HOST='" + host-ip + "' --env COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
         {{ if stun-server != "" { "--env STUN_SERVER='" + stun-server + "'" } else { "" } }} \
         --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
