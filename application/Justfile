@@ -118,7 +118,6 @@ run-image: build-image
         --publish {{ port }}:{{ port }} \
         --env PORT={{ port }} \
         --env HOST={{ host }} \
-        --volume "{{ component-name }}-data":/instant_learn/data \
         {{ if enable-coturn == "true" { "--env COTURN_HOST='" + host-ip + "' --env COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
         {{ if stun-server != "" { "--env STUN_SERVER='" + stun-server + "'" } else { "" } }} \
         --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
