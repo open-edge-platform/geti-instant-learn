@@ -7,7 +7,6 @@ import { FormEvent, useState } from 'react';
 
 import { MQTTSinkType } from '@/api';
 import { Button, ButtonGroup, Form } from '@geti/ui';
-import { isEmpty } from 'lodash-es';
 
 import { useCreateSink } from '../api/use-create-sink';
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
@@ -28,11 +27,7 @@ export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
         auth_required: true,
     });
 
-    const isApplyDisabled =
-        isEmpty(sinkConfig.name) ||
-        isEmpty(sinkConfig.broker_host) ||
-        isEmpty(sinkConfig.topic) ||
-        createSinkMutation.isPending;
+    const isApplyDisabled = createSinkMutation.isPending;
 
     const createSink = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();

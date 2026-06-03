@@ -3,25 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@/api';
-import { useProjectIdentifier } from '@/hooks';
+import { usePrefetchInferenceDevices } from '../inference-device/api/use-inference-devices';
+import { usePrefetchSinks } from '../sinks/api/use-sinks';
+import { usePrefetchSources } from '../sources/api/use-available-sources';
 
 export const usePrefetchPipelineConfiguration = () => {
-    const { projectId } = useProjectIdentifier();
-
-    $api.useQuery('get', '/api/v1/projects/{project_id}/sources', {
-        params: {
-            path: {
-                project_id: projectId,
-            },
-        },
-    });
-
-    $api.useQuery('get', '/api/v1/projects/{project_id}/sinks', {
-        params: {
-            path: {
-                project_id: projectId,
-            },
-        },
-    });
+    usePrefetchInferenceDevices();
+    usePrefetchSources();
+    usePrefetchSinks();
 };

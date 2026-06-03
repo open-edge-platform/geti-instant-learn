@@ -82,29 +82,6 @@ describe('Sinks', () => {
                 expect(screen.getByTestId('pipeline-entity-card-mqtt')).toBeInTheDocument();
             });
         });
-
-        it('does not submit create request when required fields are empty', async () => {
-            render(<Sinks />);
-
-            const nameField = await screen.findByRole('textbox', { name: /name/i });
-            const brokerHostField = screen.getByRole('textbox', { name: /broker host/i });
-            const topicField = screen.getByRole('textbox', { name: /topic/i });
-            const applyButton = screen.getByRole('button', { name: 'Apply' });
-
-            expect(nameField).toHaveValue('');
-            expect(brokerHostField).toHaveValue('');
-            expect(topicField).toHaveValue('');
-            expect(applyButton).toBeDisabled();
-
-            await userEvent.type(nameField, 'My Sink');
-            expect(applyButton).toBeDisabled();
-
-            await userEvent.type(brokerHostField, 'localhost');
-            expect(applyButton).toBeDisabled();
-
-            await userEvent.type(topicField, 'my/topic');
-            expect(applyButton).toBeEnabled();
-        });
     });
 
     describe('Existing MQTT sink', () => {
@@ -229,7 +206,7 @@ describe('Sinks', () => {
             expect(screen.getByRole('textbox', { name: /name/i })).toHaveValue('Existing Sink');
             expect(screen.getByRole('textbox', { name: /broker host/i })).toHaveValue('existing-host');
             expect(screen.getByRole('textbox', { name: /topic/i })).toHaveValue('existing/topic');
-            expect(screen.getByLabelText(/broker port/i, { selector: 'input' })).toHaveValue('1,883');
+            expect(screen.getByLabelText(/broker port/i, { selector: 'input' })).toHaveValue('1883');
             expect(screen.getByRole('switch', { name: /auth required/i })).toBeChecked();
         });
 

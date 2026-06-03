@@ -14,7 +14,7 @@ export const VideoFileFields = ({ filePath, onFilePathChange }: VideoFileFieldsP
     return (
         <View>
             <Flex alignItems={'end'} gap={'size-100'}>
-                <TextField label={'File path'} isRequired value={filePath} onChange={onFilePathChange} width={'100%'} />
+                <TextField label={'File path'} value={filePath} onChange={onFilePathChange} width={'100%'} />
             </Flex>
         </View>
     );
