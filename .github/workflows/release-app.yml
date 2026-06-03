@@ -62,18 +62,4 @@ jobs:
       ai_devices: '["xpu"]'
       build_version: ${{ needs.build-parameters.outputs.build_version }}
       push_images: ${{ github.repository_owner == 'open-edge-platform' }}
-
-  windows-installer:
-    name: Build Windows installer
-    needs: build-parameters
-    if: github.repository_owner == 'open-edge-platform'
-    uses: ./.github/workflows/windows-installer.yml
-    permissions:
-      contents: read
-    secrets:
-      MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
-      MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
-    with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
-      device: xpu
  
