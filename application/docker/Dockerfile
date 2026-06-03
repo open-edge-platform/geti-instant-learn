@@ -134,7 +134,7 @@ FROM runtime-base AS gpu-base
 USER root
 
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.25.0-2 \
+    && apt-get install -y --no-install-recommends wget \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb \
     && dpkg -i cuda-keyring_1.1-1_all.deb \
     && rm -rf cuda-keyring_1.1-1_all.deb \
