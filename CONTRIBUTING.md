@@ -4,7 +4,7 @@
 
 Geti Instant Learn is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
 
-### Use Conventional Commit PR titles
+### PR Title Format
 
 Pull request titles must follow the Conventional Commits format:
 
@@ -13,6 +13,19 @@ type(scope): summary
 ```
 
 Use one of the standard types such as `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, or `chore`.
+
+   **Types:**
+   - `feat`: A new feature
+   - `fix`: A bug fix
+   - `docs`: Documentation changes
+   - `style`: Code style changes
+   - `refactor`: Code refactoring
+   - `perf`: Performance improvements
+   - `test`: Adding or modifying tests
+   - `build`: Build system changes
+   - `ci`: CI configuration changes
+   - `chore`: General maintenance
+   - `revert`: Revert changes
 
 Examples:
 
