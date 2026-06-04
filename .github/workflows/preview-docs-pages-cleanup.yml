@@ -1,0 +1,31 @@
+name: Cleanup Docs Preview Pages
+
+on:
+  pull_request:
+    types:
+      - closed
+
+concurrency:
+  group: preview-pages-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cleanup-preview:
+    name: Remove PR preview pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Remove preview pages
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        with:
+          preview-branch: main
+          action: remove
+          token: ${{ secrets.GITHUB_TOKEN }}
