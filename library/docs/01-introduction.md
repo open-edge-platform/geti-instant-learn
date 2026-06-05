@@ -78,3 +78,7 @@ predictions = model.predict(Sample(image_path=target_image))
 ## Acknowledgements
 
 This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/geti-instant-learn/blob/main/third-party-programs.txt) file for the full list.
+
+## Chapter to test GH pages preview
+
+PR number would be 6
