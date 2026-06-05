@@ -19,3 +19,7 @@ Geti Instant Learn is part of the Geti Apps ecosystem and comes with its own Vis
 4. **Deploy** – Once the prompted model meets the user’s performance requirements, the user can deploy the Geti Instant Learn application, including the prompted model, in different ways: as a containerized Docker image for deployment on remote edge servers and devices, or run the application & model directly on a local pc.
 5. **Inference** – The user can configure how the model output will be consumed. The user can set a destination of choice, e.g. publishing the results to a message bus.
 6. **Alert** – The generated output from the deployed model can be consumed by custom business logic flows built by users, so that action can be taken upon the inference results in an automated way, for example by using Node-RED.
+
+## Chapter to check preview site
+
+It works with GH pages!
