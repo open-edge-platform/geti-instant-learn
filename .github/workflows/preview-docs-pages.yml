@@ -12,7 +12,6 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   deploy-preview:
@@ -37,12 +36,15 @@ jobs:
       - name: Build docs site
         working-directory: ./site
         shell: bash
+        env:
+          PR_PREVIEW_NUMBER: ${{ github.event.pull_request.number }}
         run: npm run build
 
       - name: Deploy preview pages
-        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
         with:
-          source-dir: ./site/build
-          preview-branch: main
-          action: deploy
-          token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./site/build
+          destination_dir: pr-preview/pr-${{ github.event.pull_request.number }}
+          keep_files: true
