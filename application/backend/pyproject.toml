@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 [project]
 name = "instant-learn-backend"
-version = "0.2.0"
+version = "0.1.0"
 description = "Geti Instant Learn service"
 requires-python = ">=3.13, <3.14"
 

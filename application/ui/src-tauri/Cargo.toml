@@ -1,6 +1,6 @@
 [package]
 name = "instant_learn_ui"
-version = "0.2.0"
+version = "0.1.0"
 description = "Geti Instant Learn UI"
 authors = ["Intel"]
 license = ""
