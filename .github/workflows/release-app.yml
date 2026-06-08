@@ -62,4 +62,3 @@ jobs:
       ai_devices: '["xpu"]'
       build_version: ${{ needs.build-parameters.outputs.build_version }}
       push_images: ${{ github.repository_owner == 'open-edge-platform' }}
- 
