@@ -12,9 +12,8 @@ jobs:
     name: Manage releases
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: write # Needed to create releases and tags
+      pull-requests: write # Needed to create release PRs
     timeout-minutes: 15
     steps:
       - name: Harden the runner (audit all outbound calls)
@@ -24,7 +23,7 @@ jobs:
 
       - name: Run release-please
         id: release
-        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           # Use a PAT in RELEASE_PLEASE_TOKEN if release tags should trigger downstream workflows.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
