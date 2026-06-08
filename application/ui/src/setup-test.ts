@@ -133,7 +133,7 @@ const initialHandlers = [
     }),
 
     http.get('/api/v1/projects/{project_id}/model-status', () => {
-        return HttpResponse.json({ loading: false });
+        return HttpResponse.json({ status: 'ready' });
     }),
 ];
 

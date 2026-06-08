@@ -254,7 +254,3 @@ class ProcessorUpdateSchema(BaseModel):
     config: ModelConfig
     active: bool
     name: str = Field(max_length=80, min_length=1)
-
-
-class ModelStatusSchema(BaseModel):
-    loading: bool = Field(description="True while the inference model is being (re)loaded.")

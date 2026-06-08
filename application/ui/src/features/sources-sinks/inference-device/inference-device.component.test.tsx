@@ -110,7 +110,7 @@ describe('InferenceDevice', () => {
             ),
             http.get('/api/v1/projects/{project_id}/model-status', () => {
                 modelStatusCalls += 1;
-                return HttpResponse.json({ loading: false });
+                return HttpResponse.json({ status: 'ready' });
             })
         );
 
@@ -126,7 +126,7 @@ describe('InferenceDevice', () => {
                 '/api/v1/projects/{project_id}/model-status',
                 { params: { path: { project_id: '1' } } },
             ]);
-            expect(cached).toEqual({ loading: true });
+            expect(cached).toEqual({ status: 'loading' });
         });
         expect(modelStatusCalls).toBe(0);
     });

@@ -174,7 +174,7 @@ const test = testBase.extend<Fixtures>({
                 return response(200).json(body as never);
             }),
             http.get('/api/v1/projects/{project_id}/model-status', ({ response }) => {
-                return response(200).json({ loading: false });
+                return response(200).json({ status: 'ready' });
             }),
             http.get('/api/v1/system/devices', ({ response }) => {
                 return response(200).json([{ type: 'cpu', name: 'CPU', memory: null, index: null }]);
