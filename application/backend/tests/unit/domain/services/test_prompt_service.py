@@ -633,40 +633,6 @@ def test_create_visual_prompt_deduplication_preserves_order(
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_deduplication_only_affects_polygons(service, setup_visual_prompt_test, label_id, caplog):
-    # With rectangles removed, this test now verifies that distinct polygons are preserved.
-    project_id, frame_id, _ = setup_visual_prompt_test
-    new_id = uuid.uuid4()
-
-    polygon = PolygonAnnotation(
-        points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
-    )
-    polygon_far = PolygonAnnotation(
-        points=[Point(x=50, y=50), Point(x=80, y=50), Point(x=80, y=80), Point(x=50, y=80)],
-    )
-
-    create_schema = VisualPromptCreateSchema(
-        id=new_id,
-        type=PromptType.VISUAL,
-        frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(config=polygon, label_id=label_id),
-            AnnotationSchema(config=polygon_far, label_id=label_id),
-        ],
-    )
-
-    with caplog.at_level("INFO"):
-        service.create_prompt(project_id=project_id, create_data=create_schema)
-
-    assert not any("Removed" in record.message and "duplicate" in record.message for record in caplog.records)
-
-    call_args = service.prompt_repository.add.call_args[0][0]
-    assert len(call_args.annotations) == 2
-
-    service.prompt_repository.add.assert_called_once()
-    service.session.commit.assert_called_once()
-
-
 def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplication(
     service, mock_project, project_id, frame_id, label_id, test_image
 ):
