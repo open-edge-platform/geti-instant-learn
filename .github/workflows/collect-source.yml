@@ -107,6 +107,10 @@ jobs:
           disable-sudo: true
           disable-telemetry: true
           egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            release-assets.githubusercontent.com:443
 
       # Create directory first
       - name: Create results directory
