@@ -134,7 +134,6 @@ const test = testBase.extend<Fixtures>({
                                         y: 0.5,
                                     },
                                 ],
-                                type: 'polygon',
                             },
                             label_id: '123e4567-e89b-12d3-a456-426614174001',
                         },

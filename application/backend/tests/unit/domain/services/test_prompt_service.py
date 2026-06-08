@@ -18,13 +18,7 @@ from domain.errors import (
     ServiceError,
 )
 from domain.services.prompt import PromptService
-from domain.services.schemas.annotation import (
-    AnnotationSchema,
-    AnnotationType,
-    Point,
-    PolygonAnnotation,
-    RectangleAnnotation,
-)
+from domain.services.schemas.annotation import AnnotationSchema, Point, PolygonAnnotation
 from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptUpdateSchema,
@@ -63,7 +57,7 @@ def make_visual_prompt_db(prompt_id=None, project_id=None, frame_id=None, annota
 def make_annotation_db(annotation_id=None, label_id=None):
     return SimpleNamespace(
         id=annotation_id or uuid.uuid4(),
-        config={"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
+        config={"points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
         label_id=label_id,
     )
 
@@ -142,18 +136,9 @@ def setup_visual_prompt_test(mock_project, mock_frame, mock_label, project_id, f
 
 
 @pytest.fixture
-def rectangle_annotation(label_id):
-    return AnnotationSchema(
-        config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
-        label_id=label_id,
-    )
-
-
-@pytest.fixture
 def polygon_annotation(label_id):
     return AnnotationSchema(
         config=PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
         ),
         label_id=label_id,
@@ -222,7 +207,7 @@ def test_create_text_prompt_success(service, mock_project, project_id):
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_success(service, setup_visual_prompt_test, rectangle_annotation):
+def test_create_visual_prompt_success(service, setup_visual_prompt_test, polygon_annotation):
     project_id, frame_id, label_id = setup_visual_prompt_test
     new_id = uuid.uuid4()
 
@@ -230,7 +215,7 @@ def test_create_visual_prompt_success(service, setup_visual_prompt_test, rectang
         id=new_id,
         type=PromptType.VISUAL,
         frame_id=frame_id,
-        annotations=[rectangle_annotation],
+        annotations=[polygon_annotation],
     )
 
     result = service.create_prompt(project_id=project_id, create_data=create_schema)
@@ -275,7 +260,7 @@ def test_create_visual_prompt_frame_not_found(service, mock_project, project_id,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
+                config=PolygonAnnotation(points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -298,7 +283,7 @@ def test_create_visual_prompt_label_not_found(service, mock_project, mock_frame,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
+                config=PolygonAnnotation(points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -326,14 +311,14 @@ def test_create_prompt_integrity_error_check_constraint(service, mock_project, p
     service.session.rollback.assert_called_once()
 
 
-def test_create_prompt_integrity_error_frame_duplicate(service, setup_visual_prompt_test, rectangle_annotation):
+def test_create_prompt_integrity_error_frame_duplicate(service, setup_visual_prompt_test, polygon_annotation):
     project_id, frame_id, _ = setup_visual_prompt_test
 
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
         frame_id=frame_id,
-        annotations=[rectangle_annotation],
+        annotations=[polygon_annotation],
     )
 
     mock_error = IntegrityError("statement", "params", "orig")
@@ -423,7 +408,7 @@ def test_update_visual_prompt_frame_success(service, mock_project, project_id, l
 
 
 def test_update_visual_prompt_annotations_success(
-    service, mock_project, project_id, frame_id, label_id, test_image, rectangle_annotation
+    service, mock_project, project_id, frame_id, label_id, test_image, polygon_annotation
 ):
     prompt_id = uuid.uuid4()
 
@@ -433,7 +418,7 @@ def test_update_visual_prompt_annotations_success(
     service.label_repository.get_by_id_and_project.return_value = make_label(label_id=label_id, project_id=project_id)
     service.frame_repository.read_frame.return_value = test_image
 
-    update_schema = VisualPromptUpdateSchema(type=PromptType.VISUAL, frame_id=None, annotations=[rectangle_annotation])
+    update_schema = VisualPromptUpdateSchema(type=PromptType.VISUAL, frame_id=None, annotations=[polygon_annotation])
 
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
@@ -478,7 +463,7 @@ def test_update_prompt_type_change_conflict(service, mock_project, project_id, l
         frame_id=uuid.uuid4(),
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                config=PolygonAnnotation(points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=label_id,
             )
         ],
@@ -533,15 +518,12 @@ def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(
     new_id = uuid.uuid4()
 
     polygon1 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
     polygon2 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=11, y=11), Point(x=51, y=11), Point(x=51, y=51), Point(x=11, y=51)],
     )
     polygon3 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=60, y=60), Point(x=90, y=60), Point(x=90, y=90), Point(x=60, y=90)],
     )
 
@@ -580,11 +562,9 @@ def test_update_visual_prompt_with_similar_annotations_deduplicates(
     service.frame_repository.read_frame.return_value = test_image
 
     polygon1 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
     polygon2 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=11, y=11), Point(x=51, y=11), Point(x=51, y=51), Point(x=11, y=51)],
     )
 
@@ -621,15 +601,12 @@ def test_create_visual_prompt_deduplication_preserves_order(
     )
 
     polygon1 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
     polygon2 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
     polygon3 = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=60, y=60), Point(x=80, y=60), Point(x=80, y=80), Point(x=60, y=80)],
     )
 
@@ -657,14 +634,16 @@ def test_create_visual_prompt_deduplication_preserves_order(
 
 
 def test_create_visual_prompt_deduplication_only_affects_polygons(service, setup_visual_prompt_test, label_id, caplog):
+    # With rectangles removed, this test now verifies that distinct polygons are preserved.
     project_id, frame_id, _ = setup_visual_prompt_test
     new_id = uuid.uuid4()
 
     polygon = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
-    rectangle = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=50, y=50), Point(x=80, y=80)])
+    polygon_far = PolygonAnnotation(
+        points=[Point(x=50, y=50), Point(x=80, y=50), Point(x=80, y=80), Point(x=50, y=80)],
+    )
 
     create_schema = VisualPromptCreateSchema(
         id=new_id,
@@ -672,7 +651,7 @@ def test_create_visual_prompt_deduplication_only_affects_polygons(service, setup
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(config=polygon, label_id=label_id),
-            AnnotationSchema(config=rectangle, label_id=label_id),
+            AnnotationSchema(config=polygon_far, label_id=label_id),
         ],
     )
 
@@ -700,7 +679,6 @@ def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplicat
     service.frame_repository.read_frame.return_value = test_image
 
     polygon = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
 

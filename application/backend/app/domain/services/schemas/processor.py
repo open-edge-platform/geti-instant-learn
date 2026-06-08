@@ -192,7 +192,7 @@ class SupportedPromptType(StrEnum):
 
     TEXT = "text"
     VISUAL_POLYGON = "visual_polygon"
-    VISUAL_RECTANGLE = "visual_rectangle"
+    VISUAL_BOUNDING_BOX = "visual_bounding_box"
 
 
 class SupportedModelMetadataSchema(BaseModel):
