@@ -45,6 +45,27 @@ from runtime.services.reference_batch import ReferenceBatchService
 logger = logging.getLogger(__name__)
 
 
+class _OwnedLock:
+    """A non-reentrant lock that tracks its owning thread, allowing callers to assert it is held."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._owner: int | None = None
+
+    def __enter__(self) -> "_OwnedLock":
+        self._lock.acquire()
+        self._owner = threading.get_ident()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self._owner = None
+        self._lock.release()
+
+    def assert_held(self) -> None:
+        if self._owner != threading.get_ident():
+            raise RuntimeError("Must be called while the lock is held")
+
+
 class PipelineManager:
     """
     Manages the active Pipeline and its lifecycle, handling configuration changes.
@@ -75,7 +96,7 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
-        self._lock = threading.RLock()
+        self._lock = _OwnedLock()
         self._model_status = ModelStatusSchema(status=ModelStatus.READY)
 
     def is_model_loading(self) -> bool:
@@ -106,9 +127,10 @@ class PipelineManager:
             self._teardown_pipeline()
             try:
                 self._build_and_start_pipeline(project_id)
-            except Exception:  # noqa: S110 — already logged in _build_and_start_pipeline
-                pass
-        logger.info("Pipeline reloaded for project %s", project_id)
+            except Exception:
+                logger.warning("Pipeline reload failed for project %s", project_id)
+            else:
+                logger.info("Pipeline reloaded for project %s", project_id)
 
     def start(self) -> None:
         """
@@ -121,9 +143,10 @@ class PipelineManager:
             with self._lock:
                 try:
                     self._build_and_start_pipeline(cfg.project_id)
-                except Exception:  # noqa: S110 — already logged in _build_and_start_pipeline
-                    pass
-            logger.info("Pipeline started: project_id=%s", cfg.project_id)
+                except Exception:
+                    logger.warning("Pipeline startup failed for project %s", cfg.project_id)
+                else:
+                    logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
         self._event_dispatcher.subscribe(self.on_config_change)
@@ -133,16 +156,12 @@ class PipelineManager:
         with self._lock:
             self._teardown_pipeline()
 
-    def _assert_lock_held(self) -> None:
-        if not self._lock._is_owned():  # type: ignore[attr-defined]
-            raise RuntimeError("Must be called while self._lock is held")
-
     def _teardown_pipeline(self) -> None:
         """Stop and clear the active pipeline and its associated state.
 
         Must be called while self._lock is held.
         """
-        self._assert_lock_held()
+        self._lock.assert_held()
         if self._pipeline:
             self._pipeline.stop()
             self._pipeline = None
@@ -223,7 +242,7 @@ class PipelineManager:
         Always re-raises on failure after recording the error status.
         Must be called while self._lock is held.
         """
-        self._assert_lock_held()
+        self._lock.assert_held()
         self._set_model_status(ModelStatus.LOADING)
         try:
             self._pipeline = self._create_pipeline(project_id)
