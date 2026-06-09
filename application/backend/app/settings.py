@@ -50,8 +50,11 @@ class Settings(BaseSettings):
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "instant_learn.db"
 
-    # Template datasets
-    template_dataset_path: str = Field(default="templates/datasets", alias="TEMPLATE_DATASET_PATH")
+    # Sample datasets
+    sample_dataset_dir: Path = Field(
+        default=current_dir.parent / ".data" / "templates" / "datasets",
+        alias="SAMPLE_DATASET_DIR",
+    )
 
     # License
     license_accept_env_var: str = "INSTANTLEARN_LICENSE_ACCEPTED"
@@ -76,11 +79,6 @@ class Settings(BaseSettings):
     def license_consent_file_path(self) -> Path:
         """Path to the license consent file."""
         return self.config_dir / ".license_accepted"
-
-    @property
-    def template_dataset_dir(self) -> Path:
-        """Full path to the template dataset directory"""
-        return self.db_data_dir / self.template_dataset_path
 
     @property
     def database_url(self) -> str:
@@ -196,7 +194,7 @@ class Settings(BaseSettings):
 
         settings_dict["computed"] = {
             "database_url": self.database_url,
-            "template_dataset_dir": str(self.template_dataset_dir),
+            "sample_dataset_dir": str(self.sample_dataset_dir),
             "cors_allowed_origins": self.cors_allowed_origins,
             "log_file": self.log_file,
             "ice_servers_count": len(self.ice_servers),

@@ -48,6 +48,8 @@ ENV UV_PYTHON_DOWNLOADS=0
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
 ENV LOGS_DIR="/instant_learn/logs"
+ARG SAMPLE_DATASET_DIR="/instant_learn/defaults/templates/datasets"
+ENV SAMPLE_DATASET_DIR=${SAMPLE_DATASET_DIR}
 ENV PATH="/instant_learn/app/backend/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
 
@@ -55,7 +57,6 @@ ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 ARG DEVICE=""
 ENV DEVICE=${DEVICE}
@@ -85,8 +86,8 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 RUN mkdir -p /instant_learn/app/backend
 WORKDIR /instant_learn/app/backend
 
-# Add sample datasets
-COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
+# Add sample datasets to an image-owned location so bind mounts on DB_DATA_DIR do not hide them.
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${SAMPLE_DATASET_DIR}
 
 # Copy library and create proper directory structure
 COPY --link --from=libs --chown=${UID} ./src /instant_learn/library/src

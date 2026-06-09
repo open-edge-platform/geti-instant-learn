@@ -31,15 +31,15 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
     dataset_paths: dict[UUID, Path] = {}
 
     if not datasets_root.exists():
-        logger.error("Template dataset directory '%s' does not exist", datasets_root)
-        raise DatasetNotFoundError(f"Template dataset directory '{datasets_root}' does not exist.")
+        logger.error("Sample dataset directory '%s' does not exist", datasets_root)
+        raise DatasetNotFoundError(f"Sample dataset directory '{datasets_root}' does not exist.")
 
     if not datasets_root.is_dir():
         logger.warning(
-            "Template dataset path '%s' exists but is not a directory",
+            "Sample dataset path '%s' exists but is not a directory",
             datasets_root,
         )
-        raise DatasetNotFoundError(f"Template dataset path '{datasets_root}' is not a directory.")
+        raise DatasetNotFoundError(f"Sample dataset path '{datasets_root}' is not a directory.")
 
     for entry in sorted(datasets_root.iterdir()):
         if not entry.is_dir():
