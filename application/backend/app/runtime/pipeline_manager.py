@@ -75,7 +75,7 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._model_status = ModelStatusSchema(status=ModelStatus.READY)
 
     def is_model_loading(self) -> bool:
@@ -103,19 +103,11 @@ class PipelineManager:
         with self._lock:
             if self.is_model_loading():
                 raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
-            if self._pipeline:
-                self._pipeline.stop()
-            self._set_model_status(ModelStatus.LOADING)
+            self._teardown_pipeline()
             try:
-                self._pipeline = self._create_pipeline(project_id)
-                self._refresh_visualization_info(project_id)
-                self._pipeline.start()
-            except Exception as exc:
-                error_type, error_message = build_model_load_error(exc)
-                self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                logger.error("Pipeline restart failed for project %s", project_id)
-            else:
-                self._set_model_status(ModelStatus.READY)
+                self._build_and_start_pipeline(project_id)
+            except Exception:  # noqa: S110 — already logged in _build_and_start_pipeline
+                pass
         logger.info("Pipeline reloaded for project %s", project_id)
 
     def start(self) -> None:
@@ -127,17 +119,10 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             with self._lock:
-                self._set_model_status(ModelStatus.LOADING)
                 try:
-                    self._pipeline = self._create_pipeline(cfg.project_id)
-                    self._refresh_visualization_info(cfg.project_id)
-                    self._pipeline.start()
-                except Exception as exc:
-                    error_type, error_message = build_model_load_error(exc)
-                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                    logger.exception("Pipeline restart failed for project %s", cfg.project_id)
-                else:
-                    self._set_model_status(ModelStatus.READY)
+                    self._build_and_start_pipeline(cfg.project_id)
+                except Exception:  # noqa: S110 — already logged in _build_and_start_pipeline
+                    pass
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
@@ -146,11 +131,23 @@ class PipelineManager:
     def stop(self) -> None:
         """Stop and dispose the running pipeline."""
         with self._lock:
-            if self._pipeline:
-                self._pipeline.stop()
-                self._pipeline = None
-            self._current_config = None
-            self._visualization_info = None
+            self._teardown_pipeline()
+
+    def _assert_lock_held(self) -> None:
+        if not self._lock._is_owned():  # type: ignore[attr-defined]
+            raise RuntimeError("Must be called while self._lock is held")
+
+    def _teardown_pipeline(self) -> None:
+        """Stop and clear the active pipeline and its associated state.
+
+        Must be called while self._lock is held.
+        """
+        self._assert_lock_held()
+        if self._pipeline:
+            self._pipeline.stop()
+            self._pipeline = None
+        self._current_config = None
+        self._visualization_info = None
 
     def get_visualization_info(self, project_id: UUID) -> VisualizationInfo | None:
         """Get cached visualization info for the active pipeline."""
@@ -203,28 +200,13 @@ class PipelineManager:
         with self._lock:
             match event:
                 case ProjectActivationEvent() as e:
-                    if self._pipeline:
-                        self._pipeline.stop()
-                    self._set_model_status(ModelStatus.LOADING)
-                    try:
-                        self._pipeline = self._create_pipeline(e.project_id)
-                        self._refresh_visualization_info(e.project_id)
-                        self._pipeline.start()
-                    except Exception as exc:
-                        error_type, error_message = build_model_load_error(exc)
-                        self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                        logger.exception("Pipeline restart failed for project %s", e.project_id)
-                        raise
-                    else:
-                        self._set_model_status(ModelStatus.READY)
+                    self._teardown_pipeline()
+                    self._build_and_start_pipeline(e.project_id)
                     logger.info("Pipeline started for activated project %s", e.project_id)
 
                 case ProjectDeactivationEvent() as e:
                     if self._pipeline and self._pipeline.project_id == e.project_id:
-                        self._pipeline.stop()
-                        self._pipeline = None
-                        self._current_config = None
-                        self._visualization_info = None
+                        self._teardown_pipeline()
                         logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
                 case ComponentConfigChangeEvent() as e:
@@ -233,6 +215,27 @@ class PipelineManager:
                         if e.component_type == ComponentType.PROCESSOR:
                             self._refresh_visualization_info(e.project_id)
                         logger.info("Pipeline components updated for project %s", e.project_id)
+
+    def _build_and_start_pipeline(self, project_id: UUID) -> None:
+        """Create and start a new pipeline for the given project.
+
+        Sets model status to LOADING before building and READY on success.
+        Always re-raises on failure after recording the error status.
+        Must be called while self._lock is held.
+        """
+        self._assert_lock_held()
+        self._set_model_status(ModelStatus.LOADING)
+        try:
+            self._pipeline = self._create_pipeline(project_id)
+            self._refresh_visualization_info(project_id)
+            self._pipeline.start()
+        except Exception as exc:
+            error_type, error_message = build_model_load_error(exc)
+            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+            logger.exception("Pipeline start failed for project %s", project_id)
+            raise
+        else:
+            self._set_model_status(ModelStatus.READY)
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
