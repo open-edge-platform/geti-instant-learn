@@ -205,14 +205,14 @@ class TextToBoxPromptGenerator(nn.Module):
 
         # Process each image's results
         for img_idx, result in enumerate(results):
-            pred_labels = self._map_labels_to_categories(result["labels"], category_mapping)
+            pred_labels = self._map_labels_to_categories(result["text_labels"], category_mapping)
             pred_bboxes = result["boxes"]
             pred_scores = result["scores"]
 
             # Group boxes by category
             boxes_per_category: dict[int, list[torch.Tensor]] = {idx: [] for idx in range(num_categories)}
 
-            for pred_bbox, pred_score, pred_label in zip(pred_bboxes, pred_scores, pred_labels, strict=True):
+            for pred_bbox, pred_score, pred_label in zip(pred_bboxes, pred_scores, pred_labels, strict=False):
                 cat_idx = cat_name_to_idx[pred_label]
                 box_with_score = torch.cat([pred_bbox, pred_score.unsqueeze(0)], dim=0)
                 boxes_per_category[cat_idx].append(box_with_score)
