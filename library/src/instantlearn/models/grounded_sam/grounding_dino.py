@@ -378,7 +378,7 @@ class GroundingDinoConvEncoder(nn.Module):
         )
 
         backbone_model_type = None
-        if config.backbone is not None:
+        if getattr(config, "backbone", None) is not None:
             backbone_model_type = config.backbone
         elif config.backbone_config is not None:
             backbone_model_type = config.backbone_config.model_type
@@ -2337,9 +2337,11 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
             text_token_mask = text_token_mask[:, :max_text_len]
 
         # Extract text features from text backbone
+        # Pass 4D attention mask [batch, 1, seq, seq] so transformers v5 treats it
+        # as already-prepared and skips its internal mask expansion logic.
         text_outputs = self.text_backbone(
             input_ids,
-            text_self_attention_masks,
+            text_self_attention_masks[:, None, :, :],
             token_type_ids,
             position_ids,
             return_dict=return_dict,
