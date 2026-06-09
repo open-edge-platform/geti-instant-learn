@@ -50,11 +50,11 @@ class _OwnedLock:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._owner: int | None = None
+        self._owner: threading.Thread | None = None
 
     def __enter__(self) -> "_OwnedLock":
         self._lock.acquire()
-        self._owner = threading.get_ident()
+        self._owner = threading.current_thread()
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -62,7 +62,7 @@ class _OwnedLock:
         self._lock.release()
 
     def assert_held(self) -> None:
-        if self._owner != threading.get_ident():
+        if self._owner is not threading.current_thread():
             raise RuntimeError("Must be called while the lock is held")
 
 
