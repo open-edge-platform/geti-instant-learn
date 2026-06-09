@@ -31,7 +31,6 @@ version := "latest"
 image-name := container-registry / component-name / build-target + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets"
-target-dataset-dir := "/instant_learn/data/templates/datasets"
 
 # Coturn settings
 coturn-image := "quay.io/coturn/coturn"
@@ -66,7 +65,6 @@ build-image: (download-datasets source-dataset-dir)
         {{ docker-build-context }} \
         --build-context libs=../library \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
-        --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
         --build-arg DEVICE={{ device }} \
         --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
@@ -192,7 +190,7 @@ test-image:
       sleep 5
     done
 
-    EXPECTED_TITLE="Geti Instant Learn"
+    EXPECTED_TITLE="Geti™ Instant Learn"
     echo "Checking HTML title..."
 
     HTML_CONTENT=$(no_proxy=localhost curl -sf $TEST_URL)

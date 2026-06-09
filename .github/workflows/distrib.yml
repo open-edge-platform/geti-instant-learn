@@ -83,6 +83,7 @@ jobs:
             auth.docker.io:443
             api.github.com:443
             deb.debian.org:80
+            developer.download.nvidia.com:443
             dl-cdn.alpinelinux.org:443
             download.pytorch.org:443
             download-r2.pytorch.org:443
@@ -100,6 +101,7 @@ jobs:
             registry.npmjs.org:443
             storage.geti.intel.com:443
             www.google-analytics.com:443
+            production.cloudfront.docker.com:443
 
       - name: Construct image name
         run: |
