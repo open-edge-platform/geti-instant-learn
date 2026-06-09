@@ -3,98 +3,44 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, MouseEventHandler, useState } from 'react';
+import { MouseEventHandler } from 'react';
 
 import { type ProjectType } from '@/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
-import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
+import { ProjectActions } from './project-actions.component';
 
 import styles from './project-list-item.module.scss';
 
 interface ProjectListItemProps {
     project: ProjectType;
-    isInEditMode: boolean;
-    onBlur: (projectId: string, newName: string) => void;
-    onRename: (projectId: string) => void;
-    onDelete: (projectId: string) => void;
-    onResetProjectInEdition: () => void;
     projectNames: string[];
     onActivateProject: (project: ProjectType) => void;
 }
 
-export const ProjectListItem = ({
-    project,
-    isInEditMode,
-    onBlur,
-    onRename,
-    onDelete,
-    onResetProjectInEdition,
-    projectNames,
-    onActivateProject,
-}: ProjectListItemProps) => {
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
-
-    const handleAction = (key: Key) => {
-        if (key === PROJECT_ACTIONS.RENAME) {
-            onRename(project.id);
-        } else if (key === PROJECT_ACTIONS.DELETE) {
-            setIsDeleteDialogOpen(true);
-        }
-    };
-
-    const handleBlur = (projectId: string) => (newName: string) => {
-        onBlur(projectId, newName);
-    };
-
-    const handleDelete = () => {
-        onDelete(project.id);
-    };
-
-    const handleItemClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
-        if (isInEditMode) {
-            event.preventDefault();
-            return;
-        }
-
+export const ProjectListItem = ({ project, projectNames, onActivateProject }: ProjectListItemProps) => {
+    const handleItemClick: MouseEventHandler<HTMLAnchorElement> = () => {
         onActivateProject(project);
     };
-
-    const projectActions = [PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE];
 
     return (
         <li className={styles.projectListItem} aria-label={`Project ${project.name}`} data-active={project.active}>
             <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick}>
-                <Flex justifyContent='space-between' alignItems='center'>
-                    {isInEditMode ? (
-                        <ProjectEdition
+                <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
+                    <Flex alignItems={'center'} gap={'size-100'}>
+                        <PhotoPlaceholder
                             name={project.name}
-                            onBlur={handleBlur(project.id)}
-                            onResetProjectInEdition={onResetProjectInEdition}
-                            projectNames={projectNames}
+                            indicator={project.id}
+                            height={'size-325'}
+                            width={'size-325'}
                         />
-                    ) : (
-                        <Flex alignItems={'center'} gap={'size-100'}>
-                            <PhotoPlaceholder
-                                name={project.name}
-                                indicator={project.id}
-                                height={'size-300'}
-                                width={'size-300'}
-                            />
-                            <Text>{project.name}</Text>
-                        </Flex>
-                    )}
-                    <ProjectActions actions={projectActions} onAction={handleAction} />
+                        <Text>{project.name}</Text>
+                    </Flex>
+                    <ProjectActions projectId={project.id} projectName={project.name} projectNames={projectNames} />
                 </Flex>
             </Link>
-            <DeleteProjectDialog
-                isOpen={isDeleteDialogOpen}
-                onDismiss={() => setIsDeleteDialogOpen(false)}
-                onDelete={handleDelete}
-                projectName={project.name}
-            />
         </li>
     );
 };

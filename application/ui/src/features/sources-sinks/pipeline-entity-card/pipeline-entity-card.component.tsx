@@ -68,7 +68,7 @@ export const PipelineEntityCard = ({ isActive, children, icon, menu, title }: Pi
                 marginTop={'size-200'}
                 alignItems={'center'}
                 minWidth={0}
-                gap={'size-50'}
+                gap={'size-100'}
             >
                 <View flex={1}>{children}</View>
                 <View alignSelf={'end'}>{menu}</View>

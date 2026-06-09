@@ -1,16 +1,13 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from uuid import UUID
 
 from fastapi import status
 
 from api.routers import projects_router
 from dependencies import PipelineManagerDep, ProjectServiceDep
-from domain.services.schemas.processor import ModelStatusSchema
-
-logger = logging.getLogger(__name__)
+from domain.services.schemas.model_status import ModelStatusSchema
 
 
 @projects_router.get(
@@ -25,6 +22,6 @@ logger = logging.getLogger(__name__)
 def get_model_status(
     project_id: UUID, project_service: ProjectServiceDep, pipeline_manager: PipelineManagerDep
 ) -> ModelStatusSchema:
-    """Return whether the model is currently being prepared for the given project."""
+    """Return the current processor load state for the given project."""
     project_service.get_project(project_id)  # validates project_id, 404 if missing
-    return ModelStatusSchema(loading=pipeline_manager.is_model_loading())
+    return pipeline_manager.get_model_status()
