@@ -21,14 +21,25 @@ from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
 from domain.services.schemas.label import CategoryMappings, VisualizationInfo
+from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorType, ModelStatusSchema
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import ErrorData, InputData, OutputData
+from domain.services.schemas.processor import (
+    ErrorData,
+    InputData,
+    OutputData,
+)
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    PipelineReloadInProgressError,
+    SourceNotSeekableError,
+)
+from runtime.services.model_load_error import build_model_load_error
 from runtime.services.reference_batch import ReferenceBatchService
 
 logger = logging.getLogger(__name__)
@@ -65,17 +76,47 @@ class PipelineManager:
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
         self._lock = threading.Lock()
-        self._model_loading: bool = False
-        self._model_loading_lock = threading.Lock()
+        self._model_status = ModelStatusSchema(status=ModelStatus.READY)
 
     def is_model_loading(self) -> bool:
         """Return True while a processor (re)build is in progress."""
-        with self._model_loading_lock:
-            return self._model_loading
+        return self._model_status.status == ModelStatus.LOADING
 
-    def _set_model_loading(self, value: bool) -> None:
-        with self._model_loading_lock:
-            self._model_loading = value
+    def get_model_status(self) -> ModelStatusSchema:
+        """Return the current processor load status and the last load error, if any."""
+        return self._model_status.model_copy(deep=True)
+
+    def _set_model_status(
+        self,
+        status: ModelStatus,
+        error_type: ModelStatusErrorType | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        self._model_status = ModelStatusSchema(
+            status=status,
+            error_type=error_type,
+            error_message=error_message,
+        )
+
+    def reload_pipeline(self, project_id: UUID) -> None:
+        """Stop and fully rebuild the active pipeline for the given project."""
+        with self._lock:
+            if self.is_model_loading():
+                raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
+            if self._pipeline:
+                self._pipeline.stop()
+            self._set_model_status(ModelStatus.LOADING)
+            try:
+                self._pipeline = self._create_pipeline(project_id)
+                self._refresh_visualization_info(project_id)
+                self._pipeline.start()
+            except Exception as exc:
+                error_type, error_message = build_model_load_error(exc)
+                self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                logger.error("Pipeline restart failed for project %s", project_id)
+            else:
+                self._set_model_status(ModelStatus.READY)
+        logger.info("Pipeline reloaded for project %s", project_id)
 
     def start(self) -> None:
         """
@@ -86,10 +127,17 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             with self._lock:
-                self._current_config = cfg
-                self._pipeline = self._create_pipeline(cfg.project_id)
-                self._refresh_visualization_info(cfg.project_id)
-                self._pipeline.start()
+                self._set_model_status(ModelStatus.LOADING)
+                try:
+                    self._pipeline = self._create_pipeline(cfg.project_id)
+                    self._refresh_visualization_info(cfg.project_id)
+                    self._pipeline.start()
+                except Exception as exc:
+                    error_type, error_message = build_model_load_error(exc)
+                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                    logger.exception("Pipeline restart failed for project %s", cfg.project_id)
+                else:
+                    self._set_model_status(ModelStatus.READY)
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
@@ -157,9 +205,18 @@ class PipelineManager:
                 case ProjectActivationEvent() as e:
                     if self._pipeline:
                         self._pipeline.stop()
-                    self._pipeline = self._create_pipeline(e.project_id)
-                    self._refresh_visualization_info(e.project_id)
-                    self._pipeline.start()
+                    self._set_model_status(ModelStatus.LOADING)
+                    try:
+                        self._pipeline = self._create_pipeline(e.project_id)
+                        self._refresh_visualization_info(e.project_id)
+                        self._pipeline.start()
+                    except Exception as exc:
+                        error_type, error_message = build_model_load_error(exc)
+                        self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                        logger.exception("Pipeline restart failed for project %s", e.project_id)
+                        raise
+                    else:
+                        self._set_model_status(ModelStatus.READY)
                     logger.info("Pipeline started for activated project %s", e.project_id)
 
                 case ProjectDeactivationEvent() as e:
@@ -230,13 +287,18 @@ class PipelineManager:
             case ComponentType.PROCESSOR:
                 # Building the reference batch + downloading weights + initializing the model
                 # can take a while. Surface a "busy" flag so the UI can show a blocking overlay.
-                self._set_model_loading(True)
+                self._set_model_status(ModelStatus.LOADING)
                 try:
                     reference_batch, _ = self._batch_service.build(cfg) or (None, {})
                     processor = self._component_factory.create_processor(cfg, reference_batch)
                     self._pipeline.set_processor(processor, True)
-                finally:
-                    self._set_model_loading(False)
+                except Exception as exc:
+                    error_type, error_message = build_model_load_error(exc)
+                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                    logger.exception("Processor rebuild failed for project %s", project_id)
+                    raise
+                else:
+                    self._set_model_status(ModelStatus.READY)
             case ComponentType.SINK:
                 sink = self._component_factory.create_sink(cfg.writer)
                 self._pipeline.set_sink(sink, True)

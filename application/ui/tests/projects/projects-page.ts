@@ -43,7 +43,7 @@ export class ProjectPage {
     }
 
     async openProjectMenu(projectName: string) {
-        await this.page.getByLabel(`Project ${projectName}`).getByRole('button', { name: 'Project actions' }).click();
+        await this.page.getByRole('button', { name: `Project actions ${projectName}` }).click();
     }
 
     async openProject(projectName: string) {

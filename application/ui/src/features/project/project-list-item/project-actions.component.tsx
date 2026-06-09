@@ -3,35 +3,57 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, Key, useState } from 'react';
 
-import { useOnOutsideClick } from '@/hooks';
-import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef, useUnwrapDOMRef } from '@geti/ui';
+import { useDeleteProject } from '@/features/project/api/use-delete-project.hook';
+import { useUpdateProject } from '@/features/project/api/use-update-project.hook';
+import {
+    ActionButton,
+    AlertDialog,
+    Button,
+    ButtonGroup,
+    Content,
+    Dialog,
+    DialogContainer,
+    Divider,
+    Form,
+    Heading,
+    Item,
+    Menu,
+    MenuTrigger,
+    TextField,
+    toast,
+} from '@geti/ui';
+import { MoreMenu } from '@geti/ui/icons';
+import { isEmpty } from 'lodash-es';
 
-import styles from './project-list-item.module.scss';
+export const PROJECT_ACTIONS = {
+    RENAME: 'Rename',
+    DELETE: 'Delete',
+};
 
-interface ProjectEditionProps {
-    onBlur: (newName: string) => void;
-    onResetProjectInEdition: () => void;
-    name: string;
+type EditProjectNameDialogProps = {
+    onClose: () => void;
+    isOpen: boolean;
+    projectId: string;
+    projectName: string;
     projectNames: string[];
-}
+};
 
-export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectNames }: ProjectEditionProps) => {
-    const wrappedTextFieldRef = useRef<TextFieldRef>(null);
-    const textFieldRef = useUnwrapDOMRef(wrappedTextFieldRef);
+const PROJECT_NAME_MAX_LENGTH = 80;
 
-    const [newName, setNewName] = useState<string>(name);
+export const EditProjectNameDialog = ({
+    onClose,
+    isOpen,
+    projectId,
+    projectName,
+    projectNames,
+}: EditProjectNameDialogProps) => {
+    const [newProjectName, setNewProjectName] = useState(projectName);
+    const updateProject = useUpdateProject();
 
-    const handleBlur = () => {
-        const errorMessage = validateProjectName(newName);
-
-        if (errorMessage !== undefined) {
-            return;
-        }
-
-        onBlur(newName.trim());
-    };
+    const trimmedProjectName = newProjectName.trim();
+    const isNameUnchanged = trimmedProjectName === projectName;
 
     const validateProjectName = (inputName: string) => {
         if (inputName.trim() === '') {
@@ -45,77 +67,101 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
         return undefined;
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
+    const validationErrorMessage = validateProjectName(newProjectName);
+    const isSaveButtonDisabled =
+        isEmpty(trimmedProjectName) ||
+        isNameUnchanged ||
+        updateProject.isPending ||
+        validationErrorMessage !== undefined;
 
-            const errorMessage = validateProjectName(newName);
-
-            if (errorMessage !== undefined) {
-                return;
+    const editProjectName = (newName: string) => {
+        updateProject.mutate(
+            projectId,
+            {
+                name: newName,
+            },
+            () => {
+                onClose();
+                toast({ type: 'success', message: 'Project updated successfully' });
             }
-
-            handleBlur();
-            onResetProjectInEdition();
-        } else if (event.key === 'Escape') {
-            event.preventDefault();
-
-            setNewName(name);
-            onBlur(name);
-            onResetProjectInEdition();
-        }
+        );
     };
 
-    useEffect(() => {
-        wrappedTextFieldRef.current?.focus();
-    }, []);
+    const handleEditProjectName = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
 
-    useOnOutsideClick(textFieldRef, onResetProjectInEdition);
+        if (isSaveButtonDisabled) {
+            return;
+        }
 
-    const errorMessage = validateProjectName(newName);
+        editProjectName(trimmedProjectName);
+    };
 
     return (
-        <div
-            onClick={(event) => {
-                // The goal of those two lines is to prevent the click event from bubbling up to the parent
-                // and triggering the default behavior of the Link (navigation) when being in edit mode.
-                event.stopPropagation();
-                event.preventDefault();
-            }}
-        >
-            <TextField
-                isQuiet
-                ref={wrappedTextFieldRef}
-                value={newName}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onChange={setNewName}
-                aria-label='Edit project name'
-                errorMessage={errorMessage}
-                validationState={errorMessage ? 'invalid' : undefined}
-            />
-        </div>
+        <DialogContainer onDismiss={onClose}>
+            {isOpen && (
+                <Dialog>
+                    <Heading>Edit project name</Heading>
+                    <Divider />
+                    <Content>
+                        <Form onSubmit={handleEditProjectName}>
+                            <TextField
+                                //eslint-disable-next-line jsx-a11y/no-autofocus
+                                autoFocus
+                                maxLength={PROJECT_NAME_MAX_LENGTH}
+                                value={newProjectName}
+                                onChange={setNewProjectName}
+                                width='100%'
+                                aria-label='Edit project name'
+                                isReadOnly={updateProject.isPending}
+                                errorMessage={validationErrorMessage}
+                                validationState={validationErrorMessage === undefined ? undefined : 'invalid'}
+                            />
+                            <ButtonGroup align={'end'} marginTop={'size-350'}>
+                                <Button variant='secondary' onPress={onClose} isDisabled={updateProject.isPending}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type='submit'
+                                    variant='accent'
+                                    isDisabled={isSaveButtonDisabled}
+                                    isPending={updateProject.isPending}
+                                >
+                                    Save
+                                </Button>
+                            </ButtonGroup>
+                        </Form>
+                    </Content>
+                </Dialog>
+            )}
+        </DialogContainer>
     );
 };
 
-export const PROJECT_ACTIONS = {
-    RENAME: 'Rename',
-    DELETE: 'Delete',
-};
-
-interface ProjectActionsProps {
-    onAction: (key: Key) => void;
-    actions: string[];
-}
-
 interface DeleteProjectDialogProps {
     isOpen: boolean;
+    projectId: string;
     onDismiss: () => void;
-    onDelete: () => void;
+    onSuccess?: () => void;
     projectName: string;
 }
 
-export const DeleteProjectDialog = ({ isOpen, onDismiss, projectName, onDelete }: DeleteProjectDialogProps) => {
+export const DeleteProjectDialog = ({
+    isOpen,
+    projectId,
+    onDismiss,
+    projectName,
+    onSuccess,
+}: DeleteProjectDialogProps) => {
+    const deleteProject = useDeleteProject();
+
+    const handleDelete = (): void => {
+        deleteProject.mutate(projectId, () => {
+            onDismiss();
+            onSuccess?.();
+        });
+    };
+
     return (
         <DialogContainer onDismiss={onDismiss}>
             {isOpen && (
@@ -123,7 +169,8 @@ export const DeleteProjectDialog = ({ isOpen, onDismiss, projectName, onDelete }
                     title='Delete'
                     variant='destructive'
                     primaryActionLabel='Delete'
-                    onPrimaryAction={onDelete}
+                    onPrimaryAction={handleDelete}
+                    isPrimaryActionDisabled={deleteProject.isPending}
                     cancelLabel={'Cancel'}
                 >
                     {`Are you sure you want to delete project "${projectName}"?`}
@@ -133,12 +180,62 @@ export const DeleteProjectDialog = ({ isOpen, onDismiss, projectName, onDelete }
     );
 };
 
-export const ProjectActions = ({ onAction, actions }: ProjectActionsProps) => {
+const PROJECT_ACTIONS_ITEMS = [PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE];
+
+interface ProjectActionsProps {
+    projectId: string;
+    projectName: string;
+    projectNames: string[];
+    actionButtonStyle?: CSSProperties;
+    onDeleted?: () => void;
+}
+
+export const ProjectActions = ({
+    projectId,
+    actionButtonStyle,
+    projectName,
+    projectNames,
+    onDeleted,
+}: ProjectActionsProps) => {
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
+
+    const handleAction = (key: Key) => {
+        if (key === PROJECT_ACTIONS.RENAME) {
+            setIsEditDialogOpen(true);
+        } else if (key === PROJECT_ACTIONS.DELETE) {
+            setIsDeleteDialogOpen(true);
+        }
+    };
+
     return (
-        <ActionMenu isQuiet onAction={onAction} aria-label={'Project actions'} UNSAFE_className={styles.actionMenu}>
-            {actions.map((action) => (
-                <Item key={action}>{action}</Item>
-            ))}
-        </ActionMenu>
+        <>
+            <MenuTrigger>
+                <ActionButton isQuiet aria-label={`Project actions ${projectName}`} UNSAFE_style={actionButtonStyle}>
+                    <MoreMenu />
+                </ActionButton>
+                <Menu onAction={handleAction}>
+                    {PROJECT_ACTIONS_ITEMS.map((label) => (
+                        <Item key={label}>{label}</Item>
+                    ))}
+                </Menu>
+            </MenuTrigger>
+
+            <DeleteProjectDialog
+                isOpen={isDeleteDialogOpen}
+                projectId={projectId}
+                onDismiss={() => setIsDeleteDialogOpen(false)}
+                onSuccess={onDeleted}
+                projectName={projectName}
+            />
+
+            <EditProjectNameDialog
+                isOpen={isEditDialogOpen}
+                onClose={() => setIsEditDialogOpen(false)}
+                projectId={projectId}
+                projectName={projectName}
+                projectNames={projectNames}
+            />
+        </>
     );
 };

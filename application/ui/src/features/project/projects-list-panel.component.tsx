@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-
 import { $api, type ProjectType } from '@/api';
+import { ProjectActions } from '@/features/project/project-list-item/project-actions.component';
 import { useCurrentProject } from '@/hooks';
 import {
     ActionButton,
@@ -13,6 +12,7 @@ import {
     Content,
     Dialog,
     DialogTrigger,
+    dimensionValue,
     Divider,
     Flex,
     Header,
@@ -22,12 +22,15 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { isEmpty } from 'lodash-es';
+import { useNavigate } from 'react-router';
 
+import { paths } from '../../constants/paths';
 import { useCreateProject, useCreateProjectMutation } from './api/use-create-project.hook';
 import { ProjectsList } from './projects-list.component';
 import { generateUniqueProjectName } from './utils';
 
-import styles from './projects-list.module.scss';
+import classes from './projects-list.module.scss';
 
 interface SelectedProjectProps {
     project: ProjectType;
@@ -35,10 +38,16 @@ interface SelectedProjectProps {
 
 const SelectedProjectButton = ({ project: { name, id, active } }: SelectedProjectProps) => {
     return (
-        <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} data-active={active}>
+        <ActionButton
+            aria-label={`Selected project ${name}`}
+            isQuiet
+            height={'max-content'}
+            data-active={active}
+            UNSAFE_className={classes.selectedProjectButton}
+        >
             <View margin={'size-50'}>
                 <Flex direction={'column'} gap={'size-50'}>
-                    <Text UNSAFE_className={styles.currentProjectHeaderText}>{name}</Text>
+                    <Text UNSAFE_className={classes.currentProjectHeaderText}>{name}</Text>
                 </Flex>
             </View>
             <View margin='size-50'>
@@ -67,9 +76,7 @@ const CreateProjectButton = ({ projectsNames }: AddProjectProps) => {
             <ActionButton
                 isQuiet
                 width={'100%'}
-                marginStart={'size-100'}
-                marginEnd={'size-350'}
-                UNSAFE_className={styles.createProjectButton}
+                UNSAFE_className={classes.createProjectButton}
                 isDisabled={createProjectMutation.isPending}
                 onPress={handleCreateProject}
             >
@@ -82,9 +89,20 @@ const CreateProjectButton = ({ projectsNames }: AddProjectProps) => {
 
 interface CurrentProjectCardProps {
     selectedProject: ProjectType;
+    projectNames: string[];
 }
 
-const CurrentProjectCard = ({ selectedProject }: CurrentProjectCardProps) => {
+const CurrentProjectCard = ({ selectedProject, projectNames }: CurrentProjectCardProps) => {
+    const navigate = useNavigate();
+
+    const handleNavigateAfterDeletion = () => {
+        if (projectNames.length === 0) {
+            navigate(paths.welcome({}));
+        } else {
+            navigate(paths.projects({}));
+        }
+    };
+
     return (
         <Header>
             <Flex
@@ -92,10 +110,10 @@ const CurrentProjectCard = ({ selectedProject }: CurrentProjectCardProps) => {
                 justifyContent={'center'}
                 width={'100%'}
                 alignItems={'center'}
-                UNSAFE_className={styles.currentProject}
+                UNSAFE_className={classes.currentProject}
                 gap={'size-200'}
             >
-                <Flex alignItems={'center'} direction={'column'}>
+                <Flex alignItems={'center'} direction={'column'} width={'100%'}>
                     <PhotoPlaceholder
                         name={selectedProject.name}
                         indicator={selectedProject.id}
@@ -103,9 +121,26 @@ const CurrentProjectCard = ({ selectedProject }: CurrentProjectCardProps) => {
                         width={'size-1000'}
                     />
 
-                    <Heading level={2} marginBottom={0}>
-                        {selectedProject.name}
-                    </Heading>
+                    <View position={'relative'} width={'100%'} marginTop={'size-225'}>
+                        <Flex alignItems={'center'} justifyContent={'center'}>
+                            <Heading level={2} margin={0} marginX={'size-500'} UNSAFE_className={classes.projectTitle}>
+                                {selectedProject.name}
+                            </Heading>
+                        </Flex>
+
+                        <ProjectActions
+                            projectId={selectedProject.id}
+                            projectName={selectedProject.name}
+                            projectNames={projectNames}
+                            onDeleted={handleNavigateAfterDeletion}
+                            actionButtonStyle={{
+                                position: 'absolute',
+                                top: '50%',
+                                right: dimensionValue('size-100'),
+                                transform: 'translateY(-50%)',
+                            }}
+                        />
+                    </View>
                 </Flex>
             </Flex>
         </Header>
@@ -115,30 +150,31 @@ const CurrentProjectCard = ({ selectedProject }: CurrentProjectCardProps) => {
 export const ProjectsListPanel = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
     const { data: currentProject } = useCurrentProject();
-    const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
     const projectsNames = data.projects.map((project) => project.name);
+    const restProjects = data.projects.filter((project) => project.id !== currentProject.id);
 
     return (
         <>
             <DialogTrigger type='popover' hideArrow>
                 <SelectedProjectButton project={currentProject} />
 
-                <Dialog width={'size-4600'} UNSAFE_className={styles.dialog}>
-                    <CurrentProjectCard selectedProject={currentProject} />
+                <Dialog width={'size-4600'} UNSAFE_className={classes.dialog}>
+                    <CurrentProjectCard
+                        selectedProject={currentProject}
+                        projectNames={projectsNames.filter((projectName) => projectName !== currentProject.name)}
+                    />
 
-                    <Content UNSAFE_className={styles.dialogContent}>
-                        <Divider size={'S'} marginY={'size-200'} />
+                    {!isEmpty(restProjects) && (
+                        <>
+                            <Divider size={'S'} marginBottom={'size-100'} marginTop={0} />
+                            <Content>
+                                <ProjectsList projects={restProjects} />
+                            </Content>
+                        </>
+                    )}
 
-                        <ProjectsList
-                            projects={data.projects}
-                            projectIdInEdition={projectInEdition}
-                            setProjectInEdition={setProjectInEdition}
-                        />
-                        <Divider size={'S'} marginY={'size-200'} />
-                    </Content>
-
-                    <ButtonGroup UNSAFE_className={styles.panelButtons}>
+                    <ButtonGroup UNSAFE_className={classes.buttonsGroup}>
                         <CreateProjectButton projectsNames={projectsNames} />
                     </ButtonGroup>
                 </Dialog>

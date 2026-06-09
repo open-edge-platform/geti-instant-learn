@@ -13,6 +13,7 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from dependencies import get_pipeline_manager, get_project_service
 from domain.errors import ResourceNotFoundError, ResourceType
+from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorType, ModelStatusSchema
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def project_id():
 @pytest.fixture
 def mock_pipeline_manager():
     mgr = Mock()
-    mgr.is_model_loading.return_value = False
+    mgr.get_model_status.return_value = ModelStatusSchema(status=ModelStatus.READY)
     return mgr
 
 
@@ -53,21 +54,37 @@ def client(app):
 
 
 class TestGetModelStatusEndpoint:
-    def test_returns_loading_false_when_model_is_idle(self, client, project_id, mock_pipeline_manager):
-        mock_pipeline_manager.is_model_loading.return_value = False
+    def test_returns_ready_status_when_model_is_idle(self, client, project_id, mock_pipeline_manager):
+        mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(status=ModelStatus.READY)
 
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"loading": False}
+        assert response.json() == {"status": "ready", "error_type": None, "error_message": None}
 
-    def test_returns_loading_true_when_model_is_busy(self, client, project_id, mock_pipeline_manager):
-        mock_pipeline_manager.is_model_loading.return_value = True
+    def test_returns_loading_status_when_model_is_busy(self, client, project_id, mock_pipeline_manager):
+        mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(status=ModelStatus.LOADING)
 
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"loading": True}
+        assert response.json() == {"status": "loading", "error_type": None, "error_message": None}
+
+    def test_returns_error_status_when_last_model_load_failed(self, client, project_id, mock_pipeline_manager):
+        mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(
+            status=ModelStatus.ERROR,
+            error_type=ModelStatusErrorType.AUTH_REQUIRED,
+            error_message="Login required",
+        )
+
+        response = client.get(f"/api/v1/projects/{project_id}/model-status")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "status": "error",
+            "error_type": "auth_required",
+            "error_message": "Login required",
+        }
 
     def test_returns_404_when_project_not_found(self, client, project_id, mock_project_service):
         mock_project_service.get_project.side_effect = ResourceNotFoundError(

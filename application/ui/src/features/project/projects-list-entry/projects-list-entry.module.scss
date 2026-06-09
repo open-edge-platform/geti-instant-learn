@@ -3,6 +3,16 @@
     font-weight: 500;
 }
 
+.description {
+    text-align: center;
+    max-width: 50rem;
+    font-size: var(--spectrum-global-dimension-font-size-200);
+    line-height: var(--spectrum-global-dimension-font-size-500);
+    margin: auto;
+    margin-bottom: var(--spectrum-global-dimension-font-size-1000);
+    display: block;
+}
+
 .projectsList {
     overflow-y: auto;
 }
@@ -36,4 +46,5 @@
 
 .projectCardTitle {
     font-weight: 500;
+    word-break: break-word;
 }

@@ -22,6 +22,7 @@ from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
+    ResourceUpdateConflictError,
 )
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
@@ -250,6 +251,27 @@ class ProjectService(BaseService):
                 message="No active project found.",
             )
         return project_db_to_schema(project)
+
+    def ensure_project_is_active(self, project_id: UUID) -> None:
+        """Validate that the requested project exists and is the current active project."""
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
+        active_project = self.project_repository.get_active()
+        if not active_project:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.PROJECT,
+                message="No active project found.",
+            )
+
+        if active_project.id != project_id:
+            raise ResourceUpdateConflictError(
+                resource_type=ResourceType.PROJECT,
+                resource_id=str(project_id),
+                field="active",
+                message="Only the active project pipeline can be reloaded.",
+            )
 
     def get_pipeline_config(self, project_id: UUID) -> PipelineConfig:
         """
