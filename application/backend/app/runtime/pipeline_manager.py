@@ -45,27 +45,6 @@ from runtime.services.reference_batch import ReferenceBatchService
 logger = logging.getLogger(__name__)
 
 
-class _OwnedLock:
-    """A non-reentrant lock that tracks its owning thread, allowing callers to assert it is held."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._owner: threading.Thread | None = None
-
-    def __enter__(self) -> "_OwnedLock":
-        self._lock.acquire()
-        self._owner = threading.current_thread()
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        self._owner = None
-        self._lock.release()
-
-    def assert_held(self) -> None:
-        if self._owner is not threading.current_thread():
-            raise RuntimeError("Must be called while the lock is held")
-
-
 class PipelineManager:
     """
     Manages the active Pipeline and its lifecycle, handling configuration changes.
@@ -96,7 +75,7 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
-        self._lock = _OwnedLock()
+        self._lock = threading.RLock()
         self._model_status = ModelStatusSchema(status=ModelStatus.READY)
 
     def is_model_loading(self) -> bool:
@@ -157,16 +136,13 @@ class PipelineManager:
             self._teardown_pipeline()
 
     def _teardown_pipeline(self) -> None:
-        """Stop and clear the active pipeline and its associated state.
-
-        Must be called while self._lock is held.
-        """
-        self._lock.assert_held()
-        if self._pipeline:
-            self._pipeline.stop()
-            self._pipeline = None
-        self._current_config = None
-        self._visualization_info = None
+        """Stop and clear the active pipeline and its associated state."""
+        with self._lock:
+            if self._pipeline:
+                self._pipeline.stop()
+                self._pipeline = None
+            self._current_config = None
+            self._visualization_info = None
 
     def get_visualization_info(self, project_id: UUID) -> VisualizationInfo | None:
         """Get cached visualization info for the active pipeline."""
@@ -240,21 +216,20 @@ class PipelineManager:
 
         Sets model status to LOADING before building and READY on success.
         Always re-raises on failure after recording the error status.
-        Must be called while self._lock is held.
         """
-        self._lock.assert_held()
-        self._set_model_status(ModelStatus.LOADING)
-        try:
-            self._pipeline = self._create_pipeline(project_id)
-            self._refresh_visualization_info(project_id)
-            self._pipeline.start()
-        except Exception as exc:
-            error_type, error_message = build_model_load_error(exc)
-            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-            logger.exception("Pipeline start failed for project %s", project_id)
-            raise
-        else:
-            self._set_model_status(ModelStatus.READY)
+        with self._lock:
+            self._set_model_status(ModelStatus.LOADING)
+            try:
+                self._pipeline = self._create_pipeline(project_id)
+                self._refresh_visualization_info(project_id)
+                self._pipeline.start()
+            except Exception as exc:
+                error_type, error_message = build_model_load_error(exc)
+                self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                logger.exception("Pipeline start failed for project %s", project_id)
+                raise
+            else:
+                self._set_model_status(ModelStatus.READY)
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
