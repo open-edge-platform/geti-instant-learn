@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         pagination=Pagination(count=0, total=0, offset=0, limit=0),
     )
     try:
-        dataset_resolver = DatasetResolver(settings.template_dataset_dir)
+        dataset_resolver = DatasetResolver(settings.sample_dataset_dir)
         datasets = dataset_resolver.get_datasets()
     except DatasetNotFoundError as e:
         logger.error("Dataset discovery failed during startup: %s", str(e))
