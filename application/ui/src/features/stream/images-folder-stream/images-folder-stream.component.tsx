@@ -106,7 +106,10 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
     // const [promptMode] = usePromptMode();
     const { data: activeFrame } = useGetActiveFrame(sourceId);
     const activeFrameIdx = activeFrame.index;
-    const { frames, fetchNextPage, fetchPreviousPage, framesCount, isPending } = useGetFrames(sourceId, activeFrameIdx);
+    const { frames, fetchNextPage, fetchPreviousPage, framesCount, isPending, hasError } = useGetFrames(
+        sourceId,
+        activeFrameIdx
+    );
     const { activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection({
         sourceId,
         frames,
@@ -165,7 +168,7 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
                 <CaptureFrameButton />
             </View>
             <View gridArea={'frames'} backgroundColor={'gray-100'}>
-                {isPending ? (
+                {hasError ? null : isPending ? (
                     <Loading mode={'inline'} size={'M'} style={{ height: '100%', width: '100%' }} />
                 ) : (
                     <FramesList

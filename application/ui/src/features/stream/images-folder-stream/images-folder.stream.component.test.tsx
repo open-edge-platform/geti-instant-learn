@@ -171,4 +171,36 @@ describe('ImagesFolderStream', () => {
 
         expect(await screen.findByRole('option', { name: 'Frame #17' })).toHaveAttribute('data-isselected', 'true');
     });
+
+    it('shows frames endpoint error message when frames list request fails', async () => {
+        server.use(
+            http.get('/api/v1/projects/{project_id}/sources/{source_id}/frames', () => {
+                return HttpResponse.json(
+                    {
+                        detail: 'Images folder no longer accessible: /deleted/dataset',
+                    },
+                    { status: 400 }
+                );
+            })
+        );
+
+        render(
+            <SelectedFrameProvider>
+                <FullScreenModeProvider>
+                    <WebRTCConnectionProvider>
+                        <ImagesFolderStream sourceId={'1234'} />
+                    </WebRTCConnectionProvider>
+                </FullScreenModeProvider>
+            </SelectedFrameProvider>,
+            {
+                route: '/projects/1?mode=visual',
+                path: paths.project.pattern,
+            }
+        );
+
+        await waitForElementToBeRemoved(screen.getByRole('progressbar'));
+
+        expect(await screen.findByText('Images folder no longer accessible: /deleted/dataset')).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Frame #0' })).not.toBeInTheDocument();
+    });
 });

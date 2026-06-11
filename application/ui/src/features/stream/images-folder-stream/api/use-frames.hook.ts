@@ -32,6 +32,11 @@ const useFramesQuery = (sourceId: string, activeFrameIdx: number) => {
             },
         },
         {
+            meta: {
+                error: {
+                    notify: true,
+                },
+            },
             pageParamName: 'offset',
             initialPageParam: queryOffset,
             getNextPageParam: ({ pagination }: FramesResponseType) => {
@@ -59,6 +64,7 @@ const useFramesQuery = (sourceId: string, activeFrameIdx: number) => {
 export const useGetFrames = (sourceId: string, activeFrameIdx: number) => {
     const {
         data,
+        error,
         hasNextPage,
         isFetchingNextPage,
         isPending,
@@ -90,6 +96,7 @@ export const useGetFrames = (sourceId: string, activeFrameIdx: number) => {
         isFetchingNextFrames: isFetchingNextPage,
         fetchPreviousPage: handleFetchPreviousPage,
         isPending,
+        hasError: error !== null,
         framesCount,
     } as const;
 };
