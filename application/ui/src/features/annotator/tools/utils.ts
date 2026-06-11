@@ -19,25 +19,11 @@ export enum PointerType {
 // @ts-expect-error `default` actually exists in the module
 const ClipperJS = Clipper.default || Clipper;
 
-// Smart-tools may emit either polygons or rects (from SAM postprocessing). Rectangles are
-// not a first-class annotation type anymore, so we always convert them to a 4-point polygon.
 export function convertToolShapeToGetiShape(shape: SmartToolsShape): Polygon {
-    if (shape.shapeType === 'polygon') {
-        return { type: 'polygon', points: shape.points };
+    if (shape.shapeType !== 'polygon') {
+        throw new Error(`Unexpected shape type from smart-tools: ${(shape as { shapeType: string }).shapeType}`);
     }
-    if (shape.shapeType === 'rect') {
-        const { x, y, width, height } = shape;
-        return {
-            type: 'polygon',
-            points: [
-                { x, y },
-                { x: x + width, y },
-                { x: x + width, y: y + height },
-                { x, y: y + height },
-            ],
-        };
-    }
-    throw new Error(`Unknown shape type from smart-tools: ${(shape as { shapeType: string }).shapeType}`);
+    return { type: 'polygon', points: shape.points };
 }
 
 const removeOffLimitPointsPolygon = (shape: Shape, roi: RegionOfInterest): Polygon => {
