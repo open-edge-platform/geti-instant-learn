@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkgeti_instant_learn_docs=globalThis.webpackChunkgeti_instant_learn_docs||[]).push([[467],{7837(s){s.exports=JSON.parse('{"name":"docusaurus-plugin-content-docs","id":"applicationDocs"}')}}]);
