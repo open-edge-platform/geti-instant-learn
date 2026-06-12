@@ -19,7 +19,7 @@ const modelStatusOptions = (projectId: string) =>
     });
 
 /**
- * Optimistically set model-status to `{ loading: true }` so the blocking
+ * Optimistically set model-status to `{ status: 'loading' }` so the blocking
  * dialog appears immediately. The query's `refetchInterval` will then poll
  * until the backend confirms the actual state.
  *
@@ -28,15 +28,15 @@ const modelStatusOptions = (projectId: string) =>
  */
 export const setModelLoading = (queryClient: QueryClient, projectId: string): void => {
     const { queryKey } = modelStatusOptions(projectId);
-    queryClient.setQueryData(queryKey, { loading: true });
+    queryClient.setQueryData(queryKey, { status: 'loading' });
 };
 
 /**
  * Returns `true` while the inference model is being (re)prepared.
  *
  * Polling strategy:
- *   - Idle (`loading` is false): no polling.
- *   - Active loading (`loading` is true): poll every POLL_MS.
+ *   - Idle (`status` is not `loading`): no polling.
+ *   - Active loading (`status` is `loading`): poll every POLL_MS.
  */
 export const useModelLoading = (): boolean => {
     const { projectId } = useProjectIdentifier();
@@ -46,10 +46,10 @@ export const useModelLoading = (): boolean => {
         '/api/v1/projects/{project_id}/model-status',
         { params: { path: { project_id: projectId } } },
         {
-            refetchInterval: (query) => (query.state.data?.loading ? POLL_MS : false),
+            refetchInterval: (query) => (query.state.data?.status === 'loading' ? POLL_MS : false),
             refetchIntervalInBackground: false,
         }
     );
 
-    return data?.loading ?? false;
+    return data?.status === 'loading';
 };

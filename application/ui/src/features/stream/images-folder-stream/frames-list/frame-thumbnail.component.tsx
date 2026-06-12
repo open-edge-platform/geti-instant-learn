@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RefObject, useCallback, useLayoutEffect, useRef } from 'react';
+import { RefObject, useLayoutEffect, useRef } from 'react';
 
-import { DOMRefValue, Loading, View } from '@geti/ui';
+import { DOMRefValue, Loading, useUnwrapDOMRef, View } from '@geti/ui';
 import { clsx } from 'clsx';
 
 import { type FrameType } from '../api/interface';
@@ -20,51 +20,44 @@ interface FrameThumbnailProps {
 }
 
 const useObserveThumbnail = (rootRef: RefObject<HTMLDivElement | null>, onIntersect: (() => void) | undefined) => {
+    const ref = useRef<DOMRefValue<HTMLDivElement> | null>(null);
+    const unwrappedRef = useUnwrapDOMRef(ref);
     const handleIntersectionRef = useRef(onIntersect);
 
     useLayoutEffect(() => {
         handleIntersectionRef.current = onIntersect;
     }, [onIntersect]);
 
-    const handleRef = useCallback(
-        (domRefValue: DOMRefValue<HTMLElement> | null) => {
-            const ref = domRefValue?.UNSAFE_getDOMNode();
+    useLayoutEffect(() => {
+        if (unwrappedRef.current == null || rootRef.current === null) {
+            return;
+        }
 
-            if (ref == null || rootRef.current === null) {
-                return;
-            }
-
-            if (handleIntersectionRef.current === undefined) {
-                return;
-            }
-
-            const observer = new IntersectionObserver(
-                (entries) => {
-                    if (entries.length === 0) {
-                        return;
-                    }
-
-                    if (entries[0].isIntersecting) {
-                        handleIntersectionRef.current?.();
-                    }
-                },
-                {
-                    threshold: 0.01,
-                    rootMargin: '200px',
-                    root: rootRef.current,
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.length === 0) {
+                    return;
                 }
-            );
 
-            observer.observe(ref);
+                if (entries[0].isIntersecting) {
+                    handleIntersectionRef.current?.();
+                }
+            },
+            {
+                threshold: 0.01,
+                rootMargin: '200px',
+                root: rootRef.current,
+            }
+        );
 
-            return () => {
-                observer.disconnect();
-            };
-        },
-        [rootRef]
-    );
+        observer.observe(unwrappedRef.current);
 
-    return handleRef;
+        return () => {
+            observer.disconnect();
+        };
+    }, [unwrappedRef, rootRef]);
+
+    return ref;
 };
 
 const FrameThumbnailPlaceholder = () => {

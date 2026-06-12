@@ -47,10 +47,10 @@ from transformers.file_utils import (
 )
 from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModel
+from transformers.backbone_utils import load_backbone
 from transformers.models.grounding_dino.configuration_grounding_dino import GroundingDinoConfig
 from transformers.pytorch_utils import meshgrid
 from transformers.utils import is_accelerate_available, logging
-from transformers.utils.backbone_utils import load_backbone
 
 if is_vision_available():
     from transformers.image_transforms import center_to_corners_format
@@ -356,13 +356,13 @@ class GroundingDinoConvEncoder(nn.Module):
 
         self.config = config
 
-        if config.use_timm_backbone:
+        if getattr(config, "use_timm_backbone", False):
             requires_backends(self, ["timm"])
             backbone = create_model(
                 config.backbone,
                 pretrained=config.use_pretrained_backbone,
                 features_only=True,
-                **config.backbone_kwargs,
+                **getattr(config, "backbone_kwargs", {}),
             )
         else:
             backbone = load_backbone(config)
@@ -372,11 +372,13 @@ class GroundingDinoConvEncoder(nn.Module):
             replace_batch_norm(backbone)
         self.model = backbone
         self.intermediate_channel_sizes = (
-            self.model.feature_info.channels() if config.use_timm_backbone else self.model.channels
+            self.model.feature_info.channels()
+            if getattr(config, "use_timm_backbone", False)
+            else self.model.channels
         )
 
         backbone_model_type = None
-        if config.backbone is not None:
+        if getattr(config, "backbone", None) is not None:
             backbone_model_type = config.backbone
         elif config.backbone_config is not None:
             backbone_model_type = config.backbone_config.model_type
@@ -386,7 +388,7 @@ class GroundingDinoConvEncoder(nn.Module):
 
         if "resnet" in backbone_model_type:
             for name, parameter in self.model.named_parameters():
-                if config.use_timm_backbone:
+                if getattr(config, "use_timm_backbone", False):
                     if "layer2" not in name and "layer3" not in name and "layer4" not in name:
                         parameter.requires_grad_(mode=False)
                 elif "stage.1" not in name and "stage.2" not in name and "stage.3" not in name:
@@ -396,7 +398,11 @@ class GroundingDinoConvEncoder(nn.Module):
     def forward(self, pixel_values: Tensor, pixel_mask: Tensor) -> list[tuple[Tensor, Tensor]]:
         """Forward pass of the convolutional backbone."""
         # send pixel_values through the model to get list of feature maps
-        features = self.model(pixel_values) if self.config.use_timm_backbone else self.model(pixel_values).feature_maps
+        features = (
+            self.model(pixel_values)
+            if getattr(self.config, "use_timm_backbone", False)
+            else self.model(pixel_values).feature_maps
+        )
 
         out = []
         for feature_map in features:
@@ -2331,9 +2337,11 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
             text_token_mask = text_token_mask[:, :max_text_len]
 
         # Extract text features from text backbone
+        # Pass 4D attention mask [batch, 1, seq, seq] so transformers v5 treats it
+        # as already-prepared and skips its internal mask expansion logic.
         text_outputs = self.text_backbone(
             input_ids,
-            text_self_attention_masks,
+            text_self_attention_masks[:, None, :, :],
             token_type_ids,
             position_ids,
             return_dict=return_dict,
@@ -3086,7 +3094,10 @@ class GroundingDinoLoss(nn.Module):
 class GroundingDinoForObjectDetection(GroundingDinoPreTrainedModel):
     """Grounding DINO Model with object detection heads on top, for tasks such as COCO detection."""
 
-    _tied_weights_keys: ClassVar = [r"bbox_embed\.[1-9]\d*", r"model\.decoder\.bbox_embed\.[0-9]\d*"]
+    _tied_weights_keys: ClassVar = {
+        r"bbox_embed\.(?!0)\d+": "bbox_embed.0",
+        r"model\.decoder\.bbox_embed\.(?!0)\d+": "model.decoder.bbox_embed.0",
+    }
 
     def __init__(self, config: GroundingDinoConfig) -> None:
         """Initialize Grounding DINO for object detection."""

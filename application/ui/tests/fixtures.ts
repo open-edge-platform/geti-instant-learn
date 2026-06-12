@@ -14,6 +14,7 @@ import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
+import { SinksPage } from './sinks/sinks-page';
 import { SourcesPage } from './sources/sources-page';
 
 const MOCK_SUPPORTED_MODELS = {
@@ -30,6 +31,7 @@ interface Fixtures {
     projectPage: ProjectPage;
     promptPage: PromptPage;
     sourcesPage: SourcesPage;
+    sinksPage: SinksPage;
 }
 
 const test = testBase.extend<Fixtures>({
@@ -173,7 +175,7 @@ const test = testBase.extend<Fixtures>({
                 return response(200).json(body as never);
             }),
             http.get('/api/v1/projects/{project_id}/model-status', ({ response }) => {
-                return response(200).json({ loading: false });
+                return response(200).json({ status: 'ready' });
             }),
             http.get('/api/v1/system/devices', ({ response }) => {
                 return response(200).json([{ type: 'cpu', name: 'CPU', memory: null, index: null }]);
@@ -204,6 +206,10 @@ const test = testBase.extend<Fixtures>({
     sourcesPage: async ({ page }, use) => {
         const sourcesPage = new SourcesPage(page);
         await use(sourcesPage);
+    },
+    sinksPage: async ({ page }, use) => {
+        const sinksPage = new SinksPage(page);
+        await use(sinksPage);
     },
 });
 

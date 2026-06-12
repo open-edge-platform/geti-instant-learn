@@ -30,5 +30,8 @@ export const useDeleteProject = () => {
         );
     };
 
-    return deleteProject;
+    return {
+        mutate: deleteProject,
+        isPending: deleteProjectMutation.isPending,
+    };
 };

@@ -20,7 +20,9 @@ describe('useShowModelLoadingDialog', () => {
     });
 
     it('returns false when the model is not loading', async () => {
-        server.use(http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ loading: false })));
+        server.use(
+            http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ status: 'ready' }))
+        );
 
         const { result } = renderHook(() => useShowModelLoadingDialog());
 
@@ -32,7 +34,9 @@ describe('useShowModelLoadingDialog', () => {
     });
 
     it('returns true after the spin-delay when the model is loading', async () => {
-        server.use(http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ loading: true })));
+        server.use(
+            http.get('/api/v1/projects/{project_id}/model-status', () => HttpResponse.json({ status: 'loading' }))
+        );
 
         const { result } = renderHook(() => useShowModelLoadingDialog());
 

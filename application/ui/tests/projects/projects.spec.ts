@@ -244,7 +244,8 @@ test.describe('Projects', () => {
             await expect(project).toHaveAttribute('data-active', 'true');
 
             await projectPage.openProjectManagementPanel();
-            await expect(page.getByRole('listitem')).toHaveCount(projects.length);
+            const allTheProjectsWithoutActiveOneCount = projects.length - 1;
+            await expect(page.getByRole('listitem')).toHaveCount(allTheProjectsWithoutActiveOneCount);
 
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
@@ -265,7 +266,7 @@ test.describe('Projects', () => {
 
             await projectPage.openProjectManagementPanel();
 
-            await expect(page.getByRole('listitem')).toHaveCount(projects.length);
+            await expect(page.getByRole('listitem')).toHaveCount(projects.length - 1);
 
             await projectPage.create();
 
@@ -274,7 +275,8 @@ test.describe('Projects', () => {
             await expect(project).toHaveAttribute('data-active', 'true');
 
             await projectPage.openProjectManagementPanel();
-            await expect(page.getByRole('listitem')).toHaveCount(projects.length);
+
+            await expect(page.getByRole('listitem')).toHaveCount(projects.length - 1);
 
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
@@ -337,8 +339,8 @@ test.describe('Projects', () => {
             await projectPage.selectMenuItem('Rename');
             await projectPage.updateProjectName(newProjectName);
 
-            await expect(projectPage.getProjectInTheList(project.name)).toBeHidden();
-            await expect(projectPage.getProjectInTheList(newProjectName)).toBeVisible();
+            await expect(projectPage.getSelectedProject(project.name)).toBeHidden();
+            await expect(projectPage.getSelectedProject(newProjectName)).toBeVisible();
         });
 
         test('Deletes a project via the project list page', async ({ network, projectPage }) => {

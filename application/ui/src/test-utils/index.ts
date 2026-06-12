@@ -16,3 +16,4 @@ export {
 export { getMockedImagesFolderSource } from './mocks/mock-images-folder-source';
 export { getMockedVideoFileSource } from './mocks/mock-video-file-source';
 export { getMockedSampleDatasetSource } from './mocks/mock-sample-dataset-source';
+export { getMockedMQTTSink } from './mocks/mock-mqtt-sink';

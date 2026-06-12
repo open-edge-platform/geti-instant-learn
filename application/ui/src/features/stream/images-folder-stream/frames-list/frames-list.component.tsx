@@ -60,7 +60,7 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
     }, [ref, activeFrameIndex]);
 };
 
-const OFFSET_TO_FETCH_NEW_PAGE = 4;
+const OFFSET_TO_FETCH_NEW_PAGE = 8;
 
 export const FramesList = ({
     activeFrameIndex,

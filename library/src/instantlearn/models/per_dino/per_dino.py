@@ -111,7 +111,7 @@ class PerDino(Model):
 
         self.encoder = ImageEncoder(
             model_id=encoder_model,
-            backend=Backend.TIMM,
+            backend=Backend.HUGGINGFACE,
             device=device,
             precision=precision,
             compile_models=compile_models,

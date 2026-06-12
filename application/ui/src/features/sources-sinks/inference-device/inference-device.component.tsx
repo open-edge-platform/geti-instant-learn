@@ -5,8 +5,9 @@
 
 import { Key } from 'react';
 
-import { $api, type DeviceInfoType } from '@/api';
+import { type DeviceInfoType } from '@/api';
 import { setModelLoading } from '@/features/model-loading';
+import { useInferenceDevices } from '@/features/sources-sinks/inference-device/api/use-inference-devices';
 import { useCurrentProject, useProjectIdentifier } from '@/hooks';
 import { Item, Picker } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
@@ -48,7 +49,7 @@ export const InferenceDevice = () => {
     const { mutate: updateProject } = useUpdateProject();
     const queryClient = useQueryClient();
 
-    const { data: devices } = $api.useSuspenseQuery('get', '/api/v1/system/devices');
+    const { data: devices } = useInferenceDevices();
 
     const items: DeviceItem[] = [
         { key: AUTO_KEY, label: 'Auto' },
