@@ -5,7 +5,7 @@
 
 import { FrameAPIType } from '@/api';
 import { render } from '@/test-utils';
-import { fireEvent, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
 import { beforeEach } from 'vitest';
@@ -173,6 +173,8 @@ describe('ImagesFolderStream', () => {
     });
 
     it('shows frames endpoint error message when frames list request fails', async () => {
+        let seekCalls = 0;
+
         server.use(
             http.get('/api/v1/projects/{project_id}/sources/{source_id}/frames', () => {
                 return HttpResponse.json(
@@ -181,6 +183,18 @@ describe('ImagesFolderStream', () => {
                     },
                     { status: 400 }
                 );
+            }),
+            http.get('/api/v1/projects/{project_id}/sources/{source_id}/frames/index', () => {
+                return HttpResponse.json({
+                    index: 5,
+                });
+            }),
+            http.post('/api/v1/projects/{project_id}/sources/{source_id}/frames/{index}', () => {
+                seekCalls += 1;
+
+                return HttpResponse.json({
+                    index: 4,
+                });
             })
         );
 
@@ -202,5 +216,15 @@ describe('ImagesFolderStream', () => {
 
         expect(await screen.findByText('Images folder no longer accessible: /deleted/dataset')).toBeInTheDocument();
         expect(screen.queryByRole('option', { name: 'Frame #0' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Previous Frame' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Next Frame' })).toBeDisabled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Previous Frame' }));
+        fireEvent.keyDown(document, { key: 'ArrowLeft' });
+        fireEvent.keyDown(document, { key: 'ArrowRight' });
+
+        await waitFor(() => {
+            expect(seekCalls).toBe(0);
+        });
     });
 });

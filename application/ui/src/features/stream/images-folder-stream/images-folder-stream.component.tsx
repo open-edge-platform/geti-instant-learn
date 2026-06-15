@@ -23,10 +23,12 @@ const useActiveFrameSelection = ({
     sourceId,
     activeFrameIdx,
     frames,
+    canNavigate,
 }: {
     sourceId: string;
     activeFrameIdx: number;
     frames: FrameAPIType[];
+    canNavigate: boolean;
 }) => {
     const activateFrameMutation = useActivateFrame();
     const framesRef = useRef<HTMLDivElement>(null);
@@ -71,6 +73,10 @@ const useActiveFrameSelection = ({
     };
 
     const nextFrame = () => {
+        if (!canNavigate) {
+            return;
+        }
+
         const nextFrameIdx = activeFrameIdx + 1;
 
         if (nextFrameIdx >= framesCount) {
@@ -81,6 +87,10 @@ const useActiveFrameSelection = ({
     };
 
     const prevFrame = () => {
+        if (!canNavigate) {
+            return;
+        }
+
         const prevFrameIdx = activeFrameIdx - 1;
 
         if (prevFrameIdx < 0) {
@@ -110,14 +120,17 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
         sourceId,
         activeFrameIdx
     );
+    const canNavigateFrames = !hasError && !isPending && framesCount > 0;
+
     const { activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection({
         sourceId,
         frames,
         activeFrameIdx,
+        canNavigate: canNavigateFrames,
     });
 
-    const isPrevFrameButtonDisabled = activeFrameIdx === 0;
-    const isNextFrameButtonDisabled = activeFrameIdx === framesCount - 1;
+    const isPrevFrameButtonDisabled = !canNavigateFrames || activeFrameIdx === 0;
+    const isNextFrameButtonDisabled = !canNavigateFrames || activeFrameIdx === framesCount - 1;
 
     return (
         <Grid
