@@ -1,5 +1,4 @@
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from datumaro import Dataset, DatasetItem, Image
@@ -18,14 +17,6 @@ class DatasetWriter(StreamWriter):
         self._buffered_frame_count: int = 0
         self._chunk_index: int = 0
         self._chunk_size: int | None = config.export_chunk_size
-
-        # TODO: Consider making this configurable so multiple chunks can
-        # export in parallel when disk I/O is slow.
-        self._export_executor = ThreadPoolExecutor(
-            max_workers=1,
-            thread_name_prefix="dataset-export",
-        )
-        self._export_futures: list[Future[None]] = []
 
         if self._config.dataset_format is None:
             raise ValueError("dataset_format must be set")
@@ -49,7 +40,7 @@ class DatasetWriter(StreamWriter):
             return
         if self._buffered_frame_count < self._chunk_size:
             return
-        self._queue_export(
+        self._export(
             dataset=self._dataset,
             output_dir=self._get_export_dir(),
             buffered_frame_count=self._buffered_frame_count,
@@ -57,31 +48,6 @@ class DatasetWriter(StreamWriter):
         )
         self._chunk_index += 1
         self._reset_buffer()
-
-    def _queue_export(
-        self,
-        dataset: Dataset,
-        output_dir: Path,
-        buffered_frame_count: int,
-        total_frame_count: int,
-    ) -> None:
-        future = self._export_executor.submit(
-            self._export,
-            dataset,
-            output_dir,
-            buffered_frame_count,
-            total_frame_count,
-        )
-        self._export_futures.append(future)
-
-    def _drain_export_futures(self, wait: bool) -> None:
-        pending_futures: list[Future[None]] = []
-        for future in self._export_futures:
-            if wait or future.done():
-                future.result()
-            else:
-                pending_futures.append(future)
-        self._export_futures = pending_futures
 
     def connect(self) -> None:
         # No connection needed for dataset writer
@@ -107,7 +73,6 @@ class DatasetWriter(StreamWriter):
         Raises:
             ValueError: If OutputData.results is empty or not in expected format.
         """
-        self._drain_export_futures(wait=False)
 
         if self._config.max_frames is not None and self._frame_count >= self._config.max_frames:
             return
@@ -216,7 +181,7 @@ class DatasetWriter(StreamWriter):
         released_frames = self._buffered_frame_count
         try:
             if self._buffered_frame_count > 0 and self._config.dataset_format:
-                self._queue_export(
+                self._export(
                     dataset=self._dataset,
                     output_dir=self._get_export_dir(),
                     buffered_frame_count=self._buffered_frame_count,
@@ -229,9 +194,7 @@ class DatasetWriter(StreamWriter):
                     "Skipping export during close because dataset_format is not set. Buffered frames: %d",
                     self._buffered_frame_count,
                 )
-            self._drain_export_futures(wait=True)
         finally:
-            self._export_executor.shutdown(wait=True)
             self._reset_buffer()
             self._frame_count = 0
             self._chunk_index = 0
