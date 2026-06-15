@@ -227,4 +227,73 @@ describe('ImagesFolderStream', () => {
             expect(seekCalls).toBe(0);
         });
     });
+
+    it('clears stale frames after a later navigation refetch fails', async () => {
+        let activeIndex = 5;
+        let seekCalls = 0;
+        let framesShouldFail = false;
+
+        server.use(
+            http.get('/api/v1/projects/{project_id}/sources/{source_id}/frames', () => {
+                if (framesShouldFail) {
+                    return HttpResponse.json(
+                        {
+                            detail: 'Images folder no longer accessible: /deleted/dataset',
+                        },
+                        { status: 400 }
+                    );
+                }
+
+                const frames = Array.from({ length: 18 }).map((_, index) =>
+                    getMockedFrame({
+                        index,
+                        thumbnail: `base64;frame-${index}`,
+                    })
+                );
+
+                return HttpResponse.json({
+                    frames,
+                    pagination: {
+                        count: 18,
+                        total: 18,
+                        offset: 0,
+                        limit: 20,
+                    },
+                });
+            }),
+            http.get('/api/v1/projects/{project_id}/sources/{source_id}/frames/index', () => {
+                return HttpResponse.json({
+                    index: activeIndex,
+                });
+            }),
+            http.post('/api/v1/projects/{project_id}/sources/{source_id}/frames/{index}', ({ params }) => {
+                seekCalls += 1;
+                activeIndex = Number(params.index);
+
+                return HttpResponse.json({
+                    index: activeIndex,
+                });
+            })
+        );
+
+        await renderImagesFolderStream();
+
+        expect(await screen.findByRole('option', { name: 'Frame #5' })).toHaveAttribute('data-isselected', 'true');
+
+        framesShouldFail = true;
+
+        fireEvent.keyDown(document, { key: 'ArrowRight' });
+
+        expect(await screen.findByText('Images folder no longer accessible: /deleted/dataset')).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Frame #0' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Previous Frame' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Next Frame' })).toBeDisabled();
+
+        fireEvent.keyDown(document, { key: 'ArrowLeft' });
+        fireEvent.click(screen.getByRole('button', { name: 'Next Frame' }));
+
+        await waitFor(() => {
+            expect(seekCalls).toBe(1);
+        });
+    });
 });
