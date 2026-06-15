@@ -315,7 +315,7 @@ def test_create_visual_prompt(client, behavior, expected_status, expect_location
         "frame_id": FRAME_ID_STR,
         "annotations": [
             {
-                "config": {"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
+                "config": {"points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
                 "label_id": LABEL_ID_STR,
             }
         ],
@@ -426,7 +426,7 @@ def test_update_visual_prompt(client, behavior, expected_status):
         "frame_id": NEW_FRAME_ID_STR,
         "annotations": [
             {
-                "config": {"type": "rectangle", "points": [{"x": 0.2, "y": 0.2}, {"x": 0.7, "y": 0.7}]},
+                "config": {"points": [{"x": 0.2, "y": 0.2}, {"x": 0.7, "y": 0.2}, {"x": 0.7, "y": 0.7}]},
                 "label_id": LABEL_ID_STR,
             }
         ],
@@ -491,7 +491,7 @@ def test_create_prompt_validation_error_missing_frame_id(client):
         "type": "VISUAL",
         "annotations": [
             {
-                "config": {"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
+                "config": {"points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
                 "label_id": LABEL_ID_STR,
             }
         ],
@@ -512,10 +512,7 @@ def test_create_prompt_validation_error_invalid_annotation_points(client):
         "frame_id": FRAME_ID_STR,
         "annotations": [
             {
-                "config": {
-                    "type": "rectangle",
-                    "points": [{"x": 0.5, "y": 0.5}, {"x": 0.1, "y": 0.1}],  # invalid order
-                },
+                "config": {"points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]},  # fewer than 3 points
                 "label_id": LABEL_ID_STR,
             }
         ],

@@ -4,7 +4,6 @@
  */
 
 import { Polygon } from '../shapes/polygon.component';
-import { Rectangle } from '../shapes/rectangle.component';
 import type { Annotation } from '../types';
 
 type AnnotationShapeProps = {
@@ -20,10 +19,6 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
         fillOpacity: 'var(--annotation-fill-opacity)',
         stroke: `hsl(from ${color} h s calc(l - 20))`,
     };
-
-    if (shape.type === 'rectangle') {
-        return <Rectangle ariaLabel={'annotation rect'} rect={shape} styles={styles} />;
-    }
 
     if (shape.type === 'polygon') {
         return <Polygon ariaLabel={'annotation polygon'} points={shape.points} styles={styles} />;

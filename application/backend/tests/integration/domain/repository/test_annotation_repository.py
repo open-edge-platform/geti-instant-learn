@@ -44,7 +44,7 @@ def make_prompt(project_id, frame_id=None) -> PromptDB:
 
 def make_annotation(prompt_id, label_id, config=None) -> AnnotationDB:
     if config is None:
-        config = {"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]}
+        config = {"points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.1}, {"x": 0.5, "y": 0.5}]}
     return AnnotationDB(
         config=config,
         label_id=label_id,
@@ -74,7 +74,7 @@ def test_add_annotation_with_label(annotation_repo, fxt_session, clean_after):
     assert fetched is not None
     assert fetched.label_id == label.id
     assert fetched.prompt_id == prompt.id
-    assert fetched.config["type"] == "rectangle"
+    assert fetched.config["points"] is not None
 
 
 def test_label_deletion_restricted_when_in_use(annotation_repo, fxt_session, clean_after):

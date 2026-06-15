@@ -15,20 +15,12 @@ export type Point = {
     y: number;
 };
 
-export type Rect = {
-    type: 'rectangle';
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-};
-
 export type Polygon = {
     type: 'polygon';
     points: Point[];
 };
 
-export type Shape = Rect | Polygon;
+export type Shape = Polygon;
 
 export type ClipperPoint = {
     X: number;

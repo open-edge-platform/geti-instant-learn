@@ -8,17 +8,10 @@ from uuid import uuid4
 import cv2
 import numpy as np
 
-from domain.services.schemas.annotation import (
-    AnnotationSchema,
-    AnnotationType,
-    Point,
-    PolygonAnnotation,
-    RectangleAnnotation,
-)
+from domain.services.schemas.annotation import AnnotationSchema, Point, PolygonAnnotation
 from domain.services.thumbnail import (
     _convert_hex_to_bgr,
     _draw_filled_polygon,
-    _draw_filled_rectangle,
     _encode_image_to_base64_data_uri,
     _resize_frame_to_thumbnail_size,
     generate_thumbnail,
@@ -140,44 +133,10 @@ class TestEncodeToBase64:
             assert result.startswith("data:image/jpeg;base64,")
 
 
-class TestDrawRectangle:
-    def test_draw_rectangle_basic(self):
-        overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=40, y=40), Point(x=160, y=160)])
-        color = (0, 0, 255)
-
-        result = _draw_filled_rectangle(overlay, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
-
-        center_pixel = result[100, 100]
-        np.testing.assert_array_equal(center_pixel, color)
-
-    def test_draw_rectangle_coordinates(self):
-        overlay = np.zeros((100, 100, 3), dtype=np.uint8)
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=10, y=10), Point(x=50, y=50)])
-        color = (255, 0, 0)
-
-        result = _draw_filled_rectangle(overlay, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=1)
-
-        assert np.any(result[10, 10] == color)
-        assert np.any(result[50, 50] == color)
-
-    def test_draw_rectangle_returns_modified_overlay(self):
-        original = create_test_frame(width=100, height=100, color=(255, 255, 255))
-        rect = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=20, y=20), Point(x=60, y=60)])
-        color = (0, 255, 0)
-
-        result = _draw_filled_rectangle(original, rect, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
-
-        assert result is original
-        assert np.any(result[40, 40] == color)
-
-
 class TestDrawPolygon:
     def test_draw_triangle(self):
         overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
-        polygon = PolygonAnnotation(
-            type=AnnotationType.POLYGON, points=[Point(x=100, y=20), Point(x=20, y=180), Point(x=180, y=180)]
-        )
+        polygon = PolygonAnnotation(points=[Point(x=100, y=20), Point(x=20, y=180), Point(x=180, y=180)])
         color = (0, 255, 0)
 
         result = _draw_filled_polygon(overlay, polygon, color, scale_x=1.0, scale_y=1.0, border_thickness=2)
@@ -188,7 +147,6 @@ class TestDrawPolygon:
     def test_draw_square_polygon(self):
         overlay = np.zeros((100, 100, 3), dtype=np.uint8)
         polygon = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=20, y=20), Point(x=80, y=20), Point(x=80, y=80), Point(x=20, y=80)],
         )
         color = (0, 0, 255)
@@ -200,7 +158,6 @@ class TestDrawPolygon:
     def test_draw_polygon_returns_modified_overlay(self):
         original = np.zeros((100, 100, 3), dtype=np.uint8)
         polygon = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=30, y=30), Point(x=70, y=30), Point(x=50, y=70)],
         )
         color = (128, 128, 128)
@@ -211,26 +168,11 @@ class TestDrawPolygon:
 
 
 class TestGenerateThumbnail:
-    def test_generate_thumbnail_with_rectangle(self):
-        frame = create_test_frame(width=800, height=600)
-        label_id = uuid4()
-        annotation = AnnotationSchema(
-            config=RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=80, y=60), Point(x=400, y=300)]),
-            label_id=label_id,
-        )
-        label = make_label(color="#FF0000")
-
-        result = generate_thumbnail(frame, [(annotation, label)])
-
-        assert result.startswith("data:image/jpeg;base64,")
-        assert len(result) > 100
-
     def test_generate_thumbnail_with_polygon(self):
         frame = create_test_frame(width=600, height=400)
         label_id = uuid4()
         annotation = AnnotationSchema(
             config=PolygonAnnotation(
-                type=AnnotationType.POLYGON,
                 points=[Point(x=120, y=80), Point(x=480, y=80), Point(x=480, y=320), Point(x=120, y=320)],
             ),
             label_id=label_id,
@@ -248,8 +190,8 @@ class TestGenerateThumbnail:
         annotations = [
             (
                 AnnotationSchema(
-                    config=RectangleAnnotation(
-                        type=AnnotationType.RECTANGLE, points=[Point(x=100, y=80), Point(x=300, y=240)]
+                    config=PolygonAnnotation(
+                        points=[Point(x=100, y=80), Point(x=300, y=80), Point(x=300, y=240), Point(x=100, y=240)],
                     ),
                     label_id=label_id_1,
                 ),
@@ -258,7 +200,6 @@ class TestGenerateThumbnail:
             (
                 AnnotationSchema(
                     config=PolygonAnnotation(
-                        type=AnnotationType.POLYGON,
                         points=[Point(x=500, y=400), Point(x=900, y=400), Point(x=700, y=720)],
                     ),
                     label_id=label_id_2,
@@ -275,8 +216,8 @@ class TestGenerateThumbnail:
         large_frame = create_test_frame(width=2000, height=1500)
         label_id = uuid4()
         annotation = AnnotationSchema(
-            config=RectangleAnnotation(
-                type=AnnotationType.RECTANGLE, points=[Point(x=200, y=150), Point(x=1000, y=750)]
+            config=PolygonAnnotation(
+                points=[Point(x=200, y=150), Point(x=1000, y=150), Point(x=1000, y=750), Point(x=200, y=750)],
             ),
             label_id=label_id,
         )
@@ -304,8 +245,8 @@ class TestGenerateThumbnail:
         for color in colors:
             label_id = uuid4()
             annotation = AnnotationSchema(
-                config=RectangleAnnotation(
-                    type=AnnotationType.RECTANGLE, points=[Point(x=50, y=50), Point(x=150, y=150)]
+                config=PolygonAnnotation(
+                    points=[Point(x=50, y=50), Point(x=150, y=50), Point(x=150, y=150), Point(x=50, y=150)],
                 ),
                 label_id=label_id,
             )
@@ -320,7 +261,9 @@ class TestGenerateThumbnail:
         frame = create_test_frame(width=400, height=400, color=(100, 100, 100))
         label_id = uuid4()
         annotation = AnnotationSchema(
-            config=RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0, y=0), Point(x=400, y=400)]),
+            config=PolygonAnnotation(
+                points=[Point(x=0, y=0), Point(x=400, y=0), Point(x=400, y=400), Point(x=0, y=400)],
+            ),
             label_id=label_id,
         )
         label = make_label(color="#FF0000")

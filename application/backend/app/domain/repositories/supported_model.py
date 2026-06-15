@@ -4,7 +4,6 @@
 """In-memory repository for supported model metadata."""
 
 from domain.db.models import PromptType
-from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.processor import (
     MatcherConfig,
     ModelType,
@@ -14,11 +13,6 @@ from domain.services.schemas.processor import (
     SupportedModelMetadataSchema,
     SupportedPromptType,
 )
-
-PROMPT_TYPE_TO_ANNOTATION_TYPE: dict[SupportedPromptType, AnnotationType] = {
-    SupportedPromptType.VISUAL_POLYGON: AnnotationType.POLYGON,
-    SupportedPromptType.VISUAL_RECTANGLE: AnnotationType.RECTANGLE,
-}
 
 _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
     ModelType.MATCHER: SupportedModelMetadataSchema(
@@ -38,12 +32,12 @@ _SUPPORTED_MODELS_METADATA: dict[ModelType, SupportedModelMetadataSchema] = {
     ),
     ModelType.SAM3: SupportedModelMetadataSchema(
         default_config=Sam3Config(),
-        supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
+        supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_BOUNDING_BOX],
         display_name="SAM3",
     ),
 }
 
-_VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_RECTANGLE}
+_VISUAL_PROMPT_TYPES = {SupportedPromptType.VISUAL_POLYGON, SupportedPromptType.VISUAL_BOUNDING_BOX}
 
 # the model+mode that will be set active when a new project is created
 DEFAULT_ACTIVE_MODEL: tuple[ModelType, PromptType] = (ModelType.SOFT_MATCHER, PromptType.VISUAL)
@@ -77,18 +71,6 @@ class SupportedModelRepository:
             if supports_text:
                 pairs.append((model_type, PromptType.TEXT))
         return pairs
-
-    @staticmethod
-    def get_supported_annotation_types(model_type: ModelType) -> set[AnnotationType]:
-        """Derive supported annotation types for a model."""
-        metadata = _SUPPORTED_MODELS_METADATA.get(model_type)
-        if metadata is None:
-            return set()
-        return {
-            PROMPT_TYPE_TO_ANNOTATION_TYPE[pt]
-            for pt in metadata.supported_prompt_types
-            if pt in PROMPT_TYPE_TO_ANNOTATION_TYPE
-        }
 
     @staticmethod
     def model_type_supports_prompt_mode(model_type: ModelType, prompt_mode: PromptType) -> bool:

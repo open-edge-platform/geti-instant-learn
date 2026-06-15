@@ -42,7 +42,6 @@ class VisualPromptCreateSchema(BaseIDPayload):
                 "annotations": [
                     {
                         "config": {
-                            "type": "polygon",
                             "points": [
                                 {"x": 1, "y": 1},
                                 {"x": 5, "y": 1},
@@ -94,7 +93,6 @@ class VisualPromptUpdateSchema(BaseModel):
                 "annotations": [
                     {
                         "config": {
-                            "type": "polygon",
                             "points": [
                                 {"x": 1, "y": 1},
                                 {"x": 5, "y": 1},

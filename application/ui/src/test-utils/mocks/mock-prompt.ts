@@ -20,7 +20,6 @@ export const getMockedVisualPromptItem = (
                         { x: 0.6, y: 0.2 },
                         { x: 0.6, y: 0.6 },
                     ],
-                    type: 'polygon',
                 },
                 label_id: '123e4567-e89b-12d3-a456-426614174001',
             },
@@ -39,7 +38,6 @@ export const getMockedVisualPrompt = (prompt: Partial<Omit<VisualPromptType, 'ty
             {
                 label_id: '123',
                 config: {
-                    type: 'polygon',
                     points: [],
                 },
             },

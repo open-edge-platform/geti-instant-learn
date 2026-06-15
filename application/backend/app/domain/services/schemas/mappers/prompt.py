@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import numpy as np
 
 from domain.db.models import AnnotationDB, PromptDB, PromptType
-from domain.services.schemas.annotation import AnnotationSchema, AnnotationType
+from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
@@ -140,13 +140,12 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
 def deduplicate_annotations(
     annotations: list[AnnotationSchema], image_height: int, image_width: int, iou_threshold: float = 0.9
 ) -> list[AnnotationSchema]:
-    """Remove duplicate or highly overlapping annotations based on polygon similarity.
+    """Remove duplicate or highly overlapping polygon annotations based on mask IoU.
 
-    Uses IoU to identify similar masks. Keeps the first occurrence when duplicates are found.
-    Only processes polygon annotations; other types are kept as-is.
+    Keeps the first occurrence when duplicates are found.
 
     Args:
-        annotations: List of annotations to deduplicate
+        annotations: List of annotations to deduplicate (all polygons)
         image_height: Height in pixels for mask generation
         image_width: Width in pixels for mask generation
         iou_threshold: IoU threshold above which polygons are considered duplicates (default: 0.9)
@@ -154,12 +153,10 @@ def deduplicate_annotations(
     Returns:
         List of unique annotations with duplicates removed
     """
-    polygon_annotations = [ann for ann in annotations if ann.config.type == AnnotationType.POLYGON]
-    other_annotations = [ann for ann in annotations if ann.config.type != AnnotationType.POLYGON]
-    if len(polygon_annotations) <= 1:
+    if len(annotations) <= 1:
         return annotations
 
-    polygon_configs = [ann.config for ann in polygon_annotations]
+    polygon_configs = [ann.config for ann in annotations]
     masks = polygons_to_masks(polygon_configs, image_height, image_width)
 
     unique_indices: list[int] = []
@@ -173,9 +170,7 @@ def deduplicate_annotations(
         if not is_duplicate:
             unique_indices.append(i)
 
-    unique_polygon_annotations = [polygon_annotations[i] for i in unique_indices]
-
-    return unique_polygon_annotations + other_annotations
+    return [annotations[i] for i in unique_indices]
 
 
 def _calculate_mask_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:
