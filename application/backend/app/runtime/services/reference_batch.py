@@ -22,12 +22,11 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.supported_model import SupportedModelRepository
 from domain.services.label import LabelService
-from domain.services.schemas.annotation import AnnotationType
 from domain.services.schemas.label import LabelInfo
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import ModelType
+from domain.services.schemas.processor import ModelType, SupportedPromptType
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -59,8 +58,9 @@ class ReferenceBatchService:
         if model_type == ModelType.SAM3 and config.prompt_mode == PromptType.TEXT:
             return self._build_text_batch(project_id=config.project_id)
 
-        supported_types = self._supported_model_repo.get_supported_annotation_types(model_type)
-        needs_bboxes = AnnotationType.RECTANGLE in supported_types
+        models_metadata = self._supported_model_repo.get_by_model_type(model_type)
+        supported_prompt_types = set(models_metadata.supported_prompt_types) if models_metadata else set()
+        needs_bboxes = SupportedPromptType.VISUAL_BOUNDING_BOX in supported_prompt_types
         use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
         return self._build_visual_batch(
             project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
@@ -233,7 +233,7 @@ class ReferenceBatchService:
                 f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
             )
 
-        polygon_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+        polygon_annotations = [(ann, ann.config) for ann in annotations]
         if not polygon_annotations:
             raise ServiceError(
                 "Cannot create training sample: visual prompt must have at least one polygon annotation."

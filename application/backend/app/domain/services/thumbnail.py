@@ -17,9 +17,7 @@ import numpy as np
 from domain.errors import ServiceError
 from domain.services.schemas.annotation import (
     AnnotationSchema,
-    AnnotationType,
     PolygonAnnotation,
-    RectangleAnnotation,
 )
 from domain.services.schemas.label import LabelSchema
 from settings import get_settings
@@ -60,16 +58,9 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
             color_bgr = _convert_hex_to_bgr(label.color)
             annotation = annotation_schema.config
 
-            if annotation.type == AnnotationType.RECTANGLE:
-                annotation_overlay = _draw_filled_rectangle(
-                    annotation_overlay, annotation, color_bgr, scale_x, scale_y, line_thickness
-                )
-            elif annotation.type == AnnotationType.POLYGON:
-                annotation_overlay = _draw_filled_polygon(
-                    annotation_overlay, annotation, color_bgr, scale_x, scale_y, line_thickness
-                )
-            else:
-                logger.warning(f"Unsupported annotation type: {annotation.type}")
+            annotation_overlay = _draw_filled_polygon(
+                annotation_overlay, annotation, color_bgr, scale_x, scale_y, line_thickness
+            )
 
         # blend annotation overlay with original thumbnail for semi-transparency
         cv2.addWeighted(
@@ -106,39 +97,6 @@ def _resize_frame_to_thumbnail_size(frame: np.ndarray) -> np.ndarray:
     new_height = int(height * scale_factor)
 
     return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-
-def _draw_filled_rectangle(
-    overlay: np.ndarray,
-    rect: RectangleAnnotation,
-    color_bgr: tuple[int, int, int],
-    scale_x: float,
-    scale_y: float,
-    border_thickness: int,
-) -> np.ndarray:
-    """Draw a rectangle annotation with semi-transparent fill and opaque border.
-
-    Args:
-        overlay: Image overlay to draw on
-        rect: Rectangle annotation with pixel coordinates (x1, y1, x2, y2)
-        color_bgr: Color in BGR format
-        scale_x: Horizontal scale factor (thumbnail_width / original_width)
-        scale_y: Vertical scale factor (thumbnail_height / original_height)
-        border_thickness: Thickness of the rectangle border
-
-    Returns:
-        Overlay with rectangle drawn
-    """
-    top_left = (int(rect.points[0].x * scale_x), int(rect.points[0].y * scale_y))
-    bottom_right = (int(rect.points[1].x * scale_x), int(rect.points[1].y * scale_y))
-
-    # draw filled rectangle
-    cv2.rectangle(overlay, top_left, bottom_right, color_bgr, -1)
-
-    # draw border with full opacity for better visibility
-    cv2.rectangle(overlay, top_left, bottom_right, color_bgr, border_thickness)
-
-    return overlay
 
 
 def _draw_filled_polygon(

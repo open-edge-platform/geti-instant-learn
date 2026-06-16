@@ -6,26 +6,12 @@
 import { getMockedAnnotation, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 
-import type { Annotation, Polygon, Rect } from '../types';
+import type { Annotation, Polygon } from '../types';
 import { AnnotationShape } from './annotation-shape.component';
 
-type AnnotationRect = Annotation & { shape: Rect };
 type AnnotationPolygon = Annotation & { shape: Polygon };
 
 describe('AnnotationShape', () => {
-    it('bounding box as a rect', () => {
-        const annotation = getMockedAnnotation() as AnnotationRect;
-        render(<AnnotationShape annotation={annotation} />);
-
-        const rect = screen.getByLabelText('annotation rect');
-
-        expect(rect).toHaveAttribute('x', annotation.shape.x.toString());
-        expect(rect).toHaveAttribute('y', annotation.shape.y.toString());
-        expect(rect).toHaveAttribute('fill', annotation.labels[0].color);
-        expect(rect).toHaveAttribute('width', annotation.shape.width.toString());
-        expect(rect).toHaveAttribute('height', annotation.shape.height.toString());
-    });
-
     it('polygon', () => {
         const points = [
             { x: 1, y: 2 },

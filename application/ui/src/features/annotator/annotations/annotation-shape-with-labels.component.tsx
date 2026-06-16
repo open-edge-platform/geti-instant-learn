@@ -8,7 +8,7 @@ import { Key } from 'react';
 import polylabel from 'polylabel';
 
 import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
-import type { Annotation, Polygon } from '../types';
+import type { Annotation } from '../types';
 import { AnnotationLabels } from './annotation-labels.component';
 import { AnnotationShape } from './annotation-shape.component';
 
@@ -29,16 +29,7 @@ export const AnnotationShapeWithLabels = ({ annotation }: AnnotationShapeProps) 
         updateAnnotations([updatedAnnotation]);
     };
 
-    if (shape.type === 'rectangle') {
-        return (
-            <g transform={`translate(${shape.x}, ${shape.y})`}>
-                <AnnotationShape annotation={{ ...annotation, shape: { ...shape, x: 0, y: 0 } }} />
-                <AnnotationLabels labels={labels} onRemove={removeLabels} />
-            </g>
-        );
-    }
-
-    const polygonPoints = (shape as Polygon).points;
+    const polygonPoints = shape.points;
     const polygonCoords = [polygonPoints.map((point) => [point.x, point.y])];
     const [labelX, labelY] = polylabel(polygonCoords);
 

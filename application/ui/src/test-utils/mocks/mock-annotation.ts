@@ -10,11 +10,13 @@ export const getMockedAnnotation = (annotation?: Partial<Annotation>): Annotatio
     return {
         id: 'annotation-1',
         shape: {
-            type: 'rectangle',
-            x: 10,
-            y: 20,
-            width: 100,
-            height: 50,
+            type: 'polygon',
+            points: [
+                { x: 10, y: 20 },
+                { x: 110, y: 20 },
+                { x: 110, y: 70 },
+                { x: 10, y: 70 },
+            ],
         },
         labels: [getMockedLabel()],
         ...annotation,

@@ -5,11 +5,10 @@
 
 import type ClipperShape from '@doodle3d/clipper-js';
 import Clipper from '@doodle3d/clipper-js';
-import type { Shape as SmartToolsShape, Polygon as ToolPolygon, Rect as ToolRect } from '@geti/smart-tools/types';
-import { BoundingBox } from '@geti/smart-tools/utils';
+import type { Shape as SmartToolsShape } from '@geti/smart-tools/types';
 import { isEmpty } from 'lodash-es';
 
-import type { ClipperPoint, Point, Polygon, Rect, RegionOfInterest, Shape } from '../types';
+import type { ClipperPoint, Point, Polygon, RegionOfInterest, Shape } from '../types';
 
 export enum PointerType {
     Mouse = 'mouse',
@@ -20,84 +19,30 @@ export enum PointerType {
 // @ts-expect-error `default` actually exists in the module
 const ClipperJS = Clipper.default || Clipper;
 
-export function convertToolShapeToGetiShape(shape: ToolPolygon): Polygon;
-export function convertToolShapeToGetiShape(shape: ToolRect): Rect;
-export function convertToolShapeToGetiShape(shape: SmartToolsShape): Shape;
-export function convertToolShapeToGetiShape(shape: SmartToolsShape): Shape {
-    switch (shape.shapeType) {
-        case 'polygon':
-            return { type: 'polygon', points: shape.points };
-        case 'rect':
-            return {
-                type: 'rectangle',
-                x: shape.x,
-                y: shape.y,
-                width: shape.width,
-                height: shape.height,
-            };
-        default:
-            throw new Error('Unknown shape type');
+export function convertToolShapeToGetiShape(shape: SmartToolsShape): Polygon {
+    if (shape.shapeType !== 'polygon') {
+        throw new Error(`Unexpected shape type from smart-tools: ${(shape as { shapeType: string }).shapeType}`);
     }
+    return { type: 'polygon', points: shape.points };
 }
-
-const removeOffPointsRect = (rect: Rect, roi: RegionOfInterest): Rect => {
-    const { x, y, width, height } = roi;
-
-    // Left boundary
-    if (rect.x < x) {
-        return {
-            ...rect,
-            x,
-            width: rect.width - (x - rect.x),
-        };
-    }
-
-    // Right boundary
-    if (rect.x + rect.width > x + width) {
-        const diff = rect.x + rect.width - x - width;
-        return {
-            ...rect,
-            width: rect.width - diff,
-        };
-    }
-
-    // Top boundary
-    if (rect.y < y) {
-        return {
-            ...rect,
-            y,
-            height: rect.height - (y - rect.y),
-        };
-    }
-
-    // Bottom boundary
-    if (rect.y + rect.height > y + height) {
-        const diff = rect.y + rect.height - y - height;
-        return {
-            ...rect,
-            height: rect.height - diff,
-        };
-    }
-
-    return rect;
-};
 
 const removeOffLimitPointsPolygon = (shape: Shape, roi: RegionOfInterest): Polygon => {
     const { width, height, x, y } = roi;
-    const getRect = (rx: number, ry: number, rWidth: number, rHeight: number): Rect => ({
-        x: rx,
-        y: ry,
-        width: rWidth,
-        height: rHeight,
-        type: 'rectangle',
-    });
-    // `eraserSize` Builds and positions rect shapes around ROI limits (top, left, right, bottom),
-    // finally `getShapesDifference` will use those rects to calc and remove offline polygons
+    // Build polygon "eraser" rects around ROI limits to clip off-canvas polygon parts.
     const eraserSize = 10;
-    const topRect = getRect(x - eraserSize, y - eraserSize, width + eraserSize * 3, eraserSize);
-    const leftRect = getRect(x - eraserSize, y - eraserSize, eraserSize, height * 2);
-    const rightRect = getRect(x + width, y - eraserSize, eraserSize, height * 2);
-    const bottomRect = getRect(x - eraserSize, y + height, width + eraserSize * 3, eraserSize);
+    const makeRectPolygon = (rx: number, ry: number, rWidth: number, rHeight: number): Polygon => ({
+        type: 'polygon',
+        points: [
+            { x: rx, y: ry },
+            { x: rx + rWidth, y: ry },
+            { x: rx + rWidth, y: ry + rHeight },
+            { x: rx, y: ry + rHeight },
+        ],
+    });
+    const topRect = makeRectPolygon(x - eraserSize, y - eraserSize, width + eraserSize * 3, eraserSize);
+    const leftRect = makeRectPolygon(x - eraserSize, y - eraserSize, eraserSize, height * 2);
+    const rightRect = makeRectPolygon(x + width, y - eraserSize, eraserSize, height * 2);
+    const bottomRect = makeRectPolygon(x - eraserSize, y + height, width + eraserSize * 3, eraserSize);
 
     return [leftRect, bottomRect, rightRect, topRect].reduce(
         (accum, current) => getShapesDifference(roi, accum, current),
@@ -105,26 +50,25 @@ const removeOffLimitPointsPolygon = (shape: Shape, roi: RegionOfInterest): Polyg
     ) as Polygon;
 };
 
-const calculateRectanglePoints = (shape: BoundingBox): ClipperPoint[] => {
-    const { x: X, y: Y, width, height } = shape;
-    const topLeftPoint = { X, Y };
-    const topRightPoint = { X: X + width, Y };
-    const bottomLeftPoint = { X, Y: Y + height };
-    const bottomRightPoint = { X: X + width, Y: Y + height };
-
-    return [topLeftPoint, topRightPoint, bottomRightPoint, bottomLeftPoint];
-};
-
 const convertPolygonPoints = (shape: Polygon): ClipperPoint[] => {
     return shape.points.map(({ x, y }: Point) => ({ X: x, Y: y }));
 };
 
 const transformToClipperShape = (shape: Shape): ClipperShape => {
-    if (shape.type === 'rectangle') {
-        return new ClipperJS([calculateRectanglePoints(shape)], true);
-    } else {
-        return new ClipperJS([convertPolygonPoints(shape)], true);
-    }
+    return new ClipperJS([convertPolygonPoints(shape)], true);
+};
+
+// ROI is geometrically a rectangle; build a clipper rect path directly (without exposing
+// a `Shape` rectangle type to the rest of the app).
+const roiToClipperShape = (roi: RegionOfInterest): ClipperShape => {
+    const { x, y, width, height } = roi;
+    const path: ClipperPoint[] = [
+        { X: x, Y: y },
+        { X: x + width, Y: y },
+        { X: x + width, Y: y + height },
+        { X: x, Y: y + height },
+    ];
+    return new ClipperJS([path], true);
 };
 
 const runUnionOrDifference =
@@ -166,7 +110,7 @@ const hasIntersection = (clip: ClipperShape, subj: ClipperShape) => {
 
 const filterIntersectedPathsWithRoi = (roi: RegionOfInterest, shape: ClipperShape): ClipperShape => {
     const newPath = shape.clone();
-    const roiRect = transformToClipperShape({ ...roi, type: 'rectangle' });
+    const roiRect = roiToClipperShape(roi);
 
     newPath.paths = newPath.paths.filter((subPath) => hasIntersection(roiRect, new ClipperJS([subPath])));
 
@@ -174,7 +118,7 @@ const filterIntersectedPathsWithRoi = (roi: RegionOfInterest, shape: ClipperShap
 };
 
 export const removeOffLimitPoints = (shape: Shape, roi: RegionOfInterest): Shape => {
-    return shape.type === 'rectangle' ? removeOffPointsRect(shape, roi) : removeOffLimitPointsPolygon(shape, roi);
+    return removeOffLimitPointsPolygon(shape, roi);
 };
 
 type ElementType = SVGElement | HTMLDivElement;

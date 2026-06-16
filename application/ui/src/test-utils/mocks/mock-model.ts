@@ -122,7 +122,7 @@ export const getMockedSupportedModels = (): SupportedModelMetadataType[] => [
             resolution: 1008,
             precision: 'fp32',
         },
-        supported_prompt_types: ['text', 'visual_rectangle'],
+        supported_prompt_types: ['text', 'visual_bounding_box'],
         display_name: 'SAM3',
     },
 ];
