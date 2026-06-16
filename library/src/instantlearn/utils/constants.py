@@ -15,8 +15,30 @@ class Backend(StrEnum):
     TORCHSCRIPT = "torchscript"
     OPENVINO = "openvino"
     PYTORCH = "pytorch"
+    TORCH = "torch"  # TODO should we have it as alias/short form for PYTORCH?
     HUGGINGFACE = "huggingface"
     TIMM = "timm"
+
+
+class PromptType(StrEnum):
+    """Enum for supported prompt types."""
+
+    TEXT = "text"
+    MASK = "mask"
+    BOUNDING_BOX = "bounding_box"
+    POINT = "point"
+
+
+class ShotMode(StrEnum):
+    """Enum for shot modes."""
+
+    ZERO_SHOT = "zero_shot"
+    ONE_SHOT = "one_shot"
+    FEW_SHOT = "few_shot"
+
+
+class ModelNotFittedError(RuntimeError):  # TODO move to more appropriate file
+    """Raised when predict() is called before fit() on models that require it."""
 
 
 class CompressionMode(StrEnum):
