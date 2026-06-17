@@ -1,15 +1,3 @@
-"""Unit tests for the DatasetWriter sink.
-
-These tests exercise the writer's own logic — buffering, frame counting,
-chunked batch directories, max_frames, and error handling — without writing
-real files to disk. The only external dependency, datumaro's on-disk
-``Dataset.export``, is replaced by an in-memory recorder (see ``export_calls``).
-
-All behavioural assertions are made *after* ``close()``, when every buffered
-frame has been flushed. That keeps the tests deterministic regardless of
-whether the export runs inline or on a background thread.
-"""
-
 import numpy as np
 import pytest
 from datumaro import Dataset
