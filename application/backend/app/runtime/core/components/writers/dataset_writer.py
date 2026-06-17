@@ -22,7 +22,7 @@ class DatasetWriter(StreamWriter):
             raise ValueError("dataset_format must be set")
         if self._config.output_dir is None:
             raise ValueError("output_dir must be set")
-        self._dataset = Dataset()
+        self._dataset = Dataset(media_type=Image)
         logger.info("DatasetWriter ready. Dataset format: %s, Output dir: %s", self._config.dataset_format, self._config.output_dir)
 
     def _get_export_dir(self) -> Path:
@@ -32,7 +32,7 @@ class DatasetWriter(StreamWriter):
         return output_dir / f"batch_{self._chunk_index:04d}"
 
     def _reset_buffer(self) -> None:
-        self._dataset = Dataset()
+        self._dataset = Dataset(media_type=Image)
         self._buffered_frame_count = 0
 
     def _flush_chunk_if_needed(self) -> None:
@@ -130,7 +130,7 @@ class DatasetWriter(StreamWriter):
 
             item = DatasetItem(
                 id=item_id,
-                image=Image.from_numpy(data.frame),
+                media=Image.from_numpy(data.frame),
                 annotations=annotations,
                 attributes=attributes or None,
             )
