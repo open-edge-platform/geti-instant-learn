@@ -8,20 +8,38 @@ from pathlib import Path
 
 
 class Backend(StrEnum):
-    """Enum for backends."""
+    """Inference backend identifier.
 
+    Attributes:
+        TORCH: Native PyTorch (eager or compiled).
+        ONNX: ONNX Runtime.
+        TENSORRT: NVIDIA TensorRT.
+        TORCHSCRIPT: TorchScript serialized graph.
+        OPENVINO: Intel OpenVINO IR.
+        HUGGINGFACE: Loaded via ``transformers`` / HuggingFace Hub.
+        TIMM: Loaded via the ``timm`` model zoo.
+    """
+
+    TORCH = "torch"
     ONNX = "onnx"
     TENSORRT = "tensorrt"
     TORCHSCRIPT = "torchscript"
     OPENVINO = "openvino"
-    PYTORCH = "pytorch"
-    TORCH = "torch"  # TODO should we have it as alias/short form for PYTORCH?
     HUGGINGFACE = "huggingface"
     TIMM = "timm"
 
 
 class PromptType(StrEnum):
-    """Enum for supported prompt types."""
+    """Type of prompt a model accepts as input.
+
+    A model may accept several prompt types simultaneously.
+
+    Attributes:
+        TEXT: Free-text category name or description.
+        MASK: Binary segmentation mask used as a visual exemplar.
+        BOUNDING_BOX: Axis-aligned bounding box in xyxy format.
+        POINT: Foreground / background click point.
+    """
 
     TEXT = "text"
     MASK = "mask"
@@ -30,15 +48,18 @@ class PromptType(StrEnum):
 
 
 class ShotMode(StrEnum):
-    """Enum for shot modes."""
+    """Number-of-shots regime a model operates in.
+
+    Attributes:
+        ZERO_SHOT: No reference examples required — model uses only text or
+            built-in priors.
+        ONE_SHOT: Exactly one reference example per category.
+        FEW_SHOT: Two or more reference examples per category.
+    """
 
     ZERO_SHOT = "zero_shot"
     ONE_SHOT = "one_shot"
     FEW_SHOT = "few_shot"
-
-
-class ModelNotFittedError(RuntimeError):  # TODO move to more appropriate file
-    """Raised when predict() is called before fit() on models that require it."""
 
 
 class CompressionMode(StrEnum):

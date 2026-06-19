@@ -3,16 +3,14 @@
 
 """Models.
 
-Each model is organised in its own self-contained folder with model-specific
-components.  Shared components remain in the top-level ``components/``
-directory.
+Each model is organized in its own self-contained folder with model-specific
+components. Shared components live in the top-level ``components/`` directory.
 
-New base hierarchy (RFC-01):
+The model hierarchy is:
 
-* ``Model`` (ABC, torch-free)
-
-  * ``TorchModel``   (Model, nn.Module)
-  * ``OpenVINOModel`` (Model, OV-only)
+- ``Model`` (ABC, torch-free)
+    - ``TorchModel`` (Model, nn.Module)
+    - ``OpenVINOModel`` (Model, OV-only)
 """
 
 from .base import Model

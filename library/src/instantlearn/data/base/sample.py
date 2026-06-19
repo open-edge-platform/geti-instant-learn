@@ -1,19 +1,16 @@
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sample and TensorSample dataclasses for InstantLearn.
+"""Sample and TensorSample dataclasses for instantlearn."""
 
-This module defines the sample structure for few-shot segmentation tasks.
-"""
-
-from __future__ import annotations  # so the class definition itself does not require torch at import time
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from instantlearn.data.utils.image import read_image, read_mask
+from instantlearn.data.utils.image import read_image
 
 if TYPE_CHECKING:
     import torch
@@ -21,98 +18,71 @@ if TYPE_CHECKING:
 
 @dataclass
 class Sample:
-    """Sample class for InstantLearn few-shot segmentation datasets.
+    """A single image with its annotations, used as input to all models.
 
-    Supports both single-instance (N=1, PerSeg) and multi-instance (N>1, LVIS/COCO) scenarios.
-    One sample = one image with N instances.
+    Supports both single-instance (N=1) and multi-instance (N>1) scenarios.
+    All array fields are numpy — models that run on PyTorch call
+    ``to_tensors()`` internally.
+
+    If ``image`` is ``None`` but ``image_path`` is provided, the image is
+    loaded automatically on construction. If ``category_ids`` is ``None``,
+    it is auto-generated as ``[0, 1, ..., len(categories) - 1]``.
 
     Attributes:
-        image: Input image. HWC uint8/float32 numpy array or ``None``.
-        image_path: Path to the source image file. Auto-loads if image not provided.
-        masks: ``(N, H, W)`` bool/uint8 numpy array or ``None``.
-        bboxes: ``(N, 4)`` float32 xyxy numpy array or ``None``.
-        points: ``(N, K, 2)`` float32 numpy array or ``None``.
-        scores: ``(N,)`` float32 numpy array or ``None``.
-        categories: List of N category name strings. Defaults to
-            ``["object"]``.
-        category_ids: List of N integer category IDs.  Auto-generated from
-            ``categories`` if not provided.
-        mask_paths: Path(s) to mask files.  Auto-loaded to ``masks`` if
-            ``masks`` is ``None``.
+        image: Input image as an ``(H, W, C)`` uint8 or float32 array.
+        image_path: Path to the source image file.
+        masks: Instance masks as an ``(N, H, W)`` bool or uint8 array.
+        bboxes: Bounding boxes as an ``(N, 4)`` float32 array in xyxy format.
+        points: Prompt points as an ``(N, K, 2)`` float32 array.
+        scores: Per-instance confidence scores as an ``(N,)`` float32 array.
+        categories: List of N category name strings.
+        category_ids: List of N integer category IDs.
 
-    Note:
-        If `image` is None but `image_path` is provided, the image is auto-loaded.
-        If `masks` is None but `mask_paths` is provided, masks are auto-loaded.
-        If `category_ids` is None, it is auto-generated as [0, 1, ..., len(categories)-1].
-
-    Examples:
-        Visual-only models (PerDINO, Matcher) - minimal usage:
-
-        >>> sample = Sample(image=image, masks=mask)
-
-        With path-based loading:
-
+    Example:
+        >>> sample = Sample(image=image, masks=masks, categories=["cat"])
+        >>> sample = Sample(image_path="image.jpg")
         >>> sample = Sample(
-        ...     image_path="path/to/image.jpg",
-        ...     mask_paths="path/to/mask.png",
-        ... )
-
-        Multiple masks with categories:
-
-        >>> sample = Sample(
-        ...     image_path="path/to/image.jpg",
-        ...     mask_paths=["mask1.png", "mask2.png"],
+        ...     image_path="image.jpg",
+        ...     masks=masks,
         ...     categories=["cat", "dog"],
         ...     category_ids=[0, 1],
         ... )
     """
 
-    # Required fields
     image: np.ndarray | None = None
     image_path: str | None = None
 
-    # Optional annotation fields (defaults to None)
     masks: np.ndarray | None = None
     bboxes: np.ndarray | None = None
     points: np.ndarray | None = None
     scores: np.ndarray | None = None
 
-    # Metadata fields
     categories: list[str] = field(default_factory=lambda: ["object"])
     category_ids: list[int] | None = None
-    mask_paths: str | list[str] | None = None
 
     def __post_init__(self) -> None:
-        """Auto-load images/masks from paths and generate category_ids if needed."""
-        # Normalize mask_paths to list
-        if isinstance(self.mask_paths, str):
-            self.mask_paths = [self.mask_paths]
-
+        """Auto-load image from path and generate category_ids if needed."""
         if self.image is None and self.image_path is not None:
-            # Load to HWC uint8 numpy
             self.image = read_image(self.image_path, as_tensor=False)
-
-        if self.masks is None and self.mask_paths is not None:
-            # Load each mask as 2-D numpy array (H, W) then stack to (N, H, W)
-            mask_arrays = [read_mask(p, as_tensor=False) for p in self.mask_paths]
-            self.masks = np.stack(mask_arrays, axis=0)
 
         if self.category_ids is None:
             self.category_ids = list(range(len(self.categories)))
 
     def filter_by_category(self, category_name: str) -> Sample | None:
-        """Return a new Sample containing only instances matching *category_name*.
+        """Return a new Sample containing only instances matching ``category_name``.
 
-        Filters ``categories``, ``category_ids``, ``masks``, ``bboxes``, ``points``, and ``scores``.
-        ``image`` / ``image_path`` are shared (no copy).
+        Filters ``categories``, ``category_ids``, ``masks``, ``bboxes``,
+        ``points``, and ``scores``. ``image`` and ``image_path`` are shared
+        (not copied).
 
         Args:
             category_name: The category name to keep.
 
         Returns:
-            A new :class:`Sample` with only matching instances, or ``None`` if no instances match.
+            A new ``Sample`` with only matching instances, or ``None`` if no
+            instances match.
 
-        Examples:
+        Example:
             >>> sample = Sample(
             ...     image=img,
             ...     categories=["cat", "dog", "cat"],
@@ -147,14 +117,15 @@ class Sample:
     def to_tensors(self, device: str = "cpu") -> TensorSample:
         """Convert numpy arrays to torch tensors.
 
-        Lazy-imports torch — callers without torch cannot use this method.
-        ``image`` is permuted from HWC to CHW and cast to float32.
+        Lazily imports torch — only usable in environments where torch is
+        installed. ``image`` is permuted from HWC to CHW and cast to float32.
 
         Args:
             device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
 
         Returns:
-            A :class:`TensorSample` with all non-``None`` fields as tensors.
+            A ``TensorSample`` with all non-``None`` fields converted to
+            tensors on *device*.
         """
         import torch  # noqa: PLC0415
 
@@ -180,18 +151,20 @@ class Sample:
 
 @dataclass
 class TensorSample:
-    """Torch-native counterpart of :class:`Sample`.
+    """Torch-native counterpart of ``Sample``.
 
-    Used internally byb:class:`~instantlearn.models.torch_base.TorchModel` subclasses.
+    Produced by ``Sample.to_tensors()`` and consumed internally by
+    ``TorchModel`` subclasses. All array fields are tensors; ``categories``
+    stays as a plain list.
 
     Attributes:
-        image: ``(C, H, W)`` float32 tensor or ``None``.
-        masks: ``(N, H, W)`` tensor or ``None``.
-        bboxes: ``(N, 4)`` float32 tensor or ``None``.
-        points: ``(N, K, 2)`` float32 tensor or ``None``.
-        scores: ``(N,)`` float32 tensor or ``None``.
+        image: Image tensor of shape ``(C, H, W)`` float32.
+        masks: Instance masks of shape ``(N, H, W)``.
+        bboxes: Bounding boxes of shape ``(N, 4)`` float32 in xyxy format.
+        points: Prompt points of shape ``(N, K, 2)`` float32.
+        scores: Per-instance scores of shape ``(N,)`` float32.
         categories: List of category name strings.
-        category_ids: ``(N,)`` int32 tensor or ``None``.
+        category_ids: Category IDs of shape ``(N,)`` int32.
     """
 
     image: torch.Tensor | None = None

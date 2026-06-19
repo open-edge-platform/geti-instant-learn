@@ -3,8 +3,8 @@
 
 """Intermediate base class for all OpenVINO-backed instantlearn models.
 
-This module has **no torch dependency** — safe to import in environments
-where only OpenVINO (not PyTorch) is installed.
+No torch dependency — safe to import in environments where only OpenVINO is
+installed.
 """
 
 from __future__ import annotations
@@ -21,21 +21,16 @@ from instantlearn.utils.constants import Backend
 class OpenVINOModel(Model):
     """Intermediate base for all OpenVINO-backed models.
 
-    Provides shared boilerplate for device selection, ``ov.Core``
-    initialisation, and the ``backend`` property.  Concrete subclasses
-    implement :meth:`~instantlearn.models.base.Model.card`,
-    :meth:`~instantlearn.models.base.Model.fit`, and
-    :meth:`~instantlearn.models.base.Model.predict`.
+    Handles ``ov.Core`` initialisation and the ``backend`` property. Concrete
+    subclasses implement ``card()``, ``fit()``, and ``predict()``.
 
-    ``from_pretrained`` is **not** defined here — not all OV models load from
-    HuggingFace Hub.  Models that support it declare their own classmethod.
+    ``from_pretrained()`` is not defined here — not all OV models load from
+    HuggingFace Hub. Models that support it declare their own classmethod.
 
-    Args:
-        model_dir: Path to the directory containing the ``.xml`` / ``.bin``
-            files.
-        device: OpenVINO device hint, e.g. ``"AUTO"``, ``"CPU"``,
-            ``"GPU"``.
-        preprocessor: Optional numpy-based preprocessor applied before input.
+    Attributes:
+        model_dir: Directory containing the ``.xml`` / ``.bin`` model files.
+        device: OpenVINO device hint (e.g. ``"AUTO"``, ``"CPU"``, ``"GPU"``).
+        preprocessor: Optional numpy-based preprocessor applied before inference.
         postprocessor: Optional post-processor applied after inference.
     """
 
@@ -46,7 +41,16 @@ class OpenVINOModel(Model):
         preprocessor: Any = None,  # noqa: ANN401
         postprocessor: Any = None,  # noqa: ANN401
     ) -> None:
-        """Initialise the OpenVINO model base."""
+        """Initialize the OpenVINO model base.
+
+        Args:
+            model_dir: Path to the directory containing the ``.xml`` / ``.bin``
+                files.
+            device: OpenVINO device hint, e.g. ``"AUTO"``, ``"CPU"``,
+                ``"GPU"``.
+            preprocessor: Optional numpy-based preprocessor.
+            postprocessor: Optional post-processor.
+        """
         super().__init__()
         self.model_dir = Path(model_dir)
         self.device = device
@@ -56,5 +60,5 @@ class OpenVINOModel(Model):
 
     @property
     def backend(self) -> Backend:
-        """Always :attr:`~instantlearn.utils.constants.Backend.OPENVINO`."""
+        """Always ``Backend.OPENVINO``."""
         return Backend.OPENVINO

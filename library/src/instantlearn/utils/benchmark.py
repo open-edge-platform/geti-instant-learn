@@ -11,7 +11,7 @@ from pathlib import Path
 import polars as pl
 import torch
 
-from instantlearn.data.base import Batch
+from instantlearn.data.base import Batch, Prediction
 from instantlearn.data.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
@@ -116,6 +116,32 @@ def _save_results(all_results: list[pl.DataFrame], output_path: Path) -> None:
     logger.info(msg)
     msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"
     logger.info(msg)
+
+
+def prediction_to_tensors(prediction: Prediction, device: str = "cpu") -> dict[str, torch.Tensor]:
+    """Convert a numpy ``Prediction`` to torch tensors for metric computation.
+
+    Use it where torchmetrics or other torch consumers need
+    tensor inputs.
+
+    Args:
+        prediction: The numpy prediction to convert.
+        device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
+
+    Returns:
+        A dict with keys ``"masks"``, ``"scores"``, ``"label_ids"``, and
+        optionally ``"boxes"`` and ``"points"``.
+    """
+    out: dict[str, torch.Tensor] = {
+        "masks": torch.from_numpy(prediction.masks).to(device),
+        "scores": torch.from_numpy(prediction.scores).to(device),
+        "label_ids": torch.from_numpy(prediction.label_ids).to(device),
+    }
+    if prediction.boxes is not None:
+        out["boxes"] = torch.from_numpy(prediction.boxes).to(device)
+    if prediction.points is not None:
+        out["points"] = torch.from_numpy(prediction.points).to(device)
+    return out
 
 
 def convert_masks_to_one_hot_tensor(
