@@ -5,10 +5,8 @@ import uuid
 
 from domain.services.schemas.annotation import (
     AnnotationSchema,
-    AnnotationType,
     Point,
     PolygonAnnotation,
-    RectangleAnnotation,
 )
 from domain.services.schemas.mappers.prompt import deduplicate_annotations
 
@@ -18,11 +16,9 @@ class TestDeduplicateAnnotations:
         label_id = uuid.uuid4()
 
         config1 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
         )
         config2 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
         )
 
@@ -40,11 +36,9 @@ class TestDeduplicateAnnotations:
         label_id = uuid.uuid4()
 
         config1 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
         )
         config2 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=70, y=53), Point(x=326, y=53), Point(x=326, y=246), Point(x=70, y=246)],
         )
 
@@ -61,11 +55,9 @@ class TestDeduplicateAnnotations:
         label_id = uuid.uuid4()
 
         config1 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=64, y=48), Point(x=192, y=48), Point(x=192, y=192), Point(x=64, y=192)],
         )
         config2 = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=384, y=240), Point(x=512, y=240), Point(x=512, y=384), Point(x=384, y=384)],
         )
 
@@ -78,28 +70,25 @@ class TestDeduplicateAnnotations:
 
         assert len(result) == 2
 
-    def test_keeps_non_polygons(self) -> None:
+    def test_keeps_non_duplicate_polygons(self) -> None:
         label_id = uuid.uuid4()
 
-        polygon_config = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
+        polygon_a = PolygonAnnotation(
             points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
         )
-        rectangle_config = RectangleAnnotation(
-            type=AnnotationType.RECTANGLE,
-            points=[Point(x=10, y=10), Point(x=50, y=50)],
+        polygon_b = PolygonAnnotation(
+            points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
         )
 
         annotations = [
-            AnnotationSchema(config=polygon_config, label_id=label_id),
-            AnnotationSchema(config=rectangle_config, label_id=label_id),
+            AnnotationSchema(config=polygon_a, label_id=label_id),
+            AnnotationSchema(config=polygon_b, label_id=label_id),
         ]
 
         result = deduplicate_annotations(annotations, 480, 640)
 
         assert len(result) == 2
-        assert any(ann.config.type == AnnotationType.POLYGON for ann in result)
-        assert any(ann.config.type == AnnotationType.RECTANGLE for ann in result)
+        assert all(isinstance(ann.config, PolygonAnnotation) for ann in result)
 
     def test_empty_list(self) -> None:
         result = deduplicate_annotations([], 480, 640)
@@ -108,7 +97,6 @@ class TestDeduplicateAnnotations:
     def test_single_annotation(self) -> None:
         label_id = uuid.uuid4()
         config = PolygonAnnotation(
-            type=AnnotationType.POLYGON,
             points=[Point(x=64, y=48), Point(x=320, y=48), Point(x=320, y=240), Point(x=64, y=240)],
         )
         annotations = [AnnotationSchema(config=config, label_id=label_id)]

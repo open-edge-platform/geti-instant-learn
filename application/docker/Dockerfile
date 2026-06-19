@@ -37,7 +37,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.13-slim@sha256:b04b5d7233d2ad9c379e22ea8927cd1378cd15c60d4ef876c065b25ea8fb3bf3 AS runtime-base
+FROM python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 AS runtime-base
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # If not limited, uv will use all cores (more than 100 for servers), resulting in No file descriptors available error
@@ -48,6 +48,8 @@ ENV UV_PYTHON_DOWNLOADS=0
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
 ENV LOGS_DIR="/instant_learn/logs"
+ARG SAMPLE_DATASET_DIR="/instant_learn/defaults/templates/datasets"
+ENV SAMPLE_DATASET_DIR=${SAMPLE_DATASET_DIR}
 ENV PATH="/instant_learn/app/backend/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
 
@@ -55,7 +57,6 @@ ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 ARG DEVICE=""
 ENV DEVICE=${DEVICE}
@@ -85,8 +86,8 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 RUN mkdir -p /instant_learn/app/backend
 WORKDIR /instant_learn/app/backend
 
-# Add sample datasets
-COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
+# Add sample datasets to an image-owned location so bind mounts on DB_DATA_DIR do not hide them.
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${SAMPLE_DATASET_DIR}
 
 # Copy library and create proper directory structure
 COPY --link --from=libs --chown=${UID} ./src /instant_learn/library/src
