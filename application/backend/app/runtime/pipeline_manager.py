@@ -217,10 +217,9 @@ class PipelineManager:
         """
         Create and start a new pipeline for the given project.
         """
-        with self._lock:
-            self._pipeline = self._create_pipeline(project_id)
-            self._refresh_visualization_info(project_id)
-            self._pipeline.start()
+        self._pipeline = self._create_pipeline(project_id)
+        self._refresh_visualization_info(project_id)
+        self._pipeline.start()
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
