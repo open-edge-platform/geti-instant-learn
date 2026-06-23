@@ -34,14 +34,10 @@ def usb_camera_config():
     return UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0)
 
 
-@pytest.fixture
-def usb_camera_file_config(test_video_path):
-    return UsbCameraConfig.model_construct(source_type=SourceType.USB_CAMERA, device_id=str(test_video_path))
-
-
 class TestUsbCameraReader:
-    def test_usb_camera_reader_connect(self, usb_camera_file_config):
-        reader = UsbCameraReader(config=usb_camera_file_config)
+    def test_usb_camera_reader_connect(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
@@ -51,8 +47,9 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_read_frame(self, usb_camera_file_config):
-        reader = UsbCameraReader(config=usb_camera_file_config)
+    def test_usb_camera_reader_read_frame(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
@@ -66,8 +63,9 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_end_of_stream(self, usb_camera_file_config):
-        reader = UsbCameraReader(config=usb_camera_file_config)
+    def test_usb_camera_reader_end_of_stream(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
@@ -81,9 +79,9 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_connect_invalid_source(self):
-        config = UsbCameraConfig.model_construct(source_type=SourceType.USB_CAMERA, device_id="/nonexistent/video.mp4")
-        reader = UsbCameraReader(config=config)
+    def test_usb_camera_reader_connect_invalid_source(self, usb_camera_config, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
+        monkeypatch.setattr(reader._config, "device_id", "/nonexistent/video.mp4")
 
         with pytest.raises(RuntimeError, match="Could not open video source"):
             reader.connect()
@@ -209,7 +207,7 @@ class TestUsbCameraReaderDiscover:
             SimpleNamespace(index=2, name="Camera 2", backend="test"),
             SimpleNamespace(index=0, name="Camera 0", backend="test"),
             SimpleNamespace(index=1, name="Camera 1", backend="test"),
-            SimpleNamespace(index=1, name="Camera 1", backend="test"),
+            SimpleNamespace(index=1, name="Duplicate Camera 1", backend="test"),
         ]
 
         with (

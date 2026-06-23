@@ -39,7 +39,7 @@ class UsbCameraReader(BaseOpenCVReader):
             backends = [cv2.CAP_V4L2]
 
         devices: list[UsbCameraConfig] = []
-        seen_devices: set[UsbCameraConfig] = set()
+        seen_device_ids: set[int] = set()
         camera_list = []
 
         for backend in backends:
@@ -53,8 +53,8 @@ class UsbCameraReader(BaseOpenCVReader):
                 device_id=camera_info.index,
                 name=camera_info.name,
             )
-            if device not in seen_devices:
+            if camera_info.index not in seen_device_ids:
                 devices.append(device)
-                seen_devices.add(device)
+                seen_device_ids.add(camera_info.index)
         logger.info(f"Found {cls.__name__} input device: {devices}")
         return devices
