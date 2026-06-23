@@ -17,7 +17,7 @@ class SourceType(StrEnum):
     SAMPLE_DATASET = "sample_dataset"
 
 
-class UsbCameraConfig(BaseModel):
+class UsbCameraConfig(BaseModel, frozen=True):
     source_type: Literal[SourceType.USB_CAMERA]
     name: str | None = None
     device_id: int

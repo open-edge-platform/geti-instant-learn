@@ -39,6 +39,7 @@ class UsbCameraReader(BaseOpenCVReader):
             backends = [cv2.CAP_V4L2]
 
         devices: list[UsbCameraConfig] = []
+        seen_devices: set[UsbCameraConfig] = set()
         camera_list = []
 
         for backend in backends:
@@ -47,12 +48,13 @@ class UsbCameraReader(BaseOpenCVReader):
         camera_list.sort(key=lambda cam: cam.index)
 
         for camera_info in camera_list:
-            devices.append(
-                UsbCameraConfig(
-                    source_type=SourceType.USB_CAMERA,
-                    device_id=camera_info.index,
-                    name=camera_info.name,
-                )
+            device = UsbCameraConfig(
+                source_type=SourceType.USB_CAMERA,
+                device_id=camera_info.index,
+                name=camera_info.name,
             )
+            if device not in seen_devices:
+                devices.append(device)
+                seen_devices.add(device)
         logger.info(f"Found {cls.__name__} input device: {devices}")
         return devices

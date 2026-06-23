@@ -30,14 +30,18 @@ def test_video_path(tmp_path):
 
 
 @pytest.fixture
-def usb_camera_config(test_video_path):
+def usb_camera_config():
     return UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0)
 
 
+@pytest.fixture
+def usb_camera_file_config(test_video_path):
+    return UsbCameraConfig.model_construct(source_type=SourceType.USB_CAMERA, device_id=str(test_video_path))
+
+
 class TestUsbCameraReader:
-    def test_usb_camera_reader_connect(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_connect(self, usb_camera_file_config):
+        reader = UsbCameraReader(config=usb_camera_file_config)
 
         reader.connect()
 
@@ -47,9 +51,8 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_read_frame(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_read_frame(self, usb_camera_file_config):
+        reader = UsbCameraReader(config=usb_camera_file_config)
 
         reader.connect()
 
@@ -63,9 +66,8 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_end_of_stream(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_end_of_stream(self, usb_camera_file_config):
+        reader = UsbCameraReader(config=usb_camera_file_config)
 
         reader.connect()
 
@@ -79,9 +81,9 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_connect_invalid_source(self, usb_camera_config, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", "/nonexistent/video.mp4")
+    def test_usb_camera_reader_connect_invalid_source(self):
+        config = UsbCameraConfig.model_construct(source_type=SourceType.USB_CAMERA, device_id="/nonexistent/video.mp4")
+        reader = UsbCameraReader(config=config)
 
         with pytest.raises(RuntimeError, match="Could not open video source"):
             reader.connect()
@@ -123,7 +125,10 @@ class TestUsbCameraReaderDiscover:
 
             # Verify enumerate_cameras was called for each expected backend
             assert mock_enumerate.call_count == backend_count
-            assert len(result) == len(fxt_camera_info_list) * backend_count
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Integrated Camera"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="USB Webcam"),
+            ]
 
     def test_discover_windows_success(self, fxt_camera_info_list):
         with (
@@ -134,11 +139,10 @@ class TestUsbCameraReaderDiscover:
 
             result = UsbCameraReader.discover()
 
-            # Windows tries 2 backends, so cameras appear twice
-            assert len(result) >= 2
-            assert result[0].source_type == SourceType.USB_CAMERA
-            assert result[0].device_id == 0
-            assert result[0].name == "Integrated Camera"
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Integrated Camera"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="USB Webcam"),
+            ]
 
     def test_discover_macos_success(self, fxt_camera_info_list):
         with (
@@ -149,8 +153,10 @@ class TestUsbCameraReaderDiscover:
 
             result = UsbCameraReader.discover()
 
-            assert len(result) == 2
-            assert all(isinstance(cam, UsbCameraConfig) for cam in result)
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Integrated Camera"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="USB Webcam"),
+            ]
 
     def test_discover_linux_success(self, fxt_camera_info_list):
         with (
@@ -161,8 +167,10 @@ class TestUsbCameraReaderDiscover:
 
             result = UsbCameraReader.discover()
 
-            assert len(result) == 2
-            assert all(isinstance(cam, UsbCameraConfig) for cam in result)
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Integrated Camera"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="USB Webcam"),
+            ]
 
     def test_discover_no_cameras_found(self):
         with (
@@ -190,10 +198,30 @@ class TestUsbCameraReaderDiscover:
 
             result = UsbCameraReader.discover()
 
-            assert len(result) == 3
-            assert result[0].device_id == 0
-            assert result[0].name == "Camera 0"
-            assert result[1].device_id == 1
-            assert result[1].name == "Camera 1"
-            assert result[2].device_id == 2
-            assert result[2].name == "Camera 2"
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=2, name="Camera 2"),
+            ]
+
+    def test_discover_returns_unique_cameras(self):
+        unsorted_cameras = [
+            SimpleNamespace(index=2, name="Camera 2", backend="test"),
+            SimpleNamespace(index=0, name="Camera 0", backend="test"),
+            SimpleNamespace(index=1, name="Camera 1", backend="test"),
+            SimpleNamespace(index=1, name="Camera 1", backend="test"),
+        ]
+
+        with (
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Linux"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
+        ):
+            mock_enumerate.return_value = unsorted_cameras
+
+            result = UsbCameraReader.discover()
+
+            assert result == [
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
+                UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=2, name="Camera 2"),
+            ]
