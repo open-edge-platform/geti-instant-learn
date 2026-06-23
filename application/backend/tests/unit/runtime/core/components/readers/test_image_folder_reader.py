@@ -142,6 +142,16 @@ class TestImageFolderReaderValidateConfig:
         with pytest.raises(ValueError, match="Images folder is empty"):
             reader.validate_config()
 
+    def test_validate_config_inaccessible_folder(self, tmp_path):
+        """Test validation fails clearly for macOS folders whose contents cannot be listed."""
+        config = MagicMock(spec=ReaderConfig)
+        config.images_folder_path = str(tmp_path)
+        reader = ImageFolderReader(config, settings.supported_extensions)
+
+        with patch.object(Path, "iterdir", side_effect=PermissionError("Operation not permitted")):
+            with pytest.raises(ValueError, match="Images folder is not accessible"):
+                reader.validate_config()
+
 
 def test_natural_sort_key():
     """Test natural sorting of filenames."""

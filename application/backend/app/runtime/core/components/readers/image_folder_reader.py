@@ -50,14 +50,20 @@ class ImageFolderReader(StreamReader):
         """Validate the image folder configuration.
 
         Raises:
-            ValueError: If the path does not exist, is not a directory, or is empty.
+            ValueError: If the path does not exist, is not a directory, is not accessible, or is empty.
         """
         folder_path = Path(self._config.images_folder_path)
         if not folder_path.exists():
             raise ValueError(f"Images folder does not exist: {self._config.images_folder_path}")
         if not folder_path.is_dir():
             raise ValueError(f"Path is not a directory: {self._config.images_folder_path}")
-        if next(folder_path.iterdir(), None) is None:
+        try:
+            first_entry = next(folder_path.iterdir(), None)
+        except PermissionError as exc:
+            raise ValueError(f"Images folder is not accessible: {self._config.images_folder_path}") from exc
+        except OSError as exc:
+            raise ValueError(f"Images folder cannot be read: {self._config.images_folder_path}") from exc
+        if first_entry is None:
             raise ValueError(f"Images folder is empty: {self._config.images_folder_path}")
 
     def _get_image_files(self, folder_path: Path) -> list[Path]:
