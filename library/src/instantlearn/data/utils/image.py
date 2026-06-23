@@ -5,17 +5,26 @@
 
 This module provides functions for reading and processing images and masks
 for InstantLearn few-shot segmentation tasks.
+
+Torch / torchvision are imported lazily inside the ``as_tensor=True`` branches
+so that numpy-only callers (e.g. the backend-neutral ``Sample``) never pull in
+torch.
 """
+
+from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import numpy as np
-import torch
 from PIL import Image as PILImage
-from torchvision import tv_tensors
+
+if TYPE_CHECKING:
+    import torch
+    from torchvision import tv_tensors
 
 
 def _is_url(path: str | Path) -> bool:
@@ -85,6 +94,8 @@ def read_image(path: str | Path, as_tensor: bool = True) -> tv_tensors.Image | n
     pil_image = _open_image(path, mode="RGB")
 
     if as_tensor:
+        from torchvision import tv_tensors  # noqa: PLC0415
+
         return tv_tensors.Image(pil_image)
     return np.array(pil_image, dtype=np.uint8)
 
@@ -130,6 +141,8 @@ def read_mask(path: str | Path, as_tensor: bool = True) -> torch.Tensor | np.nda
     binary_array = (mask_array > 0).astype(np.uint8)
 
     if as_tensor:
+        import torch  # noqa: PLC0415
+
         # Convert to tensor
         return torch.from_numpy(binary_array)
     return binary_array

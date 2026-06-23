@@ -289,7 +289,7 @@ class Matcher(Model):
         self.ref_features = self.masked_feature_extractor(
             ref_embeddings,
             reference_batch.masks,
-            reference_batch.category_ids,
+            reference_batch.label_ids,
         )
         return self.ref_features
 

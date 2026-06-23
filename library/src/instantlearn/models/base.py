@@ -8,14 +8,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from instantlearn.data.base.prediction import Prediction
-
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from instantlearn.data.base.batch import Batch
+    from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
     from instantlearn.models.model_card import ModelCard
     from instantlearn.utils.constants import Backend
@@ -78,67 +73,3 @@ class Model(ABC):
         Returns:
             A list of ``Prediction`` objects, one per input sample.
         """
-
-    @staticmethod
-    def _build_prediction(
-        masks: np.ndarray,
-        scores: np.ndarray,
-        label_ids: np.ndarray,
-        categories: Sequence[str],
-        boxes: np.ndarray | None = None,
-        points: np.ndarray | None = None,
-        metadata: dict | None = None,
-    ) -> Prediction:
-        """Assemble a normalized numpy ``Prediction`` from raw arrays.
-
-        Shared by every backend so the output shape and dtypes are identical
-        regardless of where inference ran. Enforces the contract dtypes:
-
-        - ``masks``: ``bool`` if already boolean, otherwise ``uint8``.
-        - ``scores``: ``float32``.
-        - ``label_ids``: ``int32``.
-        - ``boxes`` / ``points``: ``float32`` when present.
-
-        ``label_names`` is derived by indexing ``categories`` with each entry
-        of ``label_ids``; IDs outside the range fall back to ``str(id)``.
-
-        Args:
-            masks: Instance masks of shape ``(N, H, W)``.
-            scores: Per-instance confidence scores of shape ``(N,)``.
-            label_ids: Per-instance integer category IDs of shape ``(N,)``.
-            categories: Sequence mapping a label ID to its category name
-                (``categories[label_id]``).
-            boxes: Optional bounding boxes of shape ``(N, 4)`` in xyxy format.
-            points: Optional point predictions of shape ``(N, K, 2)``.
-            metadata: Optional free-form per-prediction metadata.
-
-        Returns:
-            A ``Prediction`` with all arrays cast to the contract dtypes.
-        """
-        masks = np.ascontiguousarray(masks)
-        if masks.dtype != np.bool_:
-            masks = masks.astype(np.uint8, copy=False)
-
-        scores = np.ascontiguousarray(scores, dtype=np.float32)
-        label_ids = np.ascontiguousarray(label_ids, dtype=np.int32)
-
-        n_categories = len(categories)
-        label_names = np.array(
-            [categories[i] if 0 <= i < n_categories else str(i) for i in label_ids.tolist()],
-            dtype=object,
-        )
-
-        if boxes is not None:
-            boxes = np.ascontiguousarray(boxes, dtype=np.float32)
-        if points is not None:
-            points = np.ascontiguousarray(points, dtype=np.float32)
-
-        return Prediction(
-            masks=masks,
-            scores=scores,
-            label_ids=label_ids,
-            label_names=label_names,
-            boxes=boxes,
-            points=points,
-            metadata=metadata if metadata is not None else {},
-        )

@@ -51,7 +51,7 @@ class PerSegDataset(Dataset):
         >>> sample.masks.shape
         (1, 256, 256)  # Single instance
 
-        >>> sample.categories
+        >>> sample.category_labels
         ['backpack']  # List with one element
     """
 

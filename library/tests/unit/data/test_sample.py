@@ -6,7 +6,7 @@
 import numpy as np
 import torch
 
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 
 # Create a random generator for consistent testing
 _rng = np.random.default_rng(42)
@@ -25,8 +25,9 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories == ["object"]
-        assert sample.category_ids == [0]
+        assert sample.categories == [Category(id=0, label="object")]
+        assert sample.category_labels == ["object"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]
@@ -55,8 +56,8 @@ class TestSample:
         assert sample.masks.shape == (1, 224, 224)
         assert sample.bboxes.shape == (1, 4)
         assert sample.points.shape == (1, 2)
-        assert sample.categories == ["cat"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths == ["mask.png"]
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
@@ -85,8 +86,8 @@ class TestSample:
         assert sample.masks.shape == (3, 512, 512)
         assert sample.bboxes.shape == (3, 4)
         assert sample.points.shape == (3, 2)
-        assert sample.categories == ["person", "car", "dog"]
-        assert sample.category_ids.tolist() == [0, 1, 2]
+        assert sample.category_labels == ["person", "car", "dog"]
+        assert sample.label_ids == [0, 1, 2]
         assert sample.mask_paths == ["mask1.png", "mask2.png", "mask3.png"]
         assert sample.is_reference == [True, False, True]
         assert sample.n_shot == [0, -1, 1]
@@ -114,7 +115,7 @@ class TestSample:
         assert isinstance(sample.masks, torch.Tensor)
         assert isinstance(sample.bboxes, torch.Tensor)
         assert isinstance(sample.points, torch.Tensor)
-        assert isinstance(sample.category_ids, torch.Tensor)
+        assert sample.label_ids == [0, 1]
 
     def test_sample_creation_minimal(self) -> None:
         """Test sample creation with minimal required fields."""
@@ -126,8 +127,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories == ["object"]
-        assert sample.category_ids == [0]
+        assert sample.category_labels == ["object"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]
@@ -150,8 +151,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes.shape == (2, 4)
         assert sample.points is None
-        assert sample.categories == ["cat", "dog"]
-        assert sample.category_ids.tolist() == [0, 1]
+        assert sample.category_labels == ["cat", "dog"]
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, True]
         assert sample.n_shot == [0, 0]
 
@@ -173,8 +174,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points.shape == (2, 2)
-        assert sample.categories == ["person", "person"]
-        assert sample.category_ids.tolist() == [2, 2]
+        assert sample.category_labels == ["person", "person"]
+        assert sample.label_ids == [2, 2]
         assert sample.is_reference == [False, False]
         assert sample.n_shot == [-1, -1]
 
@@ -201,7 +202,7 @@ class TestSample:
         assert isinstance(sample.masks, torch.Tensor)
         assert isinstance(sample.bboxes, np.ndarray)
         assert isinstance(sample.points, torch.Tensor)
-        assert isinstance(sample.category_ids, np.ndarray)
+        assert sample.label_ids == [0, 1]
 
     def test_sample_creation_empty_lists(self) -> None:
         """Test sample creation with empty lists for multi-instance fields."""
@@ -216,8 +217,8 @@ class TestSample:
             n_shot=[],
         )
 
-        assert sample.categories == []
-        assert sample.category_ids.tolist() == []
+        assert sample.category_labels == []
+        assert sample.label_ids == []
         assert sample.is_reference == []
         assert sample.n_shot == []
 
@@ -237,8 +238,9 @@ class TestSample:
         )
 
         # Sample creation should succeed - validation happens elsewhere
-        assert sample.categories == ["cat", "dog"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat", "dog"]
+        # Only one id supplied for two labels: the second keeps its auto-assigned id.
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, False]
         assert sample.n_shot == [0]
 

@@ -49,7 +49,7 @@ from .sam3 import CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
 
-# Default HuggingFace repo for SAM3 OpenVINO models 
+# Default HuggingFace repo for SAM3 OpenVINO models
 SAM3_OV_REPO = "rajeshgangireddy/SAM3_OpenVINO"
 
 
@@ -264,8 +264,8 @@ class SAM3OpenVINO(Model):
 
         # Compile properties: optimise for single-request latency (default GPU
         # hint is THROUGHPUT which adds overhead for real-time single-image use).
-        # From openvino doc  : Models may load slower and consume more memory when 
-        # using ov::hint::PerformanceMode::THROUGHPUT compared 
+        # From openvino doc  : Models may load slower and consume more memory when
+        # using ov::hint::PerformanceMode::THROUGHPUT compared
         # to ov::hint::PerformanceMode::LATENCY.
         _compile_props = {"PERFORMANCE_HINT": "LATENCY"} if self.ov_device != "CPU" else {}
 
@@ -387,7 +387,7 @@ class SAM3OpenVINO(Model):
             return
         geo_ex_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
         self.geometry_exemplar_model = self._ov_core.compile_model(
-            geo_ex_path, self.ov_device, self._compile_props
+            geo_ex_path, self.ov_device, self._compile_props,
         )
         self._geometry_exemplar_request = self.geometry_exemplar_model.create_infer_request()
         logger.info("  Geometry encoder (exemplar): %s [lazy]", geo_ex_path.name)
@@ -691,8 +691,8 @@ class SAM3OpenVINO(Model):
 
         # Build metadata
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
-        categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
-        category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
+        categories = sample.category_labels or ["visual"] * num_prompts
+        category_ids = sample.label_ids or [0] * num_prompts
 
         # Convert all prompts to normalised point coords grouped by category
         category_coords: dict[int, list[np.ndarray]] = defaultdict(list)
@@ -783,8 +783,8 @@ class SAM3OpenVINO(Model):
                 texts = list(self.category_mapping.keys())
                 category_ids = list(self.category_mapping.values())
             else:
-                texts = sample.categories or []
-                category_ids = list(sample.category_ids or [])
+                texts = sample.category_labels or []
+                category_ids = list(sample.label_ids or [])
 
             # Keep prompt text and category ids aligned with the effective number of prompts.
             num_prompts = max(len(texts), len(bboxes), len(points))
@@ -1375,9 +1375,9 @@ class SAM3OpenVINO(Model):
         """
         mapping: dict[str, int] = {}
         for sample in reference_batch.samples:
-            if sample.categories is None or sample.category_ids is None:
+            if not sample.category_labels or not sample.label_ids:
                 continue
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
                 if category not in mapping:
                     mapping[category] = int(category_id)
         return mapping
@@ -1415,4 +1415,3 @@ class SAM3OpenVINO(Model):
             "pred_boxes": torch.empty(0, 5),
             "pred_labels": torch.empty(0, dtype=torch.long),
         }
-

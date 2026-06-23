@@ -116,8 +116,8 @@ class TestInstantLearnDatasetCore:
         assert isinstance(sample, Sample)
         assert sample.image.shape == (224, 224, 3)
         assert sample.image_path == "/path/to/img1.jpg"
-        assert sample.categories == ["cat"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat"]
+        assert sample.label_ids == [0]
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
         assert sample.mask_paths == ["/path/to/mask1.png"]
@@ -374,8 +374,8 @@ class TestInstantLearnDatasetAdvanced:
 
         sample = dataset[0]
 
-        assert sample.categories == ["person", "car", "dog"]
-        assert sample.category_ids.tolist() == [0, 1, 2]
+        assert sample.category_labels == ["person", "car", "dog"]
+        assert sample.label_ids == [0, 1, 2]
         assert sample.is_reference == [True, False, True]
         assert sample.n_shot == [0, -1, 1]
         assert sample.mask_paths == ["/path/to/mask1.png", "/path/to/mask2.png", "/path/to/mask3.png"]

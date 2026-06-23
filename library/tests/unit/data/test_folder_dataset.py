@@ -244,7 +244,7 @@ class TestFolderDatasetSampleLoading:
         assert sample.masks is not None
         assert sample.masks.shape == (1, 100, 100)  # Single instance mask
         assert len(sample.categories) == 1
-        assert len(sample.category_ids) == 1
+        assert len(sample.label_ids) == 1
         assert len(sample.is_reference) == 1
         assert len(sample.n_shot) == 1
 
@@ -404,7 +404,7 @@ class TestFolderDatasetBatch:
         assert isinstance(batch, Batch)
         assert len(batch) == 3
         assert len(batch.categories) == 3
-        assert len(batch.category_ids) == 3
+        assert len(batch.label_ids) == 3
         assert len(batch.is_reference) == 3
 
         # Each sample should have single instance

@@ -121,8 +121,8 @@ class DinoTxtZeroShotClassification(Model):
         category_mapping: dict[int, str] = {}
 
         for sample in reference_batch.samples:
-            if sample.categories is not None and sample.category_ids is not None:
-                for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+            if sample.category_labels and sample.label_ids:
+                for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
                     category_id_int = int(category_id)
                     # Avoid duplicates - use first occurrence
                     if category_id_int not in category_mapping:

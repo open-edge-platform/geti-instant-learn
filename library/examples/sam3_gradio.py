@@ -28,7 +28,7 @@ import gradio as gr
 import numpy as np
 import torch
 
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.data.utils.image import read_image
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.visualizer import render_predictions
@@ -82,18 +82,16 @@ def _build_sample_from_shot(shot: dict) -> Sample:
 
     sample = Sample(
         image=ref_tensor,
-        categories=["visual"],
-        category_ids=torch.tensor([0]),
+        categories=[Category(id=0, label="visual")],
     )
 
     if boxes_px:
         sample.bboxes = torch.tensor(boxes_px, dtype=torch.float32)
-        sample.category_ids = torch.tensor([0] * len(boxes_px))
-        sample.categories = ["visual"] * len(boxes_px)
+        # All prompts share the single "visual" category (id 0).
+        sample.categories = [Category(id=0, label="visual")] * len(boxes_px)
     elif points_px:
         sample.points = torch.tensor(points_px, dtype=torch.float32)
-        sample.category_ids = torch.tensor([0] * len(points_px))
-        sample.categories = ["visual"] * len(points_px)
+        sample.categories = [Category(id=0, label="visual")] * len(points_px)
 
     return sample
 

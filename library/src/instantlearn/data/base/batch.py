@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -100,26 +100,62 @@ class Batch:
         return [s.points for s in self.samples]
 
     @property
-    def categories(self) -> list[list[str]]:
-        """Get all categories as list of lists.
+    def categories(self) -> list[list[Category]]:
+        """Get all categories as a list of per-sample :class:`Category` lists.
 
         Preserves multi-instance structure:
-        - Single-instance: [['cat'], ['dog'], ...]
-        - Multi-instance: [['person', 'person', 'car'], ['dog'], ...]
+        - Single-instance: [[Category(0, 'cat')], [Category(0, 'dog')], ...]
+        - Multi-instance: [[Category(0, 'person'), ...], [Category(0, 'dog')], ...]
 
         Returns:
-            list[list[str]]: List of category lists.
+            list[list[Category]]: List of category lists.
         """
         return [s.categories for s in self.samples]
 
     @property
-    def category_ids(self) -> list[list[int] | None]:
-        """All category-ID lists, one per sample.
+    def category_labels(self) -> list[list[str]]:
+        """All category label strings, grouped per sample.
 
         Returns:
-            A list of integer lists (or ``None`` per sample if not set).
+            One list of label strings per sample.
         """
-        return [s.category_ids for s in self.samples]
+        return [s.category_labels for s in self.samples]
+
+    @property
+    def label_ids(self) -> list[list[int]]:
+        """All integer category ids, grouped per sample.
+
+        Returns:
+            One list of integer ids per sample.
+        """
+        return [s.label_ids for s in self.samples]
+
+    @property
+    def is_reference(self) -> list[list[bool] | None]:
+        """Per-instance reference flags, one list per sample.
+
+        Returns:
+            One list of bool flags per sample, or ``None`` where not set.
+        """
+        return [s.is_reference for s in self.samples]
+
+    @property
+    def n_shot(self) -> list[list[int] | None]:
+        """Per-instance shot indices, one list per sample.
+
+        Returns:
+            One list of shot indices per sample, or ``None`` where not set.
+        """
+        return [s.n_shot for s in self.samples]
+
+    @property
+    def mask_paths(self) -> list[list[str] | None]:
+        """Source mask file paths, one list per sample.
+
+        Returns:
+            One list of mask path strings per sample, or ``None`` where not set.
+        """
+        return [s.mask_paths for s in self.samples]
 
     @property
     def image_paths(self) -> list[str | None]:

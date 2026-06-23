@@ -9,26 +9,33 @@ installed.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import openvino as ov
 
 from instantlearn.models.base import Model
+from instantlearn.models.model_loader import resolve_model_dir
 from instantlearn.utils.constants import Backend
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class OpenVINOModel(Model):
     """Intermediate base for all OpenVINO-backed models.
 
-    Handles ``ov.Core`` initialisation and the ``backend`` property. Concrete
+    Handles ``ov.Core`` initialization and the ``backend`` property. Concrete
     subclasses implement ``card()``, ``fit()``, and ``predict()``.
+
+    ``model_dir`` may be a local path or a remote URI (``file://``, ``hf://``,
+    ``s3://``); it is resolved to a local directory via
+    :func:`~instantlearn.models.model_loader.resolve_model_dir`.
 
     ``from_pretrained()`` is not defined here — not all OV models load from
     HuggingFace Hub. Models that support it declare their own classmethod.
 
     Attributes:
-        model_dir: Directory containing the ``.xml`` / ``.bin`` model files.
+        model_dir: Local directory containing the ``.xml`` / ``.bin`` files.
         device: OpenVINO device hint (e.g. ``"AUTO"``, ``"CPU"``, ``"GPU"``).
         preprocessor: Optional numpy-based preprocessor applied before inference.
         postprocessor: Optional post-processor applied after inference.
@@ -44,15 +51,15 @@ class OpenVINOModel(Model):
         """Initialize the OpenVINO model base.
 
         Args:
-            model_dir: Path to the directory containing the ``.xml`` / ``.bin``
-                files.
+            model_dir: Path or URI to the directory containing the ``.xml`` /
+                ``.bin`` files. Supports ``file://``, ``hf://``, and ``s3://``.
             device: OpenVINO device hint, e.g. ``"AUTO"``, ``"CPU"``,
                 ``"GPU"``.
             preprocessor: Optional numpy-based preprocessor.
             postprocessor: Optional post-processor.
         """
         super().__init__()
-        self.model_dir = Path(model_dir)
+        self.model_dir = resolve_model_dir(model_dir)
         self.device = device
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor

@@ -66,7 +66,7 @@ class FolderDataset(Dataset):
         >>> sample.masks.shape
         torch.Size([1, 256, 256])  # Single instance
 
-        >>> sample.categories
+        >>> sample.category_labels
         ['apple']  # List with one element
     """
 

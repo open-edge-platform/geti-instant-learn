@@ -457,8 +457,8 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=sample.category_labels[:1],
+                        category_ids=np.array([sample.label_ids[0]]),
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -499,8 +499,8 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=sample.category_labels[:1],
+                        category_ids=np.array([sample.label_ids[0]]),
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -569,8 +569,8 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=sample.category_labels[:1],
+                        category_ids=np.array([sample.label_ids[0]]),
                     ),
                 )
             ref_input = Batch.collate(ref_samples)

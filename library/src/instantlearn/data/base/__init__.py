@@ -6,13 +6,13 @@
 from .base import Dataset
 from .batch import Batch, Collatable
 from .prediction import Prediction
-from .sample import Sample, TensorSample
+from .sample import Category, Sample
 
 __all__ = [
     "Batch",
+    "Category",
     "Collatable",
     "Dataset",
     "Prediction",
     "Sample",
-    "TensorSample",
 ]

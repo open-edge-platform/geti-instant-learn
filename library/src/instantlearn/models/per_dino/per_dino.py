@@ -155,7 +155,7 @@ class PerDino(Model):
         self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
-            reference_batch.category_ids,
+            reference_batch.label_ids,
         )
 
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:

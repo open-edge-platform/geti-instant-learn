@@ -178,7 +178,7 @@ def convert_masks_to_one_hot_tensor(
         gt_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
 
         # Process ground truth masks
-        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.category_ids, strict=True):
+        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.label_ids, strict=True):
             if cat_id in category_id_to_index:
                 class_idx = category_id_to_index[cat_id]
                 # Apply logical OR to handle multiple instances of same class

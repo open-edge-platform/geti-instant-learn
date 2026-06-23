@@ -43,10 +43,10 @@ def group_references_by_category(
         if sample.bboxes is None or len(sample.bboxes) == 0:
             continue
         bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
-        cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
+        cat_id = int(sample.label_ids[0]) if sample.label_ids else 0
         cat_text = (
-            sample.categories[0]
-            if sample.categories and sample.categories[0] != "visual"
+            sample.category_labels[0]
+            if sample.category_labels and sample.category_labels[0] != "visual"
             else "visual"
         )
 

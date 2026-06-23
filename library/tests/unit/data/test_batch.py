@@ -109,28 +109,27 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
         # Test all properties work with single sample
         images = batch.images
         assert len(images) == 1
-        assert isinstance(images[0], torch.Tensor)
+        assert isinstance(images[0], np.ndarray)
 
         masks = batch.masks
         assert len(masks) == 1
-        assert isinstance(masks[0], torch.Tensor)
+        assert isinstance(masks[0], np.ndarray)
 
         bboxes = batch.bboxes
         assert len(bboxes) == 1
-        assert isinstance(bboxes[0], torch.Tensor)
+        assert isinstance(bboxes[0], np.ndarray)
 
         points = batch.points
         assert len(points) == 1
-        assert isinstance(points[0], torch.Tensor)
+        assert isinstance(points[0], np.ndarray)
 
-        categories = batch.categories
-        assert len(categories) == 1
-        assert categories[0] == ["cat"]
+        category_labels = batch.category_labels
+        assert len(category_labels) == 1
+        assert category_labels[0] == ["cat"]
 
-        category_ids = batch.category_ids
-        assert len(category_ids) == 1
-        assert isinstance(category_ids[0], torch.Tensor)
-        assert category_ids[0].tolist() == [0]
+        label_ids = batch.label_ids
+        assert len(label_ids) == 1
+        assert label_ids[0] == [0]
 
         is_reference = batch.is_reference
         assert len(is_reference) == 1
@@ -157,13 +156,13 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
         assert batch.samples == [sample_multi_instance]
 
         # Test multi-instance properties
-        categories = batch.categories
-        assert len(categories) == 1
-        assert categories[0] == ["person", "car", "dog"]
+        category_labels = batch.category_labels
+        assert len(category_labels) == 1
+        assert category_labels[0] == ["person", "car", "dog"]
 
-        category_ids = batch.category_ids
-        assert len(category_ids) == 1
-        assert category_ids[0].tolist() == [0, 1, 2]
+        label_ids = batch.label_ids
+        assert len(label_ids) == 1
+        assert label_ids[0] == [0, 1, 2]
 
         is_reference = batch.is_reference
         assert len(is_reference) == 1
@@ -203,11 +202,11 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         images = batch.images
         assert len(images) == 2
-        assert all(isinstance(img, torch.Tensor) for img in images)
+        assert all(isinstance(img, np.ndarray) for img in images)
 
-        # Test caching
-        images_cached = batch.images
-        assert images is images_cached  # Same object due to caching
+        # Backend-neutral: arrays are returned without copying
+        images_again = batch.images
+        assert images_again[0] is images[0]  # Same underlying array
 
     def test_batch_masks_property(
         self,
@@ -221,13 +220,13 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         masks = batch.masks
         assert len(masks) == 3
-        assert isinstance(masks[0], torch.Tensor)  # Has masks
-        assert isinstance(masks[1], torch.Tensor)  # Has masks
+        assert isinstance(masks[0], np.ndarray)  # Has masks
+        assert isinstance(masks[1], np.ndarray)  # Has masks
         assert masks[2] is None  # No masks
 
-        # Test caching
-        masks_cached = batch.masks
-        assert masks is masks_cached  # Same object due to caching
+        # Backend-neutral: arrays are returned without copying
+        masks_again = batch.masks
+        assert masks_again[0] is masks[0]  # Same underlying array
 
     def test_batch_bboxes_property(
         self,
@@ -241,8 +240,8 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         bboxes = batch.bboxes
         assert len(bboxes) == 3
-        assert isinstance(bboxes[0], torch.Tensor)  # Has bboxes
-        assert isinstance(bboxes[1], torch.Tensor)  # Has bboxes
+        assert isinstance(bboxes[0], np.ndarray)  # Has bboxes
+        assert isinstance(bboxes[1], np.ndarray)  # Has bboxes
         assert bboxes[2] is None  # No bboxes (sample_no_masks doesn't have bboxes)
 
     def test_batch_points_property(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
@@ -252,28 +251,28 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         points = batch.points
         assert len(points) == 2
-        assert all(isinstance(pts, torch.Tensor) for pts in points)
+        assert all(isinstance(pts, np.ndarray) for pts in points)
 
     def test_batch_categories_property(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test batch categories property."""
         samples = [sample_single_instance, sample_multi_instance]
         batch = Batch.collate(samples)
 
-        categories = batch.categories
-        assert len(categories) == 2
-        assert categories[0] == ["cat"]  # Single instance
-        assert categories[1] == ["person", "car", "dog"]  # Multi instance
+        category_labels = batch.category_labels
+        assert len(category_labels) == 2
+        assert category_labels[0] == ["cat"]  # Single instance
+        assert category_labels[1] == ["person", "car", "dog"]  # Multi instance
 
     def test_batch_category_ids_property(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
-        """Test batch category_ids property."""
+        """Test batch label_ids property."""
         samples = [sample_single_instance, sample_multi_instance]
         batch = Batch.collate(samples)
 
-        category_ids = batch.category_ids
-        assert len(category_ids) == 2
-        assert all(isinstance(ids, torch.Tensor) for ids in category_ids)
-        assert category_ids[0].tolist() == [0]  # Single instance
-        assert category_ids[1].tolist() == [0, 1, 2]  # Multi instance
+        label_ids = batch.label_ids
+        assert len(label_ids) == 2
+        assert all(isinstance(ids, list) for ids in label_ids)
+        assert label_ids[0] == [0]  # Single instance
+        assert label_ids[1] == [0, 1, 2]  # Multi instance
 
     def test_batch_is_reference_property(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test batch is_reference property."""
@@ -322,33 +321,32 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
         assert mask_paths[2] is None  # No mask paths
 
     def test_batch_tensor_conversion_numpy_to_torch(self, sample_single_instance: Sample) -> None:
-        """Test that numpy arrays are converted to torch tensors."""
+        """Test that numpy arrays are returned as-is (Batch is backend-neutral)."""
         batch = Batch.collate([sample_single_instance])
 
-        # Test image conversion
+        # Image returned as stored numpy array
         images = batch.images
-        assert isinstance(images[0], torch.Tensor)
+        assert isinstance(images[0], np.ndarray)
         assert images[0].shape == (224, 224, 3)  # HWC format (as stored in Sample)
 
-        # Test mask conversion
+        # Masks returned as stored numpy array
         masks = batch.masks
-        assert isinstance(masks[0], torch.Tensor)
+        assert isinstance(masks[0], np.ndarray)
         assert masks[0].shape == (1, 224, 224)
 
-        # Test bbox conversion
+        # Bboxes returned as stored numpy array
         bboxes = batch.bboxes
-        assert isinstance(bboxes[0], torch.Tensor)
+        assert isinstance(bboxes[0], np.ndarray)
         assert bboxes[0].shape == (1, 4)
 
-        # Test points conversion
+        # Points returned as stored numpy array
         points = batch.points
-        assert isinstance(points[0], torch.Tensor)
+        assert isinstance(points[0], np.ndarray)
         assert points[0].shape == (1, 2)
 
-        # Test category_ids conversion
-        category_ids = batch.category_ids
-        assert isinstance(category_ids[0], torch.Tensor)
-        assert category_ids[0].shape == (1,)
+        # Test label_ids (backend-neutral: plain list of ints)
+        label_ids = batch.label_ids
+        assert label_ids[0] == [0]
 
 
 class TestBatchTensorConversion:
@@ -384,8 +382,8 @@ class TestBatchTensorConversion:
         points = batch.points
         assert points[0] is sample.points  # Same object
 
-        category_ids = batch.category_ids
-        assert category_ids[0] is sample.category_ids  # Same object
+        label_ids = batch.label_ids
+        assert label_ids[0] == sample.label_ids  # Same values
 
     def test_batch_mixed_numpy_torch(self) -> None:
         """Test batch with mixed numpy and torch tensors."""
@@ -412,18 +410,18 @@ class TestBatchTensorConversion:
 
         batch = Batch.collate([sample_numpy, sample_torch])
 
-        # Test that numpy arrays are converted and torch tensors are preserved
+        # Backend-neutral: arrays returned as stored (numpy stays numpy, torch stays torch)
         images = batch.images
-        assert isinstance(images[0], torch.Tensor)  # Converted from numpy
-        assert isinstance(images[1], torch.Tensor)  # Already torch
+        assert isinstance(images[0], np.ndarray)  # numpy sample
+        assert isinstance(images[1], torch.Tensor)  # torch sample
 
         masks = batch.masks
-        assert isinstance(masks[0], torch.Tensor)  # Converted from numpy
-        assert isinstance(masks[1], torch.Tensor)  # Already torch
+        assert isinstance(masks[0], np.ndarray)  # numpy sample
+        assert isinstance(masks[1], torch.Tensor)  # torch sample
 
-        category_ids = batch.category_ids
-        assert isinstance(category_ids[0], torch.Tensor)  # Converted from numpy
-        assert isinstance(category_ids[1], torch.Tensor)  # Already torch
+        label_ids = batch.label_ids
+        assert label_ids[0] == [0]  # numpy sample
+        assert label_ids[1] == [1]  # torch sample
 
     def test_batch_empty_tensors(self) -> None:
         """Test batch with empty tensors."""
@@ -438,14 +436,13 @@ class TestBatchTensorConversion:
 
         batch = Batch.collate([sample])
 
-        # Test empty category_ids
-        category_ids = batch.category_ids
-        assert isinstance(category_ids[0], torch.Tensor)
-        assert category_ids[0].shape == (0,)
+        # Test empty label_ids
+        label_ids = batch.label_ids
+        assert label_ids[0] == []
 
         # Test empty categories
-        categories = batch.categories
-        assert categories[0] == []
+        category_labels = batch.category_labels
+        assert category_labels[0] == []
 
     def test_batch_lazy_conversion(self, sample_single_instance: Sample) -> None:
         """Test that tensor conversion is lazy."""
@@ -455,15 +452,15 @@ class TestBatchTensorConversion:
         images1 = batch.images
         images2 = batch.images
 
-        # Should be the same object due to caching
-        assert images1 is images2
+        # Backend-neutral: underlying arrays are not copied between accesses
+        assert images1[0] is images2[0]
 
         # Access masks property multiple times
         masks1 = batch.masks
         masks2 = batch.masks
 
-        # Should be the same object due to caching
-        assert masks1 is masks2
+        # Backend-neutral: underlying arrays are not copied between accesses
+        assert masks1[0] is masks2[0]
 
     def test_batch_property_independence(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test that different properties are independent."""
@@ -475,7 +472,7 @@ class TestBatchTensorConversion:
         bboxes = batch.bboxes
         points = batch.points
         categories = batch.categories
-        category_ids = batch.category_ids
+        label_ids = batch.label_ids
         is_reference = batch.is_reference
         n_shot = batch.n_shot
         image_paths = batch.image_paths
@@ -487,7 +484,7 @@ class TestBatchTensorConversion:
         assert len(bboxes) == 2
         assert len(points) == 2
         assert len(categories) == 2
-        assert len(category_ids) == 2
+        assert len(label_ids) == 2
         assert len(is_reference) == 2
         assert len(n_shot) == 2
         assert len(image_paths) == 2
@@ -503,11 +500,11 @@ class TestBatchTensorConversion:
         # Test all properties work with single sample
         images = batch.images
         assert len(images) == 1
-        assert isinstance(images[0], torch.Tensor)
+        assert isinstance(images[0], np.ndarray)
 
-        categories = batch.categories
-        assert len(categories) == 1
-        assert categories[0] == ["cat"]
+        category_labels = batch.category_labels
+        assert len(category_labels) == 1
+        assert category_labels[0] == ["cat"]
 
     def test_batch_large_batch(self) -> None:
         """Test batch with many samples."""
@@ -532,7 +529,7 @@ class TestBatchTensorConversion:
         images = batch.images
         assert len(images) == 10
 
-        categories = batch.categories
-        assert len(categories) == 10
-        assert categories[0] == ["category_0"]
-        assert categories[9] == ["category_9"]
+        category_labels = batch.category_labels
+        assert len(category_labels) == 10
+        assert category_labels[0] == ["category_0"]
+        assert category_labels[9] == ["category_9"]

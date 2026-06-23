@@ -22,9 +22,6 @@ from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
-from .model import Sam3Model
-from .post_processing import PostProcessingConfig
-from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
@@ -34,6 +31,9 @@ from .canvas_helpers import (
     group_references_by_category,
     merge_cross_category,
 )
+from .model import Sam3Model
+from .post_processing import PostProcessingConfig
+from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class CanvasConfig:
         }:
             msg = (
                 "share_vision must be a bool or one of "
-                f"{{\"auto\", \"grouped\", \"spaced\"}}, got {self.share_vision!r}"
+                f'{{"auto", "grouped", "spaced"}}, got {self.share_vision!r}'
             )
             raise ValueError(msg)
 
@@ -534,8 +534,8 @@ class SAM3(Model):
 
         # Build aligned metadata lists
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
-        categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
-        category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
+        categories = sample.category_labels or ["visual"] * num_prompts
+        category_ids = sample.label_ids or [0] * num_prompts
 
         # Convert prompts to point coords grouped by category
         category_coords: dict[int, list[torch.Tensor]] = defaultdict(list)
@@ -667,8 +667,8 @@ class SAM3(Model):
                 texts = list(self.category_mapping.keys())
                 category_ids = list(self.category_mapping.values())
             else:
-                texts = sample.categories or []
-                category_ids = sample.category_ids
+                texts = sample.category_labels or []
+                category_ids = sample.label_ids
                 # Use "visual" placeholder when only bboxes/points are provided
                 num_visual_prompts = max(len(bboxes), len(points))
                 if num_visual_prompts and len(texts) != num_visual_prompts:
@@ -1415,9 +1415,9 @@ class SAM3(Model):
         """
         mapping: dict[str, int] = {}
         for sample in reference_batch.samples:
-            if sample.categories is None or sample.category_ids is None:
+            if not sample.category_labels or not sample.label_ids:
                 continue
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
                 if category not in mapping:
                     mapping[category] = int(category_id)
         return mapping
