@@ -7,7 +7,6 @@ import re
 from logging import getLogger
 from pathlib import Path
 
-import numpy as np
 import polars as pl
 from rich.progress import (
     BarColumn,
@@ -19,7 +18,7 @@ from rich.progress import (
 )
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.data.folder.dataset import FolderDataset
 from instantlearn.models import GroundedSAM, Model
 from instantlearn.utils.utils import setup_logger
@@ -90,8 +89,7 @@ def run_model(
         sample = Sample(
             image=None,
             image_path=None,
-            categories=split_text,
-            category_ids=np.array(list(range(len(split_text))), dtype=np.int32),
+            categories=[Category(id=i, label=label) for i, label in enumerate(split_text)],
             is_reference=[True] * len(split_text),
             n_shot=[0] * len(split_text),
         )

@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 
 # Create a random generator for consistent testing
 _rng = np.random.default_rng(42)
@@ -23,8 +23,7 @@ def sample_single_instance() -> Sample:
         masks=_rng.integers(0, 2, (1, 224, 224), dtype=np.uint8),
         bboxes=np.array([[10, 20, 100, 120]], dtype=np.float32),
         points=np.array([[50, 60]], dtype=np.float32),
-        categories=["cat"],
-        category_ids=np.array([0], dtype=np.int32),
+        categories=[Category(0, "cat")],
         mask_paths=["mask1.png"],
         is_reference=[True],
         n_shot=[0],
@@ -40,8 +39,7 @@ def sample_multi_instance() -> Sample:
         masks=_rng.integers(0, 2, (3, 512, 512), dtype=np.uint8),
         bboxes=np.array([[10, 20, 110, 120], [200, 150, 350, 270], [100, 100, 200, 200]], dtype=np.float32),
         points=np.array([[50, 60], [250, 200], [150, 150]], dtype=np.float32),
-        categories=["person", "car", "dog"],
-        category_ids=np.array([0, 1, 2], dtype=np.int32),
+        categories=[Category(0, "person"), Category(1, "car"), Category(2, "dog")],
         mask_paths=["mask1.png", "mask2.png", "mask3.png"],
         is_reference=[True, False, True],
         n_shot=[0, -1, 1],
@@ -54,8 +52,7 @@ def sample_no_masks() -> Sample:
     return Sample(
         image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
         image_path="no_masks.jpg",
-        categories=["cat"],
-        category_ids=np.array([0], dtype=np.int32),
+        categories=[Category(0, "cat")],
         is_reference=[True],
         n_shot=[0],
     )
@@ -361,8 +358,7 @@ class TestBatchTensorConversion:
             masks=torch.randint(0, 2, (1, 224, 224), dtype=torch.uint8),
             bboxes=torch.tensor([[10, 20, 100, 120]], dtype=torch.float32),
             points=torch.tensor([[50, 60]], dtype=torch.float32),
-            categories=["cat"],
-            category_ids=torch.tensor([0], dtype=torch.int32),
+            categories=[Category(0, "cat")],
             is_reference=[True],
             n_shot=[0],
         )
@@ -392,8 +388,7 @@ class TestBatchTensorConversion:
             image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
             image_path="numpy.jpg",
             masks=_rng.integers(0, 2, (1, 224, 224), dtype=np.uint8),
-            categories=["cat"],
-            category_ids=np.array([0], dtype=np.int32),
+            categories=[Category(0, "cat")],
             is_reference=[True],
             n_shot=[0],
         )
@@ -402,8 +397,7 @@ class TestBatchTensorConversion:
             image=torch.randint(0, 255, (3, 224, 224), dtype=torch.uint8),
             image_path="torch.jpg",
             masks=torch.randint(0, 2, (1, 224, 224), dtype=torch.uint8),
-            categories=["dog"],
-            category_ids=torch.tensor([1], dtype=torch.int32),
+            categories=[Category(1, "dog")],
             is_reference=[False],
             n_shot=[-1],
         )
@@ -429,7 +423,6 @@ class TestBatchTensorConversion:
             image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
             image_path="empty.jpg",
             categories=[],
-            category_ids=np.array([], dtype=np.int32),
             is_reference=[],
             n_shot=[],
         )
@@ -514,8 +507,7 @@ class TestBatchTensorConversion:
                 image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
                 image_path=f"image_{i}.jpg",
                 masks=_rng.integers(0, 2, (1, 224, 224), dtype=np.uint8),
-                categories=[f"category_{i}"],
-                category_ids=np.array([i], dtype=np.int32),
+                categories=[Category(i, f"category_{i}")],
                 is_reference=[i % 2 == 0],
                 n_shot=[i % 3],
             )

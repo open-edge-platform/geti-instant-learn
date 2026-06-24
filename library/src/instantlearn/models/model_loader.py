@@ -54,7 +54,8 @@ class LocalModelLoader(ModelLoader):
         """
         path = Path(uri.removeprefix("file://"))
         if not path.exists():
-            raise FileNotFoundError(f"Model directory not found: {path}")
+            msg = f"Model directory not found: {path}"
+            raise FileNotFoundError(msg)
         return path
 
 
@@ -130,4 +131,5 @@ def resolve_model_dir(uri: str | Path) -> Path:
         if loader.can_handle(scheme):
             return loader.fetch(uri_str)
 
-    raise ValueError(f"No model loader registered for URI scheme '{scheme}': {uri_str}")
+    msg = f"No model loader registered for URI scheme '{scheme}': {uri_str}"
+    raise ValueError(msg)

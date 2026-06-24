@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data import Dataset, LVISDataset, PerSegDataset
-from instantlearn.data.base import Batch
+from instantlearn.data.base import Batch, Category
 from instantlearn.data.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, Model
 from instantlearn.utils import setup_logger
@@ -94,7 +94,8 @@ def predict_on_category(
         # Run prediction
         if isinstance(model, SAM3):
             for sample in batch:
-                sample.categories = ["visual"]  # Obscure category name to prevent cheating for SAM3
+                # Obscure the category name to prevent cheating for SAM3.
+                sample.categories = [Category(id=0, label="visual")]
 
         predictions = model.predict(batch)
 

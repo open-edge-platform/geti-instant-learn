@@ -29,7 +29,7 @@ class SoftMatcher(Matcher):
     Examples:
         >>> from instantlearn.models import SoftMatcher
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> from instantlearn.types import Results
         >>> from torchvision import tv_tensors
         >>> import torch
@@ -46,9 +46,8 @@ class SoftMatcher(Matcher):
         >>> ref_sample = Sample(
         ...     image=ref_image,
         ...     masks=ref_mask.unsqueeze(0).numpy(),
-        ...     category_ids=np.array([1]),
         ...     is_reference=[True],
-        ...     categories=["object"],
+        ...     categories=[Category(1, "object")],
         ... )
         >>> ref_batch = Batch.collate([ref_sample])
         >>>
@@ -56,7 +55,7 @@ class SoftMatcher(Matcher):
         >>> target_sample = Sample(
         ...     image=target_image,
         ...     is_reference=[False],
-        ...     categories=["object"],
+        ...     categories=[Category(0, "object")],
         ... )
         >>> target_batch = Batch.collate([target_sample])
         >>>

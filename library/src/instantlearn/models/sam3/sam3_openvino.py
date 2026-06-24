@@ -161,7 +161,7 @@ class SAM3OpenVINO(Model):
     Examples:
         >>> from instantlearn.models.sam3 import SAM3OpenVINO, Sam3PromptMode
         >>> from instantlearn.models.sam3.sam3 import CanvasConfig
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> import numpy as np
 
         >>> # Auto-download default variant (INT8_SYM) — canvas mode
@@ -169,8 +169,7 @@ class SAM3OpenVINO(Model):
         >>> ref = Sample(
         ...     image_path="examples/assets/coco/000000286874.jpg",
         ...     bboxes=np.array([[180, 105, 490, 370]]),
-        ...     categories=["elephant"],
-        ...     category_ids=[0],
+        ...     categories=[Category(0, "elephant")],
         ... )
         >>> model.fit(ref)
         >>> results = model.predict(
@@ -183,9 +182,9 @@ class SAM3OpenVINO(Model):
         ...     prompt_mode=Sam3PromptMode.CLASSIC,
         ...     device="CPU",
         ... )
-        >>> model.fit(Sample(categories=["elephant"], category_ids=[0]))
+        >>> model.fit(Sample(categories=[Category(0, "elephant")]))
         >>> results = model.predict(
-        ...     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+        ...     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
         ... )
 
         >>> # Use a local model directory (no download)

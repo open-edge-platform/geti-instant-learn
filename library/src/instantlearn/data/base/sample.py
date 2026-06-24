@@ -10,7 +10,7 @@ through :func:`instantlearn.models.torch_adapter.sample_to_tensors`.
 
 from __future__ import annotations
 
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from instantlearn.data.utils.image import read_image
@@ -21,10 +21,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Category:
-    """A category that keeps its integer id and string label together.
+    """An instance category: an integer id paired with a string label.
 
-    Pairing id and label in one object removes the fragile "match two parallel
-    lists by index" pattern used previously (``categories`` + ``category_ids``).
     Frozen so it behaves as an immutable, hashable value object.
 
     Attributes:
@@ -45,10 +43,8 @@ class Sample:
     :func:`instantlearn.models.torch_adapter.sample_to_tensors`.
 
     If ``image`` is ``None`` but ``image_path`` is provided, the image is
-    loaded automatically on construction. ``categories`` accepts either
-    :class:`Category` objects or plain label strings (ids auto-assigned by
-    position). The legacy ``category_ids`` argument is still accepted and is
-    zipped with the labels into :class:`Category` objects.
+    loaded automatically on construction. ``categories`` must be a list of
+    :class:`Category` objects (id + label).
 
     Attributes:
         image: Input image as an ``(H, W, C)`` uint8 or float32 array.
@@ -63,13 +59,12 @@ class Sample:
         mask_paths: Optional per-instance source mask file paths.
 
     Example:
-        >>> sample = Sample(image=image, masks=masks, categories=["cat"])
+        >>> sample = Sample(image=image, masks=masks, categories=[Category(0, "cat")])
         >>> sample = Sample(image_path="image.jpg")
         >>> sample = Sample(
         ...     image_path="image.jpg",
         ...     masks=masks,
-        ...     categories=["cat", "dog"],
-        ...     category_ids=[0, 1],
+        ...     categories=[Category(0, "cat"), Category(1, "dog")],
         ... )
     """
 
@@ -87,34 +82,10 @@ class Sample:
     n_shot: list[int] | None = field(default_factory=lambda: [-1])
     mask_paths: list[str] | None = None
 
-    #: Legacy constructor-only alias. When given, ids are zipped with the
-    #: labels in ``categories`` to build :class:`Category` objects.
-    category_ids: InitVar[list[int] | np.ndarray | None] = None
-
-    def __setattr__(self, name: str, value: object) -> None:
-        """Normalise ``categories`` (strings -> :class:`Category`) on every set."""
-        if name == "categories" and value is not None:
-            value = self._normalize_categories(value)
-        super().__setattr__(name, value)
-
-    def __post_init__(self, category_ids: list[int] | np.ndarray | None) -> None:
-        """Auto-load image from path and merge legacy ``category_ids``."""
+    def __post_init__(self) -> None:
+        """Auto-load the image from ``image_path`` when ``image`` is unset."""
         if self.image is None and self.image_path is not None:
             self.image = read_image(self.image_path, as_tensor=False)
-
-        if category_ids is not None:
-            ids = category_ids.tolist() if hasattr(category_ids, "tolist") else list(category_ids)
-            # Apply ids positionally; labels without a matching id keep their
-            # auto-assigned id (no length validation — same as the legacy API).
-            self.categories = [
-                Category(id=int(ids[i]) if i < len(ids) else cat.id, label=cat.label)
-                for i, cat in enumerate(self.categories)
-            ]
-
-    @staticmethod
-    def _normalize_categories(categories: list) -> list[Category]:
-        """Coerce a list of ``Category`` or label strings into ``Category`` objects."""
-        return [c if isinstance(c, Category) else Category(id=i, label=str(c)) for i, c in enumerate(categories)]
 
     @property
     def category_labels(self) -> list[str]:
@@ -143,7 +114,7 @@ class Sample:
         Example:
             >>> sample = Sample(
             ...     image=img,
-            ...     categories=["cat", "dog", "cat"],
+            ...     categories=[Category(0, "cat"), Category(1, "dog"), Category(0, "cat")],
             ...     masks=masks_3hw,
             ... )
             >>> filtered = sample.filter_by_category("cat")

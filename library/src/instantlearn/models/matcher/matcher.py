@@ -148,7 +148,7 @@ class Matcher(Model):
     Examples:
         >>> from instantlearn.models import Matcher
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> import torch
         >>> import numpy as np
 
@@ -158,9 +158,8 @@ class Matcher(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     masks=torch.ones(30, 30, dtype=torch.bool).unsqueeze(0),
-        ...     category_ids=np.array([1]),
         ...     is_reference=[True],
-        ...     categories=["object"],
+        ...     categories=[Category(1, "object")],
         ... )
         >>> ref_batch = Batch.collate([ref_sample])
 
@@ -168,7 +167,7 @@ class Matcher(Model):
         >>> target_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     is_reference=[False],
-        ...     categories=["object"],
+        ...     categories=[Category(0, "object")],
         ... )
         >>> target_batch = Batch.collate([target_sample])
 

@@ -15,7 +15,7 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 
 def _make_mock_model() -> MagicMock:
@@ -210,7 +210,7 @@ class TestSAM3Classic:
         """Test fit() in classic mode stores category mapping."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe", "bag"], category_ids=[0, 1])
+        ref = Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")])
         model.fit(ref)
 
         assert model.category_mapping is not None
@@ -221,8 +221,8 @@ class TestSAM3Classic:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
         refs = [
-            Sample(categories=["shoe"], category_ids=[0]),
-            Sample(categories=["bag"], category_ids=[1]),
+            Sample(categories=[Category(id=0, label="shoe")]),
+            Sample(categories=[Category(id=1, label="bag")]),
         ]
         model.fit(refs)
 
@@ -232,7 +232,7 @@ class TestSAM3Classic:
         """Test predict() in classic mode returns expected keys and shapes."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
         target = Sample(image=torch.zeros(3, 224, 224))
@@ -249,7 +249,7 @@ class TestSAM3Classic:
         """Test that masks match target image spatial dims."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
         target = Sample(image=torch.zeros(3, 224, 224))
@@ -263,7 +263,7 @@ class TestSAM3Classic:
         """Test predict() with multiple target images."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
         targets = [
@@ -285,8 +285,7 @@ class TestSAM3Classic:
         target = Sample(
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=[0],
+            categories=[Category(id=0, label="shoe")],
         )
         predictions = model.predict(target)
 
@@ -309,8 +308,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -328,8 +326,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             points=np.array([[100, 100]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -342,8 +339,7 @@ class TestSAM3VisualExemplar:
 
         ref = Sample(
             image=torch.zeros(3, 224, 224),
-            categories=["shoe"],
-            category_ids=[0],
+            categories=[Category(id=0, label="shoe")],
         )
 
         with pytest.raises(ValueError, match="bboxes or points"):
@@ -355,8 +351,7 @@ class TestSAM3VisualExemplar:
 
         ref = Sample(
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
 
         with pytest.raises(ValueError, match="images"):
@@ -369,8 +364,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -385,14 +379,12 @@ class TestSAM3VisualExemplar:
             Sample(
                 image=torch.zeros(3, 224, 224),
                 bboxes=np.array([[10, 10, 50, 50]]),
-                categories=["shoe"],
-                category_ids=np.array([0]),
+                categories=[Category(id=0, label="shoe")],
             ),
             Sample(
                 image=torch.zeros(3, 224, 224),
                 bboxes=np.array([[60, 60, 100, 100]]),
-                categories=["bag"],
-                category_ids=np.array([1]),
+                categories=[Category(id=1, label="bag")],
             ),
         ]
         model.fit(refs)
@@ -407,8 +399,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -437,8 +428,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -462,8 +452,8 @@ class TestSAM3Utilities:
     def test_build_category_mapping(self) -> None:
         """Test _build_category_mapping builds correct mapping."""
         samples = [
-            Sample(categories=["shoe", "bag"], category_ids=[0, 1]),
-            Sample(categories=["hat"], category_ids=[2]),
+            Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")]),
+            Sample(categories=[Category(id=2, label="hat")]),
         ]
         batch = Batch.collate(samples)
 
@@ -474,8 +464,8 @@ class TestSAM3Utilities:
     def test_build_category_mapping_no_duplicates(self) -> None:
         """Test _build_category_mapping keeps first occurrence."""
         samples = [
-            Sample(categories=["shoe"], category_ids=[0]),
-            Sample(categories=["shoe"], category_ids=[5]),
+            Sample(categories=[Category(id=0, label="shoe")]),
+            Sample(categories=[Category(id=5, label="shoe")]),
         ]
         batch = Batch.collate(samples)
 

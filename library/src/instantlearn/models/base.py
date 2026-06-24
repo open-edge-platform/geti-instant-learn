@@ -29,7 +29,7 @@ class Model(ABC):
 
     Example:
         >>> model = SAM3()
-        >>> model.fit(Sample(image=ref_img, masks=ref_masks, categories=["cat"]))
+        >>> model.fit(Sample(image=ref_img, masks=ref_masks, categories=[Category(0, "cat")]))
         >>> preds = model.predict([Sample(image=img1), Sample(image=img2)])
     """
 

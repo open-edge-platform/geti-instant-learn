@@ -3,11 +3,10 @@
 
 """Base classes for datasets.
 
-The backend-neutral contract (``Batch``, ``Category``, ``Collatable``,
-``Prediction``, ``Sample``) is imported eagerly — these modules import zero
-torch. ``Dataset`` subclasses ``torch.utils.data.Dataset`` and yields
-``torch.Tensor`` images, so it is loaded lazily via :pep:`562`; importing the
-contract therefore never requires torch.
+The backend-neutral contract (``Batch``, ``Category``, ``Collatable``, ``Prediction``, ``Sample``)
+is imported eagerly — these modules don't import torch.
+``Dataset`` subclasses ``torch.utils.data.Dataset`` and yields ``torch.Tensor`` images, so it is loaded lazily
+via :pep:`562`; importing the contract therefore never requires torch.
 """
 
 import importlib
@@ -20,22 +19,15 @@ from .sample import Category, Sample
 if TYPE_CHECKING:
     from .base import Dataset
 
-#: Maps each torch-bound public name to the submodule that defines it. Kept
-#: out of the eager imports above so the contract stays torch-free.
+# Maps each torch-bound public name to the submodule that defines it. Kept
+# out of the eager imports above so the contract stays torch-free.
 _LAZY_MEMBERS = {"Dataset": ".base"}
 
-__all__ = [
-    "Batch",
-    "Category",
-    "Collatable",
-    "Dataset",
-    "Prediction",
-    "Sample",
-]
+__all__ = ["Batch", "Category", "Collatable", "Dataset", "Prediction", "Sample"]
 
 
 def __getattr__(name: str) -> object:
-    """Lazily import torch-bound members on first access (see :pep:`562`).
+    """Lazily import torch-bound members on first access.
 
     Raises:
         AttributeError: If *name* is not a public member of this package.

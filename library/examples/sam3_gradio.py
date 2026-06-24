@@ -170,15 +170,14 @@ def run_text_prompt(
     model.prompt_mode = Sam3PromptMode.CLASSIC
     model.postprocessor.threshold = det_threshold
 
-    categories = [c.strip() for c in text_prompt.split(",") if c.strip()]
-    if not categories:
+    labels = [c.strip() for c in text_prompt.split(",") if c.strip()]
+    if not labels:
         return tgt_rgb, "No text categories provided."
 
     tgt_tensor = numpy_rgb_to_tensor(tgt_rgb)
     sample = Sample(
         image=tgt_tensor,
-        categories=categories,
-        category_ids=list(range(len(categories))),
+        categories=[Category(id=i, label=label) for i, label in enumerate(labels)],
     )
 
     t1 = perf_counter()
@@ -195,7 +194,7 @@ def run_text_prompt(
         scores = pred["pred_boxes"][:, 4].cpu().numpy()
         info = (
             f"Detections: {num_det} | Scores: [{100 * scores.min():.0f}, {100 * scores.max():.0f}] | "
-            f"Time: {ms} ms | Text: {categories}"
+            f"Time: {ms} ms | Text: {labels}"
         )
     else:
         info = f"No detections above threshold ({det_threshold:.2f}) | Time: {ms} ms"

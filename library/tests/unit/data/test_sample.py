@@ -45,8 +45,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat"],
-            category_ids=np.array([0], dtype=np.int32),
+            categories=[Category(0, "cat")],
             mask_paths=["mask.png"],
             is_reference=[True],
             n_shot=[0],
@@ -75,8 +74,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["person", "car", "dog"],
-            category_ids=np.array([0, 1, 2], dtype=np.int32),
+            categories=[Category(0, "person"), Category(1, "car"), Category(2, "dog")],
             mask_paths=["mask1.png", "mask2.png", "mask3.png"],
             is_reference=[True, False, True],
             n_shot=[0, -1, 1],
@@ -105,8 +103,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat", "dog"],
-            category_ids=torch.tensor([0, 1], dtype=torch.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -142,8 +139,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             bboxes=bboxes,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, True],
             n_shot=[0, 0],
         )
@@ -165,8 +161,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             points=points,
-            categories=["person", "person"],
-            category_ids=np.array([2, 2], dtype=np.int32),
+            categories=[Category(2, "person"), Category(2, "person")],
             is_reference=[False, False],
             n_shot=[-1, -1],
         )
@@ -192,8 +187,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -212,7 +206,6 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             categories=[],
-            category_ids=np.array([], dtype=np.int32),
             is_reference=[],
             n_shot=[],
         )
@@ -231,15 +224,13 @@ class TestSample:
         sample = Sample(
             image=image,
             image_path="test.jpg",
-            categories=["cat", "dog"],  # 2 categories
-            category_ids=np.array([0], dtype=np.int32),  # 1 category_id
+            categories=[Category(0, "cat"), Category(1, "dog")],  # 2 categories
             is_reference=[True, False],  # 2 flags
             n_shot=[0],  # 1 shot
         )
 
         # Sample creation should succeed - validation happens elsewhere
         assert sample.category_labels == ["cat", "dog"]
-        # Only one id supplied for two labels: the second keeps its auto-assigned id.
         assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, False]
         assert sample.n_shot == [0]
@@ -280,8 +271,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             masks=masks,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -299,8 +289,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             bboxes=bboxes,
-            categories=["cat"],
-            category_ids=np.array([0], dtype=np.int32),
+            categories=[Category(0, "cat")],
             is_reference=[True],
             n_shot=[0],
         )
@@ -320,8 +309,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             points=points,
-            categories=["person", "person"],
-            category_ids=np.array([0, 0], dtype=np.int32),
+            categories=[Category(0, "person"), Category(0, "person")],
             is_reference=[False, False],
             n_shot=[-1, -1],
         )

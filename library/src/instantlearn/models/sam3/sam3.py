@@ -149,13 +149,13 @@ class SAM3(Model):
         >>> from instantlearn.models import SAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> import torch
         >>> import numpy as np
 
         >>> # Classic mode (default)
         >>> sam3 = SAM3()
-        >>> ref_sample = Sample(categories=["shoe", "person"], category_ids=[0, 1])
+        >>> ref_sample = Sample(categories=[Category(0, "shoe"), Category(1, "person")])
         >>> sam3.fit(ref_sample)
         >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
 
@@ -164,7 +164,7 @@ class SAM3(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x1, y1, x2, y2] on reference
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_ve.fit(ref_sample)
         >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
@@ -174,7 +174,7 @@ class SAM3(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     points=np.array([[150, 150]]),  # [x, y] on reference
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_pt.fit(ref_sample)
         >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
@@ -184,8 +184,7 @@ class SAM3(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     points=np.array([[100, 100], [200, 300], [400, 500]]),  # 3 shots
-        ...     categories=["shoe", "shoe", "shoe"],
-        ...     category_ids=np.array([0, 0, 0]),  # same category
+        ...     categories=[Category(0, "shoe"), Category(0, "shoe"), Category(0, "shoe")],  # same category
         ... )
         >>> sam3_nshot.fit(ref_sample)  # encodes 3 points together
         >>> results = sam3_nshot.predict(Sample(image=torch.zeros((3, 1024, 1024))))
@@ -196,14 +195,12 @@ class SAM3(Model):
         ...     Sample(
         ...         image=torch.zeros((3, 1024, 1024)),
         ...         points=np.array([[100, 100]]),
-        ...         categories=["shoe"],
-        ...         category_ids=np.array([0]),
+        ...         categories=[Category(0, "shoe")],
         ...     ),
         ...     Sample(
         ...         image=torch.zeros((3, 1024, 1024)),
         ...         points=np.array([[200, 200]]),
-        ...         categories=["shoe"],
-        ...         category_ids=np.array([0]),  # same category, different image
+        ...         categories=[Category(0, "shoe")],  # same category, different image
         ...     ),
         ... ]
         >>> sam3_cross.fit(refs)  # features concatenated across images
@@ -218,8 +215,7 @@ class SAM3(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     bboxes=np.array([[100, 100, 200, 200]]),
-        ...     categories=["shoe"], # Optional, if not provided, then just the bounding box features are used.
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "shoe")],  # Optional, if omitted only the bounding box features are used.
         ... )
         >>> sam3_canvas.fit(ref_sample)
         >>> results = sam3_canvas.predict(Sample(image=torch.zeros((3, 1024, 1024))))
