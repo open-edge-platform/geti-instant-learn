@@ -4,7 +4,7 @@
  */
 
 import { type DeviceInfoType } from '@/api';
-import { ModelLoadingDialog } from '@/features/model-handling/model-loading';
+import { ModelLoadingDialog } from '@/features/model-handling/model-loading/model-loading-dialog.component';
 import { queryClient } from '@/query-client';
 import { render } from '@/test-utils';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
