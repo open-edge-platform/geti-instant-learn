@@ -70,7 +70,7 @@ def is_huggingface_auth_error(exc: Exception) -> bool:
     return _exception_chain_contains(exc, _HF_AUTH_ERROR_MARKERS)
 
 
-def build_model_load_error(exc: Exception) -> tuple[ModelStatusErrorType, str]:
+def model_load_error(exc: Exception) -> tuple[ModelStatusErrorType, str]:
     """Classify a model-load failure and return the corresponding user-facing status payload."""
     if is_huggingface_access_error(exc):
         return ModelStatusErrorType.ACCESS_REQUIRED, _HF_ACCESS_ERROR_MESSAGE

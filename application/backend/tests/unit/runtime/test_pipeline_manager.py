@@ -136,30 +136,42 @@ class TestPipelineManager:
             pipeline_cls.assert_not_called()
             assert mgr._pipeline is None
             assert dispatcher._listeners == [mgr.on_config_change]
+            assert mgr.get_model_status().status is None
 
     def test_start_with_active_project_stores_error_and_keeps_running(
         self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
     ):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameBroadcaster"),
+            patch("runtime.pipeline_manager.FrameRepository"),
             patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls,
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
             svc_inst.get_pipeline_config.return_value = pipeline_cfg
             batch_svc_cls.return_value.build.return_value = None
-            mock_component_factory.create_processor.side_effect = RuntimeError("boom")
+            # First call raises; second call is the passthrough fallback with reference_batch=None
+            mock_component_factory.create_processor.side_effect = [RuntimeError("boom"), Mock()]
+
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
-
             mgr.start()
 
             status = mgr.get_model_status()
-            assert mgr._pipeline is None
+            assert mgr._pipeline is not None  # pipeline started with passthrough processor
             assert status.status == ModelStatus.ERROR
             assert status.error_type == ModelStatusErrorType.LOAD_FAILED
             assert status.error_message is not None
             assert dispatcher._listeners == [mgr.on_config_change]
+            # Passthrough called with reference_batch=None
+            mock_component_factory.create_processor.assert_called_with(pipeline_cfg, None)
 
     def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
@@ -391,11 +403,11 @@ class TestPipelineManager:
 class TestPipelineManagerModelLoadingFlag:
     """Tests for the processor load status tracked around processor (re)builds."""
 
-    def test_status_defaults_to_ready(self, dispatcher, session_factory):
+    def test_status_defaults_to_initializing(self, dispatcher, session_factory):
         mgr = PipelineManager(dispatcher, session_factory, component_factory=Mock())
         assert mgr.is_model_loading() is False
         status = mgr.get_model_status()
-        assert status.status == ModelStatus.READY
+        assert status.status is None
         assert status.error_type is None
         assert status.error_message is None
 

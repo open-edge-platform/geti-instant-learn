@@ -437,17 +437,24 @@ class TestImageFolderReaderMissingFiles:
         with pytest.raises(ValueError, match="Image file no longer accessible"):
             reader.read()
 
-    def test_seek_raises_when_target_file_is_deleted(self, reader, temp_image_folder):
+    def test_read_raises_after_seek_when_target_file_is_deleted(self, reader, temp_image_folder):
         reader.connect()
         reader._image_paths[2].unlink()
+        reader.seek(2)
         with pytest.raises(ValueError, match="Image file no longer accessible"):
-            reader.seek(2)
+            reader.read()
 
     def test_list_frames_raises_when_folder_is_deleted(self, reader, temp_image_folder):
         reader.connect()
         shutil.rmtree(str(temp_image_folder))
         with pytest.raises(ValueError, match="Images folder no longer accessible"):
             reader.list_frames()
+
+    def test_list_frames_raises_when_cached_file_is_deleted(self, reader):
+        reader.connect()
+        reader._image_paths[0].unlink()
+        with pytest.raises(ValueError, match="Image file no longer accessible"):
+            reader.list_frames(offset=0, limit=1)
 
     def test_list_frames_raises_immediately_when_folder_never_existed(self):
         """On restart with a missing directory, list_frames should fail fast without waiting."""

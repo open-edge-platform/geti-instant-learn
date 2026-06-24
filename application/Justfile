@@ -24,11 +24,10 @@ coturn-port := "443"
 # Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
 docker-build-context := ""
-build-target := "cpu"  # options: cpu, cuda, xpu
 component-name := "instant-learn"
 container-registry := 'localhost:5000/open-edge-platform'
 version := "latest"
-image-name := container-registry / component-name / build-target + ":" + version
+image-name := container-registry / component-name / device + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets"
 
@@ -68,7 +67,7 @@ build-image: (download-datasets source-dataset-dir)
         --build-arg DEVICE={{ device }} \
         --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
-        --target {{ build-target }}
+        --target {{ device }}
 
 # To persist the database, add this to `docker run` args:
 # `--volume "{{ component-name }}-data":/instant_learn/data \`
@@ -109,7 +108,7 @@ run-image: build-image
       fi
     fi
 
-    echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    echo "Running docker image for component: {{ component-name }} with device: {{ device }}"
     echo "Proxy args: {{ docker-run-args }}"
     docker run --rm \
         {{ docker-run-args }} \
@@ -155,7 +154,7 @@ show-size:
 # test Geti Instant Learn docker image using bash script
 test-image:
     #!/usr/bin/env bash
-    echo "Testing docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    echo "Testing docker image for component: {{ component-name }} with device: {{ device }}"
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from domain.services.schemas.model_status import ModelStatusErrorType
-from runtime.services.model_load_error import build_model_load_error
+from runtime.services.model_load_error import model_load_error
 
 
 def test_wrapped_huggingface_auth_failure_is_classified_as_auth_required():
@@ -11,7 +11,7 @@ def test_wrapped_huggingface_auth_failure_is_classified_as_auth_required():
         "https://huggingface.co/facebook/sam3.1. Please log in."
     )
 
-    error_type, error_message = build_model_load_error(exc)
+    error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
     assert "hf auth login" in error_message
@@ -24,7 +24,7 @@ def test_wrapped_huggingface_access_failure_is_classified_as_access_required():
         "Visit https://huggingface.co/facebook/sam3.1 to ask for access."
     )
 
-    error_type, error_message = build_model_load_error(exc)
+    error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert "request access" in error_message.lower()
@@ -42,7 +42,7 @@ def test_huggingface_value_error_access_failure_is_classified_as_access_required
         "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token"
     )
 
-    error_type, error_message = build_model_load_error(exc)
+    error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert "request access" in error_message.lower()
@@ -52,7 +52,7 @@ def test_huggingface_value_error_access_failure_is_classified_as_access_required
 def test_mixed_access_and_auth_wording_is_classified_as_access_required():
     exc = OSError("Access to model foo is restricted. You must have access to it and be authenticated to access it.")
 
-    error_type, error_message = build_model_load_error(exc)
+    error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert "request access" in error_message.lower()
@@ -60,7 +60,7 @@ def test_mixed_access_and_auth_wording_is_classified_as_access_required():
 
 
 def test_unknown_failure_is_classified_as_load_failed():
-    error_type, error_message = build_model_load_error(RuntimeError("boom"))
+    error_type, error_message = model_load_error(RuntimeError("boom"))
 
     assert error_type == ModelStatusErrorType.LOAD_FAILED
     assert "backend logs" in error_message.lower()
