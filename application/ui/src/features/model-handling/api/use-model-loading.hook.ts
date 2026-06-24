@@ -5,7 +5,7 @@
 
 import { $api } from '@/api';
 import { useProjectIdentifier } from '@/hooks';
-import type { QueryClient } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 const POLL_MS = 1_000;
 
@@ -13,7 +13,7 @@ const POLL_MS = 1_000;
  * Build the query options for the model-status endpoint.
  * Used to derive the query key and for optimistic cache updates.
  */
-const modelStatusOptions = (projectId: string) =>
+const modelStatusQueryOptions = (projectId: string) =>
     $api.queryOptions('get', '/api/v1/projects/{project_id}/model-status', {
         params: { path: { project_id: projectId } },
     });
@@ -27,7 +27,7 @@ const modelStatusOptions = (projectId: string) =>
  * triggers a model reload (prompt CRUD, model update, etc.).
  */
 export const setModelLoading = (queryClient: QueryClient, projectId: string): void => {
-    const { queryKey } = modelStatusOptions(projectId);
+    const { queryKey } = modelStatusQueryOptions(projectId);
     queryClient.setQueryData(queryKey, { status: 'loading' });
 };
 
@@ -38,18 +38,20 @@ export const setModelLoading = (queryClient: QueryClient, projectId: string): vo
  *   - Idle (`status` is not `loading`): no polling.
  *   - Active loading (`status` is `loading`): poll every POLL_MS.
  */
+
+export const useModelStatus = () => {
+    const { projectId } = useProjectIdentifier();
+
+    return useQuery(modelStatusQueryOptions(projectId));
+};
+
 export const useModelLoading = (): boolean => {
     const { projectId } = useProjectIdentifier();
 
-    const { data } = $api.useQuery(
-        'get',
-        '/api/v1/projects/{project_id}/model-status',
-        { params: { path: { project_id: projectId } } },
-        {
-            refetchInterval: (query) => (query.state.data?.status === 'loading' ? POLL_MS : false),
-            refetchIntervalInBackground: false,
-        }
-    );
+    const { data } = useQuery({
+        ...modelStatusQueryOptions(projectId),
+        refetchInterval: (query) => (query.state.data?.status === 'loading' ? POLL_MS : false),
+    });
 
     return data?.status === 'loading';
 };

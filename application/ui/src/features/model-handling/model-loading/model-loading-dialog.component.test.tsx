@@ -7,7 +7,7 @@ import { renderHook } from '@/test-utils';
 import { act, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
-import { http, server } from '../../setup-test';
+import { http, server } from '../../../setup-test';
 import { useShowModelLoadingDialog } from './model-loading-dialog.component';
 
 describe('useShowModelLoadingDialog', () => {
