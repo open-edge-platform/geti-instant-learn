@@ -97,7 +97,7 @@ class TestCOCODatasetMock:
         sample = mock_coco_dataset[0]
         assert isinstance(sample, Sample)
         assert len(sample.categories) == 1
-        assert sample.categories == ["cat"]
+        assert sample.category_labels == ["cat"]
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1
 
@@ -130,7 +130,7 @@ class TestCOCODatasetMock:
 
         for i in range(len(mock_coco_dataset)):
             sample = mock_coco_dataset[i]
-            assert len(sample.categories) == len(sample.category_ids)
+            assert len(sample.categories) == len(sample.label_ids)
             assert len(sample.categories) == len(sample.is_reference)
             assert len(sample.categories) == len(sample.n_shot)
 
