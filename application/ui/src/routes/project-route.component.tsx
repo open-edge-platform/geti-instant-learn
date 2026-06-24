@@ -14,7 +14,7 @@ import { MainContent } from '../components/main-content/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar/toolbar.component';
 import { paths } from '../constants/paths';
-import { ModelLoadingDialog } from '../features/model-loading';
+import { ModelLoadingDialog } from '../features/model-handling/model-loading/model-loading-dialog.component';
 import { useActivateProject } from '../features/project/api/use-activate-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
