@@ -23,6 +23,8 @@ import { useSpinDelay } from 'spin-delay';
 import { useModelLoading, useModelStatus } from '../api/use-model-loading.hook';
 import { useReloadProjectPipeline } from '../api/use-reload-project-pipleline.hook';
 
+import classes from './model-loading-dialog.module.scss';
+
 /**
  * Returns whether the blocking dialog is currently visible.
  *
@@ -68,13 +70,7 @@ const ModelLoadingError = () => {
                     <Heading level={3}>Model loading error</Heading>
                     <Divider />
                     <Content>
-                        <Text
-                            UNSAFE_style={{
-                                color: 'var(--spectrum-global-color-gray-700)',
-                            }}
-                        >
-                            {data?.error_message}
-                        </Text>
+                        <Text UNSAFE_className={classes.errorMessage}>{data?.error_message}</Text>
                     </Content>
                     <ButtonGroup>
                         <Button onPress={handleRetry}>Retry</Button>
