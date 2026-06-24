@@ -71,10 +71,19 @@ class TestGetModelStatusEndpoint:
         assert response.json() == {"status": "loading", "error_type": None, "error_message": None}
 
     def test_returns_error_status_when_last_model_load_failed(self, client, project_id, mock_pipeline_manager):
+        error_message = (
+            "User does not have access to the weights of the DinoV3 model.\n"
+            "Please follow these steps:\n"
+            "1. Request access on the HuggingFace website: "
+            "https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m\n"
+            "2. Set your HuggingFace credentials using one of these methods:\n"
+            "   - Run: hf auth login\n"
+            "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token"
+        )
         mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(
             status=ModelStatus.ERROR,
-            error_type=ModelStatusErrorType.AUTH_REQUIRED,
-            error_message="Login required",
+            error_type=ModelStatusErrorType.ACCESS_REQUIRED,
+            error_message=error_message,
         )
 
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
@@ -82,8 +91,8 @@ class TestGetModelStatusEndpoint:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {
             "status": "error",
-            "error_type": "auth_required",
-            "error_message": "Login required",
+            "error_type": "access_required",
+            "error_message": error_message,
         }
 
     def test_returns_404_when_project_not_found(self, client, project_id, mock_project_service):
