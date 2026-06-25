@@ -16,6 +16,7 @@ dependencies = [
     "numpy~=2.2.6",
     "opencv-python-headless~=4.13.0",
     "aiortc~=1.14.0",
+    "psutil~=7.2.2",
     "pydantic-extra-types~=2.10.6",
     "cv2-enumerate-cameras>=1.2.2,<1.3",
 ]
