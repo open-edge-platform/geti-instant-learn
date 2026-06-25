@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+import time
 from queue import Empty, Queue
 
 import numpy as np
@@ -9,6 +10,7 @@ import numpy as np
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,18 @@ class Processor(PipelineComponent):
         self._batch_size = batch_size
         self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
         self._initialized = False
+        settings = get_settings()
+        self._stats_enabled = settings.enable_cpu_monitoring
+        self._stats_interval_secs = settings.cpu_monitoring_interval_secs
+        self._stats_started_at_s = time.perf_counter()
+        self._stats_empty_poll_count = 0
+        self._stats_input_frame_count = 0
+        self._stats_skipped_frame_count = 0
+        self._stats_batch_count = 0
+        self._stats_output_frame_count = 0
+        self._stats_error_count = 0
+        self._stats_batch_wall_time_s = 0.0
+        self._stats_batch_cpu_time_s = 0.0
 
     def setup(
         self,
@@ -114,10 +128,18 @@ class Processor(PipelineComponent):
                     continue
 
                 if isinstance(batch_data, ErrorData):
+                    self._record_processor_error()
                     self._outbound_broadcaster.broadcast(batch_data)
                     continue
 
+                batch_wall_started_at_s = time.perf_counter()
+                batch_cpu_started_at_s = time.thread_time()
                 self._process_batch(batch_data)
+                self._record_processor_batch(
+                    batch_size=len(batch_data),
+                    wall_time_s=time.perf_counter() - batch_wall_started_at_s,
+                    cpu_time_s=time.thread_time() - batch_cpu_started_at_s,
+                )
 
             except Exception as e:
                 logger.exception("Error in pipeline runner loop: %s", e)
@@ -137,6 +159,7 @@ class Processor(PipelineComponent):
         try:
             initial_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
         except Empty:
+            self._record_processor_empty_poll()
             return []
 
         if isinstance(initial_data, ErrorData):
@@ -157,8 +180,10 @@ class Processor(PipelineComponent):
                 input_data.trace.record_start("processor")
 
             is_manual = input_data.context.get("requires_manual_control", False)
+            self._record_processor_input_frame()
 
             if not is_manual and self._skip_policy.should_skip():
+                self._record_processor_skipped_frame()
                 continue
 
             batch_data.append(input_data)
@@ -182,6 +207,77 @@ class Processor(PipelineComponent):
                 data.trace.record_end("processor")
             output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
             self._outbound_broadcaster.broadcast(output_data)
+
+    def _record_processor_empty_poll(self) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats_empty_poll_count += 1
+        self._log_processor_stats_if_needed()
+
+    def _record_processor_input_frame(self) -> None:
+        if self._stats_enabled:
+            self._stats_input_frame_count += 1
+
+    def _record_processor_skipped_frame(self) -> None:
+        if self._stats_enabled:
+            self._stats_skipped_frame_count += 1
+
+    def _record_processor_error(self) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats_error_count += 1
+        self._log_processor_stats_if_needed()
+
+    def _record_processor_batch(self, batch_size: int, wall_time_s: float, cpu_time_s: float) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats_batch_count += 1
+        self._stats_output_frame_count += batch_size
+        self._stats_batch_wall_time_s += wall_time_s
+        self._stats_batch_cpu_time_s += cpu_time_s
+        self._log_processor_stats_if_needed()
+
+    def _log_processor_stats_if_needed(self) -> None:
+        now_s = time.perf_counter()
+        elapsed_s = now_s - self._stats_started_at_s
+        if elapsed_s < self._stats_interval_secs:
+            return
+
+        batch_rate = self._stats_batch_count / elapsed_s if elapsed_s > 0 else 0.0
+        output_rate = self._stats_output_frame_count / elapsed_s if elapsed_s > 0 else 0.0
+        avg_batch_wall_ms = (
+            (self._stats_batch_wall_time_s / self._stats_batch_count) * 1000 if self._stats_batch_count else 0.0
+        )
+        avg_batch_cpu_ms = (
+            (self._stats_batch_cpu_time_s / self._stats_batch_count) * 1000 if self._stats_batch_count else 0.0
+        )
+        logger.info(
+            "processor_stats interval_secs=%.1f batches=%d batch_rate=%.1f input_frames=%d skipped_frames=%d "
+            "output_frames=%d output_rate=%.1f empty_polls=%d errors=%d avg_batch_wall_ms=%.3f avg_batch_cpu_ms=%.3f",
+            elapsed_s,
+            self._stats_batch_count,
+            batch_rate,
+            self._stats_input_frame_count,
+            self._stats_skipped_frame_count,
+            self._stats_output_frame_count,
+            output_rate,
+            self._stats_empty_poll_count,
+            self._stats_error_count,
+            avg_batch_wall_ms,
+            avg_batch_cpu_ms,
+        )
+        self._reset_processor_stats(now_s)
+
+    def _reset_processor_stats(self, started_at_s: float) -> None:
+        self._stats_started_at_s = started_at_s
+        self._stats_empty_poll_count = 0
+        self._stats_input_frame_count = 0
+        self._stats_skipped_frame_count = 0
+        self._stats_batch_count = 0
+        self._stats_output_frame_count = 0
+        self._stats_error_count = 0
+        self._stats_batch_wall_time_s = 0.0
+        self._stats_batch_cpu_time_s = 0.0
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)
