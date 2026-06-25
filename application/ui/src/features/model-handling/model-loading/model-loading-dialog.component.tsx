@@ -21,9 +21,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSpinDelay } from 'spin-delay';
 
 import { useModelLoading, useModelStatus } from '../api/use-model-loading.hook';
-import { useReloadProjectPipeline } from '../api/use-reload-project-pipleline.hook';
+import { useReloadProjectPipeline } from '../api/use-reload-project-pipeline.hook';
 
 import classes from './model-loading-dialog.module.scss';
+
+const SPIN_DELAY_MS = 300;
+const SPIN_MIN_DURATION_MS = 500;
 
 /**
  * Returns whether the blocking dialog is currently visible.
@@ -34,7 +37,7 @@ import classes from './model-loading-dialog.module.scss';
  */
 export const useShowModelLoadingDialog = (): boolean => {
     const loading = useModelLoading();
-    return useSpinDelay(loading, { delay: 300, minDuration: 500 });
+    return useSpinDelay(loading, { delay: SPIN_DELAY_MS, minDuration: SPIN_MIN_DURATION_MS });
 };
 
 const ModelLoadingError = () => {
