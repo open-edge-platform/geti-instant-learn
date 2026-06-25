@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     enable_cpu_monitoring: bool = Field(default=True, alias="ENABLE_CPU_MONITORING")
     cpu_monitoring_interval_secs: int = Field(default=5, ge=1, le=300, alias="CPU_MONITORING_INTERVAL_SECS")
 
+    # WebRTC stream pacing
+    webrtc_idle_frame_fps: float = Field(default=2.0, gt=0.0, le=30.0, alias="WEBRTC_IDLE_FRAME_FPS")
+
     # Server
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")

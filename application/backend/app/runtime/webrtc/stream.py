@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 import textwrap
 import time
@@ -20,6 +21,7 @@ from settings import get_settings
 logger = logging.getLogger(__name__)
 
 FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
+IDLE_FRAME_POLL_INTERVAL_S = 0.02
 
 
 def create_error_frame(error_data: ErrorData, width: int = 1280, height: int = 720) -> np.ndarray:
@@ -95,6 +97,8 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         settings = get_settings()
         self._stats_enabled = settings.enable_cpu_monitoring
         self._stats_interval_secs = settings.cpu_monitoring_interval_secs
+        self._idle_frame_period_s = 1.0 / settings.webrtc_idle_frame_fps
+        self._last_idle_frame_sent_at_s: float | None = None
         self._stats_started_at_s = time.perf_counter()
         self._recv_count = 0
         self._new_frame_count = 0
@@ -119,10 +123,9 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         cpu_started_at_s = time.thread_time()
         frame_kind = "fallback"
 
+        output_data = await self._wait_for_fresh_output_or_idle_frame_deadline()
         pts, time_base = await self.next_timestamp()
 
-        # Check for error state first
-        output_data = self._slot.latest
         if isinstance(output_data, ErrorData):
             frame_kind = "error"
             np_frame = create_error_frame(output_data)
@@ -153,12 +156,35 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
+        if frame_kind != "new":
+            self._last_idle_frame_sent_at_s = time.perf_counter()
         self._record_recv_stats(
             frame_kind=frame_kind,
             wall_time_s=time.perf_counter() - wall_started_at_s,
             cpu_time_s=time.thread_time() - cpu_started_at_s,
         )
         return frame
+
+    async def _wait_for_fresh_output_or_idle_frame_deadline(self) -> OutputData | ErrorData | None:
+        output_data = self._slot.latest
+        if self._is_fresh_output(output_data) or self._last_idle_frame_sent_at_s is None:
+            return output_data
+
+        deadline_s = self._last_idle_frame_sent_at_s + self._idle_frame_period_s
+        while True:
+            wait_s = deadline_s - time.perf_counter()
+            if wait_s <= 0:
+                return self._slot.latest
+
+            await asyncio.sleep(min(wait_s, IDLE_FRAME_POLL_INTERVAL_S))
+            output_data = self._slot.latest
+            if self._is_fresh_output(output_data):
+                return output_data
+
+    def _is_fresh_output(self, output_data: OutputData | ErrorData | None) -> bool:
+        return (
+            output_data is not None and not isinstance(output_data, ErrorData) and output_data is not self._last_output
+        )
 
     def _record_recv_stats(self, frame_kind: str, wall_time_s: float, cpu_time_s: float) -> None:
         if not self._stats_enabled:
