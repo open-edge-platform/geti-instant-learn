@@ -52,8 +52,8 @@ def test_contract_imports_without_torch() -> None:
     ``instantlearn.data.base`` path so the real import machinery — including
     the ``instantlearn.data`` and ``instantlearn.data.base`` package
     ``__init__`` files — is exercised under the no-torch constraint.
-    Torch-bound members such as ``Dataset`` are loaded lazily and are not
-    touched here.
+    Torch-bound members such as ``Dataset`` live in the separate
+    ``instantlearn.data.torch`` package and are not imported here.
     """
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-c", _GUARD_SCRIPT],

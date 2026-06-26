@@ -16,8 +16,8 @@ class Prediction:
     """Numpy-based prediction container returned by Model.predict().
 
     PyTorch-backed models convert their tensor outputs via
-    TorchModel._to_prediction() before returning; OpenVINO-backed models
-    construct Prediction directly from their numpy outputs. Both paths
+    torch_adapter.tensors_to_prediction() before returning; OpenVINO-backed
+    models construct Prediction directly from their numpy outputs. Both paths
     produce identically shaped, dtype-normalized instances.
     Not frozen — a post-processor pipeline may mutate masks and scores
     in-place to avoid extra memory allocations during processing.

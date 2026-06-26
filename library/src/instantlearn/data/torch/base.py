@@ -18,7 +18,7 @@ from torch.utils.data import Dataset as TorchDataset
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Category, Sample
-from instantlearn.data.utils.image import read_image
+from instantlearn.data.torch.image import read_image
 
 
 class Dataset(TorchDataset, ABC):
@@ -154,8 +154,8 @@ class Dataset(TorchDataset, ABC):
             raise IndexError(msg) from e
 
         # Load image (once per sample!)
-        # Returns HWC format for model preprocessors (HuggingFace, SAM)
-        image = read_image(raw_sample["image_path"], as_tensor=True)  # torch.Tensor, (C, H, W)
+        # Returns CHW tensor for model preprocessors (HuggingFace, SAM)
+        image = read_image(raw_sample["image_path"])  # torch.Tensor, (C, H, W)
 
         # Load masks using dataset-specific implementation
         masks = self._load_masks(raw_sample)  # (N, H, W) or None

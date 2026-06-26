@@ -10,7 +10,7 @@ from torch import nn
 from torchvision import transforms
 
 from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
-from instantlearn.data.transforms import ToTensor
+from instantlearn.data.torch.transforms import ToTensor
 
 
 class MaskedFeatureExtractor(nn.Module):

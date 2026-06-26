@@ -16,7 +16,7 @@ from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data.base import Batch
 from instantlearn.data.base.sample import Category, Sample
-from instantlearn.data.folder import FolderDataset
+from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino

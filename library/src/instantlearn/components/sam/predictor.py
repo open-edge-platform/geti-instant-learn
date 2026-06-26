@@ -17,8 +17,8 @@ from segment_anything_hq.modeling.prompt_encoder import PromptEncoder as _Prompt
 from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
-from instantlearn.data import ResizeLongestSide
-from instantlearn.data.utils import read_image
+from instantlearn.data.torch.image import read_image
+from instantlearn.data.torch.transforms import ResizeLongestSide
 from instantlearn.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 from instantlearn.utils.optimization import optimize_model
 from instantlearn.utils.utils import download_file, precision_to_torch_dtype

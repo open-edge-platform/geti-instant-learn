@@ -14,9 +14,9 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from torch.utils.data import DataLoader
 from torchmetrics.segmentation import MeanIoU
 
-from instantlearn.data import Dataset, LVISDataset, PerSegDataset
 from instantlearn.data.base import Batch, Category
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.torch import Dataset, LVISDataset, PerSegDataset
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, Model
 from instantlearn.utils import setup_logger
 from instantlearn.utils.args import get_arguments, parse_experiment_args

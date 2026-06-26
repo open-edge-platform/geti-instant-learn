@@ -14,8 +14,8 @@ from pathlib import Path
 import polars as pl
 import torch
 
-from instantlearn.data.base import Dataset
-from instantlearn.data.utils.image import read_mask
+from instantlearn.data.torch.base import Dataset
+from instantlearn.data.torch.image import read_mask
 
 # File extensions
 IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif")
@@ -110,7 +110,7 @@ class FolderDataset(Dataset):
             return None
 
         # Load single mask
-        mask = read_mask(mask_paths[0], as_tensor=True)  # (H, W)
+        mask = read_mask(mask_paths[0])  # (H, W)
         # Add instance dimension: (1, H, W) for consistency
         return mask[None, ...].to(torch.bool)
 

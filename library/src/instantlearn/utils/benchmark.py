@@ -12,7 +12,7 @@ import polars as pl
 import torch
 
 from instantlearn.data.base import Batch, Prediction
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName

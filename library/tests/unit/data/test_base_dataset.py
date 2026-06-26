@@ -11,7 +11,8 @@ import polars as pl
 import pytest
 import torch
 
-from instantlearn.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Sample
+from instantlearn.data.torch import Dataset
 
 
 class MockDataset(Dataset):
@@ -102,7 +103,7 @@ class TestInstantLearnDatasetBasic:
 class TestInstantLearnDatasetCore:
     """Test InstantLearnDataset core functionality."""
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_getitem(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ method."""
         # Mock image reading
@@ -124,7 +125,7 @@ class TestInstantLearnDatasetCore:
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1  # One mask
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_getitem_with_bboxes(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ with bboxes."""
         # Mock image reading
@@ -353,7 +354,7 @@ class TestInstantLearnDatasetOperations:
 class TestInstantLearnDatasetAdvanced:
     """Test InstantLearnDataset advanced functionality."""
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_multi_instance_support(self, mock_read_image: MagicMock) -> None:
         """Test dataset with multi-instance data."""
         # Mock image reading
@@ -410,7 +411,7 @@ class TestInstantLearnDatasetAdvanced:
         assert dataset.category_ids == []
         assert dataset.num_categories == 0
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_missing_optional_columns(self, mock_read_image: MagicMock) -> None:
         """Test dataset with missing optional columns."""
         # Mock image reading

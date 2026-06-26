@@ -24,8 +24,8 @@ from instantlearn.components.postprocessing import (
     PostProcessorPipeline,
 )
 from instantlearn.data.base import Batch
-from instantlearn.data.folder import FolderDataset
-from instantlearn.data.utils.image import read_image
+from instantlearn.data.torch.folder import FolderDataset
+from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import Backend, SAMModelName
 

@@ -85,7 +85,7 @@ class Sample:
     def __post_init__(self) -> None:
         """Auto-load the image from ``image_path`` when ``image`` is unset."""
         if self.image is None and self.image_path is not None:
-            self.image = read_image(self.image_path, as_tensor=False)
+            self.image = read_image(self.image_path)
 
     @property
     def category_labels(self) -> list[str]:

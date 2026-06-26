@@ -19,7 +19,7 @@ from rich.progress import (
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Category, Sample
-from instantlearn.data.folder.dataset import FolderDataset
+from instantlearn.data.torch.folder.dataset import FolderDataset
 from instantlearn.models import GroundedSAM, Model
 from instantlearn.utils.utils import setup_logger
 from instantlearn.visualizer import Visualizer
