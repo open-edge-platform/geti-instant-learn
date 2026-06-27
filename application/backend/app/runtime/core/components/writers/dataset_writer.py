@@ -4,12 +4,13 @@ from pathlib import Path
 from datumaro import Dataset, DatasetItem, Image
 from datumaro.components.annotation import Bbox, Mask, Points
 
-from domain.services.schemas.processor import OutputData
+from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import DatasetConfig
 from runtime.core.components.base import StreamWriter
 
 logger = logging.getLogger(__name__)
 
+# TODO: Remove broad exception silencing once the sink layer is ready to handle non-recoverable errors.
 class DatasetWriter(StreamWriter):
     def __init__(self, config: DatasetConfig) -> None:
         self._config = config
@@ -53,13 +54,11 @@ class DatasetWriter(StreamWriter):
         # No connection needed for dataset writer
         pass
 
-    def write(self, data: OutputData) -> None:
+    def write(self, data: OutputData | ErrorData) -> None:
         """Buffer a single pipeline output into the Dataset.
 
         Processes OutputData.results which is list[dict[str, np.ndarray]]
         where each dict contains predictions for a single image.
-
-        Handles Detection, Segmentation, and Point predictions based on the presence of keys:
 
             pred_masks  : Segmentation masks, shape [N, H, W].
             pred_points : Point predictions, shape [N, 4] as [x, y, score, fg_label].
@@ -68,81 +67,78 @@ class DatasetWriter(StreamWriter):
             pred_scores : Confidence scores, shape [N].
 
         Args:
-            data: OutputData containing frame and model predictions.
-
-        Raises:
-            ValueError: If OutputData.results is empty or not in expected format.
+            data: OutputData containing frame and model predictions, or an upstream ErrorData.
         """
+        if isinstance(data, ErrorData):
+            logger.warning("Received upstream error: %s", data.message)
+            return
 
         if self._config.max_frames is not None and self._frame_count >= self._config.max_frames:
             return
-        if not data.results:
-            raise ValueError("OutputData.results is empty")
 
         for result in data.results:
-            pred_labels = result.get("pred_labels")
-            if pred_labels is None:
-                raise ValueError("OutputData result is missing 'pred_labels'")
-            annotations = []
-            # Determine number of instances from pred_labels
-            num_instances = len(pred_labels)
-            # Process each instance
-            for i in range(num_instances):
-                label_id = int(pred_labels[i])
-                # Add mask if available
-                if "pred_masks" in result:
-                    mask = result["pred_masks"][i]
-                    annotations.append(
-                        Mask(
-                            image=mask,
-                            label=label_id,
-                            attributes={"score": float(result["pred_scores"][i])} if "pred_scores" in result else None,
+            try:
+                pred_labels = result["pred_labels"]
+                annotations = []
+                # Determine number of instances from pred_labels
+                num_instances = len(pred_labels)
+                # Process each instance
+                for i in range(num_instances):
+                    label_id = int(pred_labels[i])
+                    # Add mask if available
+                    if "pred_masks" in result:
+                        mask = result["pred_masks"][i]
+                        annotations.append(
+                            Mask(
+                                image=mask,
+                                label=label_id,
+                                attributes={"score": float(result["pred_scores"][i])} if "pred_scores" in result else None,
+                            )
                         )
-                    )
-                # Add bbox if available
-                if "pred_boxes" in result:
-                    x1, y1, x2, y2, score = result["pred_boxes"][i].tolist()
-                    annotations.append(
-                        Bbox(
-                            x=x1, y=y1,
-                            w=x2 - x1, h=y2 - y1,
-                            label=label_id,
-                            attributes={"score": score},
+                    # Add bbox if available
+                    if "pred_boxes" in result:
+                        x1, y1, x2, y2, score = result["pred_boxes"][i].tolist()
+                        annotations.append(
+                            Bbox(
+                                x=x1, y=y1,
+                                w=x2 - x1, h=y2 - y1,
+                                label=label_id,
+                                attributes={"score": score},
+                            )
                         )
-                    )
-                # Add points if available
-                if "pred_points" in result:
-                    x, y, score, fg_label = result["pred_points"][i].tolist()
-                    annotations.append(
-                        Points(
-                            points=[(x, y)],
-                            label=label_id,
-                            attributes={"score": score, "fg_label": fg_label},
+                    # Add points if available
+                    if "pred_points" in result:
+                        x, y, score, fg_label = result["pred_points"][i].tolist()
+                        annotations.append(
+                            Points(
+                                points=[(x, y)],
+                                label=label_id,
+                                attributes={"score": score, "fg_label": fg_label},
+                            )
                         )
-                    )
 
-            item_id = f"frame_{self._frame_count:06d}"
-            attributes = {}
-            if self._config.frame_trace and data.trace:
-                attributes["trace_id"] = data.trace.frame_id
-            if self._config.category_mapping is not None:
-                attributes["category_mapping"] = self._config.category_mapping
+                item_id = f"frame_{self._frame_count:06d}"
+                attributes = {}
+                if self._config.frame_trace and data.trace:
+                    attributes["trace_id"] = data.trace.frame_id
 
-            item = DatasetItem(
-                id=item_id,
-                media=Image.from_numpy(data.frame),
-                annotations=annotations,
-                attributes=attributes or None,
-            )
-            self._dataset.put(item)
-            logger.debug(
-                "Frame %d buffered. Objects: %d",
-                self._frame_count,
-                num_instances,
-            )
-            self._frame_count += 1
-            self._buffered_frame_count += 1
-            self._flush_chunk_if_needed()
+                item = DatasetItem(
+                    id=item_id,
+                    media=Image.from_numpy(data.frame),
+                    annotations=annotations,
+                    attributes=attributes or None,
+                )
+                self._dataset.put(item)
+                logger.debug(
+                    "Frame %d buffered. Objects: %d",
+                    self._frame_count,
+                    num_instances,
+                )
+                self._frame_count += 1
+                self._buffered_frame_count += 1
+                self._flush_chunk_if_needed()
+            except Exception:
+                logger.exception("Failed to write frame %d to dataset. Skipping.", self._frame_count)
 
     def _export(
         self,
@@ -151,30 +147,17 @@ class DatasetWriter(StreamWriter):
         buffered_frame_count: int,
         total_frame_count: int,
     ) -> None:
-        """Serialize a Dataset snapshot to disk.
-
-        Raises:
-            ValueError: If dataset_format is not provided or not supported.
-            RuntimeError: If no frames have been captured.
-        """
+        """Serialize a Dataset snapshot to disk."""
         fmt = self._config.dataset_format
-
-        if not fmt:
-            raise ValueError("dataset_format is not provided")
-
-        if buffered_frame_count == 0:
-            raise RuntimeError("No frames captured. Nothing to export.")
-
-        output_dir.mkdir(parents=True, exist_ok=True)
         try:
+            output_dir.mkdir(parents=True, exist_ok=True)
             dataset.export(str(output_dir), format=fmt, save_media=True)
-        except Exception as e:
-            logger.error("Error occurred while exporting dataset: %s", e)
-            raise ValueError(f"Failed to export dataset with format '{fmt}': {e}") from e
-        logger.info(
-            "Dataset exported to %s in %s format. Buffered frames: %d. Total frames: %d",
-            output_dir, fmt, buffered_frame_count, total_frame_count,
-        )
+            logger.info(
+                "Dataset exported to %s in %s format. Buffered frames: %d. Total frames: %d",
+                output_dir, fmt, buffered_frame_count, total_frame_count,
+            )
+        except Exception:
+            logger.exception("Failed to export dataset to %s.", output_dir)
 
     def close(self) -> None:
         """Export the remaining buffer if configured, then release in-memory state."""
