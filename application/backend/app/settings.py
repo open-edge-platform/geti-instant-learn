@@ -156,6 +156,11 @@ class Settings(BaseSettings):
     label_text_height_px: int = Field(default=24, ge=1, alias="LABEL_TEXT_HEIGHT_PX")
     visualization_scale: float = Field(default=1.0, alias="VISUALIZATION_SCALE")
 
+    # DatasetWriter configuration
+    dataset_writer_export_chunk_size: int | None = Field(
+        default=None, ge=1, alias="WRITER_EXPORT_CHUNK_SIZE"
+    )
+
     @property
     def ice_servers(self) -> list[dict]:
         """Compute ICE servers from coturn and STUN configuration."""

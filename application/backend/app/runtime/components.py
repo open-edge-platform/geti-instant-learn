@@ -60,4 +60,6 @@ class DefaultComponentFactory(ComponentFactory):
         )
 
     def create_sink(self, writer_cfg: WriterConfig | None) -> Sink:
-        return Sink(StreamWriterFactory.create(writer_cfg))
+        settings = get_settings()
+        export_chunk_size = settings.dataset_writer_export_chunk_size
+        return Sink(StreamWriterFactory.create(writer_cfg, export_chunk_size=export_chunk_size))

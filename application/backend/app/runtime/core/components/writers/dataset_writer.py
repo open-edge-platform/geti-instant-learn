@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 # TODO: Remove broad exception silencing once the sink layer is ready to handle non-recoverable errors.
 class DatasetWriter(StreamWriter):
-    def __init__(self, config: DatasetConfig) -> None:
+    def __init__(self, config: DatasetConfig, export_chunk_size: int | None = None) -> None:
         self._config = config
         self._frame_count: int = 0
         self._buffered_frame_count: int = 0
         self._chunk_index: int = 0
-        self._chunk_size: int | None = config.export_chunk_size
+        self._chunk_size: int | None = export_chunk_size
 
         if self._config.dataset_format is None:
             raise ValueError("dataset_format must be set")

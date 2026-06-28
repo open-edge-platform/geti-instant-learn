@@ -19,7 +19,7 @@ class StreamWriterFactory:
     """
 
     @classmethod
-    def create(cls, config: WriterConfig | None) -> StreamWriter:
+    def create(cls, config: WriterConfig | None, export_chunk_size: int | None = None) -> StreamWriter:
         match config:
             case MqttConfig() as config:
                 return MqttWriter(
@@ -34,6 +34,6 @@ class StreamWriterFactory:
                     raise RuntimeError(
                         "Requires datumaro. Install with: uv sync --extra dataset"
                     ) from e
-                return DatasetWriter(config=config)
+                return DatasetWriter(config=config, export_chunk_size=export_chunk_size)
             case _:
                 return NoOpWriter()
