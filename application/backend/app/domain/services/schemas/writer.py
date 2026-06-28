@@ -39,7 +39,7 @@ class DatasetConfig(BaseModel):
     output_dir: str 
     dataset_format: str 
     max_frames: int | None = Field(default=None, ge=1)
-    category_mapping: dict[int, str] | None = None
+    category_id_to_name: dict[int, str] | None = None
     frame_trace: bool = False
 
     model_config = {
@@ -50,7 +50,7 @@ class DatasetConfig(BaseModel):
                 "output_dir": "/path/to/output/dataset",
                 "dataset_format": "COCO",
                 "max_frames": None,
-                "category_mapping": None,
+                "category_id_to_name": None,
                 "frame_trace": False
             }
         }

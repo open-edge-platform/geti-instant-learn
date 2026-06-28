@@ -88,7 +88,7 @@ class TestPipelineManager:
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
             svc_inst.get_pipeline_config.return_value = pipeline_cfg
             repo_inst = repo_cls.return_value
-            batch_svc_cls.return_value.build.return_value = None
+            batch_svc_cls.return_value.build.return_value = (None, {})
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -102,7 +102,7 @@ class TestPipelineManager:
             svc_inst.get_active_pipeline_config.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.reader)
             mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg, None)
-            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.writer)
+            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.writer, {})
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
@@ -187,7 +187,7 @@ class TestPipelineManager:
             svc_inst = svc_cls.return_value
             svc_inst.get_pipeline_config.return_value = cfg
             repo_inst = repo_cls.return_value
-            batch_svc_cls.return_value.build.return_value = None
+            batch_svc_cls.return_value.build.return_value = (None, {})
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -201,7 +201,7 @@ class TestPipelineManager:
 
             mock_component_factory.create_source.assert_called_once_with(cfg.reader)
             mock_component_factory.create_processor.assert_called_once_with(cfg, None)
-            mock_component_factory.create_sink.assert_called_once_with(cfg.writer)
+            mock_component_factory.create_sink.assert_called_once_with(cfg.writer, {})
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
@@ -233,7 +233,7 @@ class TestPipelineManager:
             cfg = PipelineConfig(project_id=pid_new)
             svc_inst = svc_cls.return_value
             svc_inst.get_pipeline_config.return_value = cfg
-            batch_svc_cls.return_value.build.return_value = None
+            batch_svc_cls.return_value.build.return_value = (None, {})
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -250,7 +250,7 @@ class TestPipelineManager:
             old_pipeline.stop.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(cfg.reader)
             mock_component_factory.create_processor.assert_called_once_with(cfg, None)
-            mock_component_factory.create_sink.assert_called_once_with(cfg.writer)
+            mock_component_factory.create_sink.assert_called_once_with(cfg.writer, {})
 
             # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()

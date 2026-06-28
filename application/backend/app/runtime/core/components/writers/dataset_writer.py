@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from datumaro import Dataset, DatasetItem, Image
-from datumaro.components.annotation import Bbox, Mask, Points
+from datumaro.components.annotation import AnnotationType, LabelCategories, Bbox,  Mask, Points
 
 from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import DatasetConfig
@@ -24,6 +24,14 @@ class DatasetWriter(StreamWriter):
         if self._config.output_dir is None:
             raise ValueError("output_dir must be set")
         self._dataset = Dataset(media_type=Image)
+        mapping = config.category_id_to_name
+        self._categories = (
+            {AnnotationType.label: LabelCategories.from_iterable(
+                mapping[i] for i in range(max(mapping) + 1)
+            )}
+            if mapping else None
+        )
+        self._dataset = Dataset(media_type=Image, categories=self._categories)
         logger.info("DatasetWriter ready. Dataset format: %s, Output dir: %s", self._config.dataset_format, self._config.output_dir)
 
     def _get_export_dir(self) -> Path:
@@ -33,7 +41,7 @@ class DatasetWriter(StreamWriter):
         return output_dir / f"batch_{self._chunk_index:04d}"
 
     def _reset_buffer(self) -> None:
-        self._dataset = Dataset(media_type=Image)
+        self._dataset = Dataset(media_type=Image, categories=self._categories)
         self._buffered_frame_count = 0
 
     def _flush_chunk_if_needed(self) -> None:

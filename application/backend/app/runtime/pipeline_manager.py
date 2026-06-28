@@ -240,16 +240,17 @@ class PipelineManager:
         source = self._component_factory.create_source(cfg.reader)
         self._set_model_status(ModelStatus.LOADING)
         try:
-            reference_batch, _ = self._batch_service.build(cfg) or (None, {})
+            reference_batch, category_id_to_name = self._batch_service.build(cfg) or (None, {})
             processor = self._component_factory.create_processor(cfg, reference_batch)
         except Exception as exc:
             error_type, error_message = model_load_error(exc)
             self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
             logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
             processor = self._component_factory.create_processor(cfg, None)
+            category_id_to_name = {}
         else:
             self._set_model_status(ModelStatus.READY)
-        sink = self._component_factory.create_sink(cfg.writer)
+        sink = self._component_factory.create_sink(cfg.writer, category_id_to_name)
 
         return (
             Pipeline(
@@ -300,7 +301,8 @@ class PipelineManager:
                 else:
                     self._set_model_status(ModelStatus.READY)
             case ComponentType.SINK:
-                sink = self._component_factory.create_sink(cfg.writer)
+                _, category_id_to_name = self._batch_service.build(cfg) or (None, {})
+                sink = self._component_factory.create_sink(cfg.writer, category_id_to_name)
                 self._pipeline.set_sink(sink, True)
             case _ as unknown:
                 logger.error(f"Unknown component type {unknown}")
