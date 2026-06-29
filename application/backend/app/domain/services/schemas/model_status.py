@@ -26,5 +26,5 @@ class ModelStatusSchema(BaseModel):
     )
     error_message: str | None = Field(
         default=None,
-        description="Curated user-facing error message when the last processor load failed.",
+        description="Concrete error message when the last processor load failed.",
     )

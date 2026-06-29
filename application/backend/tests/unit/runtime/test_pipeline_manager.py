@@ -168,7 +168,7 @@ class TestPipelineManager:
             assert mgr._pipeline is not None  # pipeline started with passthrough processor
             assert status.status == ModelStatus.ERROR
             assert status.error_type == ModelStatusErrorType.LOAD_FAILED
-            assert status.error_message is not None
+            assert status.error_message == "boom"
             assert dispatcher._listeners == [mgr.on_config_change]
             # Passthrough called with reference_batch=None
             mock_component_factory.create_processor.assert_called_with(pipeline_cfg, None)
@@ -439,7 +439,7 @@ class TestPipelineManagerModelLoadingFlag:
         assert status.error_type is None
         assert status.error_message is None
 
-    def test_status_set_to_generic_error_when_processor_rebuild_fails(
+    def test_status_set_to_exception_message_when_processor_rebuild_fails(
         self, dispatcher, session_factory, mock_component_factory
     ):
         with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
@@ -461,8 +461,39 @@ class TestPipelineManagerModelLoadingFlag:
         status = mgr.get_model_status()
         assert status.status == ModelStatus.ERROR
         assert status.error_type == ModelStatusErrorType.LOAD_FAILED
-        assert status.error_message is not None
-        assert "Check the backend logs" in status.error_message
+        assert status.error_message == "boom"
+
+    def test_status_set_to_dinov3_error_when_processor_rebuild_hits_gated_weights(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = uuid4()
+
+        error_message = (
+            "User does not have access to the weights of the DinoV3 model.\n"
+            "Please follow these steps:\n"
+            "1. Request access on the HuggingFace website: "
+            "https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m\n"
+            "2. Set your HuggingFace credentials using one of these methods:\n"
+            "   - Run: hf auth login\n"
+            "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token"
+        )
+        mock_component_factory.create_processor.side_effect = ValueError(error_message)
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            pytest.raises(ValueError),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = PipelineConfig(project_id=mgr._pipeline.project_id)
+            mgr._update_pipeline_components(mgr._pipeline.project_id, ComponentType.PROCESSOR)
+
+        status = mgr.get_model_status()
+        assert status.status == ModelStatus.ERROR
+        assert status.error_type == ModelStatusErrorType.ACCESS_REQUIRED
+        assert status.error_message == error_message
 
     def test_status_set_to_auth_error_when_processor_rebuild_hits_gated_repo(
         self, dispatcher, session_factory, mock_component_factory
@@ -489,8 +520,7 @@ class TestPipelineManagerModelLoadingFlag:
         status = mgr.get_model_status()
         assert status.status == ModelStatus.ERROR
         assert status.error_type == ModelStatusErrorType.AUTH_REQUIRED
-        assert status.error_message is not None
-        assert "hf auth login" in status.error_message
+        assert status.error_message == str(auth_exc)
 
     def test_successful_rebuild_clears_previous_error(self, dispatcher, session_factory, mock_component_factory):
         with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
