@@ -10,6 +10,7 @@ import numpy as np
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.telemetry import ProcessorStats, TelemetryComponent
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -87,16 +88,7 @@ class Processor(PipelineComponent):
         self._initialized = False
         settings = get_settings()
         self._stats_enabled = settings.enable_cpu_monitoring
-        self._stats_interval_secs = settings.cpu_monitoring_interval_secs
-        self._stats_started_at_s = time.perf_counter()
-        self._stats_empty_poll_count = 0
-        self._stats_input_frame_count = 0
-        self._stats_skipped_frame_count = 0
-        self._stats_batch_count = 0
-        self._stats_output_frame_count = 0
-        self._stats_error_count = 0
-        self._stats_batch_wall_time_s = 0.0
-        self._stats_batch_cpu_time_s = 0.0
+        self._stats = ProcessorStats(interval_secs=settings.cpu_monitoring_interval_secs, logger=logger)
 
     def setup(
         self,
@@ -177,7 +169,7 @@ class Processor(PipelineComponent):
                     continue
 
             if input_data.trace:
-                input_data.trace.record_start("processor")
+                input_data.trace.record_start(TelemetryComponent.PROCESSOR.value)
 
             is_manual = input_data.context.get("requires_manual_control", False)
             self._record_processor_input_frame()
@@ -204,80 +196,32 @@ class Processor(PipelineComponent):
         for i, data in enumerate(batch_data):
             result = results[i] if i < len(results) else EMPTY_RESULT
             if data.trace:
-                data.trace.record_end("processor")
+                data.trace.record_end(TelemetryComponent.PROCESSOR.value)
             output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
             self._outbound_broadcaster.broadcast(output_data)
 
     def _record_processor_empty_poll(self) -> None:
         if not self._stats_enabled:
             return
-        self._stats_empty_poll_count += 1
-        self._log_processor_stats_if_needed()
+        self._stats.record_empty_poll()
 
     def _record_processor_input_frame(self) -> None:
         if self._stats_enabled:
-            self._stats_input_frame_count += 1
+            self._stats.record_input_frame()
 
     def _record_processor_skipped_frame(self) -> None:
         if self._stats_enabled:
-            self._stats_skipped_frame_count += 1
+            self._stats.record_skipped_frame()
 
     def _record_processor_error(self) -> None:
         if not self._stats_enabled:
             return
-        self._stats_error_count += 1
-        self._log_processor_stats_if_needed()
+        self._stats.record_error()
 
     def _record_processor_batch(self, batch_size: int, wall_time_s: float, cpu_time_s: float) -> None:
         if not self._stats_enabled:
             return
-        self._stats_batch_count += 1
-        self._stats_output_frame_count += batch_size
-        self._stats_batch_wall_time_s += wall_time_s
-        self._stats_batch_cpu_time_s += cpu_time_s
-        self._log_processor_stats_if_needed()
-
-    def _log_processor_stats_if_needed(self) -> None:
-        now_s = time.perf_counter()
-        elapsed_s = now_s - self._stats_started_at_s
-        if elapsed_s < self._stats_interval_secs:
-            return
-
-        batch_rate = self._stats_batch_count / elapsed_s if elapsed_s > 0 else 0.0
-        output_rate = self._stats_output_frame_count / elapsed_s if elapsed_s > 0 else 0.0
-        avg_batch_wall_ms = (
-            (self._stats_batch_wall_time_s / self._stats_batch_count) * 1000 if self._stats_batch_count else 0.0
-        )
-        avg_batch_cpu_ms = (
-            (self._stats_batch_cpu_time_s / self._stats_batch_count) * 1000 if self._stats_batch_count else 0.0
-        )
-        logger.info(
-            "processor_stats interval_secs=%.1f batches=%d batch_rate=%.1f input_frames=%d skipped_frames=%d "
-            "output_frames=%d output_rate=%.1f empty_polls=%d errors=%d avg_batch_wall_ms=%.3f avg_batch_cpu_ms=%.3f",
-            elapsed_s,
-            self._stats_batch_count,
-            batch_rate,
-            self._stats_input_frame_count,
-            self._stats_skipped_frame_count,
-            self._stats_output_frame_count,
-            output_rate,
-            self._stats_empty_poll_count,
-            self._stats_error_count,
-            avg_batch_wall_ms,
-            avg_batch_cpu_ms,
-        )
-        self._reset_processor_stats(now_s)
-
-    def _reset_processor_stats(self, started_at_s: float) -> None:
-        self._stats_started_at_s = started_at_s
-        self._stats_empty_poll_count = 0
-        self._stats_input_frame_count = 0
-        self._stats_skipped_frame_count = 0
-        self._stats_batch_count = 0
-        self._stats_output_frame_count = 0
-        self._stats_error_count = 0
-        self._stats_batch_wall_time_s = 0.0
-        self._stats_batch_cpu_time_s = 0.0
+        self._stats.record_batch(batch_size=batch_size, wall_time_s=wall_time_s, cpu_time_s=cpu_time_s)
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)

@@ -11,6 +11,7 @@ from domain.services.schemas.processor import ErrorData, InputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.telemetry import SourceStats, TelemetryComponent, trace_span
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -41,12 +42,12 @@ class Source(PipelineComponent):
         self._next_frame_requested = True
         settings = get_settings()
         self._stats_enabled = settings.enable_cpu_monitoring
-        self._stats_interval_secs = settings.cpu_monitoring_interval_secs
-        self._stats_started_at_s = time.perf_counter()
-        self._stats_frame_count = 0
-        self._stats_empty_read_count = 0
-        self._stats_read_wall_time_s = 0.0
-        self._stats_read_cpu_time_s = 0.0
+        self._stats = SourceStats(
+            interval_secs=settings.cpu_monitoring_interval_secs,
+            logger=logger,
+            reader_name=self._reader.__class__.__name__,
+            manual_mode=self._manual_mode,
+        )
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData | ErrorData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
@@ -77,11 +78,11 @@ class Source(PipelineComponent):
 
             try:
                 trace = FrameTrace.create()
-                trace.record_start("source")
 
                 read_wall_started_at_s = time.perf_counter()
                 read_cpu_started_at_s = time.thread_time()
-                data = self._reader.read()
+                with trace_span(trace, TelemetryComponent.SOURCE):
+                    data = self._reader.read()
                 read_wall_time_s = time.perf_counter() - read_wall_started_at_s
                 read_cpu_time_s = time.thread_time() - read_cpu_started_at_s
                 if data is None:
@@ -94,7 +95,6 @@ class Source(PipelineComponent):
                     continue
 
                 data.trace = trace
-                trace.record_end("source")
 
                 self._record_source_stats(
                     frame_produced=True,
@@ -114,43 +114,11 @@ class Source(PipelineComponent):
     def _record_source_stats(self, frame_produced: bool, read_wall_time_s: float, read_cpu_time_s: float) -> None:
         if not self._stats_enabled:
             return
-
-        if frame_produced:
-            self._stats_frame_count += 1
-        else:
-            self._stats_empty_read_count += 1
-        self._stats_read_wall_time_s += read_wall_time_s
-        self._stats_read_cpu_time_s += read_cpu_time_s
-
-        now_s = time.perf_counter()
-        elapsed_s = now_s - self._stats_started_at_s
-        if elapsed_s < self._stats_interval_secs:
-            return
-
-        read_count = self._stats_frame_count + self._stats_empty_read_count
-        frame_rate = self._stats_frame_count / elapsed_s if elapsed_s > 0 else 0.0
-        avg_read_wall_ms = (self._stats_read_wall_time_s / read_count) * 1000 if read_count else 0.0
-        avg_read_cpu_ms = (self._stats_read_cpu_time_s / read_count) * 1000 if read_count else 0.0
-        logger.info(
-            "source_stats reader=%s manual_mode=%s interval_secs=%.1f frames=%d frame_rate=%.1f empty_reads=%d "
-            "avg_read_wall_ms=%.3f avg_read_cpu_ms=%.3f",
-            self._reader.__class__.__name__,
-            self._manual_mode,
-            elapsed_s,
-            self._stats_frame_count,
-            frame_rate,
-            self._stats_empty_read_count,
-            avg_read_wall_ms,
-            avg_read_cpu_ms,
+        self._stats.record(
+            frame_produced=frame_produced,
+            read_wall_time_s=read_wall_time_s,
+            read_cpu_time_s=read_cpu_time_s,
         )
-        self._reset_source_stats(now_s)
-
-    def _reset_source_stats(self, started_at_s: float) -> None:
-        self._stats_started_at_s = started_at_s
-        self._stats_frame_count = 0
-        self._stats_empty_read_count = 0
-        self._stats_read_wall_time_s = 0.0
-        self._stats_read_cpu_time_s = 0.0
 
     def _stop(self) -> None:
         """Clean up resources when component is stopped."""

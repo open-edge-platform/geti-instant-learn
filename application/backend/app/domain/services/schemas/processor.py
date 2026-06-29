@@ -208,18 +208,23 @@ class SupportedModelsListSchema(PaginatedResponse):
 
 
 @dataclass(kw_only=True)
-class InputData:
-    timestamp: int  # processing date-time in epoch milliseconds.
-    frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
-    context: dict[str, Any]  # unstructured metadata about the source of the frame (camera ID, video file, etc.)
+class TraceableFrameData:
+    """Base data class for pipeline frame payloads carrying optional trace context."""
+
     trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
 
 @dataclass(kw_only=True)
-class OutputData:
+class InputData(TraceableFrameData):
+    timestamp: int  # processing date-time in epoch milliseconds.
+    frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
+    context: dict[str, Any]  # unstructured metadata about the source of the frame (camera ID, video file, etc.)
+
+
+@dataclass(kw_only=True)
+class OutputData(TraceableFrameData):
     results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
-    trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
     def to_list(self) -> list[dict[str, list]]:
         # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
