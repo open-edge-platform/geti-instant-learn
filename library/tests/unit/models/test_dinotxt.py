@@ -12,7 +12,7 @@ from skimage.draw import random_shapes
 from torchvision.tv_tensors import Image
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.dinotxt import DinoTxtZeroShotClassification
 
 
@@ -80,8 +80,11 @@ def sample_reference_batch() -> Batch:
     # Create a sample with categories
     sample = Sample(
         image=torch.zeros((3, 224, 224)),
-        categories=["circle", "rectangle", "triangle"],
-        category_ids=np.array([0, 1, 2]),
+        categories=[
+            Category(id=0, label="circle"),
+            Category(id=1, label="rectangle"),
+            Category(id=2, label="triangle"),
+        ],
         is_reference=[True, True, True],
     )
     return Batch.collate([sample])
@@ -123,7 +126,10 @@ class TestDinoTxtZeroShotClassification:
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
-        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        samples = [
+            Sample(image=img, is_reference=[False], categories=[Category(id=0, label="object")])
+            for img in image_objects
+        ]
         target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
             model_instance.predict(target_batch)
@@ -142,7 +148,10 @@ class TestDinoTxtZeroShotClassification:
 
         # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
-        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        samples = [
+            Sample(image=img, is_reference=[False], categories=[Category(id=0, label="object")])
+            for img in image_objects
+        ]
         target_batch = Batch.collate(samples)
 
         # Then predict

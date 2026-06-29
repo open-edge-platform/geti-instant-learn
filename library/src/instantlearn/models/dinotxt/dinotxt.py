@@ -27,7 +27,7 @@ class DinoTxtZeroShotClassification(Model):
     Examples:
         >>> from instantlearn.models import DinoTxtZeroShotClassification
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> from instantlearn.types import Results
         >>> import torch
         >>> import numpy as np
@@ -43,8 +43,7 @@ class DinoTxtZeroShotClassification(Model):
         >>> # Create reference sample with categories
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 512, 512)),
-        ...     categories=["cat", "dog"],
-        ...     category_ids=np.array([0, 1]),
+        ...     categories=[Category(0, "cat"), Category(1, "dog")],
         ...     is_reference=[True, True],
         ... )
         >>> ref_batch = Batch.collate([ref_sample])
@@ -53,7 +52,7 @@ class DinoTxtZeroShotClassification(Model):
         >>> target_sample = Sample(
         ...     image=torch.zeros((3, 512, 512)),
         ...     is_reference=[False],
-        ...     categories=["object"],
+        ...     categories=[Category(0, "object")],
         ... )
         >>> target_batch = Batch.collate([target_sample])
         >>>
@@ -101,13 +100,12 @@ class DinoTxtZeroShotClassification(Model):
         Examples:
             >>> from instantlearn.models import DinoTxtZeroShotClassification
             >>> from instantlearn.data.base import Batch
-            >>> from instantlearn.data.base.sample import Sample
+            >>> from instantlearn.data.base.sample import Category, Sample
             >>> import numpy as np
             >>> dinotxt = DinoTxtZeroShotClassification(device="cpu")
             >>> ref_sample = Sample(
             ...     image=torch.zeros((3, 512, 512)),
-            ...     categories=["cat", "dog"],
-            ...     category_ids=np.array([0, 1]),
+            ...     categories=[Category(0, "cat"), Category(1, "dog")],
             ...     is_reference=[True, True],
             ... )
             >>> dinotxt.fit(ref_sample)  # Can pass Sample directly
@@ -121,8 +119,8 @@ class DinoTxtZeroShotClassification(Model):
         category_mapping: dict[int, str] = {}
 
         for sample in reference_batch.samples:
-            if sample.categories is not None and sample.category_ids is not None:
-                for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+            if sample.category_labels and sample.label_ids:
+                for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
                     category_id_int = int(category_id)
                     # Avoid duplicates - use first occurrence
                     if category_id_int not in category_mapping:
@@ -153,21 +151,20 @@ class DinoTxtZeroShotClassification(Model):
 
         Examples:
             >>> from instantlearn.models import DinoTxtZeroShotClassification
-            >>> from instantlearn.data.base.sample import Sample
+            >>> from instantlearn.data.base.sample import Category, Sample
             >>> import torch
             >>> import numpy as np
             >>> dinotxt = DinoTxtZeroShotClassification(device="cpu")
             >>> ref_sample = Sample(
             ...     image=torch.zeros((3, 512, 512)),
-            ...     categories=["cat", "dog"],
-            ...     category_ids=np.array([0, 1]),
+            ...     categories=[Category(0, "cat"), Category(1, "dog")],
             ...     is_reference=[True, True],
             ... )
             >>> dinotxt.fit(ref_sample)  # Can pass Sample directly
             >>> target_sample = Sample(
             ...     image=torch.zeros((3, 512, 512)),
             ...     is_reference=[False],
-            ...     categories=["object"],
+            ...     categories=[Category(0, "object")],
             ... )
             >>> result = dinotxt.predict(target_sample)  # Can pass Sample directly
         """

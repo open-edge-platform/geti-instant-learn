@@ -1,149 +1,143 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sample classes for InstantLearn datasets using simple dataclasses.
+"""Sample and Category dataclasses for instantlearn.
 
-This module defines the sample structure for few-shot segmentation tasks
-using Python's built-in @dataclass for simplicity.
+``Sample`` is backend-neutral: every array field is numpy and the module
+imports zero torch. Torch models convert a ``Sample`` to a ``TensorSample``
+through :func:`instantlearn.models.torch_adapter.sample_to_tensors`.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-import numpy as np
-import torch
-from torchvision import tv_tensors
+from instantlearn.data.utils.image import read_image
 
-from instantlearn.data.utils.image import read_image, read_mask
+if TYPE_CHECKING:
+    import numpy as np
+
+
+@dataclass(frozen=True)
+class Category:
+    """An instance category: an integer id paired with a string label.
+
+    Frozen so it behaves as an immutable, hashable value object.
+
+    Attributes:
+        id: Integer category id.
+        label: Human-readable category name.
+    """
+
+    id: int
+    label: str
 
 
 @dataclass
 class Sample:
-    """Sample class for InstantLearn few-shot segmentation datasets.
+    """A single image with its annotations, used as input to all models.
 
-    Supports both single-instance (N=1, PerSeg) and multi-instance (N>1, LVIS/COCO) scenarios.
-    One sample = one image with N instances.
+    Supports both single-instance (N=1) and multi-instance (N>1) scenarios.
+    All array fields are numpy — torch models convert internally via
+    :func:`instantlearn.models.torch_adapter.sample_to_tensors`.
+
+    If ``image`` is ``None`` but ``image_path`` is provided, the image is
+    loaded automatically on construction. ``categories`` must be a list of
+    :class:`Category` objects (id + label).
 
     Attributes:
-        image: Input image. numpy (H, W, C) or torch (C, H, W).
-        image_path: Path to the source image file. Auto-loads if image not provided.
-        masks: N masks with shape (N, H, W). Auto-loads from mask_paths if not provided.
-        bboxes: Bounding boxes with shape (N, 4).
-        points: Point coordinates with shape (N, 2).
-        categories: List of N category names. Defaults to ["object"].
-        category_ids: List of N category IDs. Auto-generated from categories if not provided.
-        mask_paths: Path(s) to mask files. Accepts single string or list of strings.
-        is_reference: Reference flag(s) for each instance. Defaults to [False].
-        n_shot: Shot number(s) for each instance. Defaults to [-1].
+        image: Input image as an ``(H, W, C)`` uint8 or float32 array.
+        image_path: Path to the source image file.
+        masks: Instance masks as an ``(N, H, W)`` bool or uint8 array.
+        bboxes: Bounding boxes as an ``(N, 4)`` float32 array in xyxy format.
+        points: Prompt points as an ``(N, K, 2)`` float32 array.
+        scores: Per-instance confidence scores as an ``(N,)`` float32 array.
+        categories: List of :class:`Category` (id + label) objects.
+        is_reference: Per-instance flags marking reference (support) instances.
+        n_shot: Per-instance shot index for n-shot references.
+        mask_paths: Optional per-instance source mask file paths.
 
-    Note:
-        If `image` is None but `image_path` is provided, the image is auto-loaded.
-        If `masks` is None but `mask_paths` is provided, masks are auto-loaded.
-        If `category_ids` is None, it is auto-generated as [0, 1, ..., len(categories)-1].
-
-    Examples:
-        Visual-only models (PerDINO, Matcher) - minimal usage:
-
-        >>> sample = Sample(image=image, masks=mask)
-
-        With path-based loading:
-
+    Example:
+        >>> sample = Sample(image=image, masks=masks, categories=[Category(0, "cat")])
+        >>> sample = Sample(image_path="image.jpg")
         >>> sample = Sample(
-        ...     image_path="path/to/image.jpg",
-        ...     mask_paths="path/to/mask.png",
-        ... )
-
-        Multiple masks with categories:
-
-        >>> sample = Sample(
-        ...     image_path="path/to/image.jpg",
-        ...     mask_paths=["mask1.png", "mask2.png"],
-        ...     categories=["cat", "dog"],
-        ...     category_ids=[0, 1],
+        ...     image_path="image.jpg",
+        ...     masks=masks,
+        ...     categories=[Category(0, "cat"), Category(1, "dog")],
         ... )
     """
 
-    # Required fields
-    image: np.ndarray | tv_tensors.Image | None = None
+    image: np.ndarray | None = None
     image_path: str | None = None
 
-    # Optional annotation fields (defaults to None)
-    masks: np.ndarray | torch.Tensor | None = None
-    bboxes: np.ndarray | torch.Tensor | None = None
-    points: np.ndarray | torch.Tensor | None = None
-    scores: np.ndarray | torch.Tensor | None = None
+    masks: np.ndarray | None = None
+    bboxes: np.ndarray | None = None
+    points: np.ndarray | None = None
+    scores: np.ndarray | None = None
 
-    # Metadata fields
-    categories: list[str] = field(default_factory=lambda: ["object"])
-    category_ids: list[int] | np.ndarray | torch.Tensor | None = None
-    mask_paths: str | list[str] | None = None
+    categories: list[Category] = field(default_factory=lambda: [Category(id=0, label="object")])
 
-    # Optional task-specific fields (with sensible defaults)
-    # Always lists to maintain consistency between single and multi-instance
-    is_reference: list[bool] = field(default_factory=lambda: [False])
-    n_shot: list[int] = field(default_factory=lambda: [-1])
+    is_reference: list[bool] | None = field(default_factory=lambda: [False])
+    n_shot: list[int] | None = field(default_factory=lambda: [-1])
+    mask_paths: list[str] | None = None
 
     def __post_init__(self) -> None:
-        """Auto-load images/masks from paths and generate category_ids if needed."""
-        # Normalize mask_paths to list
-        if isinstance(self.mask_paths, str):
-            self.mask_paths = [self.mask_paths]
-
+        """Auto-load the image from ``image_path`` when ``image`` is unset."""
         if self.image is None and self.image_path is not None:
-            self.image = read_image(self.image_path, as_tensor=True)  # CHW tensor
+            self.image = read_image(self.image_path)
 
-        if self.masks is None and self.mask_paths is not None:
-            masks = [read_mask(p, as_tensor=True) for p in self.mask_paths]
-            self.masks = torch.stack(masks, dim=0)  # (N, H, W) tensor
+    @property
+    def category_labels(self) -> list[str]:
+        """Category label strings, one per instance."""
+        return [c.label for c in self.categories]
 
-        # Auto-generate category_ids from categories if not provided
-        if self.category_ids is None:
-            self.category_ids = list(range(len(self.categories)))
+    @property
+    def label_ids(self) -> list[int]:
+        """Integer category ids, one per instance."""
+        return [c.id for c in self.categories]
 
-    def filter_by_category(self, category_name: str) -> "Sample | None":
-        """Return a new Sample containing only instances matching the given category.
+    def filter_by_category(self, category_name: str) -> Sample | None:
+        """Return a new Sample containing only instances matching ``category_name``.
 
-        Filters categories, category_ids, masks, bboxes, and points to keep
-        only entries where the category matches ``category_name``. The image
-        and image_path are shared with the original sample.
+        Filters ``categories``, ``masks``, ``bboxes``, ``points``, ``scores``,
+        ``is_reference``, ``n_shot``, and ``mask_paths``. ``image`` and
+        ``image_path`` are shared (not copied).
 
         Args:
-            category_name: The category name to keep.
+            category_name: The category label to keep.
 
         Returns:
-            A new Sample with only the matching instances, or None if no
+            A new ``Sample`` with only matching instances, or ``None`` if no
             instances match.
 
-        Examples:
+        Example:
             >>> sample = Sample(
             ...     image=img,
-            ...     categories=["cat", "dog", "cat"],
-            ...     category_ids=[0, 1, 0],
+            ...     categories=[Category(0, "cat"), Category(1, "dog"), Category(0, "cat")],
             ...     masks=masks_3hw,
-            ...     bboxes=bboxes_3x4,
             ... )
             >>> filtered = sample.filter_by_category("cat")
             >>> len(filtered.categories)
             2
         """
-        if self.categories is None:
-            return None
-
-        indices = [i for i, cat in enumerate(self.categories) if cat == category_name]
+        indices = [i for i, cat in enumerate(self.categories) if cat.label == category_name]
         if not indices:
             return None
 
-        def _select(data: list | np.ndarray | torch.Tensor | None) -> list | np.ndarray | torch.Tensor | None:
-            if data is None:
-                return None
-            if isinstance(data, (np.ndarray, torch.Tensor)):
-                return data[indices]
-            return [data[i] for i in indices]
+        def _select(arr: np.ndarray | None) -> np.ndarray | None:
+            return arr[indices] if arr is not None else None
+
+        def _select_list(values: list | None) -> list | None:
+            return [values[i] for i in indices] if values is not None else None
 
         return Sample(
             image=self.image,
             image_path=self.image_path,
             categories=[self.categories[i] for i in indices],
-            category_ids=_select(self.category_ids),
+            is_reference=_select_list(self.is_reference),
+            n_shot=_select_list(self.n_shot),
+            mask_paths=_select_list(self.mask_paths),
             masks=_select(self.masks),
             bboxes=_select(self.bboxes),
             points=_select(self.points),

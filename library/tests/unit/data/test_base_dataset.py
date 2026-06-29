@@ -11,7 +11,8 @@ import polars as pl
 import pytest
 import torch
 
-from instantlearn.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Sample
+from instantlearn.data.torch import Dataset
 
 
 class MockDataset(Dataset):
@@ -102,7 +103,7 @@ class TestInstantLearnDatasetBasic:
 class TestInstantLearnDatasetCore:
     """Test InstantLearnDataset core functionality."""
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_getitem(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ method."""
         # Mock image reading
@@ -116,15 +117,15 @@ class TestInstantLearnDatasetCore:
         assert isinstance(sample, Sample)
         assert sample.image.shape == (224, 224, 3)
         assert sample.image_path == "/path/to/img1.jpg"
-        assert sample.categories == ["cat"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat"]
+        assert sample.label_ids == [0]
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
         assert sample.mask_paths == ["/path/to/mask1.png"]
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1  # One mask
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_getitem_with_bboxes(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ with bboxes."""
         # Mock image reading
@@ -353,7 +354,7 @@ class TestInstantLearnDatasetOperations:
 class TestInstantLearnDatasetAdvanced:
     """Test InstantLearnDataset advanced functionality."""
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_multi_instance_support(self, mock_read_image: MagicMock) -> None:
         """Test dataset with multi-instance data."""
         # Mock image reading
@@ -374,8 +375,8 @@ class TestInstantLearnDatasetAdvanced:
 
         sample = dataset[0]
 
-        assert sample.categories == ["person", "car", "dog"]
-        assert sample.category_ids.tolist() == [0, 1, 2]
+        assert sample.category_labels == ["person", "car", "dog"]
+        assert sample.label_ids == [0, 1, 2]
         assert sample.is_reference == [True, False, True]
         assert sample.n_shot == [0, -1, 1]
         assert sample.mask_paths == ["/path/to/mask1.png", "/path/to/mask2.png", "/path/to/mask3.png"]
@@ -410,7 +411,7 @@ class TestInstantLearnDatasetAdvanced:
         assert dataset.category_ids == []
         assert dataset.num_categories == 0
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_dataset_missing_optional_columns(self, mock_read_image: MagicMock) -> None:
         """Test dataset with missing optional columns."""
         # Mock image reading

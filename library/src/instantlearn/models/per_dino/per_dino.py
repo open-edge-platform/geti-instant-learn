@@ -33,7 +33,7 @@ class PerDino(Model):
     Examples:
         >>> from instantlearn.models import PerDino
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> import torch
         >>> import numpy as np
 
@@ -43,9 +43,8 @@ class PerDino(Model):
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     masks=torch.ones(30, 30, dtype=torch.bool).unsqueeze(0),
-        ...     category_ids=np.array([1]),
         ...     is_reference=[True],
-        ...     categories=["object"],
+        ...     categories=[Category(1, "object")],
         ... )
         >>> ref_batch = Batch.collate([ref_sample])
 
@@ -53,7 +52,7 @@ class PerDino(Model):
         >>> target_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     is_reference=[False],
-        ...     categories=["object"],
+        ...     categories=[Category(0, "object")],
         ... )
         >>> target_batch = Batch.collate([target_sample])
 
@@ -155,7 +154,7 @@ class PerDino(Model):
         self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
-            reference_batch.category_ids,
+            reference_batch.label_ids,
         )
 
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:

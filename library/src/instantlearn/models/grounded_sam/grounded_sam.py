@@ -78,7 +78,7 @@ class GroundedSAM(Model):
         reference_batch = Batch.collate(reference)
         self.category_mapping = {}
         for sample in reference_batch.samples:
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 

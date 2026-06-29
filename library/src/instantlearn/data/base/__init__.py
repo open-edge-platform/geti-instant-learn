@@ -1,15 +1,16 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base classes for datasets."""
+"""Backend-neutral data contract.
 
-from .base import Dataset
+These classes (``Batch``, ``Category``, ``Collatable``, ``Prediction``,
+``Sample``) import zero torch and form the contract every backend shares. The
+torch-bound ``Dataset`` and concrete datasets live in
+:mod:`instantlearn.data.torch` and must be imported explicitly.
+"""
+
 from .batch import Batch, Collatable
-from .sample import Sample
+from .prediction import Prediction
+from .sample import Category, Sample
 
-__all__ = [
-    "Batch",
-    "Collatable",
-    "Dataset",
-    "Sample",
-]
+__all__ = ["Batch", "Category", "Collatable", "Prediction", "Sample"]

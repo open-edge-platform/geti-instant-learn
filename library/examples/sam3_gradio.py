@@ -28,7 +28,7 @@ import gradio as gr
 import numpy as np
 import torch
 
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.data.utils.image import read_image
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.visualizer import render_predictions
@@ -82,18 +82,16 @@ def _build_sample_from_shot(shot: dict) -> Sample:
 
     sample = Sample(
         image=ref_tensor,
-        categories=["visual"],
-        category_ids=torch.tensor([0]),
+        categories=[Category(id=0, label="visual")],
     )
 
     if boxes_px:
         sample.bboxes = torch.tensor(boxes_px, dtype=torch.float32)
-        sample.category_ids = torch.tensor([0] * len(boxes_px))
-        sample.categories = ["visual"] * len(boxes_px)
+        # All prompts share the single "visual" category (id 0).
+        sample.categories = [Category(id=0, label="visual")] * len(boxes_px)
     elif points_px:
         sample.points = torch.tensor(points_px, dtype=torch.float32)
-        sample.category_ids = torch.tensor([0] * len(points_px))
-        sample.categories = ["visual"] * len(points_px)
+        sample.categories = [Category(id=0, label="visual")] * len(points_px)
 
     return sample
 
@@ -172,15 +170,14 @@ def run_text_prompt(
     model.prompt_mode = Sam3PromptMode.CLASSIC
     model.postprocessor.threshold = det_threshold
 
-    categories = [c.strip() for c in text_prompt.split(",") if c.strip()]
-    if not categories:
+    labels = [c.strip() for c in text_prompt.split(",") if c.strip()]
+    if not labels:
         return tgt_rgb, "No text categories provided."
 
     tgt_tensor = numpy_rgb_to_tensor(tgt_rgb)
     sample = Sample(
         image=tgt_tensor,
-        categories=categories,
-        category_ids=list(range(len(categories))),
+        categories=[Category(id=i, label=label) for i, label in enumerate(labels)],
     )
 
     t1 = perf_counter()
@@ -197,7 +194,7 @@ def run_text_prompt(
         scores = pred["pred_boxes"][:, 4].cpu().numpy()
         info = (
             f"Detections: {num_det} | Scores: [{100 * scores.min():.0f}, {100 * scores.max():.0f}] | "
-            f"Time: {ms} ms | Text: {categories}"
+            f"Time: {ms} ms | Text: {labels}"
         )
     else:
         info = f"No detections above threshold ({det_threshold:.2f}) | Time: {ms} ms"

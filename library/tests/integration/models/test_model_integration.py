@@ -15,8 +15,8 @@ import torch
 from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data.base import Batch
-from instantlearn.data.base.sample import Sample
-from instantlearn.data.folder import FolderDataset
+from instantlearn.data.base.sample import Category, Sample
+from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
@@ -457,8 +457,7 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -499,8 +498,7 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -533,8 +531,7 @@ class TestSAM3Integration:
 
         ref_sample = Sample(
             image=torch.zeros((3, 256, 256)),
-            categories=["object"],
-            category_ids=[0],
+            categories=[Category(id=0, label="object")],
         )
 
         with pytest.raises(ValueError, match="bboxes or points"):
@@ -569,8 +566,7 @@ class TestSAM3Integration:
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)

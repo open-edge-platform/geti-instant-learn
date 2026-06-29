@@ -191,7 +191,7 @@ predictions = model.predict([
 ```python
 import torch
 from instantlearn.components.sam import SAMPredictor
-from instantlearn.data.utils import read_image
+from instantlearn.data.torch import read_image
 
 ref_image = read_image("examples/assets/coco/000000286874.jpg")
 
@@ -296,7 +296,7 @@ your_dataset/
 ```
 
 ```python
-from instantlearn.data.folder import FolderDataset
+from instantlearn.data.torch import FolderDataset
 from instantlearn.data.base import Batch
 
 dataset = FolderDataset(root="path/to/your_dataset", categories=["category1", "category2"], n_shots=2)

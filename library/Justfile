@@ -61,6 +61,12 @@ style-fix: venv
     uv run ruff check --config pyproject.toml --fix
     uv run ruff format --config pyproject.toml
 
+# Static analysis / style on specific files
+# usage: just style-fix-files src/instantlearn/models/base.py src/instantlearn/data/base/prediction.py
+style-fix-files *files: venv
+    uv run ruff check --config pyproject.toml --fix {{ files }}
+    uv run ruff format --config pyproject.toml {{ files }}
+
 # Linting
 lint: venv _ruff _mypy
 
