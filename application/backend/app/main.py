@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(settings.format_for_logging())
 
     app.state.cpu_monitor = None
-    if settings.enable_cpu_monitoring:
+    if settings.cpu_monitoring_enabled:
         app.state.cpu_monitor = BackendCpuMonitor(interval_secs=settings.cpu_monitoring_interval_secs)
         app.state.cpu_monitor.start()
 

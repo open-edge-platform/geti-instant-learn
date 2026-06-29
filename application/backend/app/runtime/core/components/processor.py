@@ -87,7 +87,7 @@ class Processor(PipelineComponent):
         self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
         self._initialized = False
         settings = get_settings()
-        self._stats_enabled = settings.enable_cpu_monitoring
+        self._stats_enabled = settings.cpu_monitoring_enabled
         self._stats = ProcessorStats(interval_secs=settings.cpu_monitoring_interval_secs, logger=logger)
 
     def setup(

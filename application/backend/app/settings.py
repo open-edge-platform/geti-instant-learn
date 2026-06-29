@@ -37,11 +37,8 @@ class Settings(BaseSettings):
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Backend monitoring
-    enable_cpu_monitoring: bool = Field(default=True, alias="ENABLE_CPU_MONITORING")
+    cpu_monitoring_enabled: bool = Field(default=True, alias="CPU_MONITORING_ENABLED")
     cpu_monitoring_interval_secs: int = Field(default=5, ge=1, le=300, alias="CPU_MONITORING_INTERVAL_SECS")
-
-    # WebRTC stream pacing
-    webrtc_idle_frame_fps: float = Field(default=2.0, gt=0.0, le=30.0, alias="WEBRTC_IDLE_FRAME_FPS")
 
     # Server
     host: str = Field(default="localhost", alias="HOST")
@@ -145,6 +142,8 @@ class Settings(BaseSettings):
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
+    # WebRTC stream pacing
+    webrtc_idle_frame_fps: float = Field(default=2.0, gt=0.0, le=30.0, alias="WEBRTC_IDLE_FRAME_FPS")
 
     # Simplified WebRTC config
     coturn_host: str | None = Field(default=None, alias="COTURN_HOST")

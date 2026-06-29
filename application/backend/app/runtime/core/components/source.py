@@ -41,7 +41,7 @@ class Source(PipelineComponent):
         self._next_frame_condition = Condition()
         self._next_frame_requested = True
         settings = get_settings()
-        self._stats_enabled = settings.enable_cpu_monitoring
+        self._stats_enabled = settings.cpu_monitoring_enabled
         self._stats = SourceStats(
             interval_secs=settings.cpu_monitoring_interval_secs,
             logger=logger,

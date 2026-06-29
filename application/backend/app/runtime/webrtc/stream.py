@@ -96,7 +96,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         self._visualizer = InferenceVisualizer(enable_visualization)
         self._visualization_info_provider = visualization_info_provider
         settings = get_settings()
-        self._stats_enabled = settings.enable_cpu_monitoring
+        self._stats_enabled = settings.cpu_monitoring_enabled
         self._recv_stats = WebRtcRecvStats(interval_secs=settings.cpu_monitoring_interval_secs, logger=logger)
         self._idle_frame_period_s = 1.0 / settings.webrtc_idle_frame_fps
         self._last_idle_frame_sent_at_s: float | None = None
