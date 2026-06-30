@@ -1,3 +1,4 @@
+from asyncio import Protocol
 import logging
 from pathlib import Path
 
@@ -10,10 +11,19 @@ from runtime.core.components.base import StreamWriter
 
 logger = logging.getLogger(__name__)
 
+class DatasetExporter(Protocol):
+    def export(self, dataset: Dataset, output_dir: Path, fmt: str) -> None: ...
+
+class DatumaroExporter:
+    def export(self, dataset: Dataset, output_dir: Path, fmt: str) -> None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        dataset.export(str(output_dir), format=fmt, save_media=True)
+
 # TODO: Remove broad exception silencing once the sink layer is ready to handle non-recoverable errors.
 class DatasetWriter(StreamWriter):
-    def __init__(self, config: DatasetConfig, export_chunk_size: int | None = None) -> None:
+    def __init__(self, config: DatasetConfig, exporter: DatasetExporter, export_chunk_size: int | None = None) -> None:
         self._config = config
+        self._exporter = exporter
         self._frame_count: int = 0
         self._buffered_frame_count: int = 0
         self._chunk_index: int = 0
@@ -158,8 +168,7 @@ class DatasetWriter(StreamWriter):
         """Serialize a Dataset snapshot to disk."""
         fmt = self._config.dataset_format
         try:
-            output_dir.mkdir(parents=True, exist_ok=True)
-            dataset.export(str(output_dir), format=fmt, save_media=True)
+            self._exporter.export(dataset=dataset, output_dir=output_dir, fmt=fmt)
             logger.info(
                 "Dataset exported to %s in %s format. Buffered frames: %d. Total frames: %d",
                 output_dir, fmt, buffered_frame_count, total_frame_count,
