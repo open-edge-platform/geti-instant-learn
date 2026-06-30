@@ -151,7 +151,7 @@ class TestSAM3Init:
         """SAM3 defaults to CLASSIC prompt mode."""
         sam3 = SAM3(device="cpu")
         assert sam3.prompt_mode == Sam3PromptMode.CLASSIC
-        assert sam3.drop_spatial_bias is False
+        assert sam3.drop_spatial_bias is True
         assert sam3.exemplar_geometry_features is None
 
     @patch("instantlearn.models.sam3.sam3.Sam3Model.from_pretrained", return_value=_mock_sam3_model())

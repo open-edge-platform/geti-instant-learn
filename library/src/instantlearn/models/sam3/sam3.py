@@ -8,19 +8,23 @@ from collections import defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
-from itertools import zip_longest
-from typing import Literal
+from itertools import starmap, zip_longest
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
 from transformers import CLIPTokenizerFast
 
-from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
-from instantlearn.data.base.batch import Batch, Collatable
+from instantlearn.components.postprocessing import PostProcessor, apply_postprocessing, default_postprocessor
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
-from instantlearn.models.base import Model
-from instantlearn.utils import precision_to_torch_dtype
+from instantlearn.models.model_card import ModelCard
+from instantlearn.models.torch_adapter import sample_to_tensors, tensors_to_prediction
+from instantlearn.models.torch_base import ExportConfig, TorchModel
+from instantlearn.utils import Backend, PromptType, ShotMode, precision_to_torch_dtype
 
 from .canvas_helpers import (
     build_canvas_multishot,
@@ -37,8 +41,10 @@ from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreproces
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from .sam3_openvino import SAM3OpenVINO
+
 SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
-SAM3_APPLICATION_MODEL_ID = "research21/sam3.1"
 
 
 @dataclass
@@ -81,6 +87,11 @@ class CanvasConfig:
     share_vision: Literal["auto", "grouped", "spaced"] | bool = "auto"
 
     def __post_init__(self) -> None:
+        """Validate canvas configuration values.
+
+        Raises:
+            ValueError: If a configuration value is outside its supported range.
+        """
         if not 0 < self.split_ratio < 1:
             msg = f"split_ratio must be in (0, 1), got {self.split_ratio}"
             raise ValueError(msg)
@@ -118,7 +129,30 @@ class Sam3PromptMode(str, Enum):
     CANVAS = "canvas"
 
 
-class SAM3(Model):
+@dataclass
+class _TorchSample:
+    """Torch-native sample used inside SAM3 after public input conversion.
+
+    ``Sample`` stays backend-neutral at the public API boundary. This private
+    shape keeps the image as a tensor for SAM3 while preserving numpy prompts
+    for canvas and geometry helpers.
+    """
+
+    image: torch.Tensor | None
+    bboxes: np.ndarray | None
+    points: np.ndarray | None
+    category_labels: list[str]
+    label_ids: list[int]
+
+
+@dataclass
+class _TorchBatch:
+    """Batch wrapper for torch-native SAM3 samples."""
+
+    samples: list[_TorchSample]
+
+
+class SAM3(TorchModel):
     """SAM3 model for text and visual prompting.
 
     This model uses SAM3 (Segment Anything Model 3) for zero-shot segmentation
@@ -226,12 +260,13 @@ class SAM3(Model):
         device: str = "cuda",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
-        precision: str | None = None,
+        precision: str = "fp16",
         compile_models: bool = False,
         model_id: str = SAM3_LIBRARY_MODEL_ID,
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
-        drop_spatial_bias: bool = False,
+        drop_spatial_bias: bool = True,
+        preprocessor: object | None = None,
         postprocessor: PostProcessor | None = None,
         canvas_config: CanvasConfig | None = None,
     ) -> None:
@@ -242,8 +277,6 @@ class SAM3(Model):
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: Model precision (``'fp16'``, ``'bf16'``, or ``'fp32'``).
-                Default ``None`` auto-selects ``'fp16'`` on GPU (CUDA / XPU)
-                for ~2.8x faster inference and ``'fp32'`` on CPU.
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
                 and tokenizer from. Default: SAM3_LIBRARY_MODEL_ID.
@@ -255,7 +288,8 @@ class SAM3(Model):
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
-                spatial bias from the reference image position. Default: False.
+                spatial bias from the reference image position. Default: True.
+            preprocessor: Optional numpy-based preprocessor applied before inference.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -265,17 +299,13 @@ class SAM3(Model):
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
-        super().__init__(postprocessor=postprocessor)
-
-        self.device = device
-        self.confidence_threshold = confidence_threshold
-        self.resolution = resolution
-
-        # Auto-select precision: fp16 for GPU (2.8× faster), fp32 for CPU.
         if precision is None:
             device_type = torch.device(device).type
             precision = "fp16" if device_type in {"cuda", "xpu"} else "fp32"
-        self.precision = precision
+        super().__init__(device=device, precision=precision, preprocessor=preprocessor, postprocessor=postprocessor)
+
+        self.confidence_threshold = confidence_threshold
+        self.resolution = resolution
         self.compile_models = compile_models
         self.model_id = model_id
         self.prompt_mode = Sam3PromptMode(prompt_mode)
@@ -318,6 +348,18 @@ class SAM3(Model):
             .eval()
         )
 
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for SAM3 capabilities."""
+        return ModelCard(
+            name="SAM3",
+            family="sam3",
+            description="Segment Anything 3 model for text, box, point, and visual-exemplar prompting.",
+            prompt_types=frozenset({PromptType.TEXT, PromptType.BOUNDING_BOX, PromptType.POINT}),
+            shot_modes=frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT}),
+            exportable_to=frozenset({Backend.OPENVINO}),
+        )
+
     # Hook methods for subclass customization
 
     def _get_autocast_context(self) -> torch.autocast | nullcontext:
@@ -325,7 +367,7 @@ class SAM3(Model):
 
         When ``precision`` is ``"fp16"`` or ``"bf16"`` **and** the device is a
         GPU (CUDA / XPU), returns ``torch.autocast`` for mixed-precision
-        inference (~1.9× speedup on CUDA, ~3.4× on XPU).  For ``"fp32"`` or
+        inference (~1.9x speedup on CUDA, ~3.4x on XPU).  For ``"fp32"`` or
         CPU devices the method returns ``nullcontext`` to preserve the original
         full-precision behaviour.
 
@@ -372,7 +414,7 @@ class SAM3(Model):
                 - list[Sample]: A list of reference samples
                 - Batch: A batch of reference samples
         """
-        reference_batch = Batch.collate(reference)
+        reference_batch = self._to_torch_batch(reference)
 
         if self.prompt_mode == Sam3PromptMode.CLASSIC:
             self._fit_classic(reference_batch)
@@ -382,7 +424,7 @@ class SAM3(Model):
             self._fit_visual_exemplar(reference_batch)
 
     @torch.inference_mode()
-    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[Prediction]:
         """Perform inference on target images.
 
         In CLASSIC mode, processes text/box prompts per target image.
@@ -393,20 +435,149 @@ class SAM3(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
-                - str | Path: A single image path
-                - list[str] | list[Path]: Multiple image paths
 
         Returns:
-            List of prediction dicts per image with 'pred_masks', 'pred_boxes',
-            'pred_labels'.
+            List of prediction objects per image.
         """
+        target_batch = self._to_torch_batch(target)
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
-            return self.apply_postprocessing(self._predict_visual_exemplar(target))
-        if self.prompt_mode == Sam3PromptMode.CANVAS:
-            return self.apply_postprocessing(self._predict_canvas(target))
-        return self.apply_postprocessing(self._predict_classic(target))
+            raw_predictions = self._predict_visual_exemplar(target_batch)
+        elif self.prompt_mode == Sam3PromptMode.CANVAS:
+            raw_predictions = self._predict_canvas(target_batch)
+        else:
+            raw_predictions = self._predict_classic(target_batch)
 
-    def _fit_classic(self, reference_batch: Batch) -> None:
+        raw_predictions = self._ensure_prediction_scores(raw_predictions)
+        processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
+        return list(starmap(self._to_prediction, zip(processed_predictions, target_batch.samples, strict=True)))
+
+    def export(self, path: Path) -> Path:
+        """Export SAM3 artifacts to *path*.
+
+        Full SAM3 graph export is handled together with the OpenVINO sibling
+        migration because the model is split into multiple subgraphs.
+        """
+        msg = "SAM3 export is not wired yet; use the SAM3OpenVINO migration path for exported artifacts."
+        raise NotImplementedError(msg)
+
+    def to_openvino(self, export_path: Path | None = None, config: ExportConfig | None = None) -> "SAM3OpenVINO":
+        """Export this SAM3 instance to OpenVINO and load the OpenVINO sibling."""
+        del export_path, config
+        msg = f"SAM3 torch-to-OpenVINO conversion for {self.model_id!r} depends on the SAM3OpenVINO contract migration."
+        raise NotImplementedError(msg)
+
+    def _to_torch_batch(self, data: Sample | list[Sample] | Batch) -> _TorchBatch:
+        """Convert public sample inputs to SAM3's private torch batch.
+
+        Args:
+            data: A sample, list of samples, or backend-neutral batch.
+
+        Returns:
+            Batch containing torch-native samples for internal SAM3 inference.
+        """
+        batch = Batch.collate(data)
+        return _TorchBatch(samples=[self._to_torch_sample(sample) for sample in batch.samples])
+
+    def _to_torch_sample(self, sample: Sample) -> _TorchSample:
+        """Convert one backend-neutral sample to SAM3's private sample shape.
+
+        Args:
+            sample: Public sample with numpy annotations and optional image.
+
+        Returns:
+            Private sample with a torch image and numpy prompt arrays.
+        """
+        if isinstance(sample.image, torch.Tensor):
+            image = sample.image.float().to(self.device)
+        else:
+            image = sample_to_tensors(sample, self.device).image
+
+        return _TorchSample(
+            image=image,
+            bboxes=self._to_numpy_array(sample.bboxes),
+            points=self._to_numpy_array(sample.points),
+            category_labels=sample.category_labels,
+            label_ids=sample.label_ids,
+        )
+
+    @staticmethod
+    def _to_numpy_array(value: np.ndarray | torch.Tensor | None) -> np.ndarray | None:
+        """Convert optional prompt data to numpy.
+
+        Args:
+            value: Prompt array as numpy, torch, or ``None``.
+
+        Returns:
+            Numpy array on CPU, or ``None`` when no prompt data exists.
+        """
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            return value.detach().cpu().numpy()
+        return np.asarray(value)
+
+    @staticmethod
+    def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
+        """Ensure raw SAM3 predictions contain ``pred_scores``.
+
+        Args:
+            predictions: Raw prediction dictionaries from SAM3 mode-specific paths.
+
+        Returns:
+            The same prediction dictionaries with ``pred_scores`` populated.
+        """
+        for prediction in predictions:
+            if "pred_scores" in prediction:
+                continue
+            boxes = prediction.get("pred_boxes")
+            if boxes is not None and boxes.numel() > 0 and boxes.shape[1] > 4:
+                prediction["pred_scores"] = boxes[:, 4]
+            else:
+                masks = prediction["pred_masks"]
+                prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
+        return predictions
+
+    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: _TorchSample) -> Prediction:
+        """Convert one raw SAM3 prediction dictionary to ``Prediction``.
+
+        Args:
+            prediction: Raw tensor prediction with masks, labels, scores, and boxes.
+            sample: Private sample used to recover category label names.
+
+        Returns:
+            Backend-neutral prediction with numpy arrays.
+        """
+        boxes = prediction.get("pred_boxes")
+        boxes_xyxy = boxes[:, :4] if boxes is not None else None
+        return tensors_to_prediction(
+            masks=prediction["pred_masks"],
+            scores=prediction["pred_scores"],
+            label_ids=prediction["pred_labels"],
+            categories=self._prediction_categories(sample, prediction["pred_labels"]),
+            boxes=boxes_xyxy,
+        )
+
+    def _prediction_categories(self, sample: _TorchSample, label_ids: torch.Tensor) -> list[str]:
+        """Build category names aligned with integer prediction labels.
+
+        Args:
+            sample: Private sample containing per-instance category metadata.
+            label_ids: Predicted category ids.
+
+        Returns:
+            Category names indexed by category id for ``tensors_to_prediction``.
+        """
+        id_to_label: dict[int, str] = {}
+        if self.category_mapping is not None:
+            id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
+        id_to_label.update(dict(zip(sample.label_ids, sample.category_labels, strict=False)))
+
+        if label_ids.numel() == 0 and not id_to_label:
+            return []
+        max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
+        return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
+
+    def _fit_classic(self, reference_batch: _TorchBatch) -> None:
         """Store category mapping from reference batch.
 
         Args:
@@ -414,7 +585,7 @@ class SAM3(Model):
         """
         self.category_mapping = self._build_category_mapping(reference_batch)
 
-    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+    def _fit_visual_exemplar(self, reference_batch: _TorchBatch) -> None:
         """Encode visual exemplar features from reference images and boxes/points.
 
         Supports n-shot encoding: multiple prompts for the same category are
@@ -495,7 +666,7 @@ class SAM3(Model):
 
     def _encode_sample_prompts(
         self,
-        sample: Sample,
+        sample: _TorchSample,
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]],
         category_text_map: dict[int, str],
     ) -> None:
@@ -630,7 +801,7 @@ class SAM3(Model):
             [text_cache[p][1] for p in text_prompts],
         )
 
-    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
+    def _predict_classic(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
         """Classic SAM3 prediction with per-image text/box/point prompts.
 
         Args:
@@ -639,9 +810,8 @@ class SAM3(Model):
         Returns:
             List of prediction dicts per image.
         """
-        target_batch = Batch.collate(target)
         results = []
-        samples = target_batch.samples
+        samples = target.samples
 
         # Use stored categories from fit() if available, otherwise use per-sample
         use_fitted_categories = self.category_mapping is not None
@@ -733,7 +903,7 @@ class SAM3(Model):
 
         return results
 
-    def _predict_visual_exemplar(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_visual_exemplar(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:
         """Visual exemplar prediction using cached geometry features from fit().
 
         For each target image, reuses the cached exemplar geometry features
@@ -752,10 +922,9 @@ class SAM3(Model):
             msg = "No cached exemplar features. Call fit() with reference images and bboxes first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
 
-        for sample in target_batch.samples:
+        for sample in target.samples:
             img_size = sample.image.shape[-2:]
 
             # Preprocess target image
@@ -801,7 +970,7 @@ class SAM3(Model):
 
         return results
 
-    def _fit_canvas(self, reference_batch: Batch) -> None:
+    def _fit_canvas(self, reference_batch: _TorchBatch) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
         References are grouped by category so that each category gets its own
@@ -810,8 +979,6 @@ class SAM3(Model):
         Args:
             reference_batch: Batch of reference samples with images and bboxes.
 
-        Raises:
-            ValueError: If no reference samples contain bboxes.
         """
         refs_by_category = group_references_by_category(reference_batch.samples)
 
@@ -843,7 +1010,7 @@ class SAM3(Model):
             len(self._canvas_text_cache),
         )
 
-    def _predict_canvas(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_canvas(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:
         """Canvas prediction with shared vision encoder and cached text features.
 
         Routing (multi-category):
@@ -867,11 +1034,10 @@ class SAM3(Model):
             msg = "Canvas mode requires fit() to be called first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
         n_categories = len(self._canvas_refs_by_category)
 
-        for sample in target_batch.samples:
+        for sample in target.samples:
             tgt_image = sample.image
             tgt_h, tgt_w = tgt_image.shape[-2:]
 
@@ -1035,7 +1201,7 @@ class SAM3(Model):
             )
 
         # "spaced" — every ref individually separated
-        C = tgt_image.shape[0]
+        channels = tgt_image.shape[0]
         canvas_w = tgt_image.shape[2]
         for cat_refs in self._canvas_refs_by_category.values():
             for img in cat_refs["images"]:
@@ -1053,7 +1219,7 @@ class SAM3(Model):
 
         cat_items = list(self._canvas_refs_by_category.items())
 
-        ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+        ref_strip = torch.zeros(channels, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
         per_cat_bboxes: dict[int, list[np.ndarray]] = {}
 
         all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
@@ -1092,7 +1258,7 @@ class SAM3(Model):
                 y2 * sy + tgt_canvas_h,
             ], dtype=np.float32))
 
-        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+        canvas = torch.zeros(channels, canvas_h, canvas_w, dtype=tgt_resized.dtype)
         canvas[:, :tgt_canvas_h, :] = tgt_resized
         canvas[:, tgt_canvas_h:, :] = ref_strip
 
@@ -1400,7 +1566,7 @@ class SAM3(Model):
         return extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
 
     @staticmethod
-    def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
+    def _build_category_mapping(reference_batch: _TorchBatch) -> dict[str, int]:
         """Build category name → id mapping from reference samples.
 
         Args:

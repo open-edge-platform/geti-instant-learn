@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from instantlearn.models.sam3.sam3 import CanvasConfig, SAM3
+from instantlearn.models.sam3.sam3 import SAM3, CanvasConfig
 
 
 class TestCanvasConfigDefaults:
