@@ -12,6 +12,16 @@ class WriterType(StrEnum):
     DATASET = "dataset"
 
 
+class DatasetFormat(StrEnum):
+    """Supported dataset export formats (datumaro format names)."""
+
+    COCO = "coco"
+    VOC = "voc"
+    YOLO = "yolo"
+    CVAT = "cvat"
+    DATUMARO = "datumaro"
+
+
 class MqttConfig(BaseModel):
     sink_type: Literal[WriterType.MQTT] = WriterType.MQTT
     name: str = "MQTT Broker"
@@ -37,7 +47,7 @@ class DatasetConfig(BaseModel):
     sink_type: Literal[WriterType.DATASET] = WriterType.DATASET
     name: str = "Dataset Writer"
     output_dir: str 
-    dataset_format: str 
+    dataset_format: DatasetFormat = DatasetFormat.DATUMARO
     max_frames: int | None = Field(default=None, ge=1)
     category_id_to_name: dict[int, str] | None = None
     frame_trace: bool = False
@@ -48,7 +58,7 @@ class DatasetConfig(BaseModel):
                 "sink_type": "dataset",
                 "name": "Dataset Writer",
                 "output_dir": "/path/to/output/dataset",
-                "dataset_format": "COCO",
+                "dataset_format": "datumaro",
                 "max_frames": None,
                 "category_id_to_name": None,
                 "frame_trace": False
