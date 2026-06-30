@@ -29,10 +29,6 @@ class DatasetWriter(StreamWriter):
         self._chunk_index: int = 0
         self._chunk_size: int | None = export_chunk_size
 
-        if self._config.dataset_format is None:
-            raise ValueError("dataset_format must be set")
-        if self._config.output_dir is None:
-            raise ValueError("output_dir must be set")
         self._dataset = Dataset(media_type=Image)
         mapping = config.category_id_to_name
         self._categories = (
