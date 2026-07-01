@@ -22,7 +22,7 @@ from .model_card import ModelCard
 from .model_loader import ModelLoader, resolve_model_dir
 from .openvino_base import OpenVINOModel
 from .per_dino import PerDino
-from .sam3 import SAM3, SAM3OpenVINO, SAM3OVVariant, Sam3PromptMode
+from .sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode
 from .soft_matcher import SoftMatcher
 from .torch_base import ExportConfig, TorchModel
 
@@ -38,7 +38,6 @@ __all__ = [
     "ModelLoader",
     "OpenVINOModel",
     "PerDino",
-    "SAM3OVVariant",
     "SAM3OpenVINO",
     "Sam3PromptMode",
     "SoftMatcher",

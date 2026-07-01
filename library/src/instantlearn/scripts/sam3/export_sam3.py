@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Export SAM3 PyTorch model to OpenVINO IR via ONNX.
+r"""Export SAM3 PyTorch model to OpenVINO IR via ONNX.
 
 Loads the official ``Sam3Model`` weights from HuggingFace (or a local
 checkpoint), exports each sub-component to ONNX, converts to OpenVINO IR,
@@ -320,6 +320,87 @@ def convert_to_openvino(
     return converted
 
 
+def _ensure_openvino_export_complete(model_dir: Path) -> None:
+    """Validate that all expected SAM3 OpenVINO sub-model files exist.
+
+    Args:
+        model_dir: Directory expected to contain the 5 OpenVINO IR models.
+
+    Raises:
+        FileNotFoundError: If any required ``.xml`` file is missing.
+    """
+    missing = [
+        model_dir / f"{model_name}.xml"
+        for model_name in MODEL_NAMES
+        if not (model_dir / f"{model_name}.xml").exists()
+    ]
+    if missing:
+        missing_names = ", ".join(path.name for path in missing)
+        msg = f"Incomplete SAM3 OpenVINO export in {model_dir}: missing {missing_names}"
+        raise FileNotFoundError(msg)
+
+
+def export_sam3_openvino(
+    model_id: str,
+    output_dir: Path,
+    *,
+    resolution: int = 1008,
+    precision: str = "fp16",
+    opset_version: int = 17,
+    validate: bool = False,
+    device: str = "CPU",
+    compression_mode: str | None = "int8_sym",
+) -> Path:
+    """Export official SAM3 weights to OpenVINO artifacts.
+
+    The export uses the existing split-subgraph pipeline:
+
+    1. PyTorch ``Sam3Model`` -> ONNX files.
+    2. ONNX files -> OpenVINO IR files.
+    3. Optional weight compression, defaulting to ``int8_sym``.
+
+    Args:
+        model_id: HuggingFace model ID or local model path to export.
+        output_dir: Base directory for ONNX and OpenVINO artifacts.
+        resolution: Static image resolution used during export.
+        precision: OpenVINO IR precision before optional compression.
+            Supported values are ``"fp16"`` and ``"fp32"``.
+        opset_version: ONNX opset version.
+        validate: Whether to run dummy OpenVINO inference validation.
+        device: OpenVINO device used for validation.
+        compression_mode: Optional weight compression mode. Defaults to
+            ``"int8_sym"``. Pass ``None`` to keep the uncompressed IR.
+
+    Returns:
+        Directory containing the loadable OpenVINO artifacts.
+    """
+    output_dir = Path(output_dir)
+    onnx_dir, exported = export_to_onnx(
+        model_id=model_id,
+        output_dir=output_dir,
+        resolution=resolution,
+        opset_version=opset_version,
+    )
+    logger.info("ONNX export complete: %s", list(exported.keys()))
+
+    ir_dir = output_dir / f"openvino-{precision}"
+    logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", precision)
+    convert_to_openvino(onnx_dir=onnx_dir, output_dir=ir_dir, precision=precision)
+    _ensure_openvino_export_complete(ir_dir)
+
+    result_dir = ir_dir
+    if compression_mode is not None:
+        logger.info("Applying SAM3 OpenVINO weight compression: %s", compression_mode)
+        result_dir = apply_weight_compression(ir_dir, output_dir, compression_mode)
+        _ensure_openvino_export_complete(result_dir)
+
+    if validate:
+        validate_openvino_models(result_dir, device=device, resolution=resolution)
+
+    logger.info("SAM3 OpenVINO export complete: %s", result_dir)
+    return result_dir
+
+
 # Validation
 
 def validate_openvino_models(  # noqa: PLR0915
@@ -563,7 +644,7 @@ def print_comparison_table(output_dir: Path) -> None:
 
 # CLI
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0915
     """CLI entry point for SAM3 PyTorch → ONNX → OpenVINO export and quantization."""
     parser = argparse.ArgumentParser(
         description="Export SAM3 PyTorch model to OpenVINO IR via ONNX, with optional weight compression.",

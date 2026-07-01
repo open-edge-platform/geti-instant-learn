@@ -22,18 +22,20 @@ See Also:
 
 import logging
 from collections import defaultdict
-from enum import Enum
-from itertools import zip_longest
+from dataclasses import dataclass
+from itertools import starmap, zip_longest
 from pathlib import Path
 
 import numpy as np
-import openvino as ov
 import torch
 from transformers import CLIPTokenizerFast
 
-from instantlearn.data.base.batch import Batch, Collatable
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
-from instantlearn.models.base import Model
+from instantlearn.models.model_card import ModelCard
+from instantlearn.models.openvino_base import OpenVINOModel
+from instantlearn.models.torch_adapter import sample_to_tensors, tensors_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
 from .canvas_helpers import (
@@ -45,55 +47,9 @@ from .canvas_helpers import (
     merge_cross_category,
 )
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
-from .sam3 import CanvasConfig, Sam3PromptMode
+from .sam3 import SAM3, SAM3_LIBRARY_MODEL_ID, CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
-
-# Default HuggingFace repo for SAM3 OpenVINO models
-SAM3_OV_REPO = "rajeshgangireddy/SAM3_OpenVINO"
-
-
-class SAM3OVVariant(str, Enum):
-    """Available SAM3 OpenVINO model variants.
-
-    Each variant maps to a subdirectory name on HuggingFace Hub
-    (``rajeshgangireddy/SAM3_OpenVINO``).
-
-    Recommended variants:
-
-    * **FP16** — Best GPU performance (Arc/Xe). Default for GPU inference.
-    * **INT8_SYM** — W8A16 weight-only compression via ``compress_weights(INT8_SYM)``.
-      ~50% smaller than FP16, 1.6x CPU speedup, no accuracy loss.
-    * **INT8_PTQ** — W8A8 post-training quantization via ``nncf.quantize()``.
-      Quantizes both weights and activations. 2.1x CPU speedup (VNNI),
-      no accuracy loss. Best CPU variant. Slower on GPU (0.7x) due to
-      INT8 Q/DQ dispatch overhead on FP16 DPAS units.
-    * **ONNX** — Original ONNX exports. Can be loaded directly by OpenVINO
-      runtime (auto-converted to IR at load time).
-
-    Other variants (available on HuggingFace but no significant advantage
-    over the recommended set):
-
-    * **FP32** — No accuracy or speed benefit over FP16 on GPU.
-    * **INT8_ASYM** — Similar to INT8_SYM, no measurable difference.
-    * **INT4_SYM / INT4_ASYM** — Smaller models but accuracy degradation
-      on text-mode prompting.
-    * **INT8_W8A16** — Identical to INT8_SYM (same ``compress_weights``
-      with ``INT8_SYM`` mode), kept for backward compatibility.
-    """
-
-    # Recommended variants
-    FP16 = "openvino-fp16"
-    INT8_SYM = "openvino-int8_sym"
-    INT8_PTQ = "openvino-int8_ptq_gpu"
-    ONNX = "onnx"
-
-    # Other variants (no significant advantage over recommended set)
-    FP32 = "openvino-fp32"
-    INT8_ASYM = "openvino-int8_asym"
-    INT4_SYM = "openvino-int4_sym"
-    INT4_ASYM = "openvino-int4_asym"
-    INT8_W8A16 = "openvino-int8_w8a16"
 
 
 # Sub-model file names
@@ -102,6 +58,24 @@ _TEXT_ENCODER = "text-encoder"
 _GEOMETRY_ENCODER = "geometry-encoder"
 _GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
 _PROMPT_DECODER = "prompt-decoder"
+
+
+@dataclass
+class _OVSample:
+    """Torch-native sample used internally by the OpenVINO SAM3 wrapper."""
+
+    image: torch.Tensor | None
+    bboxes: np.ndarray | None
+    points: np.ndarray | None
+    category_labels: list[str]
+    label_ids: list[int]
+
+
+@dataclass
+class _OVBatch:
+    """Batch wrapper for OpenVINO SAM3 private samples."""
+
+    samples: list[_OVSample]
 
 
 def _get_model_file(model_dir: Path, name: str, *, required: bool = True) -> Path | None:
@@ -139,7 +113,7 @@ def _get_model_file(model_dir: Path, name: str, *, required: bool = True) -> Pat
     return None
 
 
-class SAM3OpenVINO(Model):
+class SAM3OpenVINO(OpenVINOModel):
     """SAM3 model using OpenVINO runtime for inference.
 
     Provides the same capabilities as the PyTorch ``SAM3`` model:
@@ -164,8 +138,8 @@ class SAM3OpenVINO(Model):
         >>> from instantlearn.data.base.sample import Category, Sample
         >>> import numpy as np
 
-        >>> # Auto-download default variant (INT8_SYM) — canvas mode
-        >>> model = SAM3OpenVINO(device="CPU")
+        >>> # Load a local OpenVINO INT8_SYM export — canvas mode
+        >>> model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
         >>> ref = Sample(
         ...     image_path="examples/assets/coco/000000286874.jpg",
         ...     bboxes=np.array([[180, 105, 490, 370]]),
@@ -178,7 +152,7 @@ class SAM3OpenVINO(Model):
 
         >>> # Text-only prompting (classic mode)
         >>> model = SAM3OpenVINO(
-        ...     variant=SAM3OVVariant.INT8_SYM,
+        ...     model_dir="./sam3-openvino/openvino-int8_sym",
         ...     prompt_mode=Sam3PromptMode.CLASSIC,
         ...     device="CPU",
         ... )
@@ -191,28 +165,33 @@ class SAM3OpenVINO(Model):
         >>> model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0915
         self,
         model_dir: str | Path | None = None,
+        model_id: str = SAM3_LIBRARY_MODEL_ID,
         device: str = "AUTO",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         prompt_mode: Sam3PromptMode = Sam3PromptMode.CANVAS,
         drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
-        variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
-        repo_id: str = SAM3_OV_REPO,
         canvas_config: CanvasConfig | None = None,
+        export_dir: str | Path = Path("./sam3-openvino"),
+        compression_mode: str | None = "int8_sym",
         cache_dir: str | Path | None = None,
     ) -> None:
         """Initialise SAM3 OpenVINO model.
 
         When *model_dir* is provided, models are loaded from the local directory.
-        Otherwise, the *variant* is automatically downloaded from HuggingFace Hub.
+        Otherwise, the official SAM3 model is exported to OpenVINO artifacts in
+        *export_dir* and the INT8_SYM weight-compressed artifacts are loaded.
 
         Args:
             model_dir: Directory containing OpenVINO IR or ONNX sub-models.
-                When ``None``, models are auto-downloaded from HuggingFace Hub.
+                When ``None``, exports official SAM3 into *export_dir* first.
+            model_id: HuggingFace model ID or local path used as tokenizer
+                fallback and, in a later pass, as the source for init-time
+                OpenVINO export. Default: SAM3_LIBRARY_MODEL_ID.
             device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``).
                 PyTorch-style names (``"cuda"``, ``"cpu"``) are also accepted.
             confidence_threshold: Minimum confidence score for predictions.
@@ -224,25 +203,40 @@ class SAM3OpenVINO(Model):
                 runtime effect.  The exemplar geometry encoder already has
                 ``drop_spatial_bias=True`` baked in at export time.
             tokenizer_path: Explicit tokenizer path or HuggingFace model ID.
-            variant: Model variant to download when *model_dir* is ``None``.
-            repo_id: HuggingFace repository ID for auto-download.
             canvas_config: Configuration for canvas mode (split ratio, crop
                 padding, text caching). See :class:`CanvasConfig`.
                 Default: ``None`` (uses ``CanvasConfig()`` defaults).
+            export_dir: Directory used for init-time official SAM3 -> OpenVINO
+                export when *model_dir* is ``None``. Default: ``./sam3-openvino``.
+            compression_mode: Weight compression mode used for init-time export.
+                Default: ``"int8_sym"``. Pass ``None`` to load the uncompressed
+                FP16 OpenVINO IR generated by the export helper.
             cache_dir: Directory for caching compiled OpenVINO models. When set
                 (and not ``"CPU"`` device), the OV runtime stores compiled GPU
                 kernels here so subsequent loads of the same model are ~7x
                 faster. ``None`` (default) uses ``model_dir / ".ov_cache"``.
                 Pass an empty string ``""`` to disable caching.
         """
-        super().__init__()
+        if model_dir is None:
+            from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
 
-        self.model_dir = self._resolve_model_dir(model_dir, variant=variant, repo_id=repo_id)
-        self.ov_device = device_to_openvino_device(device)
+            model_dir = export_sam3_openvino(
+                model_id=model_id,
+                output_dir=Path(export_dir),
+                resolution=resolution,
+                precision="fp16",
+                compression_mode=compression_mode,
+            )
+
+        ov_device = device_to_openvino_device(device)
+        super().__init__(model_dir=model_dir, device=ov_device)
+        self.ov_device = self.device
+        self.model_id = model_id
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
         self.prompt_mode = prompt_mode
         self.drop_spatial_bias = drop_spatial_bias
+        self.compression_mode = compression_mode
 
         # Category mapping from fit()
         self.category_mapping: dict[str, int] | None = None
@@ -259,8 +253,6 @@ class SAM3OpenVINO(Model):
         self._canvas_refs_by_category: dict[int, dict] | None = None
         self._canvas_text_cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 
-        core = ov.Core()
-
         # Compile properties: optimise for single-request latency (default GPU
         # hint is THROUGHPUT which adds overhead for real-time single-image use).
         # From openvino doc  : Models may load slower and consume more memory when
@@ -271,7 +263,7 @@ class SAM3OpenVINO(Model):
         # Model caching: huge startup speedup on GPU (~7x faster recompile).
         # No latency change. Disabled on CPU (CPU compile is already fast).
         # Pass ``cache_dir=""`` to disable explicitly.
-        if self.ov_device != "CPU" and cache_dir != "":
+        if self.ov_device != "CPU" and cache_dir != "":  # noqa: PLC1901
             _cache_path = Path(cache_dir) if cache_dir else self.model_dir / ".ov_cache"
             _cache_path.mkdir(parents=True, exist_ok=True)
             _compile_props["CACHE_DIR"] = str(_cache_path)
@@ -282,9 +274,9 @@ class SAM3OpenVINO(Model):
         prompt_decoder_path = _get_model_file(self.model_dir, _PROMPT_DECODER)
 
         logger.info("Loading SAM3 OpenVINO models from %s on %s...", self.model_dir, self.ov_device)
-        self.vision_model = core.compile_model(vision_path, self.ov_device, _compile_props)
-        self.text_model = core.compile_model(text_path, self.ov_device, _compile_props)
-        self.decoder_model = core.compile_model(prompt_decoder_path, self.ov_device, _compile_props)
+        self.vision_model = self._core.compile_model(vision_path, self.ov_device, _compile_props)
+        self.text_model = self._core.compile_model(text_path, self.ov_device, _compile_props)
+        self.decoder_model = self._core.compile_model(prompt_decoder_path, self.ov_device, _compile_props)
         logger.info("  Vision encoder: %s", vision_path.name)
         logger.info("  Text encoder: %s", text_path.name)
         logger.info("  Prompt decoder: %s", prompt_decoder_path.name)
@@ -292,14 +284,13 @@ class SAM3OpenVINO(Model):
         # Geometry encoder (classic) — needed for box/point/canvas prompts
         geo_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER, required=False)
         if geo_path is not None:
-            self.geometry_model = core.compile_model(geo_path, self.ov_device, _compile_props)
+            self.geometry_model = self._core.compile_model(geo_path, self.ov_device, _compile_props)
             logger.info("  Geometry encoder (classic): %s", geo_path.name)
         else:
             self.geometry_model = None
 
         # Geometry encoder (exemplar) — loaded on demand for VISUAL_EXEMPLAR mode
         self.geometry_exemplar_model = None
-        self._ov_core = core
         self._compile_props = _compile_props
 
         # Pre-create infer requests to avoid per-call allocation overhead (GPU)
@@ -321,6 +312,44 @@ class SAM3OpenVINO(Model):
         self.tokenizer = self._load_tokenizer(tokenizer_path)
         logger.info("SAM3 OpenVINO model loaded successfully (mode=%s).", prompt_mode.value)
 
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for SAM3 OpenVINO capabilities."""
+        return SAM3.card()
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        repo_id: str,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        **kwargs: object,
+    ) -> "SAM3OpenVINO":
+        """Create a SAM3OpenVINO model from a HuggingFace-style model id.
+
+        Args:
+            repo_id: HuggingFace model ID or local model path used as the
+                official SAM3 source for init-time OpenVINO export.
+            revision: Optional revision. Not supported by the current SAM3
+                export helper.
+            cache_dir: Optional directory for generated OpenVINO artifacts.
+                Passed as ``export_dir`` when ``export_dir`` is not already set.
+            **kwargs: Additional arguments forwarded to :class:`SAM3OpenVINO`.
+
+        Returns:
+            A loaded ``SAM3OpenVINO`` instance.
+
+        Raises:
+            ValueError: If ``revision`` is provided.
+        """
+        if revision is not None:
+            msg = "SAM3OpenVINO.from_pretrained() does not support revision yet."
+            raise ValueError(msg)
+        kwargs.setdefault("model_id", repo_id)
+        if cache_dir is not None:
+            kwargs.setdefault("export_dir", cache_dir)
+        return cls(**kwargs)
+
     def _load_tokenizer(self, tokenizer_path: str | Path | None) -> CLIPTokenizerFast:
         """Load CLIP tokenizer from local path or HuggingFace.
 
@@ -334,58 +363,14 @@ class SAM3OpenVINO(Model):
             return CLIPTokenizerFast.from_pretrained(str(tokenizer_path))
         if (self.model_dir / "tokenizer.json").exists():
             return CLIPTokenizerFast.from_pretrained(str(self.model_dir))
-        return CLIPTokenizerFast.from_pretrained(SAM3_OV_REPO)
-
-    @staticmethod
-    def _resolve_model_dir(
-        model_dir: str | Path | None,
-        *,
-        variant: SAM3OVVariant = SAM3OVVariant.INT8_SYM,
-        repo_id: str = SAM3_OV_REPO,
-    ) -> Path:
-        """Resolve the model directory, downloading from HuggingFace if needed.
-
-        Args:
-            model_dir: Explicit local directory, or ``None`` for auto-download.
-            variant: Model variant to download.
-            repo_id: HuggingFace repository ID.
-
-        Returns:
-            Local ``Path`` to the directory containing the sub-model files.
-
-        Raises:
-            FileNotFoundError: If *model_dir* is given but does not exist.
-            ImportError: If ``huggingface_hub`` is not installed.
-        """
-        if model_dir is not None:
-            path = Path(model_dir)
-            if not path.is_dir():
-                msg = f"Model directory not found: {path}"
-                raise FileNotFoundError(msg)
-            return path
-
-        variant = SAM3OVVariant(variant)
-        subdir = variant.value
-
-        try:
-            from huggingface_hub import snapshot_download  # noqa: PLC0415
-        except ImportError:
-            msg = "huggingface_hub is required for auto-download. Install it with: uv pip install huggingface-hub"
-            raise ImportError(msg)  # noqa: B904
-
-        logger.info("Downloading SAM3 '%s' from HuggingFace: %s", variant.name, repo_id)
-        cache_dir = snapshot_download(
-            repo_id=repo_id,
-            allow_patterns=[f"{subdir}/*", "tokenizer*", "special_tokens_map*"],
-        )
-        return Path(cache_dir) / subdir
+        return CLIPTokenizerFast.from_pretrained(self.model_id)
 
     def _ensure_geometry_exemplar_loaded(self) -> None:
         """Lazy-load the geometry-encoder-exemplar model on first use."""
         if self.geometry_exemplar_model is not None:
             return
         geo_ex_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
-        self.geometry_exemplar_model = self._ov_core.compile_model(
+        self.geometry_exemplar_model = self._core.compile_model(
             geo_ex_path, self.ov_device, self._compile_props,
         )
         self._geometry_exemplar_request = self.geometry_exemplar_model.create_infer_request()
@@ -556,7 +541,7 @@ class SAM3OpenVINO(Model):
             reference: Reference data containing category information and,
                 for exemplar/canvas mode, images with bboxes/points.
         """
-        reference_batch = Batch.collate(reference)
+        reference_batch = self._to_torch_batch(reference)
         if self.prompt_mode == Sam3PromptMode.CANVAS:
             self._fit_canvas(reference_batch)
         elif self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
@@ -564,7 +549,7 @@ class SAM3OpenVINO(Model):
         else:
             self._fit_classic(reference_batch)
 
-    def _fit_classic(self, reference_batch: Batch) -> None:
+    def _fit_classic(self, reference_batch: _OVBatch) -> None:
         """Store category mapping (classic mode).
 
         Args:
@@ -572,7 +557,7 @@ class SAM3OpenVINO(Model):
         """
         self.category_mapping = self._build_category_mapping(reference_batch)
 
-    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+    def _fit_visual_exemplar(self, reference_batch: _OVBatch) -> None:
         """Encode exemplar geometry features from reference images.
 
         Mirrors the PyTorch ``SAM3._fit_visual_exemplar()`` flow:
@@ -654,7 +639,7 @@ class SAM3OpenVINO(Model):
 
     def _encode_sample_prompts(
         self,
-        sample: Sample,
+        sample: _OVSample,
         encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]],
         category_text_map: dict[int, str],
     ) -> None:
@@ -732,7 +717,7 @@ class SAM3OpenVINO(Model):
                 np.array(geo_out["geometry_mask"]),
             ))
 
-    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[Prediction]:
         """Predict masks for target images.
 
         Supports all prompt types: text, box, point, and combined. In
@@ -740,20 +725,93 @@ class SAM3OpenVINO(Model):
         In canvas mode, stitches reference and target into a single canvas.
 
         Args:
-            target: Target data to infer. Accepts Sample, list[Sample], Batch,
-                or file paths.
+            target: Target data to infer. Accepts Sample, list[Sample], or Batch.
 
         Returns:
-            List of prediction dicts per image with ``pred_masks``,
-            ``pred_boxes``, ``pred_labels``.
+            List of prediction objects per image.
         """
+        target_batch = self._to_torch_batch(target)
         if self.prompt_mode == Sam3PromptMode.CANVAS:
-            return self._predict_canvas(target)
-        if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
-            return self._predict_visual_exemplar(target)
-        return self._predict_classic(target)
+            raw_predictions = self._predict_canvas(target_batch)
+        elif self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            raw_predictions = self._predict_visual_exemplar(target_batch)
+        else:
+            raw_predictions = self._predict_classic(target_batch)
 
-    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
+        raw_predictions = self._ensure_prediction_scores(raw_predictions)
+        return list(starmap(self._to_prediction, zip(raw_predictions, target_batch.samples, strict=True)))
+
+    def _to_torch_batch(self, data: Sample | list[Sample] | Batch) -> _OVBatch:
+        """Convert public sample inputs to SAM3OpenVINO's private batch."""
+        batch = Batch.collate(data)
+        return _OVBatch(samples=[self._to_torch_sample(sample) for sample in batch.samples])
+
+    @staticmethod
+    def _to_torch_sample(sample: Sample) -> _OVSample:
+        """Convert one backend-neutral sample to SAM3OpenVINO's private shape."""
+        if isinstance(sample.image, torch.Tensor):
+            image = sample.image.detach().cpu().float()
+        elif sample.image is None:
+            image = None
+        else:
+            image = sample_to_tensors(sample, device="cpu").image
+
+        return _OVSample(
+            image=image,
+            bboxes=SAM3OpenVINO._to_numpy_array(sample.bboxes),
+            points=SAM3OpenVINO._to_numpy_array(sample.points),
+            category_labels=sample.category_labels,
+            label_ids=sample.label_ids,
+        )
+
+    @staticmethod
+    def _to_numpy_array(value: np.ndarray | torch.Tensor | None) -> np.ndarray | None:
+        """Convert optional prompt data to numpy."""
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            return value.detach().cpu().numpy()
+        return np.asarray(value)
+
+    @staticmethod
+    def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
+        """Ensure raw SAM3OpenVINO predictions contain ``pred_scores``."""
+        for prediction in predictions:
+            if "pred_scores" in prediction:
+                continue
+            boxes = prediction.get("pred_boxes")
+            if boxes is not None and boxes.numel() > 0 and boxes.shape[1] > 4:
+                prediction["pred_scores"] = boxes[:, 4]
+            else:
+                masks = prediction["pred_masks"]
+                prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
+        return predictions
+
+    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: _OVSample) -> Prediction:
+        """Convert one raw SAM3OpenVINO prediction dictionary to ``Prediction``."""
+        boxes = prediction.get("pred_boxes")
+        boxes_xyxy = boxes[:, :4] if boxes is not None else None
+        return tensors_to_prediction(
+            masks=prediction["pred_masks"],
+            scores=prediction["pred_scores"],
+            label_ids=prediction["pred_labels"],
+            categories=self._prediction_categories(sample, prediction["pred_labels"]),
+            boxes=boxes_xyxy,
+        )
+
+    def _prediction_categories(self, sample: _OVSample, label_ids: torch.Tensor) -> list[str]:
+        """Build category names aligned with integer prediction labels."""
+        id_to_label: dict[int, str] = {}
+        if self.category_mapping is not None:
+            id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
+        id_to_label.update(dict(zip(sample.label_ids, sample.category_labels, strict=False)))
+
+        if label_ids.numel() == 0 and not id_to_label:
+            return []
+        max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
+        return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
+
+    def _predict_classic(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
         """Classic prediction with per-image text/box/point prompts.
 
         Args:
@@ -762,11 +820,10 @@ class SAM3OpenVINO(Model):
         Returns:
             List of prediction dicts per image.
         """
-        target_batch = Batch.collate(target)
         results = []
         use_fitted_categories = self.category_mapping is not None
 
-        for sample in target_batch.samples:
+        for sample in target.samples:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
             points = sample.points if sample.points is not None else []
@@ -893,7 +950,7 @@ class SAM3OpenVINO(Model):
 
         return results
 
-    def _predict_visual_exemplar(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_visual_exemplar(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:
         """Visual-exemplar prediction using cached geometry features from ``fit()``.
 
         For each target image, reuses the cached exemplar geometry features
@@ -913,10 +970,9 @@ class SAM3OpenVINO(Model):
             msg = "No cached exemplar features. Call fit() with reference images and bboxes/points first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
 
-        for sample in target_batch.samples:
+        for sample in target.samples:
             img_size = sample.image.shape[-2:]
 
             # Preprocess target image
@@ -977,7 +1033,7 @@ class SAM3OpenVINO(Model):
 
         return results
 
-    def _fit_canvas(self, reference_batch: Batch) -> None:
+    def _fit_canvas(self, reference_batch: _OVBatch) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
         References are grouped by category so that each category gets its own
@@ -986,8 +1042,6 @@ class SAM3OpenVINO(Model):
         Args:
             reference_batch: Batch of reference samples with images and bboxes.
 
-        Raises:
-            ValueError: If no reference samples contain bboxes.
         """
         refs_by_category = group_references_by_category(reference_batch.samples)
 
@@ -1015,7 +1069,7 @@ class SAM3OpenVINO(Model):
             len(self._canvas_text_cache),
         )
 
-    def _predict_canvas(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_canvas(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:
         """Canvas prediction: stitch reference + target, run classic pipeline.
 
         Args:
@@ -1031,11 +1085,10 @@ class SAM3OpenVINO(Model):
             msg = "Canvas mode requires fit() to be called first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
         n_categories = len(self._canvas_refs_by_category)
 
-        for sample in target_batch.samples:
+        for sample in target.samples:
             tgt_image = sample.image
             tgt_h, tgt_w = tgt_image.shape[-2:]
 
@@ -1363,7 +1416,7 @@ class SAM3OpenVINO(Model):
         }
 
     @staticmethod
-    def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
+    def _build_category_mapping(reference_batch: _OVBatch) -> dict[str, int]:
         """Build category name → id mapping from reference samples.
 
         Args:

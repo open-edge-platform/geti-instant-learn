@@ -15,8 +15,10 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+
 
 def _make_mock_model() -> MagicMock:
     """Create a mock Sam3Model with plausible return values."""
@@ -99,7 +101,6 @@ def _make_mock_prompt_preprocessor() -> MagicMock:
     """Create a mock Sam3PromptPreprocessor."""
     pre = MagicMock()
     pre.to.return_value = pre
-    # Return (normalized_boxes, normalized_points)
     pre.return_value = (
         torch.tensor([[[0.3, 0.3, 0.1, 0.1]]]),  # cxcywh
         torch.tensor([[[0.5, 0.5]]]),  # xy
@@ -135,7 +136,6 @@ def _build_sam3(mock_deps: dict[str, Any], prompt_mode: Sam3PromptMode = Sam3Pro
         mock_post_cls.return_value = mock_deps["postprocessor"]
 
         return SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
-
 
 
 class TestSAM3Initialization:
@@ -240,10 +240,13 @@ class TestSAM3Classic:
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
-        assert "pred_masks" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
-        assert isinstance(predictions[0]["pred_masks"], torch.Tensor)
+        prediction = predictions[0]
+        assert isinstance(prediction, Prediction)
+        assert isinstance(prediction.masks, np.ndarray)
+        assert isinstance(prediction.scores, np.ndarray)
+        assert isinstance(prediction.label_ids, np.ndarray)
+        assert isinstance(prediction.label_names, np.ndarray)
+        assert isinstance(prediction.boxes, np.ndarray)
 
     def test_predict_mask_spatial_shape(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test that masks match target image spatial dims."""
@@ -255,8 +258,8 @@ class TestSAM3Classic:
         target = Sample(image=torch.zeros(3, 224, 224))
         predictions = model.predict(target)
 
-        masks = predictions[0]["pred_masks"]
-        if masks.numel() > 0:
+        masks = predictions[0].masks
+        if masks.size > 0:
             assert masks.shape[-2:] == (224, 224)
 
     def test_predict_multiple_targets(self, mock_sam3_deps: dict[str, Any]) -> None:
@@ -274,9 +277,12 @@ class TestSAM3Classic:
 
         assert len(predictions) == 2
         for pred in predictions:
-            assert "pred_masks" in pred
-            assert "pred_boxes" in pred
-            assert "pred_labels" in pred
+            assert isinstance(pred, Prediction)
+            assert isinstance(pred.masks, np.ndarray)
+            assert isinstance(pred.scores, np.ndarray)
+            assert isinstance(pred.label_ids, np.ndarray)
+            assert isinstance(pred.label_names, np.ndarray)
+            assert isinstance(pred.boxes, np.ndarray)
 
     def test_predict_with_bbox_prompts(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test classic predict with bounding box prompts on target."""
@@ -408,9 +414,13 @@ class TestSAM3VisualExemplar:
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
-        assert "pred_masks" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
+        prediction = predictions[0]
+        assert isinstance(prediction, Prediction)
+        assert isinstance(prediction.masks, np.ndarray)
+        assert isinstance(prediction.scores, np.ndarray)
+        assert isinstance(prediction.label_ids, np.ndarray)
+        assert isinstance(prediction.label_names, np.ndarray)
+        assert isinstance(prediction.boxes, np.ndarray)
 
     def test_predict_raises_without_fit(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() raises RuntimeError before fit() is called."""
@@ -457,7 +467,7 @@ class TestSAM3Utilities:
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)
+        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
 
         assert mapping == {"shoe": 0, "bag": 1, "hat": 2}
 
@@ -469,7 +479,7 @@ class TestSAM3Utilities:
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)
+        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
 
         assert mapping == {"shoe": 0}
 
@@ -479,7 +489,7 @@ class TestSAM3Utilities:
         boxes = [torch.rand(2, 5), torch.rand(1, 5)]
         labels = [torch.tensor([0, 0]), torch.tensor([1])]
 
-        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))
+        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))  # noqa: SLF001
 
         assert result["pred_masks"].shape == (3, 64, 64)
         assert result["pred_boxes"].shape == (3, 5)
@@ -491,7 +501,7 @@ class TestSAM3Utilities:
         boxes: list[torch.Tensor] = [torch.empty(0, 5)]
         labels: list[torch.Tensor] = [torch.empty(0, dtype=torch.long)]
 
-        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))
+        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))  # noqa: SLF001
 
         assert result["pred_masks"].shape == (0, 64, 64)
         assert result["pred_boxes"].shape == (0, 5)
@@ -521,5 +531,5 @@ class TestSam3PromptMode:
 
     def test_invalid_string_raises(self) -> None:
         """Test invalid string raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="invalid_mode"):
             Sam3PromptMode("invalid_mode")
