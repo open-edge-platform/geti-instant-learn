@@ -155,6 +155,9 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
     async def _wait_for_fresh_output_or_idle_frame_deadline(self) -> OutputData | ErrorData | None:
         output_data = self._slot.latest
+        if isinstance(output_data, ErrorData):
+            return output_data
+
         if self._is_fresh_output(output_data) or self._last_idle_frame_sent_at_s is None:
             return output_data
 
@@ -166,6 +169,9 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
             await asyncio.sleep(min(wait_s, IDLE_FRAME_POLL_INTERVAL_S))
             output_data = self._slot.latest
+            if isinstance(output_data, ErrorData):
+                return output_data
+
             if self._is_fresh_output(output_data):
                 return output_data
 

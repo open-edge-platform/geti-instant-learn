@@ -307,6 +307,31 @@ class TestProcessorRun:
 
         mock_outbound_broadcaster.broadcast.assert_called_once()
 
+    def test_skipped_frame_does_not_record_trace_span(
+        self,
+        mock_model_handler: Mock,
+        mock_inbound_broadcaster: Mock,
+        mock_outbound_broadcaster: Mock,
+    ) -> None:
+        queue: Queue = Queue()
+        mock_inbound_broadcaster.register.return_value = queue
+
+        processor = Processor(
+            model_handler=mock_model_handler,
+            batch_size=1,
+            frame_skip_interval=2,
+            frame_skip_amount=1,
+        )
+        processor.setup(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        processor._skip_policy.should_skip()
+
+        frame = make_input_data(with_trace=True)
+        self._run_processor_with_frames(processor, queue, [frame], stop_after=0.2)
+
+        frame.trace.record_start.assert_not_called()
+        frame.trace.record_end.assert_not_called()
+        mock_outbound_broadcaster.broadcast.assert_not_called()
+
     def test_trace_recorded_for_frame(
         self,
         configured_processor: tuple[Processor, Queue],

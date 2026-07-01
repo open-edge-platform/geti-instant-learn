@@ -87,3 +87,18 @@ def test_start_and_stop_prime_counters_without_waiting_for_interval(mocker, capl
     system_cpu_percent.assert_called_once_with(interval=None)
     assert "Backend CPU monitoring started" in caplog.text
     assert "Backend CPU monitoring stopped" in caplog.text
+
+
+def test_stop_keeps_thread_reference_when_join_times_out(mocker, caplog):
+    monitor = BackendCpuMonitor(interval_secs=5, process=FakeProcess())
+    thread = mocker.Mock()
+    thread.is_alive.return_value = True
+    monitor._thread = thread
+
+    with caplog.at_level(logging.WARNING, logger=cpu_monitor_module.logger.name):
+        monitor.stop()
+
+    thread.join.assert_called_once_with(timeout=6)
+    assert monitor._thread is thread
+    assert "Backend CPU monitoring did not stop within timeout" in caplog.text
+    assert "Backend CPU monitoring stopped" not in caplog.text

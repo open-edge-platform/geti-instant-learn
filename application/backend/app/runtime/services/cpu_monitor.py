@@ -55,6 +55,10 @@ class BackendCpuMonitor:
         thread = self._thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=self._interval_secs + 1)
+            if thread.is_alive():
+                logger.warning("Backend CPU monitoring did not stop within timeout")
+                return
+
         self._thread = None
         logger.info("Backend CPU monitoring stopped")
 

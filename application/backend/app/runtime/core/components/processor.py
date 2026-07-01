@@ -168,15 +168,15 @@ class Processor(PipelineComponent):
                         break
                     continue
 
-            if input_data.trace:
-                input_data.trace.record_start(TelemetryComponent.PROCESSOR.value)
-
             is_manual = input_data.context.get("requires_manual_control", False)
             self._record_processor_input_frame()
 
             if not is_manual and self._skip_policy.should_skip():
                 self._record_processor_skipped_frame()
                 continue
+
+            if input_data.trace:
+                input_data.trace.record_start(TelemetryComponent.PROCESSOR.value)
 
             batch_data.append(input_data)
 
