@@ -454,17 +454,69 @@ class SAM3(TorchModel):
     def export(self, path: Path) -> Path:
         """Export SAM3 artifacts to *path*.
 
-        Full SAM3 graph export is handled together with the OpenVINO sibling
-        migration because the model is split into multiple subgraphs.
+        SAM3 is exported as a 5-submodel OpenVINO bundle using the same split
+        expected by :class:`~instantlearn.models.sam3.sam3_openvino.SAM3OpenVINO`.
         """
-        msg = "SAM3 export is not wired yet; use the SAM3OpenVINO migration path for exported artifacts."
-        raise NotImplementedError(msg)
+        from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
+
+        return export_sam3_openvino(
+            model_id=self.model_id,
+            output_dir=Path(path),
+            resolution=self.resolution,
+            precision="fp16",
+            compression_mode="int8_sym",
+        )
 
     def to_openvino(self, export_path: Path | None = None, config: ExportConfig | None = None) -> "SAM3OpenVINO":
         """Export this SAM3 instance to OpenVINO and load the OpenVINO sibling."""
-        del export_path, config
-        msg = f"SAM3 torch-to-OpenVINO conversion for {self.model_id!r} depends on the SAM3OpenVINO contract migration."
-        raise NotImplementedError(msg)
+        from .sam3_openvino import SAM3OpenVINO  # noqa: PLC0415
+
+        if config is None:
+            config = ExportConfig(precision="int8")
+
+        output_dir = Path(export_path) if export_path is not None else Path("./sam3-openvino")
+        ir_precision = "fp32" if config.precision == "fp32" else "fp16"
+        compression_mode = {
+            "int8": "int8_sym",
+            "int4": "int4_sym",
+        }.get(config.precision)
+
+        exported_dir = self._export_openvino(
+            output_dir=output_dir,
+            precision=ir_precision,
+            opset_version=config.opset,
+            compression_mode=compression_mode,
+        )
+        return SAM3OpenVINO(
+            model_dir=exported_dir,
+            model_id=self.model_id,
+            device=self.device,
+            confidence_threshold=self.confidence_threshold,
+            resolution=self.resolution,
+            prompt_mode=self.prompt_mode,
+            drop_spatial_bias=self.drop_spatial_bias,
+            canvas_config=self.canvas_config,
+        )
+
+    def _export_openvino(
+        self,
+        *,
+        output_dir: Path,
+        precision: str,
+        opset_version: int,
+        compression_mode: str | None,
+    ) -> Path:
+        """Run the SAM3 OpenVINO export helper with explicit options."""
+        from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
+
+        return export_sam3_openvino(
+            model_id=self.model_id,
+            output_dir=output_dir,
+            resolution=self.resolution,
+            precision=precision,
+            opset_version=opset_version,
+            compression_mode=compression_mode,
+        )
 
     def _to_torch_batch(self, data: Sample | list[Sample] | Batch) -> _TorchBatch:
         """Convert public sample inputs to SAM3's private torch batch.
