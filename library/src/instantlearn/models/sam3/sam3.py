@@ -260,7 +260,7 @@ class SAM3(TorchModel):
         device: str = "cuda",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
-        precision: str = "fp16",
+        precision: str | None = None,
         compile_models: bool = False,
         model_id: str = SAM3_LIBRARY_MODEL_ID,
         post_processing: PostProcessingConfig | None = None,
@@ -277,6 +277,7 @@ class SAM3(TorchModel):
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: Model precision (``'fp16'``, ``'bf16'``, or ``'fp32'``).
+                ``None`` selects ``'fp16'`` for CUDA/XPU and ``'fp32'`` for CPU.
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
                 and tokenizer from. Default: SAM3_LIBRARY_MODEL_ID.
@@ -355,7 +356,7 @@ class SAM3(TorchModel):
             name="SAM3",
             family="sam3",
             description="Segment Anything 3 model for text, box, point, and visual-exemplar prompting.",
-            prompt_types=frozenset({PromptType.TEXT, PromptType.BOUNDING_BOX, PromptType.POINT}),
+            prompt_types=frozenset({PromptType.TEXT, PromptType.MASK, PromptType.BOUNDING_BOX, PromptType.POINT}),
             shot_modes=frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT}),
             exportable_to=frozenset({Backend.OPENVINO}),
         )

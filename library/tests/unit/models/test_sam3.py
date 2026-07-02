@@ -18,6 +18,7 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.utils import Backend, PromptType, ShotMode
 
 
 def _make_mock_model() -> MagicMock:
@@ -140,6 +141,49 @@ def _build_sam3(mock_deps: dict[str, Any], prompt_mode: Sam3PromptMode = Sam3Pro
 
 class TestSAM3Initialization:
     """Test SAM3 initialization for both prompt modes."""
+
+    def test_card_advertises_all_prompt_capabilities(self) -> None:
+        """Test SAM3 card exposes text, spatial, and visual-exemplar prompts."""
+        card = SAM3.card()
+
+        assert card.prompt_types == frozenset({
+            PromptType.TEXT,
+            PromptType.MASK,
+            PromptType.BOUNDING_BOX,
+            PromptType.POINT,
+        })
+        assert card.shot_modes == frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT})
+        assert card.exportable_to == frozenset({Backend.OPENVINO})
+
+    @pytest.mark.parametrize(
+        ("device", "expected_precision", "expected_dtype"),
+        [("cpu", "fp32", torch.float32), ("cuda", "fp16", torch.float16)],
+    )
+    def test_default_precision_matches_device(
+        self,
+        mock_sam3_deps: dict[str, Any],
+        device: str,
+        expected_precision: str,
+        expected_dtype: torch.dtype,
+    ) -> None:
+        """Test default precision avoids fp16 on CPU and keeps fp16 on GPU."""
+        with (
+            patch("instantlearn.models.sam3.sam3.Sam3Model") as mock_model_cls,
+            patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast") as mock_tok_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3Preprocessor") as mock_pre_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3PromptPreprocessor") as mock_ppre_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3Postprocessor") as mock_post_cls,
+        ):
+            mock_model_cls.from_pretrained.return_value = mock_sam3_deps["model"]
+            mock_tok_cls.from_pretrained.return_value = mock_sam3_deps["tokenizer"]
+            mock_pre_cls.return_value = mock_sam3_deps["preprocessor"]
+            mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
+            mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
+
+            model = SAM3(device=device)
+
+        assert model.precision == expected_precision
+        assert mock_model_cls.from_pretrained.call_args.kwargs["torch_dtype"] is expected_dtype
 
     @pytest.mark.parametrize("prompt_mode", [Sam3PromptMode.CLASSIC, Sam3PromptMode.VISUAL_EXEMPLAR])
     def test_initialization(self, mock_sam3_deps: dict[str, Any], prompt_mode: Sam3PromptMode) -> None:
