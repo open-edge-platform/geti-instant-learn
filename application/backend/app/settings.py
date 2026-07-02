@@ -36,10 +36,6 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
-    # Backend monitoring
-    cpu_monitoring_enabled: bool = Field(default=False, alias="CPU_MONITORING_ENABLED")
-    cpu_monitoring_interval_secs: int = Field(default=5, ge=1, le=300, alias="CPU_MONITORING_INTERVAL_SECS")
-
     # Server
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")

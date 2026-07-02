@@ -15,7 +15,6 @@ from av import VideoFrame
 from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.broadcaster import FrameSlot
-from runtime.telemetry import TelemetryComponent, WebRtcFrameKind, WebRtcRecvStats, log_trace, trace_span
 from runtime.webrtc.visualizer import InferenceVisualizer
 from settings import get_settings
 
@@ -96,8 +95,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         self._visualizer = InferenceVisualizer(enable_visualization)
         self._visualization_info_provider = visualization_info_provider
         settings = get_settings()
-        self._stats_enabled = settings.cpu_monitoring_enabled
-        self._recv_stats = WebRtcRecvStats(interval_secs=settings.cpu_monitoring_interval_secs, logger=logger)
         self._idle_frame_period_s = 1.0 / settings.webrtc_idle_frame_fps
         self._last_idle_frame_sent_at_s: float | None = None
 
@@ -112,45 +109,41 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         Falls back to a small dark-gray placeholder when no frame has been
         published yet, or displays an error frame if the source encountered an error.
         """
-        wall_started_at_s = time.perf_counter()
-        cpu_started_at_s = time.thread_time()
-        frame_kind = WebRtcFrameKind.FALLBACK
-
         output_data = await self._wait_for_fresh_output_or_idle_frame_deadline()
         pts, time_base = await self.next_timestamp()
+        is_idle_frame = True
 
+        # Check for error state first
         if isinstance(output_data, ErrorData):
-            frame_kind = WebRtcFrameKind.ERROR
             np_frame = create_error_frame(output_data)
         elif output_data is not None and output_data is not self._last_output:
-            frame_kind = WebRtcFrameKind.NEW
+            is_idle_frame = False
             # New frame from the pipeline — visualize and cache
             self._last_output = output_data
 
-            with trace_span(output_data.trace, TelemetryComponent.WEBRTC):
-                if self._enable_visualization and self._visualizer:
-                    vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
-                    np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
-                else:
-                    np_frame = output_data.frame
+            if output_data.trace:
+                output_data.trace.record_start("webrtc")
+
+            if self._enable_visualization and self._visualizer:
+                vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
+                np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
+            else:
+                np_frame = output_data.frame
 
             self._last_frame = np_frame
-            log_trace(output_data.trace, logger)
+
+            if output_data.trace:
+                output_data.trace.record_end("webrtc")
+                logger.debug(output_data.trace.format_log())
         else:
             # Use cached frame or fallback only when no new output
-            frame_kind = WebRtcFrameKind.CACHED if self._last_frame is not None else WebRtcFrameKind.FALLBACK
             np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
 
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
-        if frame_kind != WebRtcFrameKind.NEW:
+        if is_idle_frame:
             self._last_idle_frame_sent_at_s = time.perf_counter()
-        self._record_recv_stats(
-            frame_kind=frame_kind,
-            wall_time_s=time.perf_counter() - wall_started_at_s,
-            cpu_time_s=time.thread_time() - cpu_started_at_s,
-        )
         return frame
 
     async def _wait_for_fresh_output_or_idle_frame_deadline(self) -> OutputData | ErrorData | None:
@@ -179,8 +172,3 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         return (
             output_data is not None and not isinstance(output_data, ErrorData) and output_data is not self._last_output
         )
-
-    def _record_recv_stats(self, frame_kind: WebRtcFrameKind, wall_time_s: float, cpu_time_s: float) -> None:
-        if not self._stats_enabled:
-            return
-        self._recv_stats.record(frame_kind=frame_kind, wall_time_s=wall_time_s, cpu_time_s=cpu_time_s)
