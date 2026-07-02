@@ -422,9 +422,9 @@ class TestReferenceBatchServiceBuild:
             result = service.build(cfg)
 
         assert result is not None
-        batch, category_mapping = result
+        batch, cat_id_to_name = result
         assert batch is fake_batch
-        assert category_mapping == {0: str(label_id)}
+        assert cat_id_to_name == {0: "visual"}
 
     def test_build_skips_prompt_with_missing_frame(self, service, frame_repository):
         project_id = uuid.uuid4()
@@ -619,3 +619,145 @@ class TestReferenceBatchServiceBuild:
         call_kwargs = mock_to_sample.call_args.kwargs
         assert call_kwargs["output_bboxes"] is False
         assert call_kwargs["label_info"].label_id_to_name is None
+
+    def test_build_returns_category_id_to_name_mapping_for_text_prompts(self, service):
+        """Text mode returns {category_id: prompt_text} mapping."""
+        project_id = uuid.uuid4()
+        cfg = PipelineConfig(project_id=project_id, processor=Sam3Config(), prompt_mode=PromptType.TEXT)
+
+        prompt_a = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text="cat", frame_id=None, annotations=[])
+        prompt_b = SimpleNamespace(id=uuid.uuid4(), type=PromptType.TEXT, text="dog", frame_id=None, annotations=[])
+
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [MagicMock()]
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_a, prompt_b]
+            result = service.build(cfg)
+
+        assert result is not None
+        _, cat_id_to_text = result
+        assert cat_id_to_text == {0: "cat", 1: "dog"}
+
+    def test_build_returns_category_id_to_name_mapping_for_visual_prompts(self, service, frame_repository):
+        """Visual mode returns {category_id: label_name} mapping when labels have names."""
+        project_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
+        label_id_1 = uuid.uuid4()
+        label_id_2 = uuid.uuid4()
+
+        cfg = PipelineConfig(project_id=project_id, processor=Sam3Config(), prompt_mode=PromptType.VISUAL)
+
+        annotation_db_1 = SimpleNamespace(
+            id=uuid.uuid4(),
+            config={"type": "polygon", "points": [{"x": 10, "y": 10}, {"x": 50, "y": 10}]},
+            label_id=label_id_1,
+        )
+        annotation_db_2 = SimpleNamespace(
+            id=uuid.uuid4(),
+            config={"type": "polygon", "points": [{"x": 60, "y": 60}, {"x": 100, "y": 60}]},
+            label_id=label_id_2,
+        )
+        prompt_db = SimpleNamespace(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=frame_id,
+            project_id=project_id,
+            annotations=[annotation_db_1, annotation_db_2],
+        )
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        fake_sample = MagicMock(name="Sample")
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [fake_sample]
+
+        fake_label_1 = SimpleNamespace(id=label_id_1, name="car")
+        fake_label_2 = SimpleNamespace(id=label_id_2, name="person")
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
+            patch(
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
+                return_value=fake_sample,
+            ),
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id={label_id_1: 0, label_id_2: 1},
+                category_id_to_label_id={0: str(label_id_1), 1: str(label_id_2)},
+            )
+            label_svc_cls.return_value.get_labels_by_ids.return_value = [fake_label_1, fake_label_2]
+
+            result = service.build(cfg)
+
+        assert result is not None
+        _, cat_id_to_name = result
+        assert cat_id_to_name == {0: "car", 1: "person"}
+
+    def test_build_returns_visual_fallback_when_use_label_names_false(self, service, frame_repository):
+        """When use_label_names=False (no labels returned), all categories fall back to 'visual'."""
+        project_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
+        label_id_1 = uuid.uuid4()
+        label_id_2 = uuid.uuid4()
+
+        cfg = PipelineConfig(project_id=project_id, processor=Sam3Config(), prompt_mode=PromptType.VISUAL)
+
+        annotation_db_1 = SimpleNamespace(
+            id=uuid.uuid4(),
+            config={"type": "polygon", "points": [{"x": 10, "y": 10}, {"x": 50, "y": 10}]},
+            label_id=label_id_1,
+        )
+        annotation_db_2 = SimpleNamespace(
+            id=uuid.uuid4(),
+            config={"type": "polygon", "points": [{"x": 60, "y": 60}, {"x": 100, "y": 60}]},
+            label_id=label_id_2,
+        )
+        prompt_db = SimpleNamespace(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=frame_id,
+            project_id=project_id,
+            annotations=[annotation_db_1, annotation_db_2],
+        )
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        fake_sample = MagicMock(name="Sample")
+        fake_batch = MagicMock(name="Batch")
+        fake_batch.samples = [fake_sample]
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
+            patch(
+                "runtime.services.reference_batch.ReferenceBatchService._visual_prompt_to_sample",
+                return_value=fake_sample,
+            ),
+            patch("runtime.services.reference_batch.Batch.collate", return_value=fake_batch),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id={label_id_1: 0, label_id_2: 1},
+                category_id_to_label_id={0: str(label_id_1), 1: str(label_id_2)},
+            )
+            # No labels returned → use_label_names=False → all categories fall back to 'visual'
+            label_svc_cls.return_value.get_labels_by_ids.return_value = []
+
+            result = service.build(cfg)
+
+        assert result is not None
+        _, cat_id_to_name = result
+        assert cat_id_to_name == {0: "visual", 1: "visual"}

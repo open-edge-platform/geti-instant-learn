@@ -39,7 +39,7 @@ from runtime.errors import (
     PipelineReloadInProgressError,
     SourceNotSeekableError,
 )
-from runtime.services.model_load_error import build_model_load_error
+from runtime.services.model_load_error import model_load_error
 from runtime.services.reference_batch import ReferenceBatchService
 
 logger = logging.getLogger(__name__)
@@ -75,15 +75,17 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
-        self._lock = threading.Lock()
-        self._model_status = ModelStatusSchema(status=ModelStatus.READY)
+        self._lock = threading.RLock()
+        self._model_status: ModelStatusSchema | None = None
 
     def is_model_loading(self) -> bool:
         """Return True while a processor (re)build is in progress."""
-        return self._model_status.status == ModelStatus.LOADING
+        return self._model_status is not None and self._model_status.status == ModelStatus.LOADING
 
     def get_model_status(self) -> ModelStatusSchema:
         """Return the current processor load status and the last load error, if any."""
+        if self._model_status is None:
+            return ModelStatusSchema()
         return self._model_status.model_copy(deep=True)
 
     def _set_model_status(
@@ -103,20 +105,13 @@ class PipelineManager:
         with self._lock:
             if self.is_model_loading():
                 raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
-            if self._pipeline:
-                self._pipeline.stop()
-            self._set_model_status(ModelStatus.LOADING)
+            self._teardown_pipeline()
             try:
-                self._pipeline = self._create_pipeline(project_id)
-                self._refresh_visualization_info(project_id)
-                self._pipeline.start()
-            except Exception as exc:
-                error_type, error_message = build_model_load_error(exc)
-                self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                logger.error("Pipeline restart failed for project %s", project_id)
+                self._build_and_start_pipeline(project_id)
+            except Exception:
+                logger.exception("Pipeline reload failed for project %s", project_id)
             else:
-                self._set_model_status(ModelStatus.READY)
-        logger.info("Pipeline reloaded for project %s", project_id)
+                logger.info("Pipeline reloaded for project %s", project_id)
 
     def start(self) -> None:
         """
@@ -127,24 +122,23 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             with self._lock:
-                self._set_model_status(ModelStatus.LOADING)
                 try:
-                    self._pipeline = self._create_pipeline(cfg.project_id)
-                    self._refresh_visualization_info(cfg.project_id)
-                    self._pipeline.start()
-                except Exception as exc:
-                    error_type, error_message = build_model_load_error(exc)
-                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                    logger.exception("Pipeline restart failed for project %s", cfg.project_id)
+                    self._build_and_start_pipeline(cfg.project_id)
+                except Exception:
+                    logger.exception("Pipeline startup failed for project %s", cfg.project_id)
                 else:
-                    self._set_model_status(ModelStatus.READY)
-            logger.info("Pipeline started: project_id=%s", cfg.project_id)
+                    logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
         self._event_dispatcher.subscribe(self.on_config_change)
 
     def stop(self) -> None:
         """Stop and dispose the running pipeline."""
+        with self._lock:
+            self._teardown_pipeline()
+
+    def _teardown_pipeline(self) -> None:
+        """Stop and clear the active pipeline and its associated state."""
         with self._lock:
             if self._pipeline:
                 self._pipeline.stop()
@@ -203,28 +197,13 @@ class PipelineManager:
         with self._lock:
             match event:
                 case ProjectActivationEvent() as e:
-                    if self._pipeline:
-                        self._pipeline.stop()
-                    self._set_model_status(ModelStatus.LOADING)
-                    try:
-                        self._pipeline = self._create_pipeline(e.project_id)
-                        self._refresh_visualization_info(e.project_id)
-                        self._pipeline.start()
-                    except Exception as exc:
-                        error_type, error_message = build_model_load_error(exc)
-                        self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
-                        logger.exception("Pipeline restart failed for project %s", e.project_id)
-                        raise
-                    else:
-                        self._set_model_status(ModelStatus.READY)
+                    self._teardown_pipeline()
+                    self._build_and_start_pipeline(e.project_id)
                     logger.info("Pipeline started for activated project %s", e.project_id)
 
                 case ProjectDeactivationEvent() as e:
                     if self._pipeline and self._pipeline.project_id == e.project_id:
-                        self._pipeline.stop()
-                        self._pipeline = None
-                        self._current_config = None
-                        self._visualization_info = None
+                        self._teardown_pipeline()
                         logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
                 case ComponentConfigChangeEvent() as e:
@@ -234,10 +213,22 @@ class PipelineManager:
                             self._refresh_visualization_info(e.project_id)
                         logger.info("Pipeline components updated for project %s", e.project_id)
 
+    def _build_and_start_pipeline(self, project_id: UUID) -> None:
+        """
+        Create and start a new pipeline for the given project.
+        """
+        with self._lock:
+            self._pipeline = self._create_pipeline(project_id)
+            self._refresh_visualization_info(project_id)
+            self._pipeline.start()
+
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
         Create a new Pipeline instance with components from the given configuration.
         Must be called while self._lock is held.
+
+        If processor creation fails, records ERROR status and falls back to a
+        PassThroughModelHandler so the pipeline can still start.
 
         Returns:
             A fully initialized Pipeline instance (not yet started).
@@ -247,9 +238,19 @@ class PipelineManager:
             cfg = svc.get_pipeline_config(project_id)
         self._current_config = cfg
         source = self._component_factory.create_source(cfg.reader)
-        reference_batch, _ = self._batch_service.build(cfg) or (None, {})
-        processor = self._component_factory.create_processor(cfg, reference_batch)
-        sink = self._component_factory.create_sink(cfg.writer)
+        self._set_model_status(ModelStatus.LOADING)
+        try:
+            reference_batch, category_id_to_name = self._batch_service.build(cfg) or (None, {})
+            processor = self._component_factory.create_processor(cfg, reference_batch)
+        except Exception as exc:
+            error_type, error_message = model_load_error(exc)
+            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+            logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
+            processor = self._component_factory.create_processor(cfg, None)
+            category_id_to_name = {}
+        else:
+            self._set_model_status(ModelStatus.READY)
+        sink = self._component_factory.create_sink(cfg.writer, category_id_to_name)
 
         return (
             Pipeline(
@@ -293,14 +294,15 @@ class PipelineManager:
                     processor = self._component_factory.create_processor(cfg, reference_batch)
                     self._pipeline.set_processor(processor, True)
                 except Exception as exc:
-                    error_type, error_message = build_model_load_error(exc)
+                    error_type, error_message = model_load_error(exc)
                     self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
                     logger.exception("Processor rebuild failed for project %s", project_id)
                     raise
                 else:
                     self._set_model_status(ModelStatus.READY)
             case ComponentType.SINK:
-                sink = self._component_factory.create_sink(cfg.writer)
+                _, category_id_to_name = self._batch_service.build(cfg) or (None, {})
+                sink = self._component_factory.create_sink(cfg.writer, category_id_to_name)
                 self._pipeline.set_sink(sink, True)
             case _ as unknown:
                 logger.error(f"Unknown component type {unknown}")

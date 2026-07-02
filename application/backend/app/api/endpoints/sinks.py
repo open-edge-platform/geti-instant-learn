@@ -35,11 +35,23 @@ logger = logging.getLogger(__name__)
                                     "topic": "predictions",
                                     "auth_required": True,
                                 },
-                            }
+                            },
+                            {
+                                "id": "660e8400-e29b-41d4-a716-446655440001",
+                                "active": True,
+                                "config": {
+                                    "sink_type": "dataset",
+                                    "name": "Dataset Export",
+                                    "output_dir": "/tmp/dataset_export",
+                                    "dataset_format": "coco",
+                                    "max_frames": None,
+                                    "frame_trace": False,
+                                },
+                            },
                         ],
                         "pagination": {
-                            "count": 1,
-                            "total": 1,
+                            "count": 2,
+                            "total": 2,
                             "offset": 0,
                             "limit": 20,
                         },
@@ -88,16 +100,36 @@ def get_sinks(project_id: UUID, sink_service: SinkServiceDep, offset: int = 0, l
             "description": "Sink configuration updated successfully",
             "content": {
                 "application/json": {
-                    "example": {
-                        "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "active": True,
-                        "config": {
-                            "sink_type": "mqtt",
-                            "name": "Updated Sink",
-                            "broker_host": "localhost",
-                            "broker_port": 1883,
-                            "topic": "predictions",
-                            "auth_required": True,
+                    "examples": {
+                        "mqtt_example": {
+                            "summary": "MQTT Sink",
+                            "value": {
+                                "id": "550e8400-e29b-41d4-a716-446655440000",
+                                "active": True,
+                                "config": {
+                                    "sink_type": "mqtt",
+                                    "name": "Updated MQTT Sink",
+                                    "broker_host": "localhost",
+                                    "broker_port": 1883,
+                                    "topic": "predictions",
+                                    "auth_required": True,
+                                },
+                            },
+                        },
+                        "dataset_example": {
+                            "summary": "Dataset Sink",
+                            "value": {
+                                "id": "660e8400-e29b-41d4-a716-446655440001",
+                                "active": True,
+                                "config": {
+                                    "sink_type": "dataset",
+                                    "name": "Dataset Export",
+                                    "output_dir": "/tmp/dataset_export",
+                                    "dataset_format": "coco",
+                                    "max_frames": None,
+                                    "frame_trace": False,
+                                },
+                            },
                         },
                     },
                 }
@@ -196,16 +228,36 @@ def delete_sink(project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep) -
             "description": "Sink configuration created successfully",
             "content": {
                 "application/json": {
-                    "example": {
-                        "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "active": False,
-                        "config": {
-                            "sink_type": "mqtt",
-                            "name": "My MQTT Sink",
-                            "broker_host": "localhost",
-                            "broker_port": 1883,
-                            "topic": "predictions",
-                            "auth_required": True,
+                    "examples": {
+                        "mqtt_example": {
+                            "summary": "MQTT Sink",
+                            "value": {
+                                "id": "550e8400-e29b-41d4-a716-446655440000",
+                                "active": False,
+                                "config": {
+                                    "sink_type": "mqtt",
+                                    "name": "My MQTT Sink",
+                                    "broker_host": "localhost",
+                                    "broker_port": 1883,
+                                    "topic": "predictions",
+                                    "auth_required": True,
+                                },
+                            },
+                        },
+                        "dataset_example": {
+                            "summary": "Dataset Sink",
+                            "value": {
+                                "id": "660e8400-e29b-41d4-a716-446655440001",
+                                "active": False,
+                                "config": {
+                                    "sink_type": "dataset",
+                                    "name": "Dataset Export",
+                                    "output_dir": "/tmp/dataset_export",
+                                    "dataset_format": "coco",
+                                    "max_frames": None,
+                                    "frame_trace": False,
+                                },
+                            },
                         },
                     },
                 }

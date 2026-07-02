@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from domain.services.schemas.writer import WriterConfig
+from domain.services.schemas.writer import WriterConfig, WriterType
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.errors import SinkConnectionError
 
@@ -22,7 +22,7 @@ class TestSinkConnectionValidator:
         writer = Mock()
         writer.connect.return_value = None
         writer.close.return_value = None
-        config = WriterConfig(broker_host="localhost", broker_port=1883, topic="test")
+        config: WriterConfig = WriterConfig(sink_type=WriterType.MQTT, broker_host="localhost", broker_port=1883, topic="test")
 
         with patch(
             "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",
@@ -38,7 +38,7 @@ class TestSinkConnectionValidator:
         writer = Mock()
         writer.connect.side_effect = ConnectionError("Failed to connect")
         writer.close.return_value = None
-        config = WriterConfig(broker_host="localhost", broker_port=1883, topic="test")
+        config: WriterConfig = WriterConfig(sink_type=WriterType.MQTT, broker_host="localhost", broker_port=1883, topic="test")
 
         with patch(
             "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",

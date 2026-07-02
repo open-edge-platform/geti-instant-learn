@@ -5,7 +5,7 @@ import pytest
 
 from domain.dispatcher import ComponentType
 from domain.services.schemas.processor import ErrorData, OutputData
-from domain.services.schemas.writer import WriterConfig
+from domain.services.schemas.writer import WriterConfig, WriterType
 from runtime.core.components.writers import mqtt_writer
 from runtime.core.components.writers.mqtt_writer import MqttWriter
 
@@ -15,7 +15,7 @@ def mocked_writer(monkeypatch):
     client_instance = MagicMock()
     client_factory = MagicMock(return_value=client_instance)
     monkeypatch.setattr(mqtt_writer.mqtt, "Client", client_factory)
-    config = WriterConfig(broker_host="mqtt.example", topic="topic/1", broker_port=1884)
+    config: WriterConfig = WriterConfig(sink_type=WriterType.MQTT, broker_host="mqtt.example", topic="topic/1", broker_port=1884)
     writer = MqttWriter(config=config)
     return writer, client_instance
 

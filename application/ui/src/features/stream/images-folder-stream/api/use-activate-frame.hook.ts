@@ -40,20 +40,36 @@ export const useActivateFrame = () => {
             },
             {
                 onSuccess: async () => {
-                    await queryClient.invalidateQueries({
-                        queryKey: getQueryKey([
-                            'get',
-                            '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
-                            {
-                                params: {
-                                    path: {
-                                        project_id: projectId,
-                                        source_id: sourceId,
+                    await Promise.all([
+                        queryClient.invalidateQueries({
+                            queryKey: getQueryKey([
+                                'get',
+                                '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
+                                {
+                                    params: {
+                                        path: {
+                                            project_id: projectId,
+                                            source_id: sourceId,
+                                        },
                                     },
                                 },
-                            },
-                        ]),
-                    });
+                            ]),
+                        }),
+                        queryClient.invalidateQueries({
+                            queryKey: getQueryKey([
+                                'get',
+                                '/api/v1/projects/{project_id}/sources/{source_id}/frames',
+                                {
+                                    params: {
+                                        path: {
+                                            project_id: projectId,
+                                            source_id: sourceId,
+                                        },
+                                    },
+                                },
+                            ]),
+                        }),
+                    ]);
                     onSuccess();
                 },
             }
