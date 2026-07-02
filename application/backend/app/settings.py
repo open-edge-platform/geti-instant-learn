@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
+    # Backend monitoring
+    cpu_monitoring_enabled: bool = Field(default=False, alias="CPU_MONITORING_ENABLED")
+    cpu_monitoring_interval_secs: int = Field(default=5, ge=1, le=300, alias="CPU_MONITORING_INTERVAL_SECS")
+
     # Server
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
@@ -138,6 +142,8 @@ class Settings(BaseSettings):
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
+    # WebRTC stream pacing
+    webrtc_idle_frame_fps: float = Field(default=2.0, gt=0.0, le=30.0, alias="WEBRTC_IDLE_FRAME_FPS")
 
     # Simplified WebRTC config
     coturn_host: str | None = Field(default=None, alias="COTURN_HOST")

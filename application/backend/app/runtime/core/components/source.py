@@ -11,6 +11,8 @@ from domain.services.schemas.processor import ErrorData, InputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.telemetry import SourceStats, TelemetryComponent, trace_span
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,14 @@ class Source(PipelineComponent):
         self._manual_mode = self._reader.requires_manual_control
         self._next_frame_condition = Condition()
         self._next_frame_requested = True
+        settings = get_settings()
+        self._stats_enabled = settings.cpu_monitoring_enabled
+        self._stats = SourceStats(
+            interval_secs=settings.cpu_monitoring_interval_secs,
+            logger=logger,
+            reader_name=self._reader.__class__.__name__,
+            manual_mode=self._manual_mode,
+        )
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData | ErrorData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
@@ -68,16 +78,29 @@ class Source(PipelineComponent):
 
             try:
                 trace = FrameTrace.create()
-                trace.record_start("source")
 
-                data = self._reader.read()
+                read_wall_started_at_s = time.perf_counter()
+                read_cpu_started_at_s = time.thread_time()
+                with trace_span(trace, TelemetryComponent.SOURCE):
+                    data = self._reader.read()
+                read_wall_time_s = time.perf_counter() - read_wall_started_at_s
+                read_cpu_time_s = time.thread_time() - read_cpu_started_at_s
                 if data is None:
+                    self._record_source_stats(
+                        frame_produced=False,
+                        read_wall_time_s=read_wall_time_s,
+                        read_cpu_time_s=read_cpu_time_s,
+                    )
                     time.sleep(0.01)
                     continue
 
                 data.trace = trace
-                trace.record_end("source")
 
+                self._record_source_stats(
+                    frame_produced=True,
+                    read_wall_time_s=read_wall_time_s,
+                    read_cpu_time_s=read_cpu_time_s,
+                )
                 self._inbound_broadcaster.broadcast(data)
 
             except Exception as e:
@@ -87,6 +110,15 @@ class Source(PipelineComponent):
         logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
         # TODO: To investigate why reader.close() is fixing issue when switching cameras
         self._reader.close()
+
+    def _record_source_stats(self, frame_produced: bool, read_wall_time_s: float, read_cpu_time_s: float) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats.record(
+            frame_produced=frame_produced,
+            read_wall_time_s=read_wall_time_s,
+            read_cpu_time_s=read_cpu_time_s,
+        )
 
     def _stop(self) -> None:
         """Clean up resources when component is stopped."""

@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+import time
 from queue import Empty, Queue
 
 import numpy as np
@@ -9,6 +10,8 @@ import numpy as np
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.telemetry import ProcessorStats, TelemetryComponent
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +86,9 @@ class Processor(PipelineComponent):
         self._batch_size = batch_size
         self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
         self._initialized = False
+        settings = get_settings()
+        self._stats_enabled = settings.cpu_monitoring_enabled
+        self._stats = ProcessorStats(interval_secs=settings.cpu_monitoring_interval_secs, logger=logger)
 
     def setup(
         self,
@@ -114,10 +120,18 @@ class Processor(PipelineComponent):
                     continue
 
                 if isinstance(batch_data, ErrorData):
+                    self._record_processor_error()
                     self._outbound_broadcaster.broadcast(batch_data)
                     continue
 
+                batch_wall_started_at_s = time.perf_counter()
+                batch_cpu_started_at_s = time.thread_time()
                 self._process_batch(batch_data)
+                self._record_processor_batch(
+                    batch_size=len(batch_data),
+                    wall_time_s=time.perf_counter() - batch_wall_started_at_s,
+                    cpu_time_s=time.thread_time() - batch_cpu_started_at_s,
+                )
 
             except Exception as e:
                 logger.exception("Error in pipeline runner loop: %s", e)
@@ -137,6 +151,7 @@ class Processor(PipelineComponent):
         try:
             initial_data: InputData | ErrorData = self._in_queue.get(timeout=0.1)
         except Empty:
+            self._record_processor_empty_poll()
             return []
 
         if isinstance(initial_data, ErrorData):
@@ -153,13 +168,15 @@ class Processor(PipelineComponent):
                         break
                     continue
 
-            if input_data.trace:
-                input_data.trace.record_start("processor")
-
             is_manual = input_data.context.get("requires_manual_control", False)
+            self._record_processor_input_frame()
 
             if not is_manual and self._skip_policy.should_skip():
+                self._record_processor_skipped_frame()
                 continue
+
+            if input_data.trace:
+                input_data.trace.record_start(TelemetryComponent.PROCESSOR.value)
 
             batch_data.append(input_data)
 
@@ -179,9 +196,32 @@ class Processor(PipelineComponent):
         for i, data in enumerate(batch_data):
             result = results[i] if i < len(results) else EMPTY_RESULT
             if data.trace:
-                data.trace.record_end("processor")
+                data.trace.record_end(TelemetryComponent.PROCESSOR.value)
             output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
             self._outbound_broadcaster.broadcast(output_data)
+
+    def _record_processor_empty_poll(self) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats.record_empty_poll()
+
+    def _record_processor_input_frame(self) -> None:
+        if self._stats_enabled:
+            self._stats.record_input_frame()
+
+    def _record_processor_skipped_frame(self) -> None:
+        if self._stats_enabled:
+            self._stats.record_skipped_frame()
+
+    def _record_processor_error(self) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats.record_error()
+
+    def _record_processor_batch(self, batch_size: int, wall_time_s: float, cpu_time_s: float) -> None:
+        if not self._stats_enabled:
+            return
+        self._stats.record_batch(batch_size=batch_size, wall_time_s=wall_time_s, cpu_time_s=cpu_time_s)
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)

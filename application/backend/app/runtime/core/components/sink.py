@@ -7,6 +7,7 @@ from queue import Empty
 from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.base import PipelineComponent, StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.telemetry import TelemetryComponent, log_trace, trace_span
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +34,11 @@ class Sink(PipelineComponent):
             while not self._stop_event.is_set():
                 try:
                     data = self._out_queue.get(timeout=0.1)
+                    trace = data.trace if isinstance(data, OutputData) else None
 
-                    if isinstance(data, OutputData) and data.trace:
-                        data.trace.record_start("sink")
-
-                    self._writer.write(data)
-
-                    if isinstance(data, OutputData) and data.trace:
-                        data.trace.record_end("sink")
-                        logger.debug(data.trace.format_log())
+                    with trace_span(trace, TelemetryComponent.SINK):
+                        self._writer.write(data)
+                    log_trace(trace, logger)
                 except Empty:
                     continue
             logger.debug("Stopping the sink loop")

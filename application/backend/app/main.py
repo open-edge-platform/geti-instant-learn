@@ -32,6 +32,7 @@ from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.components import DefaultComponentFactory
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.cpu_monitor import BackendCpuMonitor
 from runtime.services.device import DeviceService
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
@@ -60,6 +61,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     logger.info(f"Starting {settings.app_name} application...")
     logger.info(settings.format_for_logging())
+
+    app.state.cpu_monitor = None
+    if settings.cpu_monitoring_enabled:
+        app.state.cpu_monitor = BackendCpuMonitor(interval_secs=settings.cpu_monitoring_interval_secs)
+        app.state.cpu_monitor.start()
+
     run_db_migrations()
 
     app.state.device_service = DeviceService.from_system()
@@ -106,6 +113,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.config_dispatcher.shutdown()
     await app.state.webrtc_manager.cleanup()
     app.state.pipeline_manager.stop()
+    if app.state.cpu_monitor is not None:
+        app.state.cpu_monitor.stop()
 
 
 fastapi_app = FastAPI(
