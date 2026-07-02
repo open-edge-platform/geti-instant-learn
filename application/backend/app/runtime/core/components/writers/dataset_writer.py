@@ -1,4 +1,4 @@
-from asyncio import Protocol
+from typing import Protocol
 import logging
 from pathlib import Path
 
@@ -29,7 +29,6 @@ class DatasetWriter(StreamWriter):
         self._chunk_index: int = 0
         self._chunk_size: int | None = export_chunk_size
 
-        self._dataset = Dataset(media_type=Image)
         mapping = config.category_id_to_name
         self._categories: dict[AnnotationType, Categories] | None = (
             {AnnotationType.label: LabelCategories.from_iterable(
@@ -104,7 +103,7 @@ class DatasetWriter(StreamWriter):
                         mask = result["pred_masks"][i]
                         annotations.append(
                             Mask(
-                                _image=mask,
+                                image=mask,
                                 label=label_id,
                                 attributes={"score": float(result["pred_scores"][i])} if "pred_scores" in result else None,
                             )
