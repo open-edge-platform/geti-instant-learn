@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from domain.dispatcher import ComponentType
@@ -51,8 +52,8 @@ class TestDatasetWriter:
         mock_exporter.export.assert_called_once()
         export_calls = mock_exporter.export.call_args_list
         assert export_calls[0].kwargs["fmt"] == config.dataset_format
-        assert export_calls[0].kwargs["output_dir"] == config.output_dir
-        assert len(export_calls[0].kwargs["dataset"].get_subset("train")) == 3
+        assert export_calls[0].kwargs["output_dir"] == Path(config.output_dir)
+        assert len(export_calls[0].kwargs["dataset"].get_subset("default")) == 3
 
 
     def test_chunking_writes_sequential_batch_dirs(self, config, mock_exporter, tmp_path):
@@ -65,11 +66,11 @@ class TestDatasetWriter:
 
         # 5 frames at chunk size 2 -> batches of 2, 2, and a final 1 from close().
         save_dirs = [call.kwargs["output_dir"] for call in mock_exporter.export.call_args_list]
-        item_counts = [len(call.kwargs["dataset"].get_subset("train")) for call in mock_exporter.export.call_args_list]
+        item_counts = [len(call.kwargs["dataset"].get_subset("default")) for call in mock_exporter.export.call_args_list]
         assert save_dirs == [
-            str(tmp_path / "batch_0000"),
-            str(tmp_path / "batch_0001"),
-            str(tmp_path / "batch_0002"),
+            Path(tmp_path) / "batch_0000",
+            Path(tmp_path) / "batch_0001",
+            Path(tmp_path) / "batch_0002",
         ]
         assert item_counts == [2, 2, 1]
 
@@ -83,7 +84,7 @@ class TestDatasetWriter:
         writer.close()
 
         assert writer._frame_count == 0  # reset on close
-        assert sum(len(call.kwargs["dataset"].get_subset("train")) for call in mock_exporter.export.call_args_list) == 2
+        assert sum(len(call.kwargs["dataset"].get_subset("default")) for call in mock_exporter.export.call_args_list) == 2
 
     def test_frame_trace_id_is_recorded_as_attribute(self, config, mock_exporter):
         config.frame_trace = True
@@ -93,7 +94,7 @@ class TestDatasetWriter:
         writer.write(make_output(trace=trace))
         writer.close()
 
-        item = mock_exporter.export.call_args_list[0].kwargs["dataset"].get_subset("train")[0]
+        item = list(mock_exporter.export.call_args_list[0].kwargs["dataset"].get_subset("default"))[0]
         assert item.attributes["trace_id"] == trace.frame_id
 
     def test_write_ignores_empty_results(self, config, mock_exporter):
@@ -129,4 +130,4 @@ class TestDatasetWriter:
             writer.write(make_output())
 
         assert len(mock_exporter.export.call_args_list) == 1
-        assert len(mock_exporter.export.call_args_list[0].kwargs["dataset"].get_subset("train")) == 1
+        assert len(mock_exporter.export.call_args_list[0].kwargs["dataset"].get_subset("default")) == 1
