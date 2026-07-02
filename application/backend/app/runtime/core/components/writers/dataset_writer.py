@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from datumaro import Dataset, DatasetItem, Image
-from datumaro.components.annotation import AnnotationType, LabelCategories, Bbox,  Mask, Points
+from datumaro.components.annotation import AnnotationType, LabelCategories, Bbox,  Mask, Points, Categories, Annotation
 
 from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import DatasetConfig
@@ -31,7 +31,7 @@ class DatasetWriter(StreamWriter):
 
         self._dataset = Dataset(media_type=Image)
         mapping = config.category_id_to_name
-        self._categories = (
+        self._categories: dict[AnnotationType, Categories] | None = (
             {AnnotationType.label: LabelCategories.from_iterable(
                 mapping[i] for i in range(max(mapping) + 1)
             )}
@@ -93,7 +93,7 @@ class DatasetWriter(StreamWriter):
         for result in data.results:
             try:
                 pred_labels = result["pred_labels"]
-                annotations = []
+                annotations: list[Annotation] = []
                 # Determine number of instances from pred_labels
                 num_instances = len(pred_labels)
                 # Process each instance
@@ -104,7 +104,7 @@ class DatasetWriter(StreamWriter):
                         mask = result["pred_masks"][i]
                         annotations.append(
                             Mask(
-                                image=mask,
+                                _image=mask,
                                 label=label_id,
                                 attributes={"score": float(result["pred_scores"][i])} if "pred_scores" in result else None,
                             )
@@ -125,7 +125,7 @@ class DatasetWriter(StreamWriter):
                         x, y, score, fg_label = result["pred_points"][i].tolist()
                         annotations.append(
                             Points(
-                                points=[(x, y)],
+                                points=[x, y],
                                 label=label_id,
                                 attributes={"score": score, "fg_label": fg_label},
                             )
