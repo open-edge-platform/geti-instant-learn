@@ -78,7 +78,8 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
     consuming from a queue.  Because ``recv()`` is called at ~30 fps by
     aiortc, the same frame may be returned multiple times until the pipeline
     publishes a new one.  Visualization and tracing are applied only once per
-    unique frame.
+    unique frame.  Repeated idle frames are throttled to reduce CPU usage while
+    still letting fresh output and errors reach the client immediately.
     """
 
     def __init__(
@@ -95,6 +96,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         self._visualizer = InferenceVisualizer(enable_visualization)
         self._visualization_info_provider = visualization_info_provider
         settings = get_settings()
+        # Configuration uses frames per second, but the throttle logic needs the time between idle frames.
         self._idle_frame_period_s = 1.0 / settings.webrtc_idle_frame_fps
         self._last_idle_frame_sent_at_s: float | None = None
 
@@ -147,6 +149,12 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         return frame
 
     async def _wait_for_fresh_output_or_idle_frame_deadline(self) -> OutputData | ErrorData | None:
+        """Wait until a repeated idle frame may be sent, unless fresh output arrives first.
+
+        WebRTC calls ``recv()`` at its own cadence.  Without this wait, unchanged
+        cached frames are encoded and sent repeatedly.  Fresh ``OutputData`` and
+        ``ErrorData`` bypass the wait so the client sees updates immediately.
+        """
         output_data = self._slot.latest
         if isinstance(output_data, ErrorData):
             return output_data
