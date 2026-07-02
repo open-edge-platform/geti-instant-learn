@@ -47,6 +47,10 @@ mqtt = [
     "paho-mqtt~=2.1.0",
 ]
 
+dataset = [
+    "datumaro~=1.12.0"
+]
+
 [tool.uv]
 default-groups = ["dev"]
 required-version = "~=0.10.0"
