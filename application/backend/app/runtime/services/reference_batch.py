@@ -63,7 +63,7 @@ class ReferenceBatchService:
         needs_bboxes = SupportedPromptType.VISUAL_BOUNDING_BOX in supported_prompt_types
         use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
         return self._build_visual_batch(
-            project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
+            project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=True
         )
 
     def _build_text_batch(self, project_id: UUID) -> tuple[Batch, dict[int, str]] | None:
@@ -140,10 +140,10 @@ class ReferenceBatchService:
             for cat_id, label_id in category_mappings.category_id_to_label_id.items()
         }
         logger.info(
-            "Created reference batch: project_id=%s, samples=%d, categories=%d",
+            "Created reference batch: project_id=%s, samples=%d, categories=%s",
             project_id,
             len(batch.samples),
-            len(category_id_to_name),
+            list(category_id_to_name.values()),
         )
         return batch, category_id_to_name
 
