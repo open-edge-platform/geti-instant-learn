@@ -11,6 +11,40 @@ import numpy as np
 import torch
 from torchvision import tv_tensors
 
+from instantlearn.data.base.prediction import Prediction
+
+PredictionLike = Prediction | dict[str, torch.Tensor]
+ArrayLike = np.ndarray | torch.Tensor
+
+
+def _as_numpy(value: np.ndarray | torch.Tensor) -> np.ndarray:
+    return value.cpu().numpy() if isinstance(value, torch.Tensor) else np.asarray(value)
+
+
+def _as_int(value: int | np.integer | torch.Tensor) -> int:
+    return int(value.item() if isinstance(value, torch.Tensor) else value)
+
+
+def _as_float(value: float | np.floating | torch.Tensor) -> float:
+    return float(value.item() if isinstance(value, torch.Tensor) else value)
+
+
+def _prediction_arrays(
+    prediction: PredictionLike,
+) -> tuple[ArrayLike, ArrayLike, ArrayLike, ArrayLike, ArrayLike | None]:
+    if isinstance(prediction, Prediction):
+        points = prediction.points if prediction.points is not None else np.empty((0, 4), dtype=np.float32)
+        boxes = prediction.boxes if prediction.boxes is not None else np.empty((0, 4), dtype=np.float32)
+        return prediction.masks, prediction.label_ids, points, boxes, prediction.scores
+
+    return (
+        prediction["pred_masks"],
+        prediction["pred_labels"],
+        prediction.get("pred_points", torch.empty(0, 4)),
+        prediction.get("pred_boxes", torch.empty(0, 5)),
+        prediction.get("pred_scores"),
+    )
+
 
 def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
     """Setup colors for each category.
@@ -30,7 +64,7 @@ def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
 
 def render_predictions(
     image_rgb: np.ndarray,
-    prediction: dict[str, torch.Tensor],
+    prediction: PredictionLike,
     color_map: dict[int, list[int]],
     *,
     show_scores: bool = True,
@@ -42,28 +76,25 @@ def render_predictions(
 
     Args:
         image_rgb: Image in RGB uint8 format (H, W, 3).
-        prediction: Dict with ``pred_masks``, ``pred_labels``, and optionally
-            ``pred_boxes`` (x1, y1, x2, y2, score) and ``pred_points``
-            (x, y, score, fg_label).
+        prediction: ``Prediction`` object, or legacy dict with ``pred_masks``,
+            ``pred_labels``, and optionally ``pred_boxes``
+            (x1, y1, x2, y2, score) and ``pred_points`` (x, y, score, fg_label).
         color_map: Mapping from class id to ``[R, G, B]`` color.
         show_scores: Whether to draw confidence scores next to boxes.
 
     Returns:
         Annotated RGB image (uint8).
     """
-    pred_masks = prediction["pred_masks"]
-    pred_labels = prediction["pred_labels"]
-    pred_points = prediction.get("pred_points", torch.empty(0, 4))
-    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
+    pred_masks, pred_labels, pred_points, pred_boxes, pred_scores = _prediction_arrays(prediction)
 
     image_vis = image_rgb.copy()
     h, w = image_vis.shape[:2]
 
     # Draw masks
     if len(pred_masks):
-        for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_mask = pred_mask.cpu().numpy()
+        for label_value, mask_value in zip(pred_labels, pred_masks, strict=False):
+            pred_label = _as_int(label_value)
+            pred_mask = _as_numpy(mask_value)
 
             # Resize mask to image dimensions if needed
             if pred_mask.shape != (h, w):
@@ -82,9 +113,10 @@ def render_predictions(
 
     # Draw points
     if len(pred_points):
-        for pred_point in pred_points:
-            pred_point = pred_point.float().cpu().numpy()
-            x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
+        for point_value in pred_points:
+            pred_point = _as_numpy(point_value)
+            x, y = int(pred_point[0]), int(pred_point[1])
+            fg_label = int(pred_point[3]) if pred_point.shape[0] > 3 else 1
             size = int(h / 100)
             cv2.drawMarker(
                 image_vis,
@@ -96,10 +128,14 @@ def render_predictions(
 
     # Draw boxes
     if len(pred_boxes):
-        for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_box = pred_box.float().cpu().numpy()
-            x1, y1, x2, y2, score = pred_box
+        for index, (label_value, box_value) in enumerate(zip(pred_labels, pred_boxes, strict=False)):
+            pred_label = _as_int(label_value)
+            pred_box = _as_numpy(box_value)
+            x1, y1, x2, y2 = pred_box[:4]
+            if pred_scores is not None:
+                score = _as_float(pred_scores[index])
+            else:
+                score = float(pred_box[4]) if len(pred_box) > 4 else 0.0
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
             color = color_map.get(pred_label, [0, 255, 0])
             cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=color, thickness=2)
@@ -112,7 +148,7 @@ def render_predictions(
 
 def visualize_single_image(
     image: tv_tensors.Image,
-    prediction: dict[str, torch.Tensor],
+    prediction: PredictionLike,
     file_name: str,
     output_folder: str,
     color_map: dict[int, list[int]],
@@ -124,7 +160,7 @@ def visualize_single_image(
 
     Args:
         image: Image to visualize (CHW tensor).
-        prediction: Prediction dict (see ``render_predictions``).
+        prediction: Prediction object or legacy prediction dict.
         file_name: Output file name.
         output_folder: Directory to save visualization images.
         color_map: Mapping from class id to ``[R, G, B]`` color.

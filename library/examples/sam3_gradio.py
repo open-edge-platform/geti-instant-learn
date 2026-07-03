@@ -26,7 +26,6 @@ from time import perf_counter
 
 import gradio as gr
 import numpy as np
-import torch
 
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.data.utils.image import read_image
@@ -62,9 +61,9 @@ print(f"  Model ready on {args.device}/{args.precision}", flush=True)
 _WEB_COLOR_MAP: dict[int, list[int]] = {0: [0, 200, 0]}
 
 
-def numpy_rgb_to_tensor(image_rgb: np.ndarray) -> torch.Tensor:
-    """Convert RGB uint8 numpy (H, W, C) to CHW float tensor."""
-    return torch.from_numpy(image_rgb).permute(2, 0, 1).float()
+def numpy_rgb_to_chw(image_rgb: np.ndarray) -> np.ndarray:
+    """Convert RGB uint8 numpy (H, W, C) to CHW float array."""
+    return image_rgb.transpose(2, 0, 1).astype(np.float32, copy=False)
 
 
 def _build_sample_from_shot(shot: dict) -> Sample:
@@ -76,7 +75,7 @@ def _build_sample_from_shot(shot: dict) -> Sample:
     Returns:
         Sample with prompts attached.
     """
-    ref_tensor = numpy_rgb_to_tensor(shot["image"])
+    ref_tensor = numpy_rgb_to_chw(shot["image"])
     boxes_px = shot["boxes"]
     points_px = shot["points"]
 
@@ -86,11 +85,11 @@ def _build_sample_from_shot(shot: dict) -> Sample:
     )
 
     if boxes_px:
-        sample.bboxes = torch.tensor(boxes_px, dtype=torch.float32)
+        sample.bboxes = np.asarray(boxes_px, dtype=np.float32)
         # All prompts share the single "visual" category (id 0).
         sample.categories = [Category(id=0, label="visual")] * len(boxes_px)
     elif points_px:
-        sample.points = torch.tensor(points_px, dtype=torch.float32)
+        sample.points = np.asarray(points_px, dtype=np.float32)
         sample.categories = [Category(id=0, label="visual")] * len(points_px)
 
     return sample
@@ -123,7 +122,7 @@ def run_visual_exemplar(
 
     ref_samples = [_build_sample_from_shot(shot) for shot in shots]
 
-    tgt_tensor = numpy_rgb_to_tensor(tgt_rgb)
+    tgt_tensor = numpy_rgb_to_chw(tgt_rgb)
 
     t1 = perf_counter()
     model.fit(ref_samples)
@@ -132,7 +131,7 @@ def run_visual_exemplar(
     t2 = perf_counter()
 
     pred = predictions[0]
-    num_det = pred["pred_masks"].shape[0]
+    num_det = len(pred.masks)
     ms = round(1000 * (t2 - t1))
 
     result_img = render_predictions(tgt_rgb, pred, _WEB_COLOR_MAP)
@@ -141,7 +140,7 @@ def run_visual_exemplar(
     total_points = sum(len(s["points"]) for s in shots)
 
     if num_det > 0:
-        scores = pred["pred_boxes"][:, 4].cpu().numpy()
+        scores = pred.scores
         info = (
             f"Detections: {num_det} | Scores: [{100 * scores.min():.0f}, {100 * scores.max():.0f}] | "
             f"Time: {ms} ms | {len(shots)}-shot: {total_boxes} boxes, {total_points} points"
@@ -174,7 +173,7 @@ def run_text_prompt(
     if not labels:
         return tgt_rgb, "No text categories provided."
 
-    tgt_tensor = numpy_rgb_to_tensor(tgt_rgb)
+    tgt_tensor = numpy_rgb_to_chw(tgt_rgb)
     sample = Sample(
         image=tgt_tensor,
         categories=[Category(id=i, label=label) for i, label in enumerate(labels)],
@@ -185,13 +184,13 @@ def run_text_prompt(
     t2 = perf_counter()
 
     pred = predictions[0]
-    num_det = pred["pred_masks"].shape[0]
+    num_det = len(pred.masks)
     ms = round(1000 * (t2 - t1))
 
     result_img = render_predictions(tgt_rgb, pred, _WEB_COLOR_MAP)
 
     if num_det > 0:
-        scores = pred["pred_boxes"][:, 4].cpu().numpy()
+        scores = pred.scores
         info = (
             f"Detections: {num_det} | Scores: [{100 * scores.min():.0f}, {100 * scores.max():.0f}] | "
             f"Time: {ms} ms | Text: {labels}"
