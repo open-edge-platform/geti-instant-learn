@@ -22,7 +22,7 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
-from instantlearn.models.torch_adapter import sample_to_tensors, tensors_to_prediction
+from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils import Backend, PromptType, ShotMode, precision_to_torch_dtype
 
@@ -127,29 +127,6 @@ class Sam3PromptMode(str, Enum):
     CLASSIC = "classic"
     VISUAL_EXEMPLAR = "visual_exemplar"
     CANVAS = "canvas"
-
-
-@dataclass
-class _TorchSample:
-    """Torch-native sample used inside SAM3 after public input conversion.
-
-    ``Sample`` stays backend-neutral at the public API boundary. This private
-    shape keeps the image as a tensor for SAM3 while preserving numpy prompts
-    for canvas and geometry helpers.
-    """
-
-    image: torch.Tensor | None
-    bboxes: np.ndarray | None
-    points: np.ndarray | None
-    category_labels: list[str]
-    label_ids: list[int]
-
-
-@dataclass
-class _TorchBatch:
-    """Batch wrapper for torch-native SAM3 samples."""
-
-    samples: list[_TorchSample]
 
 
 class SAM3(TorchModel):
@@ -415,7 +392,7 @@ class SAM3(TorchModel):
                 - list[Sample]: A list of reference samples
                 - Batch: A batch of reference samples
         """
-        reference_batch = self._to_torch_batch(reference)
+        reference_batch = samples_to_tensors(reference, self.device)
 
         if self.prompt_mode == Sam3PromptMode.CLASSIC:
             self._fit_classic(reference_batch)
@@ -440,7 +417,7 @@ class SAM3(TorchModel):
         Returns:
             List of prediction objects per image.
         """
-        target_batch = self._to_torch_batch(target)
+        target_batch = samples_to_tensors(target, self.device)
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             raw_predictions = self._predict_visual_exemplar(target_batch)
         elif self.prompt_mode == Sam3PromptMode.CANVAS:
@@ -450,7 +427,7 @@ class SAM3(TorchModel):
 
         raw_predictions = self._ensure_prediction_scores(raw_predictions)
         processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
-        return list(starmap(self._to_prediction, zip(processed_predictions, target_batch.samples, strict=True)))
+        return list(starmap(self._to_prediction, zip(processed_predictions, target_batch, strict=True)))
 
     def export(self, path: Path) -> Path:
         """Export SAM3 artifacts to *path*.
@@ -519,55 +496,23 @@ class SAM3(TorchModel):
             compression_mode=compression_mode,
         )
 
-    def _to_torch_batch(self, data: Sample | list[Sample] | Batch) -> _TorchBatch:
-        """Convert public sample inputs to SAM3's private torch batch.
-
-        Args:
-            data: A sample, list of samples, or backend-neutral batch.
-
-        Returns:
-            Batch containing torch-native samples for internal SAM3 inference.
-        """
-        batch = Batch.collate(data)
-        return _TorchBatch(samples=[self._to_torch_sample(sample) for sample in batch.samples])
-
-    def _to_torch_sample(self, sample: Sample) -> _TorchSample:
-        """Convert one backend-neutral sample to SAM3's private sample shape.
-
-        Args:
-            sample: Public sample with numpy annotations and optional image.
-
-        Returns:
-            Private sample with a torch image and numpy prompt arrays.
-        """
-        if isinstance(sample.image, torch.Tensor):
-            image = sample.image.float().to(self.device)
-        else:
-            image = sample_to_tensors(sample, self.device).image
-
-        return _TorchSample(
-            image=image,
-            bboxes=self._to_numpy_array(sample.bboxes),
-            points=self._to_numpy_array(sample.points),
-            category_labels=sample.category_labels,
-            label_ids=sample.label_ids,
-        )
+    @staticmethod
+    def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
+        """Return whether an optional array/tensor contains at least one value."""
+        if value is None:
+            return False
+        if isinstance(value, torch.Tensor):
+            return value.numel() > 0
+        return value.size > 0
 
     @staticmethod
-    def _to_numpy_array(value: np.ndarray | torch.Tensor | None) -> np.ndarray | None:
-        """Convert optional prompt data to numpy.
-
-        Args:
-            value: Prompt array as numpy, torch, or ``None``.
-
-        Returns:
-            Numpy array on CPU, or ``None`` when no prompt data exists.
-        """
-        if value is None:
-            return None
-        if isinstance(value, torch.Tensor):
-            return value.detach().cpu().numpy()
-        return np.asarray(value)
+    def _label_ids(sample: Sample | TensorSample) -> list[int]:
+        """Return sample label IDs as plain Python integers."""
+        if sample.label_ids is None:
+            return []
+        if isinstance(sample.label_ids, torch.Tensor):
+            return [int(label_id) for label_id in sample.label_ids.detach().cpu().tolist()]
+        return [int(label_id) for label_id in sample.label_ids]
 
     @staticmethod
     def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
@@ -590,12 +535,12 @@ class SAM3(TorchModel):
                 prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
         return predictions
 
-    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: _TorchSample) -> Prediction:
+    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: TensorSample) -> Prediction:
         """Convert one raw SAM3 prediction dictionary to ``Prediction``.
 
         Args:
             prediction: Raw tensor prediction with masks, labels, scores, and boxes.
-            sample: Private sample used to recover category label names.
+            sample: Torch-native sample used to recover category label names.
 
         Returns:
             Backend-neutral prediction with numpy arrays.
@@ -610,11 +555,11 @@ class SAM3(TorchModel):
             boxes=boxes_xyxy,
         )
 
-    def _prediction_categories(self, sample: _TorchSample, label_ids: torch.Tensor) -> list[str]:
+    def _prediction_categories(self, sample: TensorSample, label_ids: torch.Tensor) -> list[str]:
         """Build category names aligned with integer prediction labels.
 
         Args:
-            sample: Private sample containing per-instance category metadata.
+            sample: Torch-native sample containing per-instance category metadata.
             label_ids: Predicted category ids.
 
         Returns:
@@ -623,14 +568,14 @@ class SAM3(TorchModel):
         id_to_label: dict[int, str] = {}
         if self.category_mapping is not None:
             id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
-        id_to_label.update(dict(zip(sample.label_ids, sample.category_labels, strict=False)))
+        id_to_label.update(dict(zip(self._label_ids(sample), sample.category_labels or [], strict=False)))
 
         if label_ids.numel() == 0 and not id_to_label:
             return []
         max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
         return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
 
-    def _fit_classic(self, reference_batch: _TorchBatch) -> None:
+    def _fit_classic(self, reference_batch: list[TensorSample]) -> None:
         """Store category mapping from reference batch.
 
         Args:
@@ -638,7 +583,7 @@ class SAM3(TorchModel):
         """
         self.category_mapping = self._build_category_mapping(reference_batch)
 
-    def _fit_visual_exemplar(self, reference_batch: _TorchBatch) -> None:
+    def _fit_visual_exemplar(self, reference_batch: list[TensorSample]) -> None:
         """Encode visual exemplar features from reference images and boxes/points.
 
         Supports n-shot encoding: multiple prompts for the same category are
@@ -712,14 +657,14 @@ class SAM3(TorchModel):
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]] = defaultdict(list)
         category_text_map: dict[int, str] = {}
 
-        for sample in reference_batch.samples:
+        for sample in reference_batch:
             self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
 
         return encoded_by_category, category_text_map
 
     def _encode_sample_prompts(
         self,
-        sample: _TorchSample,
+        sample: TensorSample,
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]],
         category_text_map: dict[int, str],
     ) -> None:
@@ -735,8 +680,8 @@ class SAM3(TorchModel):
         """
         bboxes = sample.bboxes
         points = sample.points
-        has_bboxes = bboxes is not None and not (isinstance(bboxes, (np.ndarray, torch.Tensor)) and bboxes.size == 0)
-        has_points = points is not None and not (isinstance(points, (np.ndarray, torch.Tensor)) and points.size == 0)
+        has_bboxes = self._has_values(bboxes)
+        has_points = self._has_values(points)
 
         if not has_bboxes and not has_points:
             return
@@ -755,7 +700,7 @@ class SAM3(TorchModel):
         # Build aligned metadata lists
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
         categories = sample.category_labels or ["visual"] * num_prompts
-        category_ids = sample.label_ids or [0] * num_prompts
+        category_ids = self._label_ids(sample) or [0] * num_prompts
 
         # Convert prompts to point coords grouped by category
         category_coords: dict[int, list[torch.Tensor]] = defaultdict(list)
@@ -854,7 +799,7 @@ class SAM3(TorchModel):
             [text_cache[p][1] for p in text_prompts],
         )
 
-    def _predict_classic(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
+    def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
         """Classic SAM3 prediction with per-image text/box/point prompts.
 
         Args:
@@ -864,13 +809,12 @@ class SAM3(TorchModel):
             List of prediction dicts per image.
         """
         results = []
-        samples = target.samples
 
         # Use stored categories from fit() if available, otherwise use per-sample
         use_fitted_categories = self.category_mapping is not None
 
         # Process each image's prompts individually
-        for sample in samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
             points = sample.points if sample.points is not None else []
@@ -887,7 +831,7 @@ class SAM3(TorchModel):
                 category_ids = list(self.category_mapping.values())
             else:
                 texts = sample.category_labels or []
-                category_ids = sample.label_ids
+                category_ids = self._label_ids(sample)
                 # Use "visual" placeholder when only bboxes/points are provided
                 num_visual_prompts = max(len(bboxes), len(points))
                 if num_visual_prompts and len(texts) != num_visual_prompts:
@@ -956,7 +900,7 @@ class SAM3(TorchModel):
 
         return results
 
-    def _predict_visual_exemplar(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:
+    def _predict_visual_exemplar(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Visual exemplar prediction using cached geometry features from fit().
 
         For each target image, reuses the cached exemplar geometry features
@@ -977,7 +921,7 @@ class SAM3(TorchModel):
 
         results = []
 
-        for sample in target.samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
 
             # Preprocess target image
@@ -1023,7 +967,7 @@ class SAM3(TorchModel):
 
         return results
 
-    def _fit_canvas(self, reference_batch: _TorchBatch) -> None:
+    def _fit_canvas(self, reference_batch: list[TensorSample]) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
         References are grouped by category so that each category gets its own
@@ -1033,7 +977,7 @@ class SAM3(TorchModel):
             reference_batch: Batch of reference samples with images and bboxes.
 
         """
-        refs_by_category = group_references_by_category(reference_batch.samples)
+        refs_by_category = group_references_by_category(reference_batch)
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}  # Clear stale cache from previous fit()
@@ -1063,7 +1007,7 @@ class SAM3(TorchModel):
             len(self._canvas_text_cache),
         )
 
-    def _predict_canvas(self, target: _TorchBatch) -> list[dict[str, torch.Tensor]]:
+    def _predict_canvas(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Canvas prediction with shared vision encoder and cached text features.
 
         Routing (multi-category):
@@ -1090,7 +1034,7 @@ class SAM3(TorchModel):
         results = []
         n_categories = len(self._canvas_refs_by_category)
 
-        for sample in target.samples:
+        for sample in target:
             tgt_image = sample.image
             tgt_h, tgt_w = tgt_image.shape[-2:]
 
@@ -1619,7 +1563,7 @@ class SAM3(TorchModel):
         return extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
 
     @staticmethod
-    def _build_category_mapping(reference_batch: _TorchBatch) -> dict[str, int]:
+    def _build_category_mapping(reference_batch: Batch | list[TensorSample]) -> dict[str, int]:
         """Build category name → id mapping from reference samples.
 
         Args:
@@ -1629,12 +1573,14 @@ class SAM3(TorchModel):
             Mapping from category name to category id.
         """
         mapping: dict[str, int] = {}
-        for sample in reference_batch.samples:
-            if not sample.category_labels or not sample.label_ids:
+        samples = reference_batch.samples if isinstance(reference_batch, Batch) else reference_batch
+        for sample in samples:
+            if not sample.category_labels:
                 continue
-            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
+            category_ids = SAM3._label_ids(sample)
+            for category_id, category in zip(category_ids, sample.category_labels, strict=False):
                 if category not in mapping:
-                    mapping[category] = int(category_id)
+                    mapping[category] = category_id
         return mapping
 
     @staticmethod

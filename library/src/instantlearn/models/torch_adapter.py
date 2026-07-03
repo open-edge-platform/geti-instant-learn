@@ -59,32 +59,43 @@ class TensorSample:
 
 
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
-    """Convert a numpy :class:`Sample` to a torch :class:`TensorSample`.
+    """Convert a :class:`Sample` to a torch :class:`TensorSample`.
 
     ``image`` is permuted from HWC to CHW and cast to float32. This is the
     torch boundary — ``Sample`` itself never imports torch.
 
     Args:
-        sample: Backend-neutral numpy sample.
+        sample: Backend-neutral sample. Numpy arrays are converted to tensors;
+            tensor-valued fields are moved to *device* for compatibility with
+            existing torch examples.
         device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
 
     Returns:
         A ``TensorSample`` with all non-``None`` fields moved to *device*.
     """
+    def _to_tensor(value: np.ndarray | torch.Tensor | None, *, dtype: torch.dtype | None = None) -> torch.Tensor | None:
+        if value is None:
+            return None
+        tensor = value if isinstance(value, torch.Tensor) else torch.from_numpy(np.ascontiguousarray(value))
+        return tensor.to(device=device, dtype=dtype) if dtype is not None else tensor.to(device=device)
+
     image_t = None
     if sample.image is not None:
         arr = sample.image
-        if arr.ndim == 3:
-            arr = arr.transpose(2, 0, 1)  # HWC -> CHW
-        image_t = torch.from_numpy(np.ascontiguousarray(arr)).float().to(device)
+        if isinstance(arr, torch.Tensor):
+            image_t = arr.float().to(device)
+        else:
+            if arr.ndim == 3:
+                arr = arr.transpose(2, 0, 1)  # HWC -> CHW
+            image_t = torch.from_numpy(np.ascontiguousarray(arr)).float().to(device)
 
     label_ids = sample.label_ids
     return TensorSample(
         image=image_t,
-        masks=torch.from_numpy(sample.masks).to(device) if sample.masks is not None else None,
-        bboxes=torch.from_numpy(sample.bboxes).float().to(device) if sample.bboxes is not None else None,
-        points=torch.from_numpy(sample.points).float().to(device) if sample.points is not None else None,
-        scores=torch.from_numpy(sample.scores).float().to(device) if sample.scores is not None else None,
+        masks=_to_tensor(sample.masks),
+        bboxes=_to_tensor(sample.bboxes, dtype=torch.float32),
+        points=_to_tensor(sample.points, dtype=torch.float32),
+        scores=_to_tensor(sample.scores, dtype=torch.float32),
         category_labels=sample.category_labels,
         label_ids=torch.tensor(label_ids, dtype=torch.int32, device=device) if label_ids else None,
     )

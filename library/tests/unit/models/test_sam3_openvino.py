@@ -185,5 +185,5 @@ class TestSAM3OpenVINOPredict:
         np.testing.assert_allclose(prediction.scores, np.array([0.7], dtype=np.float32))
         np.testing.assert_array_equal(prediction.label_ids, np.array([0], dtype=np.int32))
         np.testing.assert_array_equal(prediction.label_names, np.array(["shoe"], dtype=object))
-        private_batch = mock_predict.call_args.args[0]
-        assert private_batch.samples[0].image.shape == (3, 4, 4)
+        tensor_samples = mock_predict.call_args.args[0]
+        assert tensor_samples[0].image.shape == (3, 4, 4)

@@ -22,7 +22,6 @@ See Also:
 
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
 from itertools import starmap, zip_longest
 from pathlib import Path
 
@@ -35,7 +34,7 @@ from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.openvino_base import OpenVINOModel
-from instantlearn.models.torch_adapter import sample_to_tensors, tensors_to_prediction
+from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
 from .canvas_helpers import (
@@ -58,24 +57,6 @@ _TEXT_ENCODER = "text-encoder"
 _GEOMETRY_ENCODER = "geometry-encoder"
 _GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
 _PROMPT_DECODER = "prompt-decoder"
-
-
-@dataclass
-class _OVSample:
-    """Torch-native sample used internally by the OpenVINO SAM3 wrapper."""
-
-    image: torch.Tensor | None
-    bboxes: np.ndarray | None
-    points: np.ndarray | None
-    category_labels: list[str]
-    label_ids: list[int]
-
-
-@dataclass
-class _OVBatch:
-    """Batch wrapper for OpenVINO SAM3 private samples."""
-
-    samples: list[_OVSample]
 
 
 def _get_model_file(model_dir: Path, name: str, *, required: bool = True) -> Path | None:
@@ -541,7 +522,7 @@ class SAM3OpenVINO(OpenVINOModel):
             reference: Reference data containing category information and,
                 for exemplar/canvas mode, images with bboxes/points.
         """
-        reference_batch = self._to_torch_batch(reference)
+        reference_batch = samples_to_tensors(reference, device="cpu")
         if self.prompt_mode == Sam3PromptMode.CANVAS:
             self._fit_canvas(reference_batch)
         elif self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
@@ -549,7 +530,7 @@ class SAM3OpenVINO(OpenVINOModel):
         else:
             self._fit_classic(reference_batch)
 
-    def _fit_classic(self, reference_batch: _OVBatch) -> None:
+    def _fit_classic(self, reference_batch: list[TensorSample]) -> None:
         """Store category mapping (classic mode).
 
         Args:
@@ -557,7 +538,7 @@ class SAM3OpenVINO(OpenVINOModel):
         """
         self.category_mapping = self._build_category_mapping(reference_batch)
 
-    def _fit_visual_exemplar(self, reference_batch: _OVBatch) -> None:
+    def _fit_visual_exemplar(self, reference_batch: list[TensorSample]) -> None:
         """Encode exemplar geometry features from reference images.
 
         Mirrors the PyTorch ``SAM3._fit_visual_exemplar()`` flow:
@@ -578,7 +559,7 @@ class SAM3OpenVINO(OpenVINOModel):
         encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
         category_text_map: dict[int, str] = {}
 
-        for sample in reference_batch.samples:
+        for sample in reference_batch:
             self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
 
         if not encoded_by_category:
@@ -639,7 +620,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
     def _encode_sample_prompts(
         self,
-        sample: _OVSample,
+        sample: TensorSample,
         encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]],
         category_text_map: dict[int, str],
     ) -> None:
@@ -658,8 +639,8 @@ class SAM3OpenVINO(OpenVINOModel):
         """
         bboxes = sample.bboxes
         points = sample.points
-        has_bboxes = bboxes is not None and not (isinstance(bboxes, (np.ndarray, torch.Tensor)) and bboxes.size == 0)
-        has_points = points is not None and not (isinstance(points, (np.ndarray, torch.Tensor)) and points.size == 0)
+        has_bboxes = self._has_values(bboxes)
+        has_points = self._has_values(points)
 
         if not has_bboxes and not has_points:
             return
@@ -676,7 +657,7 @@ class SAM3OpenVINO(OpenVINOModel):
         # Build metadata
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
         categories = sample.category_labels or ["visual"] * num_prompts
-        category_ids = sample.label_ids or [0] * num_prompts
+        category_ids = self._label_ids(sample) or [0] * num_prompts
 
         # Convert all prompts to normalised point coords grouped by category
         category_coords: dict[int, list[np.ndarray]] = defaultdict(list)
@@ -730,7 +711,7 @@ class SAM3OpenVINO(OpenVINOModel):
         Returns:
             List of prediction objects per image.
         """
-        target_batch = self._to_torch_batch(target)
+        target_batch = samples_to_tensors(target, device="cpu")
         if self.prompt_mode == Sam3PromptMode.CANVAS:
             raw_predictions = self._predict_canvas(target_batch)
         elif self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
@@ -739,39 +720,25 @@ class SAM3OpenVINO(OpenVINOModel):
             raw_predictions = self._predict_classic(target_batch)
 
         raw_predictions = self._ensure_prediction_scores(raw_predictions)
-        return list(starmap(self._to_prediction, zip(raw_predictions, target_batch.samples, strict=True)))
-
-    def _to_torch_batch(self, data: Sample | list[Sample] | Batch) -> _OVBatch:
-        """Convert public sample inputs to SAM3OpenVINO's private batch."""
-        batch = Batch.collate(data)
-        return _OVBatch(samples=[self._to_torch_sample(sample) for sample in batch.samples])
+        return list(starmap(self._to_prediction, zip(raw_predictions, target_batch, strict=True)))
 
     @staticmethod
-    def _to_torch_sample(sample: Sample) -> _OVSample:
-        """Convert one backend-neutral sample to SAM3OpenVINO's private shape."""
-        if isinstance(sample.image, torch.Tensor):
-            image = sample.image.detach().cpu().float()
-        elif sample.image is None:
-            image = None
-        else:
-            image = sample_to_tensors(sample, device="cpu").image
-
-        return _OVSample(
-            image=image,
-            bboxes=SAM3OpenVINO._to_numpy_array(sample.bboxes),
-            points=SAM3OpenVINO._to_numpy_array(sample.points),
-            category_labels=sample.category_labels,
-            label_ids=sample.label_ids,
-        )
-
-    @staticmethod
-    def _to_numpy_array(value: np.ndarray | torch.Tensor | None) -> np.ndarray | None:
-        """Convert optional prompt data to numpy."""
+    def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
+        """Return whether an optional array/tensor contains at least one value."""
         if value is None:
-            return None
+            return False
         if isinstance(value, torch.Tensor):
-            return value.detach().cpu().numpy()
-        return np.asarray(value)
+            return value.numel() > 0
+        return value.size > 0
+
+    @staticmethod
+    def _label_ids(sample: Sample | TensorSample) -> list[int]:
+        """Return sample label IDs as plain Python integers."""
+        if sample.label_ids is None:
+            return []
+        if isinstance(sample.label_ids, torch.Tensor):
+            return [int(label_id) for label_id in sample.label_ids.detach().cpu().tolist()]
+        return [int(label_id) for label_id in sample.label_ids]
 
     @staticmethod
     def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
@@ -787,7 +754,7 @@ class SAM3OpenVINO(OpenVINOModel):
                 prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
         return predictions
 
-    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: _OVSample) -> Prediction:
+    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: TensorSample) -> Prediction:
         """Convert one raw SAM3OpenVINO prediction dictionary to ``Prediction``."""
         boxes = prediction.get("pred_boxes")
         boxes_xyxy = boxes[:, :4] if boxes is not None else None
@@ -799,19 +766,19 @@ class SAM3OpenVINO(OpenVINOModel):
             boxes=boxes_xyxy,
         )
 
-    def _prediction_categories(self, sample: _OVSample, label_ids: torch.Tensor) -> list[str]:
+    def _prediction_categories(self, sample: TensorSample, label_ids: torch.Tensor) -> list[str]:
         """Build category names aligned with integer prediction labels."""
         id_to_label: dict[int, str] = {}
         if self.category_mapping is not None:
             id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
-        id_to_label.update(dict(zip(sample.label_ids, sample.category_labels, strict=False)))
+        id_to_label.update(dict(zip(self._label_ids(sample), sample.category_labels or [], strict=False)))
 
         if label_ids.numel() == 0 and not id_to_label:
             return []
         max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
         return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
 
-    def _predict_classic(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
+    def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
         """Classic prediction with per-image text/box/point prompts.
 
         Args:
@@ -823,7 +790,7 @@ class SAM3OpenVINO(OpenVINOModel):
         results = []
         use_fitted_categories = self.category_mapping is not None
 
-        for sample in target.samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
             points = sample.points if sample.points is not None else []
@@ -840,7 +807,7 @@ class SAM3OpenVINO(OpenVINOModel):
                 category_ids = list(self.category_mapping.values())
             else:
                 texts = sample.category_labels or []
-                category_ids = list(sample.label_ids or [])
+                category_ids = self._label_ids(sample)
 
             # Keep prompt text and category ids aligned with the effective number of prompts.
             num_prompts = max(len(texts), len(bboxes), len(points))
@@ -950,7 +917,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         return results
 
-    def _predict_visual_exemplar(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:
+    def _predict_visual_exemplar(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Visual-exemplar prediction using cached geometry features from ``fit()``.
 
         For each target image, reuses the cached exemplar geometry features
@@ -972,7 +939,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         results = []
 
-        for sample in target.samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
 
             # Preprocess target image
@@ -1033,7 +1000,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         return results
 
-    def _fit_canvas(self, reference_batch: _OVBatch) -> None:
+    def _fit_canvas(self, reference_batch: list[TensorSample]) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
         References are grouped by category so that each category gets its own
@@ -1043,7 +1010,7 @@ class SAM3OpenVINO(OpenVINOModel):
             reference_batch: Batch of reference samples with images and bboxes.
 
         """
-        refs_by_category = group_references_by_category(reference_batch.samples)
+        refs_by_category = group_references_by_category(reference_batch)
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}
@@ -1069,7 +1036,7 @@ class SAM3OpenVINO(OpenVINOModel):
             len(self._canvas_text_cache),
         )
 
-    def _predict_canvas(self, target: _OVBatch) -> list[dict[str, torch.Tensor]]:
+    def _predict_canvas(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Canvas prediction: stitch reference + target, run classic pipeline.
 
         Args:
@@ -1088,7 +1055,7 @@ class SAM3OpenVINO(OpenVINOModel):
         results = []
         n_categories = len(self._canvas_refs_by_category)
 
-        for sample in target.samples:
+        for sample in target:
             tgt_image = sample.image
             tgt_h, tgt_w = tgt_image.shape[-2:]
 
@@ -1416,7 +1383,7 @@ class SAM3OpenVINO(OpenVINOModel):
         }
 
     @staticmethod
-    def _build_category_mapping(reference_batch: _OVBatch) -> dict[str, int]:
+    def _build_category_mapping(reference_batch: Batch | list[TensorSample]) -> dict[str, int]:
         """Build category name → id mapping from reference samples.
 
         Args:
@@ -1426,12 +1393,13 @@ class SAM3OpenVINO(OpenVINOModel):
             Mapping from category name to category id.
         """
         mapping: dict[str, int] = {}
-        for sample in reference_batch.samples:
-            if not sample.category_labels or not sample.label_ids:
+        samples = reference_batch.samples if isinstance(reference_batch, Batch) else reference_batch
+        for sample in samples:
+            if not sample.category_labels:
                 continue
-            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
+            for category_id, category in zip(SAM3OpenVINO._label_ids(sample), sample.category_labels, strict=False):
                 if category not in mapping:
-                    mapping[category] = int(category_id)
+                    mapping[category] = category_id
         return mapping
 
     @staticmethod
