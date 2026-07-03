@@ -4,6 +4,7 @@ from pathlib import Path
 
 from datumaro import Dataset, DatasetItem, Image
 from datumaro.components.annotation import AnnotationType, LabelCategories, Bbox,  Mask, Points, Categories, Annotation
+from datumaro.util.image import IMAGE_BACKEND, ImageBackend
 
 from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import DatasetConfig
@@ -37,8 +38,12 @@ class DatasetWriter(StreamWriter):
             if mapping else None
         )
         self._dataset = Dataset(media_type=Image, categories=self._categories)
-        logger.info("DatasetWriter ready. Dataset format: %s, Output dir: %s", self._config.dataset_format, self._config.output_dir)
-
+        logger.info(
+            "DatasetWriter ready. Dataset format: %s, Categories: %s, Output dir: %s",
+            self._config.dataset_format,
+            self._categories[AnnotationType.label].items if self._categories else None,
+            self._config.output_dir,
+        )
     def _get_export_dir(self) -> Path:
         output_dir = Path(self._config.output_dir)
         if self._chunk_size is None:
@@ -74,7 +79,6 @@ class DatasetWriter(StreamWriter):
         where each dict contains predictions for a single image.
 
             pred_masks  : Segmentation masks, shape [N, H, W].
-            pred_points : Point predictions, shape [N, 4] as [x, y, score, fg_label].
             pred_boxes  : Bounding boxes, shape [N, 5] as [x1, y1, x2, y2, score].
             pred_labels : Class indices, shape [N].
             pred_scores : Confidence scores, shape [N].
@@ -119,16 +123,6 @@ class DatasetWriter(StreamWriter):
                                 attributes={"score": score},
                             )
                         )
-                    # Add points if available
-                    if "pred_points" in result:
-                        x, y, score, fg_label = result["pred_points"][i].tolist()
-                        annotations.append(
-                            Points(
-                                points=[x, y],
-                                label=label_id,
-                                attributes={"score": score, "fg_label": fg_label},
-                            )
-                        )
 
                 item_id = f"frame_{self._frame_count:06d}"
                 attributes = {}
@@ -143,9 +137,11 @@ class DatasetWriter(StreamWriter):
                 )
                 self._dataset.put(item)
                 logger.debug(
-                    "Frame %d buffered. Objects: %d",
+                    "Frame %d buffered. Objects: %d. result=%s annotations=%s",
                     self._frame_count,
                     num_instances,
+                    result,
+                    annotations,
                 )
                 self._frame_count += 1
                 self._buffered_frame_count += 1
@@ -161,6 +157,7 @@ class DatasetWriter(StreamWriter):
         total_frame_count: int,
     ) -> None:
         """Serialize a Dataset snapshot to disk."""
+        IMAGE_BACKEND.set(ImageBackend.cv2)
         fmt = self._config.dataset_format
         try:
             self._exporter.export(dataset=dataset, output_dir=output_dir, fmt=fmt)
