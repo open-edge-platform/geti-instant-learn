@@ -1,3 +1,4 @@
+from threading import Event, Thread
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -156,6 +157,43 @@ class TestSource:
         self.source.run()
 
         broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
+        error_data = next(c for c in broadcast_calls if isinstance(c, ErrorData))
+        assert "Image file no longer accessible" in error_data.message
+
+    def test_source_broadcasts_read_error_after_seek_in_manual_mode(self):
+        """Test that a manual seek triggers the next read, which broadcasts read errors."""
+        self.mock_stream_reader.requires_manual_control = True
+        source = Source(self.mock_stream_reader)
+        source.setup(self.mock_broadcaster)
+
+        first_read_called = Event()
+        first_frame = make_input("frame1")
+
+        def read_side_effect(*args, **kwargs):
+            if not first_read_called.is_set():
+                first_read_called.set()
+                return first_frame
+
+            source.stop()
+            raise ValueError("Image file no longer accessible")
+
+        self.mock_stream_reader.read.side_effect = read_side_effect
+
+        thread = Thread(target=source.run, daemon=True)
+        thread.start()
+
+        assert first_read_called.wait(timeout=2)
+
+        source.seek(3)
+
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+
+        self.mock_stream_reader.seek.assert_called_once_with(3)
+
+        broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
+        assert any(call is first_frame for call in broadcast_calls)
+
         error_data = next(c for c in broadcast_calls if isinstance(c, ErrorData))
         assert "Image file no longer accessible" in error_data.message
 

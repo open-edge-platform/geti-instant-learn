@@ -115,10 +115,41 @@ def delete_source(project_id: UUID, source_id: UUID, source_service: SourceServi
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the list of frames for the project's source."},
         status.HTTP_400_BAD_REQUEST: {
-            "description": "Source does not support frame navigation or source is not active."
+            "description": "Source does not support frame navigation or source is not active.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
         },
-        status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project or source not found.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected error occurred.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
     },
 )
 def get_frames(
@@ -148,10 +179,41 @@ def get_frames(
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the current frame index."},
         status.HTTP_400_BAD_REQUEST: {
-            "description": "Source does not support frame navigation or source is not active."
+            "description": "Source does not support frame navigation or source is not active.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
         },
-        status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project or source not found.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected error occurred.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
     },
 )
 def get_frame_index(
@@ -177,10 +239,41 @@ def get_frame_index(
     responses={
         status.HTTP_200_OK: {"description": "Successfully seeked to the specified frame."},
         status.HTTP_400_BAD_REQUEST: {
-            "description": "Invalid frame index, source does not support seeking, or source is not active."
+            "description": "Invalid frame index, source does not support seeking, or source is not active.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
         },
-        status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project or source not found.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected error occurred.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"detail": {"type": "string"}},
+                        "required": ["detail"],
+                    }
+                }
+            },
+        },
     },
 )
 def seek_frame(

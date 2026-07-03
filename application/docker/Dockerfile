@@ -37,7 +37,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 AS runtime-base
+FROM python:3.13-slim@sha256:c33f0bc4364a6881bed1ec0cc2665e6c53c87a43e774aaeab88e6f17af105e4f AS runtime-base
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # If not limited, uv will use all cores (more than 100 for servers), resulting in No file descriptors available error
@@ -115,7 +115,7 @@ USER root
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt --extra dataset
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
@@ -151,7 +151,7 @@ RUN apt-get update \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cuda --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra cuda --extra mqtt --extra dataset
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
@@ -278,7 +278,7 @@ RUN apt-get update  \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt --extra dataset
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \

@@ -20,7 +20,7 @@ from domain.errors import (
 )
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.sink import SinkSchema, SinksListSchema
-from domain.services.schemas.writer import MqttConfig, WriterType
+from domain.services.schemas.writer import WriterConfig, WriterType
 
 PROJECT_ID = uuid4()
 SINK_ID_1 = uuid4()
@@ -62,7 +62,7 @@ def make_sink_schema(
     return SinkSchema(
         id=sink_id,
         active=active,
-        config=MqttConfig(sink_type=WriterType.MQTT),
+        config=WriterConfig(sink_type=WriterType.MQTT),
     )
 
 

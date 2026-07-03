@@ -65,7 +65,6 @@ just device=xpu application/build-image
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cuda` |
-| `build-target` | `cpu` | Docker build stage: `cpu`, `xpu`, `cuda` |
 | `version` | `latest` | Image version tag |
 
 </details>

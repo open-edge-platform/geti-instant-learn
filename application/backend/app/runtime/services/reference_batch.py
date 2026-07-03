@@ -47,7 +47,7 @@ class ReferenceBatchService:
         """Build a reference batch from the current pipeline config.
 
         Returns:
-            (Batch, category_id → label_id mapping) or None when no batch can be built.
+            (Batch, category_id → label_name mapping) or None when no batch can be built.
         """
         if config.processor is None:
             logger.debug("No active processor, skipping reference batch: project_id=%s", config.project_id)
@@ -63,7 +63,7 @@ class ReferenceBatchService:
         needs_bboxes = SupportedPromptType.VISUAL_BOUNDING_BOX in supported_prompt_types
         use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
         return self._build_visual_batch(
-            project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
+            project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=True
         )
 
     def _build_text_batch(self, project_id: UUID) -> tuple[Batch, dict[int, str]] | None:
@@ -119,13 +119,14 @@ class ReferenceBatchService:
                 placeholder is used instead.
 
         Returns:
-            (Batch, category_id → label_id mapping) or None if no valid samples.
+            (Batch, category_id → label_name mapping) or None if no valid samples.
         """
         result = self._query_prompts_and_labels(project_id, use_label_names)
         if result is None:
             return None
 
         db_prompts, label_info = result
+        label_id_to_name = label_info.label_id_to_name or {}
         category_mappings = label_info.category_mappings
         samples = self._convert_prompts_to_samples(db_prompts, project_id, label_info, output_bboxes)
 
@@ -134,13 +135,17 @@ class ReferenceBatchService:
             return None
 
         batch = Batch.collate(samples)
+        category_id_to_name = {
+            cat_id: label_id_to_name.get(UUID(label_id), 'visual')
+            for cat_id, label_id in category_mappings.category_id_to_label_id.items()
+        }
         logger.info(
-            "Created reference batch: project_id=%s, samples=%d, categories=%d",
+            "Created reference batch: project_id=%s, samples=%d, categories=%s",
             project_id,
             len(batch.samples),
-            len(category_mappings.label_to_category_id),
+            list(category_id_to_name.values()),
         )
-        return batch, category_mappings.category_id_to_label_id
+        return batch, category_id_to_name
 
     def _query_prompts_and_labels(
         self, project_id: UUID, use_label_names: bool

@@ -88,6 +88,8 @@ jobs:
       - name: build-version
         id: build-version
         uses: ./.github/actions/build-version
+        with:
+          version-file-path: 'application/VERSION'
 
   distrib:
     name: Distrib build

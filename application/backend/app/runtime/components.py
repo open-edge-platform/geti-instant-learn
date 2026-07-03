@@ -9,7 +9,7 @@ from instantlearn.data.base.batch import Batch
 from domain.services.dataset_discovery import DatasetResolver
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.reader import ReaderConfig
-from domain.services.schemas.writer import WriterConfig
+from domain.services.schemas.writer import DatasetConfig, WriterConfig
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
@@ -30,7 +30,9 @@ class ComponentFactory(ABC):
     def create_processor(self, pipeline_cfg: PipelineConfig, reference_batch: Batch | None) -> Processor: ...
 
     @abstractmethod
-    def create_sink(self, writer_cfg: WriterConfig | None) -> Sink: ...
+    def create_sink(
+        self, writer_cfg: WriterConfig | None, category_id_to_name: dict[int, str] | None = None
+    ) -> Sink: ...
 
 
 class DefaultComponentFactory(ComponentFactory):
@@ -59,5 +61,11 @@ class DefaultComponentFactory(ComponentFactory):
             frame_skip_amount=settings.processor_frame_skip_amount,
         )
 
-    def create_sink(self, writer_cfg: WriterConfig | None) -> Sink:
-        return Sink(StreamWriterFactory.create(writer_cfg))
+    def create_sink(
+        self, writer_cfg: WriterConfig | None, category_id_to_name: dict[int, str] | None = None
+    ) -> Sink:
+        settings = get_settings()
+        export_chunk_size = settings.dataset_writer_export_chunk_size
+        if isinstance(writer_cfg, DatasetConfig) and category_id_to_name:
+            writer_cfg = writer_cfg.model_copy(update={"category_id_to_name": category_id_to_name})
+        return Sink(StreamWriterFactory.create(writer_cfg, export_chunk_size=export_chunk_size))

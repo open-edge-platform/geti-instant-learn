@@ -24,11 +24,10 @@ coturn-port := "443"
 # Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
 docker-build-context := ""
-build-target := "cpu"  # options: cpu, cuda, xpu
 component-name := "instant-learn"
 container-registry := 'localhost:5000/open-edge-platform'
 version := "latest"
-image-name := container-registry / component-name / build-target + ":" + version
+image-name := container-registry / component-name / device + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets"
 
@@ -68,7 +67,7 @@ build-image: (download-datasets source-dataset-dir)
         --build-arg DEVICE={{ device }} \
         --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
-        --target {{ build-target }}
+        --target {{ device }}
 
 # To persist the database, add this to `docker run` args:
 # `--volume "{{ component-name }}-data":/instant_learn/data \`
@@ -109,7 +108,7 @@ run-image: build-image
       fi
     fi
 
-    echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    echo "Running docker image for component: {{ component-name }} with device: {{ device }}"
     echo "Proxy args: {{ docker-run-args }}"
     docker run --rm \
         {{ docker-run-args }} \
@@ -155,7 +154,7 @@ show-size:
 # test Geti Instant Learn docker image using bash script
 test-image:
     #!/usr/bin/env bash
-    echo "Testing docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    echo "Testing docker image for component: {{ component-name }} with device: {{ device }}"
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \
@@ -204,3 +203,93 @@ test-image:
     fi
 
     echo "All checks passed successfully!"
+
+# Test run dataset-writer sink after setting up a project via UI
+run-datasetwriter-sink dataset_format="coco":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    CONTAINER_NAME="{{ component-name }}-{{ version }}"
+    LOG_PATH="/instant_learn/logs/instant-learn-backend.log"
+
+    echo "Fetching active project..."
+    PROJECT_ID=$(curl -s "http://localhost:{{ port }}/api/v1/projects/active" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+    echo "Active project: $PROJECT_ID"
+
+    echo "Creating dataset sink (format: {{ dataset_format }})..."
+    SINK_RESPONSE=$(curl -s -X POST "http://localhost:{{ port }}/api/v1/projects/${PROJECT_ID}/sinks" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "active": true,
+          "config": {
+            "sink_type": "dataset",
+            "name": "Dataset Export",
+            "output_dir": "/tmp/dataset_export",
+            "dataset_format": "{{ dataset_format }}",
+            "max_frames": null,
+            "frame_trace": false
+          }
+        }')
+    echo "$SINK_RESPONSE"
+    SINK_ID=$(echo "$SINK_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+    echo "Sink created: $SINK_ID"
+
+    echo "Streaming DatasetWriter logs..."
+    echo "Run 'just delete-sink' to delete the sink and trigger writer.close()"
+
+# Delete the active project sink
+delete-sink:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    CONTAINER_NAME="{{ component-name }}-{{ version }}"
+    LOG_PATH="/instant_learn/logs/instant-learn-backend.log"
+
+    EXPERIMENT_OUTPUT_DIR="./experiment_output"
+    HOST_LOG_FILE="${EXPERIMENT_OUTPUT_DIR}/logs.txt"
+    DATASET_HOST_DIR="${EXPERIMENT_OUTPUT_DIR}/dataset_export"
+
+    mkdir -p "$EXPERIMENT_OUTPUT_DIR"
+
+    echo "Fetching active project..."
+    PROJECT_ID=$(
+        curl -s "http://localhost:{{ port }}/api/v1/projects/active" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])"
+    )
+
+    echo "Fetching active sinks..."
+    SINK_ID=$(
+        curl -s "http://localhost:{{ port }}/api/v1/projects/${PROJECT_ID}/sinks" \
+        | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['sinks'][0]['id'] if data['sinks'] else '')"
+    )
+
+    if [ -z "$SINK_ID" ]; then
+        echo "No active sink found to delete."
+        exit 0
+    fi
+
+    echo "Buffered frames before closing sink:"
+    docker exec "$CONTAINER_NAME" \
+        grep "buffered" "$LOG_PATH" || true
+
+    echo "Deleting sink $SINK_ID..."
+    curl -s -X DELETE \
+        "http://localhost:{{ port }}/api/v1/projects/${PROJECT_ID}/sinks/${SINK_ID}"
+
+    echo
+    echo "Dataset export log:"
+    docker exec "$CONTAINER_NAME" \
+        sh -c "grep 'Dataset exported to' '$LOG_PATH'" || true
+
+    echo
+    echo "Copying dataset export..."
+    rm -rf "$DATASET_HOST_DIR"
+    docker cp "$CONTAINER_NAME:/tmp/dataset_export" "$DATASET_HOST_DIR" || true
+
+    echo "Saving backend logs..."
+    docker cp "$CONTAINER_NAME:$LOG_PATH" "$HOST_LOG_FILE"
+
+    echo
+    echo "Done."
+    echo "Dataset: $DATASET_HOST_DIR"
+    echo "Logs: $HOST_LOG_FILE"

@@ -35,7 +35,7 @@ Clone the repository and install dependencies:
 npm install
 ```
 
-> **Note:** On the first installation, UI packages from [open-edge-platform/geti](https://github.com/open-edge-platform/geti) will be cloned automatically.
+> **Note:** On the first installation, UI packages from [open-edge-platform/geti_v2](https://github.com/open-edge-platform/geti_v2) will be cloned automatically.
 
 ---
 

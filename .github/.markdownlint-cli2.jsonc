@@ -2,7 +2,9 @@
   "config": {
     "MD013": false,
     "MD024": false,
-    "MD029": { "style": "ordered" },
+    "MD029": {
+      "style": "ordered"
+    },
     "MD033": false,
     "MD034": false,
     "MD036": false,
@@ -15,6 +17,8 @@
   ],
   "ignores": [
     "SECURITY.md",
-    ".github/copilot-instructions.md"
+    ".github/copilot-instructions.md",
+    "application/CHANGELOG.md",
+    "library/CHANGELOG.md"
   ]
 }

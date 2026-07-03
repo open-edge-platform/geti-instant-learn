@@ -1,7 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from domain.services.schemas.writer import MqttConfig, WriterType
+from domain.services.schemas.writer import WriterConfig, WriterType
 from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.writers.mqtt_writer import MqttWriter
 from runtime.core.components.writers.noop_writer import NoOpWriter
@@ -9,7 +9,7 @@ from runtime.core.components.writers.noop_writer import NoOpWriter
 
 class TestWriter:
     def test_factory_returns_mqtt_writer(self):
-        mqtt_config = MqttConfig(sink_type=WriterType.MQTT)
+        mqtt_config = WriterConfig(sink_type=WriterType.MQTT)
 
         result = StreamWriterFactory.create(mqtt_config)
 

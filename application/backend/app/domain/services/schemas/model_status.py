@@ -19,7 +19,7 @@ class ModelStatusErrorType(StrEnum):
 
 
 class ModelStatusSchema(BaseModel):
-    status: ModelStatus = Field(description="Current processor load state.")
+    status: ModelStatus | None = Field(default=None, description="Current processor load state.")
     error_type: ModelStatusErrorType | None = Field(
         default=None,
         description="High-level error classification when the last processor load failed.",

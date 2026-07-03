@@ -31,11 +31,7 @@ class TestSourceTypeService:
 
             mock_discover.assert_called_once()
             assert len(result) == 2
-            assert result[0].source_type == SourceType.USB_CAMERA
-            assert result[0].device_id == 0
-            assert result[0].name == "Camera 0"
-            assert result[1].device_id == 1
-            assert result[1].name == "Camera 1"
+            assert result == fxt_usb_camera_sources
 
     def test_list_available_sources_usb_camera_empty(self, service):
         with patch("runtime.core.components.readers.usb_camera_reader.UsbCameraReader.discover") as mock_discover:

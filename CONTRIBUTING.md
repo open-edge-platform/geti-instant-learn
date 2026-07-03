@@ -4,6 +4,40 @@
 
 Geti Instant Learn is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
 
+### PR Title Format
+
+Pull request titles must follow the Conventional Commits format:
+
+```text
+type(scope): summary
+```
+
+Use one of the standard types such as `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, or `chore`.
+
+**Types:**
+
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Adding or modifying tests
+- `build`: Build system changes
+- `ci`: CI configuration changes
+- `chore`: General maintenance
+- `revert`: Revert changes
+
+Examples:
+
+```text
+feat(library): add OpenVINO matcher export
+fix(ui): handle empty prompt state
+chore(main): release lib v0.1.1
+```
+
+This matters because squash merges use the pull request title as the merge commit title, and release automation derives version bumps and changelog entries from Conventional Commit messages.
+
 ### Sign your work
 
 Please use the sign-off line at the end of the patch. Your signature certifies that you wrote the patch or otherwise have the right to pass it on as an open-source patch. The rules are pretty simple: if you can certify
