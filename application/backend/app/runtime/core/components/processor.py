@@ -9,6 +9,7 @@ import numpy as np
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.scene_change import SceneChangeDetector
 
 logger = logging.getLogger(__name__)
 
@@ -17,23 +18,26 @@ EMPTY_RESULT: dict[str, np.ndarray] = {}
 
 class FrameSkipPolicy:
     """
-    Decides whether to skip (drop) a frame based on a cyclic counter.
+    Decides whether to skip (drop) a frame based on a cyclic counter or scene-change detection.
 
-    Skip pattern with interval N (N >= 1):
+    Cyclic skip pattern with interval N (N >= 1):
         Process frames 1..N-1, drop frame N, repeat.
         Example (N=3): process, process, DROP, process, process, DROP, ...
-
+    
     If interval is 0, no frames are ever skipped.
-
+    
+    If a scene_detector is configured, a detected scene change overrides
+    this pattern and forces the frame to be processed.
+    
     Args:
         interval: Total cycle length (process and skip). 0 disables skipping.
         skip_amount: Number of consecutive frames to skip per cycle. Must be < interval.
-
+        scene_detector: Optional detector whose scene-change signal overrides the cyclic decision.
+    
     Raises:
         ValueError: If frame_skip_interval is negative.
     """
-
-    def __init__(self, interval: int = 3, skip_amount: int = 1) -> None:
+    def __init__(self, interval: int = 3, skip_amount: int = 1, scene_detector: SceneChangeDetector | None = None) -> None:
         if interval < 0 or interval == 1:
             raise ValueError(f"frame_skip_interval must be > 1 or 0 for no skipping, got {interval}")
         if interval > 0 and (skip_amount < 0 or skip_amount >= interval):
@@ -41,6 +45,7 @@ class FrameSkipPolicy:
         self._interval = interval
         self._skip_amount = skip_amount
         self._counter = 0
+        self._scene_detector = scene_detector
 
     @property
     def interval(self) -> int:
@@ -50,17 +55,30 @@ class FrameSkipPolicy:
     def skip_amount(self) -> int:
         return self._skip_amount
 
-    def should_skip(self) -> bool:
-        """Return True if the current frame should be dropped. Advances the internal counter on every call."""
+    def _cyclic_should_skip(self) -> bool:
+        """Cyclic frame skipping based on the configured interval and skip amount."""
         if self._interval == 0 or self._skip_amount == 0:
             return False
-
         position = self._counter % self._interval
         self._counter += 1
-
-        # process the first (interval - skip_count) frames, skip the rest
         process_count = self._interval - self._skip_amount
         return position >= process_count
+
+    def should_skip(self, frame: np.ndarray | None = None) -> bool:
+        """
+        Return True if the current frame should be dropped.
+
+        If a scene_detector is configured, a detected scene-change always
+        forces processing (skip=False). It overrides the cyclic decision
+        but does not alter the cyclic counter's own state.
+        """
+        cyclic_skip = self._cyclic_should_skip()
+
+        if self._scene_detector is not None and frame is not None:
+            if self._scene_detector.is_new_scene(frame):
+                return False  # new scene overrides the cyclic verdict
+
+        return cyclic_skip
 
     def reset(self) -> None:
         """Reset the internal counter."""
@@ -76,12 +94,20 @@ class Processor(PipelineComponent):
     """
 
     def __init__(
-        self, model_handler: ModelHandler, batch_size: int = 1, frame_skip_interval: int = 3, frame_skip_amount: int = 1
+        self,
+        model_handler: ModelHandler,
+        batch_size: int = 1,
+        frame_skip_interval: int = 3,
+        frame_skip_amount: int = 1,
+        enable_scene_detector: bool = False,
     ) -> None:
         super().__init__()
         self._model_handler = model_handler
         self._batch_size = batch_size
-        self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
+        scene_detector = SceneChangeDetector() if enable_scene_detector else None
+        self._skip_policy = FrameSkipPolicy(
+            interval=frame_skip_interval, skip_amount=frame_skip_amount, scene_detector=scene_detector
+        )
         self._initialized = False
 
     def setup(
@@ -153,12 +179,16 @@ class Processor(PipelineComponent):
                         break
                     continue
 
+            if isinstance(input_data, ErrorData):
+                self._outbound_broadcaster.broadcast(input_data)
+                continue
+
             if input_data.trace:
                 input_data.trace.record_start("processor")
 
             is_manual = input_data.context.get("requires_manual_control", False)
 
-            if not is_manual and self._skip_policy.should_skip():
+            if not is_manual and self._skip_policy.should_skip(input_data.frame):
                 continue
 
             batch_data.append(input_data)
