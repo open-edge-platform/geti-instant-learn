@@ -187,6 +187,58 @@ def delete_sink(project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep) -
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@projects_router.put(
+    path="/{project_id}/sinks/{sink_id}/deactivate",
+    tags=["Sinks"],
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Sink deactivated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "active": False,
+                        "config": {
+                            "sink_type": "mqtt",
+                            "name": "My MQTT Sink",
+                            "broker_host": "localhost",
+                            "broker_port": 1883,
+                            "topic": "predictions",
+                            "auth_required": True,
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project or sink not found",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "project_missing": {
+                            "summary": "Project not found",
+                            "value": {"detail": "Project with ID 3fa85f64-5717-4562-b3fc-2c963f66afa6 not found."},
+                        },
+                        "sink_missing": {
+                            "summary": "Sink not found",
+                            "value": {"detail": "Sink with ID 04b34cb0-c405-4566-990a-4eaeeaaa515a not found."},
+                        },
+                    }
+                }
+            },
+        },
+    },
+)
+def deactivate_sink(
+    project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep
+) -> SinkSchema:
+    """
+    Deactivate the specified project's sink configuration by setting active=False.
+    """
+    return sink_service.deactivate_sink(project_id=project_id, sink_id=sink_id)
+
+
 @projects_router.post(
     path="/{project_id}/sinks",
     tags=["Sinks"],
