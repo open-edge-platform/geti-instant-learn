@@ -9,7 +9,9 @@ installed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
 
 import openvino as ov
 
@@ -20,6 +22,22 @@ from instantlearn.utils.constants import Backend
 if TYPE_CHECKING:
     from pathlib import Path
 
+@dataclass
+class ImportConfig:
+    """Options controlling Torch -> OpenVINO conversion.
+
+    Attributes:
+        precision: Weight/activation precision of the exported IR.
+        opset: ONNX opset version for the intermediate graph.
+        dynamic_shapes: Export with dynamic batch/spatial dims vs. static.
+        keep_intermediate: Keep the intermediate ``.onnx`` files after IR
+            conversion (useful for debugging).
+    """
+
+    precision: Literal["fp32", "fp16", "int8", "int4"] = "fp16"
+    opset: int = 17
+    dynamic_shapes: bool = True
+    keep_intermediate: bool = False
 
 class OpenVINOModel(Model):
     """Intermediate base for all OpenVINO-backed models.
@@ -69,3 +87,23 @@ class OpenVINOModel(Model):
     def backend(self) -> Backend:
         """Always ``Backend.OPENVINO``."""
         return Backend.OPENVINO
+
+
+    @abstractmethod
+    def from_torch_to_openvino(self, export_path: Path | None = None, config: ImportConfig | None = None) -> OpenVINOModel:
+        """Export this Torch model to OpenVINO IR and load the OV sibling.
+
+        Each concrete model implements its own conversion (graph tracing,
+        dynamic axes, and submodel splitting vary per model). OpenVINO-specific
+        behaviour is controlled through ``config``; values not covered by
+        ``ImportConfig`` are inherited from this model's configuration.
+
+        Args:
+            export_path: Destination directory for the IR. ``None`` writes to a
+                temporary directory.
+            config: Export options (precision, opset, dynamic shapes, ...).
+                ``None`` uses :class:`ImportConfig` defaults.
+
+        Returns:
+            An ``OpenVINOModel`` instance ready for inference.
+        """

@@ -6,8 +6,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from instantlearn.models.sam3.sam3 import SAM3, CanvasConfig, Sam3PromptMode
-from instantlearn.models.torch_base import ExportConfig
+from instantlearn.models.openvino_base import ImportConfig
+from instantlearn.models.sam3.sam3 import CanvasConfig, Sam3PromptMode
+from instantlearn.models.sam3.sam3_openvino import SAM3OpenVINO
 from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino
 
 
@@ -73,9 +74,9 @@ def test_export_sam3_openvino_can_skip_compression(tmp_path: Path) -> None:
     mock_validate.assert_not_called()
 
 
-def _sam3_stub() -> SAM3:
-    """Create a SAM3 instance shell for export method tests."""
-    model = object.__new__(SAM3)
+def _sam3_openvino_stub() -> SAM3OpenVINO:
+    """Create a SAM3OpenVINO instance shell for export method tests."""
+    model = object.__new__(SAM3OpenVINO)
     model.model_id = "facebook/sam3.1"
     model.resolution = 1008
     model.device = "cpu"
@@ -86,13 +87,19 @@ def _sam3_stub() -> SAM3:
     return model
 
 
-def test_sam3_export_delegates_to_openvino_helper(tmp_path: Path) -> None:
-    """SAM3.export() writes the default INT8_SYM OpenVINO artifact bundle."""
-    model = _sam3_stub()
+def test_sam3_openvino_export_delegates_to_openvino_helper(tmp_path: Path) -> None:
+    """SAM3OpenVINO._export_openvino() writes the requested OpenVINO artifact bundle."""
+    model = _sam3_openvino_stub()
     exported_dir = tmp_path / "openvino-int8_sym"
 
     with patch("instantlearn.scripts.sam3.export_sam3.export_sam3_openvino", return_value=exported_dir) as mock_export:
-        result = SAM3.export(model, tmp_path)
+        result = SAM3OpenVINO._export_openvino(  # noqa: SLF001
+            model,
+            output_dir=tmp_path,
+            precision="fp16",
+            opset_version=17,
+            compression_mode="int8_sym",
+        )
 
     assert result == exported_dir
     mock_export.assert_called_once_with(
@@ -100,21 +107,26 @@ def test_sam3_export_delegates_to_openvino_helper(tmp_path: Path) -> None:
         output_dir=tmp_path,
         resolution=1008,
         precision="fp16",
+        opset_version=17,
         compression_mode="int8_sym",
     )
 
 
-def test_sam3_to_openvino_exports_and_loads_sibling(tmp_path: Path) -> None:
-    """SAM3.to_openvino() exports artifacts and constructs SAM3OpenVINO from them."""
-    model = _sam3_stub()
+def test_sam3_openvino_from_torch_exports_and_loads_sibling(tmp_path: Path) -> None:
+    """SAM3OpenVINO.from_torch_to_openvino() exports artifacts and loads the sibling."""
+    model = _sam3_openvino_stub()
     exported_dir = tmp_path / "openvino-fp32"
     ov_model = MagicMock()
 
     with (
-        patch.object(SAM3, "_export_openvino", return_value=exported_dir) as mock_export,
+        patch.object(SAM3OpenVINO, "_export_openvino", return_value=exported_dir) as mock_export,
         patch("instantlearn.models.sam3.sam3_openvino.SAM3OpenVINO", return_value=ov_model) as mock_ov_cls,
     ):
-        result = SAM3.to_openvino(model, export_path=tmp_path, config=ExportConfig(precision="fp32", opset=18))
+        result = SAM3OpenVINO.from_torch_to_openvino(
+            model,
+            export_path=tmp_path,
+            config=ImportConfig(precision="fp32", opset=18),
+        )
 
     assert result is ov_model
     mock_export.assert_called_once_with(

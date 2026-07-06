@@ -33,7 +33,7 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
-from instantlearn.models.openvino_base import OpenVINOModel
+from instantlearn.models.openvino_base import ImportConfig, OpenVINOModel
 from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
@@ -199,13 +199,12 @@ class SAM3OpenVINO(OpenVINOModel):
                 Pass an empty string ``""`` to disable caching.
         """
         if model_dir is None:
-            from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
-
-            model_dir = export_sam3_openvino(
+            model_dir = self._export_openvino(
                 model_id=model_id,
-                output_dir=Path(export_dir),
                 resolution=resolution,
+                output_dir=Path(export_dir),
                 precision="fp16",
+                opset_version=17,
                 compression_mode=compression_mode,
             )
 
@@ -292,6 +291,61 @@ class SAM3OpenVINO(OpenVINOModel):
         # Tokenizer
         self.tokenizer = self._load_tokenizer(tokenizer_path)
         logger.info("SAM3 OpenVINO model loaded successfully (mode=%s).", prompt_mode.value)
+
+    def from_torch_to_openvino(
+        self,
+        export_path: Path | None = None,
+        config: ImportConfig | None = None,
+    ) -> "SAM3OpenVINO":
+        """Export this SAM3 instance to OpenVINO and load the OpenVINO sibling."""
+        if config is None:
+            config = ImportConfig(precision="int8")
+
+        output_dir = Path(export_path) if export_path is not None else Path("./sam3-openvino")
+        ir_precision = "fp32" if config.precision == "fp32" else "fp16"
+        compression_mode = {
+            "int8": "int8_sym",
+            "int4": "int4_sym",
+        }.get(config.precision)
+
+        exported_dir = self._export_openvino(
+            output_dir=output_dir,
+            precision=ir_precision,
+            opset_version=config.opset,
+            compression_mode=compression_mode,
+        )
+        return SAM3OpenVINO(
+            model_dir=exported_dir,
+            model_id=self.model_id,
+            device=self.device,
+            confidence_threshold=self.confidence_threshold,
+            resolution=self.resolution,
+            prompt_mode=self.prompt_mode,
+            drop_spatial_bias=self.drop_spatial_bias,
+            canvas_config=self.canvas_config,
+        )
+
+    def _export_openvino(
+        self,
+        *,
+        model_id: str | None = None,
+        resolution: int | None = None,
+        output_dir: Path,
+        precision: str,
+        opset_version: int,
+        compression_mode: str | None,
+    ) -> Path:
+        """Run the SAM3 OpenVINO export helper with explicit options."""
+        from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
+
+        return export_sam3_openvino(
+            model_id=model_id or self.model_id,
+            output_dir=output_dir,
+            resolution=resolution or self.resolution,
+            precision=precision,
+            opset_version=opset_version,
+            compression_mode=compression_mode,
+        )
 
     @classmethod
     def card(cls) -> ModelCard:

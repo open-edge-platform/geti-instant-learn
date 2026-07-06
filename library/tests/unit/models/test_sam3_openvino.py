@@ -86,6 +86,7 @@ class TestSAM3OpenVINOInit:
             output_dir=tmp_path / "sam3-export",
             resolution=1008,
             precision="fp16",
+            opset_version=17,
             compression_mode="int8_sym",
         )
 
@@ -114,6 +115,7 @@ class TestSAM3OpenVINOInit:
             output_dir=tmp_path / "sam3-export",
             resolution=1008,
             precision="fp16",
+            opset_version=17,
             compression_mode=None,
         )
 

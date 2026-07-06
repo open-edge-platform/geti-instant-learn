@@ -61,11 +61,6 @@ print(f"  Model ready on {args.device}/{args.precision}", flush=True)
 _WEB_COLOR_MAP: dict[int, list[int]] = {0: [0, 200, 0]}
 
 
-def numpy_rgb_to_chw(image_rgb: np.ndarray) -> np.ndarray:
-    """Convert RGB uint8 numpy (H, W, C) to CHW float array."""
-    return image_rgb.transpose(2, 0, 1).astype(np.float32, copy=False)
-
-
 def _build_sample_from_shot(shot: dict) -> Sample:
     """Build a Sample from a shot dictionary.
 
@@ -75,12 +70,11 @@ def _build_sample_from_shot(shot: dict) -> Sample:
     Returns:
         Sample with prompts attached.
     """
-    ref_tensor = numpy_rgb_to_chw(shot["image"])
     boxes_px = shot["boxes"]
     points_px = shot["points"]
 
     sample = Sample(
-        image=ref_tensor,
+        image=shot["image"],
         categories=[Category(id=0, label="visual")],
     )
 
@@ -122,11 +116,9 @@ def run_visual_exemplar(
 
     ref_samples = [_build_sample_from_shot(shot) for shot in shots]
 
-    tgt_tensor = numpy_rgb_to_chw(tgt_rgb)
-
     t1 = perf_counter()
     model.fit(ref_samples)
-    tgt_sample = Sample(image=tgt_tensor)
+    tgt_sample = Sample(image=tgt_rgb)
     predictions = model.predict(tgt_sample)
     t2 = perf_counter()
 
@@ -173,9 +165,8 @@ def run_text_prompt(
     if not labels:
         return tgt_rgb, "No text categories provided."
 
-    tgt_tensor = numpy_rgb_to_chw(tgt_rgb)
     sample = Sample(
-        image=tgt_tensor,
+        image=tgt_rgb,
         categories=[Category(id=i, label=label) for i, label in enumerate(labels)],
     )
 
@@ -363,9 +354,9 @@ def on_ref_click(ref_image, point_input_text, evt: gr.SelectData):
 default_ref_img = None
 default_tgt_img = None
 if args.ref_image_path:
-    default_ref_img = read_image(args.ref_image_path, as_tensor=False)
+    default_ref_img = read_image(args.ref_image_path)
 if args.image_path:
-    default_tgt_img = read_image(args.image_path, as_tensor=False)
+    default_tgt_img = read_image(args.image_path)
 
 
 with gr.Blocks(title="SAM3 Detection (InstantLearn)", theme=gr.themes.Soft()) as demo:

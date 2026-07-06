@@ -4,37 +4,12 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any
 
 from torch import nn
 
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from instantlearn.models.openvino_base import OpenVINOModel
-
-
-@dataclass
-class ExportConfig:
-    """Options controlling Torch -> OpenVINO conversion.
-
-    Attributes:
-        precision: Weight/activation precision of the exported IR.
-        opset: ONNX opset version for the intermediate graph.
-        dynamic_shapes: Export with dynamic batch/spatial dims vs. static.
-        keep_intermediate: Keep the intermediate ``.onnx`` files after IR
-            conversion (useful for debugging).
-    """
-
-    precision: Literal["fp32", "fp16", "int8", "int4"] = "fp32"
-    opset: int = 17
-    dynamic_shapes: bool = True
-    keep_intermediate: bool = False
 
 
 class TorchModel(nn.Module, Model):
@@ -84,21 +59,3 @@ class TorchModel(nn.Module, Model):
         """Always ``Backend.TORCH``."""
         return Backend.TORCH
 
-    @abstractmethod
-    def to_openvino(self, export_path: Path | None = None, config: ExportConfig | None = None) -> OpenVINOModel:
-        """Export this Torch model to OpenVINO IR and load the OV sibling.
-
-        Each concrete model implements its own conversion (graph tracing,
-        dynamic axes, and submodel splitting vary per model). OpenVINO-specific
-        behaviour is controlled through ``config``; values not covered by
-        ``ExportConfig`` are inherited from this model's configuration.
-
-        Args:
-            export_path: Destination directory for the IR. ``None`` writes to a
-                temporary directory.
-            config: Export options (precision, opset, dynamic shapes, ...).
-                ``None`` uses :class:`ExportConfig` defaults.
-
-        Returns:
-            An ``OpenVINOModel`` instance ready for inference.
-        """

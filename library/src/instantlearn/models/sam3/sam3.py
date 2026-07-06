@@ -23,7 +23,7 @@ from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
-from instantlearn.models.torch_base import ExportConfig, TorchModel
+from instantlearn.models.torch_base import TorchModel
 from instantlearn.utils import Backend, PromptType, ShotMode, precision_to_torch_dtype
 
 from .canvas_helpers import (
@@ -243,7 +243,6 @@ class SAM3(TorchModel):
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = True,
-        preprocessor: object | None = None,
         postprocessor: PostProcessor | None = None,
         canvas_config: CanvasConfig | None = None,
     ) -> None:
@@ -267,7 +266,6 @@ class SAM3(TorchModel):
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
                 spatial bias from the reference image position. Default: True.
-            preprocessor: Optional numpy-based preprocessor applied before inference.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -280,7 +278,7 @@ class SAM3(TorchModel):
         if precision is None:
             device_type = torch.device(device).type
             precision = "fp16" if device_type in {"cuda", "xpu"} else "fp32"
-        super().__init__(device=device, precision=precision, preprocessor=preprocessor, postprocessor=postprocessor)
+        super().__init__(device=device, precision=precision, postprocessor=postprocessor)
 
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
@@ -429,72 +427,6 @@ class SAM3(TorchModel):
         processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
         return list(starmap(self._to_prediction, zip(processed_predictions, target_batch, strict=True)))
 
-    def export(self, path: Path) -> Path:
-        """Export SAM3 artifacts to *path*.
-
-        SAM3 is exported as a 5-submodel OpenVINO bundle using the same split
-        expected by :class:`~instantlearn.models.sam3.sam3_openvino.SAM3OpenVINO`.
-        """
-        from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
-
-        return export_sam3_openvino(
-            model_id=self.model_id,
-            output_dir=Path(path),
-            resolution=self.resolution,
-            precision="fp16",
-            compression_mode="int8_sym",
-        )
-
-    def to_openvino(self, export_path: Path | None = None, config: ExportConfig | None = None) -> "SAM3OpenVINO":
-        """Export this SAM3 instance to OpenVINO and load the OpenVINO sibling."""
-        from .sam3_openvino import SAM3OpenVINO  # noqa: PLC0415
-
-        if config is None:
-            config = ExportConfig(precision="int8")
-
-        output_dir = Path(export_path) if export_path is not None else Path("./sam3-openvino")
-        ir_precision = "fp32" if config.precision == "fp32" else "fp16"
-        compression_mode = {
-            "int8": "int8_sym",
-            "int4": "int4_sym",
-        }.get(config.precision)
-
-        exported_dir = self._export_openvino(
-            output_dir=output_dir,
-            precision=ir_precision,
-            opset_version=config.opset,
-            compression_mode=compression_mode,
-        )
-        return SAM3OpenVINO(
-            model_dir=exported_dir,
-            model_id=self.model_id,
-            device=self.device,
-            confidence_threshold=self.confidence_threshold,
-            resolution=self.resolution,
-            prompt_mode=self.prompt_mode,
-            drop_spatial_bias=self.drop_spatial_bias,
-            canvas_config=self.canvas_config,
-        )
-
-    def _export_openvino(
-        self,
-        *,
-        output_dir: Path,
-        precision: str,
-        opset_version: int,
-        compression_mode: str | None,
-    ) -> Path:
-        """Run the SAM3 OpenVINO export helper with explicit options."""
-        from instantlearn.scripts.sam3.export_sam3 import export_sam3_openvino  # noqa: PLC0415
-
-        return export_sam3_openvino(
-            model_id=self.model_id,
-            output_dir=output_dir,
-            resolution=self.resolution,
-            precision=precision,
-            opset_version=opset_version,
-            compression_mode=compression_mode,
-        )
 
     @staticmethod
     def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
