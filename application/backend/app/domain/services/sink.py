@@ -233,6 +233,32 @@ class SinkService(BaseService):
             self._emit_component_change(project_id=project_id, sink_id=sink_id)
         logger.info(f"Sink deleted: sink_id={sink_id} project_id={project_id}")
 
+    def deactivate_sink(self, project_id: UUID, sink_id: UUID) -> SinkSchema:
+        """
+        Deactivate a sink by setting active=False.
+
+        Args:
+            project_id: UUID of the project.
+            sink_id: UUID of the sink.
+
+        Returns:
+            The updated sink schema with active=False.
+
+        Raises:
+            ResourceNotFoundError: If the project or sink does not exist.
+        """
+        self._ensure_project(project_id)
+        sink = self.sink_repository.get_by_id_and_project(sink_id, project_id)
+        if not sink:
+            logger.error(f"Cannot deactivate sink: sink_id={sink_id} not found in project_id={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.SINK, resource_id=str(sink_id))
+        with self.db_transaction():
+            sink.active = False
+            sink = self.sink_repository.update(sink)
+            self._emit_component_change(project_id=project_id, sink_id=sink.id)
+        logger.info(f"Sink deactivated: sink_id={sink_id} project_id={project_id}")
+        return sink_db_to_schema(sink)
+
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
         Ensure the project exists.

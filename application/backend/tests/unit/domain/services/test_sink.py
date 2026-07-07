@@ -600,6 +600,96 @@ class TestDeleteSink:
         assert exc_info.value.resource_type == ResourceType.PROJECT
 
 
+class TestDeactivateSink:
+    """Tests for deactivate_sink method."""
+
+    def test_deactivate_sink_success(
+        self,
+        sink_service,
+        mock_project_repository,
+        mock_sink_repository,
+        mock_session,
+        mock_dispatcher,
+        project_id,
+        sink_id,
+        mock_project,
+        mock_sink,
+    ):
+        """Test successfully deactivating a sink."""
+        # Arrange
+        mock_sink.active = True  # start as active
+        mock_project_repository.get_by_id.return_value = mock_project
+        mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
+
+        # Act
+        result = sink_service.deactivate_sink(project_id, sink_id)
+
+        # Assert
+        assert isinstance(result, SinkSchema)
+        assert result.active is False
+        assert mock_sink.active is False
+        mock_sink_repository.update.assert_called_once_with(mock_sink)
+        mock_session.commit.assert_called_once()
+
+    def test_deactivate_sink_already_inactive(
+        self,
+        sink_service,
+        mock_project_repository,
+        mock_sink_repository,
+        project_id,
+        sink_id,
+        mock_project,
+        mock_sink,
+    ):
+        """Test deactivating a sink that is already inactive."""
+        # Arrange
+        mock_sink.active = False  # already inactive
+        mock_project_repository.get_by_id.return_value = mock_project
+        mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
+
+        # Act
+        result = sink_service.deactivate_sink(project_id, sink_id)
+
+        # Assert
+        assert result.active is False
+
+    def test_deactivate_sink_not_found(
+        self,
+        sink_service,
+        mock_project_repository,
+        mock_sink_repository,
+        project_id,
+        sink_id,
+        mock_project,
+    ):
+        """Test deactivating a sink that doesn't exist."""
+        # Arrange
+        mock_project_repository.get_by_id.return_value = mock_project
+        mock_sink_repository.get_by_id_and_project.return_value = None
+
+        # Act & Assert
+        with pytest.raises(ResourceNotFoundError) as exc_info:
+            sink_service.deactivate_sink(project_id, sink_id)
+
+        assert exc_info.value.resource_type == ResourceType.SINK
+        assert exc_info.value.resource_id == str(sink_id)
+
+    def test_deactivate_sink_project_not_found(
+        self, sink_service, mock_project_repository, project_id, sink_id
+    ):
+        """Test deactivating a sink when project doesn't exist."""
+        # Arrange
+        mock_project_repository.get_by_id.return_value = None
+
+        # Act & Assert
+        with pytest.raises(ResourceNotFoundError) as exc_info:
+            sink_service.deactivate_sink(project_id, sink_id)
+
+        assert exc_info.value.resource_type == ResourceType.PROJECT
+
+
 class TestEventDispatcher:
     """Tests for event dispatcher integration."""
 
@@ -680,6 +770,33 @@ class TestEventDispatcher:
         event = mock_dispatcher.dispatch.call_args[0][0]
         assert isinstance(event, ComponentConfigChangeEvent)
         assert event.component_type == ComponentType.SINK
+
+    def test_deactivate_sink_emits_event(
+        self,
+        sink_service,
+        mock_project_repository,
+        mock_sink_repository,
+        mock_dispatcher,
+        project_id,
+        sink_id,
+        mock_project,
+        mock_sink,
+    ):
+        """Test that deactivating a sink emits a component change event."""
+        # Arrange
+        mock_project_repository.get_by_id.return_value = mock_project
+        mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
+
+        # Act
+        sink_service.deactivate_sink(project_id, sink_id)
+
+        # Assert
+        mock_dispatcher.dispatch.assert_called_once()
+        event = mock_dispatcher.dispatch.call_args[0][0]
+        assert isinstance(event, ComponentConfigChangeEvent)
+        assert event.component_type == ComponentType.SINK
+        assert event.component_id == sink_id
 
     def test_no_dispatcher_does_not_raise(
         self,
