@@ -28,9 +28,41 @@ def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
     return color_map
 
 
+def _to_prediction_dict(prediction: object) -> dict[str, torch.Tensor]:
+    """Normalize a ``Prediction`` or a legacy dict into the render dict form.
+
+    TODO: drop the dict branch once every model returns ``Prediction``.
+
+    Args:
+        prediction: A ``Prediction`` dataclass or a legacy ``dict`` with
+            ``pred_masks`` / ``pred_labels`` / ``pred_boxes`` keys.
+
+    Returns:
+        Dict with torch tensors under ``pred_masks``, ``pred_labels`` and,
+        when available, ``pred_boxes`` (x1, y1, x2, y2, score) / ``pred_points``.
+    """
+    if isinstance(prediction, dict):
+        return prediction
+
+    # Duck-typed Prediction: numpy fields -> torch tensors expected downstream.
+    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks))
+    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids))
+    result: dict[str, torch.Tensor] = {"pred_masks": masks, "pred_labels": labels}
+
+    boxes = getattr(prediction, "boxes", None)
+    scores = getattr(prediction, "scores", None)
+    if boxes is not None and len(boxes):
+        box_t = torch.as_tensor(np.ascontiguousarray(boxes)).float()
+        if scores is not None and len(scores) == len(boxes):
+            score_t = torch.as_tensor(np.ascontiguousarray(scores)).float().unsqueeze(1)
+            box_t = torch.cat([box_t, score_t], dim=1)
+        result["pred_boxes"] = box_t
+    return result
+
+
 def render_predictions(
     image_rgb: np.ndarray,
-    prediction: dict[str, torch.Tensor],
+    prediction: dict[str, torch.Tensor] | object,
     color_map: dict[int, list[int]],
     *,
     show_scores: bool = True,
@@ -42,15 +74,16 @@ def render_predictions(
 
     Args:
         image_rgb: Image in RGB uint8 format (H, W, 3).
-        prediction: Dict with ``pred_masks``, ``pred_labels``, and optionally
-            ``pred_boxes`` (x1, y1, x2, y2, score) and ``pred_points``
-            (x, y, score, fg_label).
+        prediction: A ``Prediction`` dataclass, or a legacy dict with
+            ``pred_masks``, ``pred_labels``, and optionally ``pred_boxes``
+            (x1, y1, x2, y2, score) and ``pred_points`` (x, y, score, fg_label).
         color_map: Mapping from class id to ``[R, G, B]`` color.
         show_scores: Whether to draw confidence scores next to boxes.
 
     Returns:
         Annotated RGB image (uint8).
     """
+    prediction = _to_prediction_dict(prediction)
     pred_masks = prediction["pred_masks"]
     pred_labels = prediction["pred_labels"]
     pred_points = prediction.get("pred_points", torch.empty(0, 4))

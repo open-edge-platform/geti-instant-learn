@@ -12,6 +12,7 @@ from .matcher import (
     Matcher,
     MatcherInferenceGraph,
 )
+from .matcher_openvino import MatcherOpenVINO
 from .prompt_generators import BidirectionalPromptGenerator
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "EncoderForwardFeaturesWrapper",
     "Matcher",
     "MatcherInferenceGraph",
+    "MatcherOpenVINO",
 ]

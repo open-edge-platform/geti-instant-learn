@@ -145,7 +145,7 @@ def prediction_to_tensors(prediction: Prediction, device: str = "cpu") -> dict[s
 
 
 def convert_masks_to_one_hot_tensor(
-    predictions: list[dict[str, torch.Tensor | None]],
+    predictions: list[dict[str, torch.Tensor | None]] | list[Prediction],
     ground_truths: Batch,
     num_classes: int,
     category_id_to_index: dict[int, int],
@@ -185,8 +185,13 @@ def convert_masks_to_one_hot_tensor(
                 gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)  # noqa: PLR6104
 
         # Process prediction masks
-        pred_masks = prediction["pred_masks"]
-        pred_labels = prediction["pred_labels"]
+        # Temporary dict/Prediction shim: TODO remove the dict branch once every model returns Prediction.
+        if isinstance(prediction, dict):
+            pred_masks = prediction["pred_masks"]
+            pred_labels = prediction["pred_labels"]
+        else:
+            pred_masks = torch.as_tensor(prediction.masks)
+            pred_labels = torch.as_tensor(prediction.label_ids)
         for pred_mask, pred_label in zip(pred_masks, pred_labels, strict=True):
             pred_label_id = pred_label.item()
             if pred_label_id in category_id_to_index:

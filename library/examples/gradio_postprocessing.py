@@ -185,6 +185,26 @@ def _instance_color_map(n: int) -> dict[int, list[int]]:
     return cmap
 
 
+def _prediction_to_dict(prediction: object) -> dict[str, torch.Tensor]:
+    """Convert a ``Prediction`` to the legacy dict form used by this demo.
+
+    TODO: rework this demo to operate on ``Prediction`` directly once the whole
+    library has migrated off prediction dicts.
+    """
+    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks))
+    scores = torch.as_tensor(np.ascontiguousarray(prediction.scores)).float()
+    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids))
+    result: dict[str, torch.Tensor] = {
+        "pred_masks": masks,
+        "pred_scores": scores,
+        "pred_labels": labels,
+    }
+    if prediction.boxes is not None and len(prediction.boxes):
+        boxes = torch.as_tensor(np.ascontiguousarray(prediction.boxes)).float()
+        result["pred_boxes"] = torch.cat([boxes, scores.unsqueeze(1)], dim=1)
+    return result
+
+
 def _visualize(
     image_rgb: np.ndarray,
     prediction: dict[str, torch.Tensor],
@@ -408,7 +428,9 @@ def predict_target(
     target_rgb = np.array(pil_img)
 
     logger.info("Running raw prediction on target …")
-    raw_predictions = _state.model.predict([str(target_path)])
+    # Matcher.predict() now returns list[Prediction]; this demo works on the
+    # legacy dict form internally, so convert at the boundary.
+    raw_predictions = [_prediction_to_dict(p) for p in _state.model.predict([str(target_path)])]
 
     _state.raw_predictions = raw_predictions
     _state.target_image = target_rgb
