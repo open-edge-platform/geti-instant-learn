@@ -231,7 +231,7 @@ def test_update_sink(client, behavior, expected_status):
         ("error", 500),
     ],
 )
-def test_delete_source(client, behavior, expected_status):
+def test_delete_sink(client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -253,5 +253,44 @@ def test_delete_source(client, behavior, expected_status):
     assert resp.status_code == expected_status
     if expected_status == 204:
         assert resp.text == ""
+    else:
+        assert "detail" in resp.json()
+
+
+@pytest.mark.parametrize(
+    "behavior,expected_status",
+    [
+        ("success", 200),
+        ("missing_sink", 404),
+        ("missing_project", 404),
+        ("error", 500),
+    ],
+)
+def test_deactivate_sink(client, behavior, expected_status):
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def deactivate_sink(self, project_id: UUID, sink_id: UUID):
+            assert project_id == PROJECT_ID
+            assert sink_id == SINK_ID_1
+            if behavior == "success":
+                return make_sink_schema(sink_id=sink_id, active=False)
+            if behavior == "missing_sink":
+                raise ResourceNotFoundError(ResourceType.SINK, str(sink_id))
+            if behavior == "missing_project":
+                raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
+            if behavior == "error":
+                raise RuntimeError("Database error")
+            raise AssertionError("Unhandled behavior")
+
+    client.app.dependency_overrides[get_sink_service] = lambda: FakeService(None, None)
+
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}/deactivate")
+    assert resp.status_code == expected_status
+    if behavior == "success":
+        data = resp.json()
+        assert data["id"] == str(SINK_ID_1)
+        assert data["active"] is False
     else:
         assert "detail" in resp.json()
