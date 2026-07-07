@@ -99,12 +99,12 @@ class Processor(PipelineComponent):
         batch_size: int = 1,
         frame_skip_interval: int = 3,
         frame_skip_amount: int = 1,
-        enable_scene_detector: bool = False,
+        scene_detection_threshold: float | None = None,
     ) -> None:
         super().__init__()
         self._model_handler = model_handler
         self._batch_size = batch_size
-        scene_detector = SceneChangeDetector() if enable_scene_detector else None
+        scene_detector = SceneChangeDetector(threshold=scene_detection_threshold) if scene_detection_threshold is not None else None
         self._skip_policy = FrameSkipPolicy(
             interval=frame_skip_interval, skip_amount=frame_skip_amount, scene_detector=scene_detector
         )
