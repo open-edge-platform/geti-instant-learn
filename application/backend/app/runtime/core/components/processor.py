@@ -37,7 +37,7 @@ class FrameSkipPolicy:
     Raises:
         ValueError: If frame_skip_interval is negative.
     """
-    def __init__(self, interval: int = 3, skip_amount: int = 1, scene_detector: SceneChangeDetector | None = None) -> None:
+    def __init__(self, interval: int = 3, skip_amount: int = 1, scene_detector_threshold: float | None = None) -> None:
         if interval < 0 or interval == 1:
             raise ValueError(f"frame_skip_interval must be > 1 or 0 for no skipping, got {interval}")
         if interval > 0 and (skip_amount < 0 or skip_amount >= interval):
@@ -45,7 +45,8 @@ class FrameSkipPolicy:
         self._interval = interval
         self._skip_amount = skip_amount
         self._counter = 0
-        self._scene_detector = scene_detector
+        self._scene_detector_threshold = scene_detector_threshold
+        self._scene_detector = SceneChangeDetector(threshold=scene_detector_threshold) if scene_detector_threshold is not None else None
 
     @property
     def interval(self) -> int:
@@ -104,9 +105,8 @@ class Processor(PipelineComponent):
         super().__init__()
         self._model_handler = model_handler
         self._batch_size = batch_size
-        scene_detector = SceneChangeDetector(threshold=scene_detection_threshold) if scene_detection_threshold is not None else None
         self._skip_policy = FrameSkipPolicy(
-            interval=frame_skip_interval, skip_amount=frame_skip_amount, scene_detector=scene_detector
+            interval=frame_skip_interval, skip_amount=frame_skip_amount, scene_detector_threshold=scene_detection_threshold
         )
         self._initialized = False
 
@@ -127,10 +127,11 @@ class Processor(PipelineComponent):
 
         self._model_handler.initialise()
         logger.info(
-            "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
+            "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d, scene detection threshold: %s",
             self._batch_size,
             self._skip_policy.interval,
             self._skip_policy.skip_amount,
+            self._skip_policy._scene_detector_threshold if self._skip_policy._scene_detector_threshold is not None else "None",
         )
 
         while not self._stop_event.is_set():
