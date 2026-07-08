@@ -11,8 +11,11 @@ dHash overview:
     4. Two frames are "the same scene" when the normalized Hamming distance between
        their hashes is <= a configurable threshold.
 """
+import logging
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Luminance weights for RGB -> grayscale (ITU-R BT.601).
 _RGB_TO_GRAY = np.array([0.299, 0.587, 0.114], dtype=np.float32)
@@ -80,14 +83,14 @@ class SceneChangeDetector:
 
     Args:
         threshold: Normalized Hamming distance (0..1) at or below which two frames are
-            treated as the same scene. Default 0.1 (<= ~6 bits for a 64-bit hash).
+            treated as the same scene. Default 0.5 (<= ~32 bits for a 64-bit hash).
         hash_size: dHash grid size; ``hash_size * hash_size`` bits total.
 
     Raises:
         ValueError: If threshold is outside [0, 1] or hash_size < 1.
     """
 
-    def __init__(self, threshold: float = 0.1, hash_size: int = 8) -> None:
+    def __init__(self, threshold: float = 0.5, hash_size: int = 8) -> None:
         if not 0.0 <= threshold <= 1.0:
             raise ValueError(f"threshold must be in [0, 1], got {threshold}")
         if hash_size < 1:
@@ -117,6 +120,7 @@ class SceneChangeDetector:
             return True
 
         normalized = hamming_distance(current, self._last_hash) / self._bits
+        logger.debug("Normalized Hamming Distance: %.4f, Threshold: %.4f", normalized, self._threshold)
         if normalized > self._threshold:
             self._last_hash = current
             return True
