@@ -51,102 +51,36 @@ class TestSAM3OpenVINOInit:
             patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
             patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained") as mock_tokenizer,
         ):
-            model = SAM3OpenVINO(model_dir=openvino_model_dir, device="cpu", prompt_mode=Sam3PromptMode.CLASSIC)
+            model = SAM3OpenVINO(ir_path=openvino_model_dir, device="cpu", prompt_mode=Sam3PromptMode.CLASSIC)
 
         assert isinstance(model, OpenVINOModel)
         assert model.backend == Backend.OPENVINO
         assert model.ov_device == "CPU"
         assert model.model_dir == openvino_model_dir
-        assert model.compression_mode == "int8_sym"
         assert mock_core.compile_model.call_count == 4
         mock_tokenizer.assert_called_once_with(str(openvino_model_dir))
-
-    def test_exports_when_model_dir_is_missing(self, openvino_model_dir: Path, tmp_path: Path) -> None:
-        """SAM3OpenVINO exports official SAM3 to INT8_SYM artifacts when no model_dir is provided."""
-        mock_core = _mock_openvino_core()
-
-        with (
-            patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
-            patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained"),
-            patch(
-                "instantlearn.scripts.sam3.export_sam3.export_sam3_openvino",
-                return_value=openvino_model_dir,
-            ) as mock_export,
-        ):
-            model = SAM3OpenVINO(
-                model_dir=None,
-                model_id="facebook/sam3.1",
-                device="cpu",
-                export_dir=tmp_path / "sam3-export",
-            )
-
-        assert model.model_dir == openvino_model_dir
-        mock_export.assert_called_once_with(
-            model_id="facebook/sam3.1",
-            output_dir=tmp_path / "sam3-export",
-            resolution=1008,
-            precision="fp16",
-            opset_version=17,
-            compression_mode="int8_sym",
-        )
-
-    def test_export_compression_mode_is_configurable(self, openvino_model_dir: Path, tmp_path: Path) -> None:
-        """SAM3OpenVINO forwards custom init-time export compression mode."""
-        mock_core = _mock_openvino_core()
-
-        with (
-            patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
-            patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained"),
-            patch(
-                "instantlearn.scripts.sam3.export_sam3.export_sam3_openvino",
-                return_value=openvino_model_dir,
-            ) as mock_export,
-        ):
-            model = SAM3OpenVINO(
-                model_dir=None,
-                device="cpu",
-                export_dir=tmp_path / "sam3-export",
-                compression_mode=None,
-            )
-
-        assert model.compression_mode is None
-        mock_export.assert_called_once_with(
-            model_id="facebook/sam3.1",
-            output_dir=tmp_path / "sam3-export",
-            resolution=1008,
-            precision="fp16",
-            opset_version=17,
-            compression_mode=None,
-        )
 
     def test_card_delegates_to_sam3(self) -> None:
         """SAM3OpenVINO exposes the same model capabilities as SAM3."""
         assert SAM3OpenVINO.card() == SAM3.card()
 
-    def test_from_pretrained_sets_model_id_and_export_dir(self, tmp_path: Path) -> None:
-        """from_pretrained() forwards repo_id as model_id and cache_dir as export_dir."""
+    def test_from_pretrained_loads_exported_model_dir(self, tmp_path: Path) -> None:
+        """from_pretrained() forwards an exported OpenVINO artifact directory."""
         expected = object()
+        ir_path = tmp_path / "openvino-int8_sym"
 
         with patch.object(SAM3OpenVINO, "__init__", return_value=None) as mock_init:
             result = SAM3OpenVINO.from_pretrained(
-                "facebook/sam3.1",
-                cache_dir=tmp_path / "ov-export",
+                ir_path,
                 device="CPU",
             )
 
         assert isinstance(result, SAM3OpenVINO)
         mock_init.assert_called_once_with(
+            ir_path=ir_path,
             device="CPU",
-            model_id="facebook/sam3.1",
-            export_dir=tmp_path / "ov-export",
         )
         del expected
-
-    def test_from_pretrained_rejects_revision(self) -> None:
-        """from_pretrained() accepts revision for API shape but does not support it yet."""
-        with pytest.raises(ValueError, match="revision"):
-            SAM3OpenVINO.from_pretrained("facebook/sam3.1", revision="main")
-
 
 class TestSAM3OpenVINOPredict:
     """Prediction return contract tests."""

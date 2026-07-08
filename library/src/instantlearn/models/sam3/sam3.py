@@ -4,6 +4,7 @@
 """SAM3 model for text and visual prompting."""
 
 import logging
+import shutil
 from collections import defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -45,6 +46,33 @@ if TYPE_CHECKING:
     from .sam3_openvino import SAM3OpenVINO
 
 SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
+
+MODEL_NAMES = [
+    "vision-encoder",
+    "text-encoder",
+    "geometry-encoder",
+    "geometry-encoder-exemplar",
+    "prompt-decoder",
+]
+
+_VISION_ENCODER = "vision-encoder"
+_TEXT_ENCODER = "text-encoder"
+_GEOMETRY_ENCODER = "geometry-encoder"
+_GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
+_PROMPT_DECODER = "prompt-decoder"
+
+_TOKENIZER_FILES = [
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "vocab.json",
+    "merges.txt",
+]
+
+_BOX_COLUMN_DIM = 1
+_BOX_COORDINATE_COLUMNS = 4
+_BOX_SCORE_COLUMN = _BOX_COORDINATE_COLUMNS
+_BOX_COLUMNS_WITH_SCORE = _BOX_COORDINATE_COLUMNS + 1
 
 
 @dataclass
@@ -324,6 +352,489 @@ class SAM3(TorchModel):
             .eval()
         )
 
+    def to_openvino(
+        self,
+        *,
+        model_id: str | None = None,
+        resolution: int | None = None,
+        output_dir: Path,
+        precision: str,
+        opset_version: int,
+        compression_mode: str | None,
+        validate: bool = False,
+        device: str = "CPU",
+    ) -> Path:
+        """Export this SAM3 model to OpenVINO artifacts."""
+        output_dir = Path(output_dir)
+        export_model_id = model_id or self.model_id
+        export_resolution = resolution or self.resolution
+
+        onnx_dir, exported = SAM3.export_to_onnx(
+            model_id=export_model_id,
+            output_dir=output_dir,
+            opset_version=opset_version,
+            resolution=export_resolution,
+        )
+        logger.info("ONNX export complete: %s", list(exported.keys()))
+
+        ir_dir = output_dir / f"openvino-{precision}"
+        logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", precision)
+        SAM3.convert_to_openvino(onnx_dir=onnx_dir, output_dir=ir_dir, precision=precision)
+        SAM3._ensure_openvino_export_complete(ir_dir)
+
+        result_dir = ir_dir
+        if compression_mode is not None:
+            logger.info("Applying SAM3 OpenVINO weight compression: %s", compression_mode)
+            result_dir = SAM3.apply_weight_compression(ir_dir, output_dir, compression_mode)
+            SAM3._ensure_openvino_export_complete(result_dir)
+
+        if validate:
+            SAM3.validate_openvino_models(result_dir, device=device, resolution=export_resolution)
+
+        logger.info("SAM3 OpenVINO export complete: %s", result_dir)
+        return result_dir
+
+    @staticmethod
+    def export_to_onnx(  # noqa: PLR0915
+        model_id: str,
+        output_dir: Path,
+        *,
+        resolution: int = 1008,
+        opset_version: int = 17,
+    ) -> tuple[Path, dict[str, Path]]:
+        """Load SAM3 weights and export all sub-components to ONNX."""
+        from instantlearn.scripts.sam3.onnx_wrappers import (  # noqa: PLC0415
+            OnnxGeometryEncoder,
+            OnnxPromptDecoder,
+            OnnxTextEncoder,
+            OnnxVisionEncoder,
+        )
+
+        logger.info("Loading Sam3Model from '%s'...", model_id)
+        model = Sam3Model.from_pretrained(model_id, device="cpu", dtype=torch.float32)
+        model.eval()
+        logger.info("Model loaded successfully.")
+
+        onnx_dir = output_dir / "onnx"
+        onnx_dir.mkdir(parents=True, exist_ok=True)
+        device = next(model.parameters()).device
+
+        exported: dict[str, Path] = {}
+
+        logger.info("Exporting vision encoder...")
+        vision_wrapper = OnnxVisionEncoder(model)
+        vision_wrapper.eval()
+        dummy_pixel = torch.randn(1, 3, resolution, resolution, device=device)
+        vision_path = onnx_dir / f"{_VISION_ENCODER}.onnx"
+        torch.onnx.export(
+            vision_wrapper,
+            (dummy_pixel,),
+            str(vision_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=["pixel_values"],
+            output_names=["fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2"],
+            dynamic_axes={"pixel_values": {0: "batch"}},
+        )
+        exported[_VISION_ENCODER] = vision_path
+        logger.info("  -> %s", vision_path)
+
+        logger.info("Exporting text encoder...")
+        text_wrapper = OnnxTextEncoder(model)
+        text_wrapper.eval()
+        dummy_ids = torch.ones(1, 32, dtype=torch.long, device=device)
+        dummy_mask = torch.ones(1, 32, dtype=torch.long, device=device)
+        text_path = onnx_dir / f"{_TEXT_ENCODER}.onnx"
+        torch.onnx.export(
+            text_wrapper,
+            (dummy_ids, dummy_mask),
+            str(text_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=["input_ids", "attention_mask"],
+            output_names=["text_features", "text_mask"],
+            dynamic_axes={
+                "input_ids": {0: "batch"},
+                "attention_mask": {0: "batch"},
+            },
+        )
+        exported[_TEXT_ENCODER] = text_path
+        logger.info("  -> %s", text_path)
+
+        logger.info("Exporting geometry encoder (classic)...")
+        geo_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=False)
+        geo_wrapper.eval()
+        feat_size = resolution // 14
+        dummy_fpn = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_pos = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_boxes = torch.rand(1, 1, _BOX_COORDINATE_COLUMNS, device=device)
+        dummy_box_labels = torch.ones(1, 1, dtype=torch.long, device=device)
+        dummy_points = torch.rand(1, 1, 2, device=device)
+        dummy_point_labels = torch.full((1, 1), -10, dtype=torch.long, device=device)
+
+        geo_path = onnx_dir / f"{_GEOMETRY_ENCODER}.onnx"
+        torch.onnx.export(
+            geo_wrapper,
+            (dummy_fpn, dummy_pos, dummy_boxes, dummy_box_labels, dummy_points, dummy_point_labels),
+            str(geo_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_2", "fpn_pos_2",
+                "input_boxes", "input_boxes_labels",
+                "input_points", "input_points_labels",
+            ],
+            output_names=["geometry_features", "geometry_mask"],
+            dynamic_axes={
+                "input_boxes": {0: "batch", 1: "num_boxes"},
+                "input_boxes_labels": {0: "batch", 1: "num_boxes"},
+                "input_points": {0: "batch", 1: "num_points"},
+                "input_points_labels": {0: "batch", 1: "num_points"},
+            },
+        )
+        exported[_GEOMETRY_ENCODER] = geo_path
+        logger.info("  -> %s", geo_path)
+
+        logger.info("Exporting geometry encoder (exemplar)...")
+        geo_exemplar_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=True)
+        geo_exemplar_wrapper.eval()
+        dummy_boxes_ignore = torch.zeros(1, 1, _BOX_COORDINATE_COLUMNS, device=device)
+        dummy_box_labels_ignore = torch.full((1, 1), -10, dtype=torch.long, device=device)
+        dummy_ex_points = torch.rand(1, 1, 2, device=device)
+        dummy_ex_point_labels = torch.ones(1, 1, dtype=torch.long, device=device)
+
+        geo_exemplar_path = onnx_dir / f"{_GEOMETRY_ENCODER_EXEMPLAR}.onnx"
+        torch.onnx.export(
+            geo_exemplar_wrapper,
+            (
+                dummy_fpn,
+                dummy_pos,
+                dummy_boxes_ignore,
+                dummy_box_labels_ignore,
+                dummy_ex_points,
+                dummy_ex_point_labels,
+            ),
+            str(geo_exemplar_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_2", "fpn_pos_2",
+                "input_boxes", "input_boxes_labels",
+                "input_points", "input_points_labels",
+            ],
+            output_names=["geometry_features", "geometry_mask"],
+            dynamic_axes={
+                "input_boxes": {0: "batch", 1: "num_boxes"},
+                "input_boxes_labels": {0: "batch", 1: "num_boxes"},
+                "input_points": {0: "batch", 1: "num_points"},
+                "input_points_labels": {0: "batch", 1: "num_points"},
+            },
+        )
+        exported[_GEOMETRY_ENCODER_EXEMPLAR] = geo_exemplar_path
+        logger.info("  -> %s", geo_exemplar_path)
+
+        logger.info("Exporting prompt decoder...")
+        decoder_wrapper = OnnxPromptDecoder(model)
+        decoder_wrapper.eval()
+        feat_4x = feat_size * 4
+        feat_2x = feat_size * 2
+        dummy_f0 = torch.randn(1, 256, feat_4x, feat_4x, device=device)
+        dummy_f1 = torch.randn(1, 256, feat_2x, feat_2x, device=device)
+        dummy_f2 = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_p2 = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_prompt = torch.randn(1, 32, 256, device=device)
+        dummy_pmask = torch.ones(1, 32, dtype=torch.bool, device=device)
+
+        decoder_path = onnx_dir / f"{_PROMPT_DECODER}.onnx"
+        torch.onnx.export(
+            decoder_wrapper,
+            (dummy_f0, dummy_f1, dummy_f2, dummy_p2, dummy_prompt, dummy_pmask),
+            str(decoder_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2",
+                "prompt_features", "prompt_mask",
+            ],
+            output_names=["pred_masks", "pred_boxes", "pred_logits", "presence_logits"],
+            dynamic_axes={
+                "prompt_features": {0: "batch", 1: "prompt_len"},
+                "prompt_mask": {0: "batch", 1: "prompt_len"},
+            },
+        )
+        exported[_PROMPT_DECODER] = decoder_path
+        logger.info("  -> %s", decoder_path)
+
+        logger.info("Saving tokenizer...")
+        tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
+        tokenizer.save_pretrained(str(onnx_dir))
+        logger.info("  Tokenizer saved to %s", onnx_dir)
+
+        logger.info("ONNX export complete. %d models written to %s", len(exported), onnx_dir)
+        return onnx_dir, exported
+
+    @staticmethod
+    def convert_to_openvino(
+        onnx_dir: Path,
+        output_dir: Path,
+        *,
+        precision: str = "fp16",
+    ) -> dict[str, Path]:
+        """Convert SAM3 ONNX models to OpenVINO IR and copy tokenizer files."""
+        import openvino as ov  # noqa: PLC0415
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        compress_to_fp16 = precision == "fp16"
+
+        converted: dict[str, Path] = {}
+        for name in MODEL_NAMES:
+            onnx_path = onnx_dir / f"{name}.onnx"
+            if not onnx_path.exists():
+                onnx_path = onnx_dir / f"{name}-fp16.onnx"
+            if not onnx_path.exists():
+                logger.warning("Skipping %s - ONNX file not found.", name)
+                continue
+
+            logger.info("Converting %s to OpenVINO IR...", name)
+            ov_model = ov.convert_model(str(onnx_path))
+            ir_path = output_dir / f"{name}.xml"
+            ov.save_model(ov_model, str(ir_path), compress_to_fp16=compress_to_fp16)
+            converted[name] = ir_path
+            logger.info("  -> %s", ir_path)
+
+        for filename in _TOKENIZER_FILES:
+            src = onnx_dir / filename
+            dst = output_dir / filename
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+                logger.info("Copied tokenizer file: %s", filename)
+
+        logger.info("OpenVINO conversion complete. %d models written to %s", len(converted), output_dir)
+        return converted
+
+    @staticmethod
+    def _ensure_openvino_export_complete(model_dir: Path) -> None:
+        """Validate that all expected SAM3 OpenVINO sub-model files exist."""
+        missing = [
+            model_dir / f"{model_name}.xml"
+            for model_name in MODEL_NAMES
+            if not (model_dir / f"{model_name}.xml").exists()
+        ]
+        if missing:
+            missing_names = ", ".join(path.name for path in missing)
+            msg = f"Incomplete SAM3 OpenVINO export in {model_dir}: missing {missing_names}"
+            raise FileNotFoundError(msg)
+
+    @staticmethod
+    def validate_openvino_models(  # noqa: PLR0915
+        model_dir: Path,
+        device: str = "CPU",
+        resolution: int = 1008,
+    ) -> None:
+        """Validate exported OpenVINO models with dummy inference."""
+        import openvino as ov  # noqa: PLC0415
+
+        core = ov.Core()
+        rng = np.random.default_rng(42)
+        feat_size = resolution // 14
+
+        logger.info("Validating OpenVINO models in %s...", model_dir)
+
+        vision_xml = model_dir / "vision-encoder.xml"
+        if vision_xml.exists():
+            vision_model = core.compile_model(vision_xml, device)
+            dummy_img = rng.standard_normal((1, 3, resolution, resolution)).astype(np.float32)
+            vision_result = vision_model([dummy_img])
+            logger.info(
+                "  Vision encoder: OK - %s",
+                {key: vision_result[key].shape for key in ["fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2"]},
+            )
+        else:
+            logger.warning("  Vision encoder: MISSING (%s)", vision_xml)
+
+        text_xml = model_dir / "text-encoder.xml"
+        if text_xml.exists():
+            text_model = core.compile_model(text_xml, device)
+            dummy_ids = np.ones((1, 32), dtype=np.int64)
+            dummy_mask = np.ones((1, 32), dtype=np.int64)
+            text_result = text_model([dummy_ids, dummy_mask])
+            logger.info(
+                "  Text encoder: OK - %s",
+                {key: text_result[key].shape for key in ["text_features", "text_mask"]},
+            )
+        else:
+            logger.warning("  Text encoder: MISSING (%s)", text_xml)
+
+        geo_xml = model_dir / "geometry-encoder.xml"
+        if geo_xml.exists():
+            geo_model = core.compile_model(geo_xml, device)
+            dummy_fpn = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
+            dummy_pos = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
+            dummy_boxes = rng.random((1, 1, _BOX_COORDINATE_COLUMNS)).astype(np.float32)
+            dummy_box_labels = np.ones((1, 1), dtype=np.int64)
+            dummy_points = np.zeros((1, 1, 2), dtype=np.float32)
+            dummy_point_labels = np.full((1, 1), -10, dtype=np.int64)
+            geo_result = geo_model([
+                dummy_fpn,
+                dummy_pos,
+                dummy_boxes,
+                dummy_box_labels,
+                dummy_points,
+                dummy_point_labels,
+            ])
+            logger.info(
+                "  Geometry encoder (classic): OK - %s",
+                {key: geo_result[key].shape for key in ["geometry_features", "geometry_mask"]},
+            )
+        else:
+            logger.warning("  Geometry encoder (classic): MISSING (%s)", geo_xml)
+
+        geo_ex_xml = model_dir / "geometry-encoder-exemplar.xml"
+        if geo_ex_xml.exists():
+            geo_ex_model = core.compile_model(geo_ex_xml, device)
+            dummy_boxes_ignore = np.zeros((1, 1, _BOX_COORDINATE_COLUMNS), dtype=np.float32)
+            dummy_box_labels_ignore = np.full((1, 1), -10, dtype=np.int64)
+            dummy_pts = rng.random((1, 1, 2)).astype(np.float32)
+            dummy_pt_labels = np.ones((1, 1), dtype=np.int64)
+            geo_ex_result = geo_ex_model([
+                dummy_fpn,
+                dummy_pos,
+                dummy_boxes_ignore,
+                dummy_box_labels_ignore,
+                dummy_pts,
+                dummy_pt_labels,
+            ])
+            logger.info(
+                "  Geometry encoder (exemplar): OK - %s",
+                {key: geo_ex_result[key].shape for key in ["geometry_features", "geometry_mask"]},
+            )
+        else:
+            logger.warning("  Geometry encoder (exemplar): MISSING (%s)", geo_ex_xml)
+
+        dec_xml = model_dir / "prompt-decoder.xml"
+        if dec_xml.exists():
+            dec_model = core.compile_model(dec_xml, device)
+            dummy_f0 = rng.standard_normal((1, 256, feat_size * 4, feat_size * 4)).astype(np.float32)
+            dummy_f1 = rng.standard_normal((1, 256, feat_size * 2, feat_size * 2)).astype(np.float32)
+            dummy_f2 = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
+            dummy_p2 = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
+            dummy_prompt = rng.standard_normal((1, 32, 256)).astype(np.float32)
+            dummy_pmask = np.ones((1, 32), dtype=bool)
+            dec_result = dec_model([dummy_f0, dummy_f1, dummy_f2, dummy_p2, dummy_prompt, dummy_pmask])
+            logger.info(
+                "  Prompt decoder: OK - %s",
+                {key: dec_result[key].shape for key in ["pred_masks", "pred_boxes", "pred_logits", "presence_logits"]},
+            )
+        else:
+            logger.warning("  Prompt decoder: MISSING (%s)", dec_xml)
+
+        logger.info("Validation complete!")
+
+    @staticmethod
+    def apply_weight_compression(
+        source_dir: Path,
+        output_dir: Path,
+        mode: str = "int8_sym",
+    ) -> Path:
+        """Apply weight compression to SAM3 OpenVINO IR models."""
+        import openvino as ov  # noqa: PLC0415
+
+        from instantlearn.utils.compression import compress_model  # noqa: PLC0415
+        from instantlearn.utils.constants import CompressionMode  # noqa: PLC0415
+
+        compression_mode = CompressionMode(mode)
+
+        logger.info("=" * 60)
+        logger.info("Applying %s weight compression", mode.upper())
+        logger.info("=" * 60)
+
+        ir_dir = output_dir / f"openvino-{mode}"
+        ir_dir.mkdir(parents=True, exist_ok=True)
+
+        core = ov.Core()
+        logger.info("Compressing %d models", len(MODEL_NAMES))
+
+        for model_name in MODEL_NAMES:
+            xml_path = source_dir / f"{model_name}.xml"
+            if not xml_path.exists():
+                logger.warning("Source model not found: %s", xml_path)
+                continue
+
+            logger.info("Compressing %s with %s...", model_name, mode.upper())
+            ov_model = core.read_model(xml_path)
+
+            try:
+                compressed_model = compress_model(ov_model, mode=compression_mode, group_size=-1)
+            except Exception:
+                logger.exception("Failed to compress %s with %s", model_name, mode)
+                continue
+
+            out_xml = ir_dir / f"{model_name}.xml"
+            ov.save_model(compressed_model, out_xml)
+
+            bin_path = ir_dir / f"{model_name}.bin"
+            size_mb = bin_path.stat().st_size / (1024 * 1024)
+            logger.info("Saved: %s (%.1f MB)", out_xml, size_mb)
+
+        for filename in _TOKENIZER_FILES:
+            src = source_dir / filename
+            dst = ir_dir / filename
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+
+        return ir_dir
+
+    @staticmethod
+    def get_dir_size(directory: Path) -> float:
+        """Return total size of model files in a directory in MB."""
+        total = 0
+        for ext in ("*.xml", "*.bin", "*.onnx"):
+            for file_path in directory.glob(ext):
+                total += file_path.stat().st_size
+        return total / (1024 * 1024)
+
+    @staticmethod
+    def print_comparison_table(output_dir: Path) -> None:
+        """Print a comparison table of all quantized variants."""
+        from rich.console import Console  # noqa: PLC0415
+        from rich.table import Table  # noqa: PLC0415
+
+        console = Console()
+        table = Table(title="SAM3 Quantization Comparison", show_header=True)
+        table.add_column("Variant", style="cyan", width=20)
+        table.add_column("Total", justify="right", style="bold")
+        table.add_column("Model Count", justify="right")
+        table.add_column("Status", style="green")
+
+        variant_dirs = sorted([*output_dir.glob("openvino-*"), *output_dir.glob("onnx-*")])
+        for variant_dir in variant_dirs:
+            if not variant_dir.is_dir():
+                continue
+            variant_name = variant_dir.name
+            for prefix in ("openvino-", "onnx-"):
+                variant_name = variant_name.replace(prefix, "", 1) if variant_name.startswith(prefix) else variant_name
+            fmt = "IR" if variant_dir.name.startswith("openvino") else "ONNX"
+            variant_label = f"{variant_name} ({fmt})"
+
+            total_size = 0.0
+            found = 0
+            for model_name in MODEL_NAMES:
+                bin_path = variant_dir / f"{model_name}.bin"
+                if bin_path.exists():
+                    total_size += bin_path.stat().st_size / (1024 * 1024)
+                    found += 1
+                else:
+                    onnx_files = list(variant_dir.glob(f"{model_name}*.onnx"))
+                    if onnx_files:
+                        total_size += onnx_files[0].stat().st_size / (1024 * 1024)
+                        found += 1
+
+            status = "OK" if found == len(MODEL_NAMES) else f"Missing {len(MODEL_NAMES) - found}"
+            table.add_row(variant_label, f"{total_size:.1f} MB", f"{found}/{len(MODEL_NAMES)}", status)
+
+        console.print(table)
+
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static model card for SAM3 capabilities."""
@@ -460,8 +971,8 @@ class SAM3(TorchModel):
             if "pred_scores" in prediction:
                 continue
             boxes = prediction.get("pred_boxes")
-            if boxes is not None and boxes.numel() > 0 and boxes.shape[1] > 4:
-                prediction["pred_scores"] = boxes[:, 4]
+            if boxes is not None and boxes.numel() > 0 and boxes.shape[_BOX_COLUMN_DIM] > _BOX_SCORE_COLUMN:
+                prediction["pred_scores"] = boxes[:, _BOX_SCORE_COLUMN]
             else:
                 masks = prediction["pred_masks"]
                 prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
@@ -478,13 +989,13 @@ class SAM3(TorchModel):
             Backend-neutral prediction with numpy arrays.
         """
         boxes = prediction.get("pred_boxes")
-        boxes_xyxy = boxes[:, :4] if boxes is not None else None
+        boxes_coordinates = boxes[:, :_BOX_COORDINATE_COLUMNS] if boxes is not None else None
         return tensors_to_prediction(
             masks=prediction["pred_masks"],
             scores=prediction["pred_scores"],
             label_ids=prediction["pred_labels"],
             categories=self._prediction_categories(sample, prediction["pred_labels"]),
-            boxes=boxes_xyxy,
+            boxes=boxes_coordinates,
         )
 
     def _prediction_categories(self, sample: TensorSample, label_ids: torch.Tensor) -> list[str]:
@@ -1011,7 +1522,7 @@ class SAM3(TorchModel):
         pred = self._run_canvas_forward(canvas, canvas_bboxes, cat_text)
         remapped = self._extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
 
-        boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+        boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
         if boxes.shape[0] > 0:
             remapped["pred_labels"] = torch.full(
                 (boxes.shape[0],), cat_id, dtype=torch.int64,
@@ -1070,7 +1581,7 @@ class SAM3(TorchModel):
             remapped = self._extract_target_predictions(
                 pred, tgt_region, tgt_h, tgt_w,
             )
-            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
                 all_boxes_list.append(boxes)
                 all_masks_list.append(
@@ -1085,7 +1596,7 @@ class SAM3(TorchModel):
                 all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
             )
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, tgt_h, tgt_w),
             "pred_labels": torch.empty(0, dtype=torch.int64),
         }
@@ -1179,7 +1690,7 @@ class SAM3(TorchModel):
 
             sx = this_w / ref_w
             sy = ref_strip_h / ref_h
-            x1, y1, x2, y2 = ref_bbox[:4]
+            x1, y1, x2, y2 = ref_bbox[:_BOX_COORDINATE_COLUMNS]
             per_cat_bboxes[cat_id].append(np.array([
                 x1 * sx + slot_x,
                 y1 * sy + tgt_canvas_h,
@@ -1226,7 +1737,7 @@ class SAM3(TorchModel):
             remapped = self._extract_target_predictions(
                 pred, tgt_region, tgt_h, tgt_w,
             )
-            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
                 all_boxes_list.append(boxes)
                 all_masks_list.append(
@@ -1241,7 +1752,7 @@ class SAM3(TorchModel):
                 all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
             )
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, tgt_h, tgt_w),
             "pred_labels": torch.empty(0, dtype=torch.int64),
         }
@@ -1319,7 +1830,7 @@ class SAM3(TorchModel):
                 "pred_masks": torch.cat(all_masks, dim=0),
             }
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, *canvas_size),
         }
 
@@ -1435,7 +1946,7 @@ class SAM3(TorchModel):
             merged_boxes = torch.cat(all_boxes, dim=0)
             merged_masks = torch.cat(all_masks, dim=0)
         else:
-            merged_boxes = torch.empty(0, 5)
+            merged_boxes = torch.empty(0, _BOX_COLUMNS_WITH_SCORE)
             merged_masks = torch.empty(0, *img_size)
 
         return {
@@ -1545,7 +2056,7 @@ class SAM3(TorchModel):
         else:
             # No predictions found
             aggregated_masks = torch.empty(0, *img_size)
-            aggregated_boxes = torch.empty(0, 5)
+            aggregated_boxes = torch.empty(0, _BOX_COLUMNS_WITH_SCORE)
             aggregated_labels = torch.empty(0, dtype=torch.long)
 
         return {

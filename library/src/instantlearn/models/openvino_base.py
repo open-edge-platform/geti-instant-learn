@@ -87,23 +87,3 @@ class OpenVINOModel(Model):
     def backend(self) -> Backend:
         """Always ``Backend.OPENVINO``."""
         return Backend.OPENVINO
-
-
-    @abstractmethod
-    def from_torch_to_openvino(self, export_path: Path | None = None, config: ImportConfig | None = None) -> OpenVINOModel:
-        """Export this Torch model to OpenVINO IR and load the OV sibling.
-
-        Each concrete model implements its own conversion (graph tracing,
-        dynamic axes, and submodel splitting vary per model). OpenVINO-specific
-        behaviour is controlled through ``config``; values not covered by
-        ``ImportConfig`` are inherited from this model's configuration.
-
-        Args:
-            export_path: Destination directory for the IR. ``None`` writes to a
-                temporary directory.
-            config: Export options (precision, opset, dynamic shapes, ...).
-                ``None`` uses :class:`ImportConfig` defaults.
-
-        Returns:
-            An ``OpenVINOModel`` instance ready for inference.
-        """
