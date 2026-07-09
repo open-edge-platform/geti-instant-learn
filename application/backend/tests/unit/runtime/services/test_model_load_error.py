@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from domain.services.schemas.model_status import ModelStatusErrorType
-from runtime.services.model_load_error import model_load_error
+from runtime.services.model_load_error import (
+    _ACCESS_REQUIRED_MESSAGE,
+    _AUTH_REQUIRED_MESSAGE,
+    model_load_error,
+)
 
 
 def traceback_message(*exception_blocks: tuple[str, str]) -> str:
@@ -69,7 +73,7 @@ def test_wrapped_huggingface_auth_failure_is_classified_as_auth_required():
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
-    assert error_message == str(exc)
+    assert error_message == _AUTH_REQUIRED_MESSAGE
 
 
 def test_wrapped_huggingface_access_failure_is_classified_as_access_required():
@@ -82,7 +86,7 @@ def test_wrapped_huggingface_access_failure_is_classified_as_access_required():
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
-    assert error_message == str(exc)
+    assert error_message == _ACCESS_REQUIRED_MESSAGE
 
 
 def test_huggingface_value_error_access_failure_is_classified_as_access_required():
@@ -91,10 +95,7 @@ def test_huggingface_value_error_access_failure_is_classified_as_access_required
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
-    assert error_message == DINO_V3_ACCESS_ERROR_MESSAGE
-    assert "User does not have access to the weights of the DinoV3 model." in error_message
-    assert "https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m" in error_message
-    assert "hf auth login" in error_message
+    assert error_message == _ACCESS_REQUIRED_MESSAGE
 
 
 def test_traceback_message_extracts_terminal_exception_message():
@@ -112,9 +113,8 @@ def test_traceback_message_extracts_terminal_exception_message():
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
-    assert error_message == SAM3_GATED_REPO_ERROR_MESSAGE
+    assert error_message == _ACCESS_REQUIRED_MESSAGE
     assert "Traceback (most recent call last):" not in error_message
-    assert not error_message.startswith("OSError:")
 
 
 def test_traceback_message_extracts_terminal_not_authorized_exception_message():
@@ -133,9 +133,8 @@ def test_traceback_message_extracts_terminal_not_authorized_exception_message():
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
-    assert error_message == SAM3_NOT_AUTHORIZED_ERROR_MESSAGE
+    assert error_message == _ACCESS_REQUIRED_MESSAGE
     assert "Traceback (most recent call last):" not in error_message
-    assert not error_message.startswith("OSError:")
 
 
 def test_traceback_message_prefers_huggingface_token_permission_message_over_terminal_wrapper():
@@ -154,9 +153,8 @@ def test_traceback_message_prefers_huggingface_token_permission_message_over_ter
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
-    assert error_message == SAM3_TOKEN_PERMISSION_ERROR_MESSAGE
-    assert "fine-grained token settings" in error_message
-    assert "LocalEntryNotFoundError" not in error_message
+    assert error_message == _AUTH_REQUIRED_MESSAGE
+    assert "Request ID" not in error_message
 
 
 def test_exception_chain_prefers_huggingface_token_permission_message_over_wrapper():
@@ -166,7 +164,7 @@ def test_exception_chain_prefers_huggingface_token_permission_message_over_wrapp
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
-    assert error_message == SAM3_TOKEN_PERMISSION_ERROR_MESSAGE
+    assert error_message == _AUTH_REQUIRED_MESSAGE
 
 
 def test_mixed_access_and_auth_wording_is_classified_as_access_required():
@@ -175,7 +173,7 @@ def test_mixed_access_and_auth_wording_is_classified_as_access_required():
     error_type, error_message = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
-    assert error_message == str(exc)
+    assert error_message == _ACCESS_REQUIRED_MESSAGE
 
 
 def test_unknown_failure_is_classified_as_load_failed():

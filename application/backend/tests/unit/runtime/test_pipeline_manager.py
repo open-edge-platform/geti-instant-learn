@@ -17,6 +17,7 @@ from domain.services.schemas.model_status import ModelStatus, ModelStatusErrorTy
 from domain.services.schemas.pipeline import PipelineConfig
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, PipelineReloadInProgressError
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.model_load_error import _ACCESS_REQUIRED_MESSAGE, _AUTH_REQUIRED_MESSAGE
 
 
 class FakeSessionCtx:
@@ -493,7 +494,7 @@ class TestPipelineManagerModelLoadingFlag:
         status = mgr.get_model_status()
         assert status.status == ModelStatus.ERROR
         assert status.error_type == ModelStatusErrorType.ACCESS_REQUIRED
-        assert status.error_message == error_message
+        assert status.error_message == _ACCESS_REQUIRED_MESSAGE
 
     def test_status_set_to_auth_error_when_processor_rebuild_hits_gated_repo(
         self, dispatcher, session_factory, mock_component_factory
@@ -520,7 +521,7 @@ class TestPipelineManagerModelLoadingFlag:
         status = mgr.get_model_status()
         assert status.status == ModelStatus.ERROR
         assert status.error_type == ModelStatusErrorType.AUTH_REQUIRED
-        assert status.error_message == str(auth_exc)
+        assert status.error_message == _AUTH_REQUIRED_MESSAGE
 
     def test_successful_rebuild_clears_previous_error(self, dispatcher, session_factory, mock_component_factory):
         with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:

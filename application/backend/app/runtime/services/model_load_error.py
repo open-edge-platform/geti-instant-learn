@@ -7,6 +7,17 @@ from collections.abc import Iterator
 from domain.services.schemas.model_status import ModelStatusErrorType
 
 _GENERIC_MODEL_LOAD_ERROR_MESSAGE = "Model loading failed. Check the backend logs for details and try again."
+_HF_MODEL_ACCESS_DOCS_URL = (
+    "https://github.com/open-edge-platform/geti-instant-learn/blob/main/application/README.md#hugging-face-model-access"
+)
+_ACCESS_REQUIRED_MESSAGE = (
+    "This model is gated on Hugging Face and access has not been granted for your account. "
+    f"Request access on the model's Hugging Face page, then retry. See {_HF_MODEL_ACCESS_DOCS_URL}"
+)
+_AUTH_REQUIRED_MESSAGE = (
+    "This model is gated on Hugging Face and requires authentication. "
+    f"Set up your Hugging Face access token, then retry. See {_HF_MODEL_ACCESS_DOCS_URL}"
+)
 _TRACEBACK_EXCEPTION_HEADER_PATTERN = re.compile(
     r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Warning|Interrupt|Exit|Iteration):\s*(.*)$"
 )
@@ -145,9 +156,8 @@ def is_huggingface_auth_error(exc: Exception) -> bool:
 
 def model_load_error(exc: Exception) -> tuple[ModelStatusErrorType, str]:
     """Classify a model-load failure and return the corresponding user-facing status payload."""
-    error_message = _model_load_error_message(exc)
     if is_huggingface_access_error(exc):
-        return ModelStatusErrorType.ACCESS_REQUIRED, error_message
+        return ModelStatusErrorType.ACCESS_REQUIRED, _ACCESS_REQUIRED_MESSAGE
     if is_huggingface_auth_error(exc):
-        return ModelStatusErrorType.AUTH_REQUIRED, error_message
-    return ModelStatusErrorType.LOAD_FAILED, error_message
+        return ModelStatusErrorType.AUTH_REQUIRED, _AUTH_REQUIRED_MESSAGE
+    return ModelStatusErrorType.LOAD_FAILED, _model_load_error_message(exc)

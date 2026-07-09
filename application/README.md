@@ -19,6 +19,21 @@ License links:
 
 In order to consent, set an environment variable `INSTANTLEARN_LICENSE_ACCEPTED=1` or accept terms when first importing the library.
 
+## Hugging Face model access
+
+Some models are gated on Hugging Face. Loading them fails until you have an account, are granted access, and authenticate.
+
+1. Create a Hugging Face account, or sign in: [huggingface.co/join](https://huggingface.co/join)
+2. Create a Hugging Face access token: [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+3. Request access on each model's Hugging Face page:
+   - SAM3: [huggingface.co/facebook/sam3.1](https://huggingface.co/facebook/sam3.1)
+   - DINOv3: [huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m)
+4. Authenticate with one of:
+   - `hf auth login`
+   - `export HF_TOKEN=<your_token>`
+
+Retry the model load once access is granted and your token is set.
+
 ## Quick Start
 
 ### Run from Source (Development)
