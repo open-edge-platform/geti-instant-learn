@@ -135,10 +135,11 @@ class TestFrameSkipPolicy:
 
     def test_scene_change_forces_processing_over_skip(self) -> None:
         """When scene detector reports a change, frame is processed even if cyclic says skip."""
-        scene_detector = Mock(spec=SceneChangeDetector)
-        scene_detector.is_new_scene.return_value = True  # force scene change on every call
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
+        fake_scene_detector.is_new_scene.return_value = True  # force scene change on every call
 
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=scene_detector)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
 
         # Advance counter to position where cyclic would skip (position 2)
         policy.should_skip(np.zeros((64, 64, 3)))  # pos 0 -> False
@@ -146,14 +147,15 @@ class TestFrameSkipPolicy:
         result = policy.should_skip(np.zeros((64, 64, 3)))  # pos 2 would be True (skip)
 
         assert result is False  # scene change overrides the skip
-        scene_detector.is_new_scene.assert_called()
+        policy._scene_detector.is_new_scene.assert_called()
 
     def test_scene_change_does_not_alter_cyclic_counter(self) -> None:
         """Scene detection override should not affect the cyclic counter's own state."""
-        scene_detector = Mock(spec=SceneChangeDetector)
-        scene_detector.is_new_scene.return_value = True  # always force processing
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
+        fake_scene_detector.is_new_scene.return_value = True  # always force processing
 
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=scene_detector)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
 
         # Call should_skip multiple times with scene changes forcing processing
         for _ in range(6):
@@ -172,48 +174,62 @@ class TestFrameSkipPolicy:
 
     def test_no_scene_change_falls_back_to_cyclic(self) -> None:
         """When scene detector reports no change, cyclic decision applies normally."""
-        scene_detector = Mock(spec=SceneChangeDetector)
-        scene_detector.is_new_scene.return_value = False  # no scene change
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
+        fake_scene_detector.is_new_scene.return_value = False  # no scene change
 
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=scene_detector)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
 
         results = [policy.should_skip(np.zeros((64, 64, 3))) for _ in range(6)]
         assert results == [False, False, True, False, False, True]
 
     def test_scene_detector_not_called_when_frame_is_none(self) -> None:
         """Scene detector should not be called if frame is None."""
-        scene_detector = Mock(spec=SceneChangeDetector)
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=scene_detector)
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
 
         # Call with None frame - should not invoke the detector
         result = policy.should_skip(frame=None)
 
         assert result is False  # no frame means no scene change detection
-        scene_detector.is_new_scene.assert_not_called()
+        policy._scene_detector.is_new_scene.assert_not_called()
 
     def test_no_scene_detector_ignores_frame_argument(self) -> None:
         """When no scene detector is configured, the frame argument is ignored."""
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=None)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=None)
 
         results = [policy.should_skip(np.zeros((64, 64, 3))) for _ in range(6)]
         assert results == [False, False, True, False, False, True]
 
     def test_scene_change_in_middle_of_cycle_resets_expectation(self) -> None:
         """Scene change during a skip position allows processing but counter continues."""
-        scene_detector = Mock(spec=SceneChangeDetector)
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
 
-        # First 2 frames: no scene change (process)
-        # 3rd frame: scene change (would be skipped, but overridden)
-        # 4th frame: no scene change (process, start of new cycle)
-        scene_detector.is_new_scene.side_effect = [False, False, True, False]
+        # First 2 frames: no scene change (cyclic says process)
+        # 3rd frame: scene change (cyclic says skipped, but overridden)
+        # 4th frame: no scene change (cyclic says process, start of new cycle)
+        fake_scene_detector.is_new_scene.side_effect = [False, False, True, False]
 
-        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector=scene_detector)
+        policy = FrameSkipPolicy(interval=3, skip_amount=1, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
 
         results = [policy.should_skip(np.zeros((64, 64, 3))) for _ in range(4)]
         assert results == [False, False, False, False]  # all processed due to overrides
 
         # Verify is_new_scene was called the expected number of times
-        assert scene_detector.is_new_scene.call_count == 4
+        assert policy._scene_detector.is_new_scene.call_count == 4
+
+    def test_scene_change_with_skip_amount_zero(self) -> None:
+        """When skip_amount is zero, scene detection solely determines processing."""
+        fake_scene_detector = Mock(spec=SceneChangeDetector)
+        fake_scene_detector.is_new_scene.return_value = True  # always force processing
+
+        policy = FrameSkipPolicy(interval=3, skip_amount=0, scene_detector_threshold=0.5)
+        policy._scene_detector = fake_scene_detector  # inject mock scene detector
+
+        results = [policy.should_skip(np.zeros((64, 64, 3))) for _ in range(6)]
+        assert results == [False, False, False, False, False, False]  # all processed
 
 
 class TestProcessorInit:
