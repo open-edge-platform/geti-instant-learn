@@ -7,7 +7,7 @@ description = "Geti Instant Learn service"
 requires-python = ">=3.13, <3.14"
 
 dependencies = [
-    "fastapi~=0.123.8",
+    "fastapi~=0.134.0",
     "uvicorn[standard]~=0.35.0",
     "pydantic-settings~=2.10.1",
     "python-multipart~=0.0.20",
