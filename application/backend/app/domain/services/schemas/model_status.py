@@ -28,3 +28,7 @@ class ModelStatusSchema(BaseModel):
         default=None,
         description="Concrete error message when the last processor load failed.",
     )
+    error_doc_url: str | None = Field(
+        default=None,
+        description="URL to documentation for resolving the error.",
+    )

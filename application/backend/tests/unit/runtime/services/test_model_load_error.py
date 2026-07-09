@@ -70,10 +70,11 @@ def test_wrapped_huggingface_auth_failure_is_classified_as_auth_required():
         "https://huggingface.co/facebook/sam3.1. Please log in."
     )
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
     assert error_message == _AUTH_REQUIRED_MESSAGE
+    assert error_doc_url is not None
 
 
 def test_wrapped_huggingface_access_failure_is_classified_as_access_required():
@@ -83,19 +84,21 @@ def test_wrapped_huggingface_access_failure_is_classified_as_access_required():
         "Visit https://huggingface.co/facebook/sam3.1 to ask for access."
     )
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert error_message == _ACCESS_REQUIRED_MESSAGE
+    assert error_doc_url is not None
 
 
 def test_huggingface_value_error_access_failure_is_classified_as_access_required():
     exc = ValueError(DINO_V3_ACCESS_ERROR_MESSAGE)
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert error_message == _ACCESS_REQUIRED_MESSAGE
+    assert error_doc_url is not None
 
 
 def test_traceback_message_extracts_terminal_exception_message():
@@ -110,10 +113,11 @@ def test_traceback_message_extracts_terminal_exception_message():
         )
     )
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert error_message == _ACCESS_REQUIRED_MESSAGE
+    assert error_doc_url is not None
     assert "Traceback (most recent call last):" not in error_message
 
 
@@ -130,10 +134,11 @@ def test_traceback_message_extracts_terminal_not_authorized_exception_message():
         )
     )
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert error_message == _ACCESS_REQUIRED_MESSAGE
+    assert error_doc_url is not None
     assert "Traceback (most recent call last):" not in error_message
 
 
@@ -150,10 +155,11 @@ def test_traceback_message_prefers_huggingface_token_permission_message_over_ter
         )
     )
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
     assert error_message == _AUTH_REQUIRED_MESSAGE
+    assert error_doc_url is not None
     assert "Request ID" not in error_message
 
 
@@ -161,30 +167,34 @@ def test_exception_chain_prefers_huggingface_token_permission_message_over_wrapp
     exc = RuntimeError(LOCAL_CACHE_WRAPPER_MESSAGE)
     exc.__cause__ = RuntimeError(SAM3_TOKEN_PERMISSION_ERROR_MESSAGE)
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.AUTH_REQUIRED
     assert error_message == _AUTH_REQUIRED_MESSAGE
+    assert error_doc_url is not None
 
 
 def test_mixed_access_and_auth_wording_is_classified_as_access_required():
     exc = OSError("Access to model foo is restricted. You must have access to it and be authenticated to access it.")
 
-    error_type, error_message = model_load_error(exc)
+    error_type, error_message, error_doc_url = model_load_error(exc)
 
     assert error_type == ModelStatusErrorType.ACCESS_REQUIRED
     assert error_message == _ACCESS_REQUIRED_MESSAGE
+    assert error_doc_url is not None
 
 
 def test_unknown_failure_is_classified_as_load_failed():
-    error_type, error_message = model_load_error(RuntimeError("boom"))
+    error_type, error_message, error_doc_url = model_load_error(RuntimeError("boom"))
 
     assert error_type == ModelStatusErrorType.LOAD_FAILED
     assert error_message == "boom"
+    assert error_doc_url is None
 
 
 def test_empty_exception_message_uses_generic_fallback():
-    error_type, error_message = model_load_error(RuntimeError())
+    error_type, error_message, error_doc_url = model_load_error(RuntimeError())
 
     assert error_type == ModelStatusErrorType.LOAD_FAILED
     assert "backend logs" in error_message.lower()
+    assert error_doc_url is None

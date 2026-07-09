@@ -60,7 +60,7 @@ class TestGetModelStatusEndpoint:
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"status": "ready", "error_type": None, "error_message": None}
+        assert response.json() == {"status": "ready", "error_type": None, "error_message": None, "error_doc_url": None}
 
     def test_returns_loading_status_when_model_is_busy(self, client, project_id, mock_pipeline_manager):
         mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(status=ModelStatus.LOADING)
@@ -68,7 +68,7 @@ class TestGetModelStatusEndpoint:
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"status": "loading", "error_type": None, "error_message": None}
+        assert response.json() == {"status": "loading", "error_type": None, "error_message": None, "error_doc_url": None}
 
     def test_returns_error_status_when_last_model_load_failed(self, client, project_id, mock_pipeline_manager):
         error_message = (
@@ -80,10 +80,12 @@ class TestGetModelStatusEndpoint:
             "   - Run: hf auth login\n"
             "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token"
         )
+        error_doc_url = "https://github.com/open-edge-platform/geti-instant-learn/blob/main/application/README.md#hugging-face-model-access"
         mock_pipeline_manager.get_model_status.return_value = ModelStatusSchema(
             status=ModelStatus.ERROR,
             error_type=ModelStatusErrorType.ACCESS_REQUIRED,
             error_message=error_message,
+            error_doc_url=error_doc_url,
         )
 
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
@@ -93,6 +95,7 @@ class TestGetModelStatusEndpoint:
             "status": "error",
             "error_type": "access_required",
             "error_message": error_message,
+            "error_doc_url": error_doc_url,
         }
 
     def test_returns_404_when_project_not_found(self, client, project_id, mock_project_service):

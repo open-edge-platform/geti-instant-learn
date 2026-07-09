@@ -17,6 +17,7 @@ import {
     ProgressCircle,
     Text,
 } from '@geti/ui';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSpinDelay } from 'spin-delay';
 
@@ -74,6 +75,9 @@ const ModelLoadingError = () => {
                     <Divider />
                     <Content>
                         <Text UNSAFE_className={classes.errorMessage}>{data?.error_message}</Text>
+                        <Link to={data?.error_doc_url} target="_blank">
+                            documentation
+                        </Link>
                     </Content>
                     <ButtonGroup>
                         <Button onPress={handleRetry}>Retry</Button>
