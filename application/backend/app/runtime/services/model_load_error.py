@@ -12,11 +12,11 @@ _HF_MODEL_ACCESS_DOCS_URL = (
 )
 _ACCESS_REQUIRED_MESSAGE = (
     "This model is gated on Hugging Face and access has not been granted for your account. "
-    "Request access on the model's Hugging Face page, then retry. See "
+    "Request access on the model's Hugging Face page, then restart the application."
 )
 _AUTH_REQUIRED_MESSAGE = (
     "This model is gated on Hugging Face and requires authentication. "
-    "Set up your Hugging Face access token, then retry. See "
+    "Set up your Hugging Face access token, then restart the application."
 )
 _TRACEBACK_EXCEPTION_HEADER_PATTERN = re.compile(
     r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Warning|Interrupt|Exit|Iteration):\s*(.*)$"

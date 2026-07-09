@@ -74,10 +74,14 @@ const ModelLoadingError = () => {
                     <Heading level={3}>Model loading error</Heading>
                     <Divider />
                     <Content>
-                        <Text UNSAFE_className={classes.errorMessage}>{data?.error_message}</Text>
-                        <Link to={data?.error_doc_url} target="_blank">
-                            documentation
-                        </Link>
+                        <Text UNSAFE_className={classes.errorMessage}>
+                            {data?.error_message}
+                            See
+                            <Link to={data?.error_doc_url} target='_blank'>
+                                documentation
+                            </Link>
+                            .
+                        </Text>
                     </Content>
                     <ButtonGroup>
                         <Button onPress={handleRetry}>Retry</Button>
