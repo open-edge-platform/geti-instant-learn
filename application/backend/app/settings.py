@@ -17,8 +17,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
-
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore",
+        env_parse_none_str="null",
+    )
     current_dir: Path = Path(__file__).parent.resolve()
 
     # Application
@@ -133,6 +135,9 @@ class Settings(BaseSettings):
     processor_batch_size: int = Field(default=1, alias="PROCESSOR_BATCH_SIZE")
     processor_frame_skip_interval: int = Field(default=3, ge=0, alias="PROCESSOR_FRAME_SKIP_INTERVAL")
     processor_frame_skip_amount: int = Field(default=2, ge=0, alias="PROCESSOR_FRAME_SKIP_AMOUNT")
+    processor_scene_detection_threshold: float | None = Field(
+        default=0.1, ge=0.0, le=1.0, alias="PROCESSOR_SCENE_DETECTION_THRESHOLD"
+    )
     processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
     processor_openvino_enabled: bool = Field(default=True, alias="PROCESSOR_OPENVINO_ENABLED")
 

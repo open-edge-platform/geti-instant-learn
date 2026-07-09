@@ -57,6 +57,7 @@ class DefaultComponentFactory(ComponentFactory):
             batch_size=settings.processor_batch_size,
             frame_skip_interval=settings.processor_frame_skip_interval,
             frame_skip_amount=settings.processor_frame_skip_amount,
+            scene_detection_threshold=settings.processor_scene_detection_threshold,
         )
 
     def create_sink(self, writer_cfg: WriterConfig | None) -> Sink:
