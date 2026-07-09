@@ -19,26 +19,26 @@ License links:
 
 In order to consent, set an environment variable `INSTANTLEARN_LICENSE_ACCEPTED=1` or accept terms when first importing the library.
 
-## Hugging Face model access
+## Quick Start
+
+### Hugging Face model access
 
 Some models are gated on Hugging Face. Loading them fails until you have an account, are granted access, and authenticate.
 
 1. Create a Hugging Face account, or sign in: [huggingface.co/join](https://huggingface.co/join)
-2. Create a Hugging Face access token: [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Create a Hugging Face access token: [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). Set the "Read access to contents of all public gated repos you can access" permission for this token.
 3. Request access on each model's Hugging Face page:
    - SAM3: [huggingface.co/facebook/sam3.1](https://huggingface.co/facebook/sam3.1)
    - DINOv3: [huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m)
-4. Authenticate with one of:
-   - `hf auth login`
-   - `export HF_TOKEN=<your_token>`
+4. Use this token on your environment:
+   - Windows PowerShell: `[Environment]::SetEnvironmentVariable("HF_TOKEN", "your-token-value", "User")`
+   - Linux: `export HF_TOKEN=<your-token-value>`
 
 Retry the model load once access is granted and your token is set.
 
-## Quick Start
-
 ### Run from Source (Development)
 
-**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13, Node.js v24+
+**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13, Node.js v24+, [HF token](#hugging-face-model-access)
 
 ```bash
 # Start backend and frontend in development mode
@@ -65,7 +65,7 @@ just device=xpu application/dev
 
 ### Run with Docker
 
-**Prerequisites:** [Just](https://github.com/casey/just), Docker
+**Prerequisites:** [Just](https://github.com/casey/just), Docker, [HF token](#hugging-face-model-access)
 
 **Build the image:**
 
