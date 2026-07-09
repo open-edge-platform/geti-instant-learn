@@ -24,19 +24,22 @@ class FrameSkipPolicy:
         Process frames 1..N-1, drop frame N, repeat.
         Example (N=3): process, process, DROP, process, process, DROP, ...
     
-    If interval is 0, no frames are ever skipped.
+    If interval is 0 or skip_amount is 0, no frames are ever skipped by the cyclic policy.    
     
-    If a scene_detector is configured, a detected scene change overrides
-    this pattern and forces the frame to be processed.
+    If scene_detector_threshold is configured, a detected scene change overrides
+    the cyclic decision and forces the frame to be processed. If the cyclic
+    policy is disabled (interval or skip_amount is 0), scene detection becomes
+    the sole skip decision: frames with no detected scene change are skipped.
     
     Args:
         interval: Total cycle length (process and skip). 0 disables skipping.
         skip_amount: Number of consecutive frames to skip per cycle. Must be < interval.
-        scene_detector: Optional detector whose scene-change signal overrides the cyclic decision.
+        scene_detector_threshold: Optional threshold for scene change detection.
     
     Raises:
         ValueError: If frame_skip_interval is negative.
     """
+
     def __init__(self, interval: int = 3, skip_amount: int = 1, scene_detector_threshold: float | None = None) -> None:
         if interval < 0 or interval == 1:
             raise ValueError(f"frame_skip_interval must be > 1 or 0 for no skipping, got {interval}")
@@ -66,19 +69,22 @@ class FrameSkipPolicy:
         return position >= process_count
 
     def should_skip(self, frame: np.ndarray | None = None) -> bool:
-        """
-        Return True if the current frame should be dropped.
-
-        If a scene_detector is configured, a detected scene-change always
-        forces processing (skip=False). It overrides the cyclic decision
-        but does not alter the cyclic counter's own state.
-        """
+        """Return True or False indicating whether the current frame should be skipped."""
         cyclic_skip = self._cyclic_should_skip()
 
         if self._scene_detector is not None and frame is not None:
-            if self._scene_detector.is_new_scene(frame):
-                return False  # new scene overrides the cyclic verdict
+            cyclic_disabled = self._interval == 0 or self._skip_amount == 0
+            is_new_scene = self._scene_detector.is_new_scene(frame)
 
+            if cyclic_disabled:
+                logger.info("%s Frame: Scene-detector-only policy", "PROCESS" if is_new_scene else "SKIP")
+                return not is_new_scene
+
+            if is_new_scene:
+                logger.info("PROCESS Frame: Scene change detected")
+                return False
+
+        logger.info("%s Frame: Cyclic policy", "SKIP" if cyclic_skip else "PROCESS")
         return cyclic_skip
 
     def reset(self) -> None:
