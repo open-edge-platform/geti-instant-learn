@@ -68,7 +68,12 @@ class TestGetModelStatusEndpoint:
         response = client.get(f"/api/v1/projects/{project_id}/model-status")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"status": "loading", "error_type": None, "error_message": None, "error_doc_url": None}
+        assert response.json() == {
+            "status": "loading",
+            "error_type": None,
+            "error_message": None,
+            "error_doc_url": None,
+        }
 
     def test_returns_error_status_when_last_model_load_failed(self, client, project_id, mock_pipeline_manager):
         error_message = (

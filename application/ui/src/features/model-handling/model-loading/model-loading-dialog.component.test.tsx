@@ -57,7 +57,12 @@ describe('ModelLoadingDialog', () => {
     it('shows error dialog with correct heading, message and retry button when model status is error', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}/model-status', () =>
-                HttpResponse.json({ status: 'error', error_message: 'Failed to load model weights' })
+                HttpResponse.json({
+                    status: 'error',
+                    error_type: 'access_required',
+                    error_message: 'This model is gated on Hugging Face',
+                    error_doc_url: 'link',
+                })
             )
         );
 

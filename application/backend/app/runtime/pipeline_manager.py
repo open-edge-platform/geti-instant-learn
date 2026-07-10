@@ -246,8 +246,9 @@ class PipelineManager:
             processor = self._component_factory.create_processor(cfg, reference_batch)
         except Exception as exc:
             error_type, error_message, error_doc_url = model_load_error(exc)
-            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message, 
-                                   error_doc_url=error_doc_url)
+            self._set_model_status(
+                ModelStatus.ERROR, error_type=error_type, error_message=error_message, error_doc_url=error_doc_url
+            )
             logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
             processor = self._component_factory.create_processor(cfg, None)
         else:
@@ -297,8 +298,12 @@ class PipelineManager:
                     self._pipeline.set_processor(processor, True)
                 except Exception as exc:
                     error_type, error_message, error_doc_url = model_load_error(exc)
-                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message,
-                                           error_doc_url=error_doc_url)
+                    self._set_model_status(
+                        ModelStatus.ERROR,
+                        error_type=error_type,
+                        error_message=error_message,
+                        error_doc_url=error_doc_url,
+                    )
                     logger.exception("Processor rebuild failed for project %s", project_id)
                     raise
                 else:
