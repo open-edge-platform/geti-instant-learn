@@ -17,8 +17,8 @@ import {
     ProgressCircle,
     Text,
 } from '@geti/ui';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useSpinDelay } from 'spin-delay';
 
 import { useModelLoading, useModelStatus } from '../api/use-model-loading.hook';

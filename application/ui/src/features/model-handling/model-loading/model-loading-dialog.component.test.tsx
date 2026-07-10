@@ -65,7 +65,7 @@ describe('ModelLoadingDialog', () => {
 
         expect(await screen.findByRole('dialog', { name: 'Model loading error' })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Model loading error' })).toBeInTheDocument();
-        expect(screen.getByText('Failed to load model weights')).toBeInTheDocument();
+        expect(screen.getByText('This model is gated on Hugging Face')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     });
 
