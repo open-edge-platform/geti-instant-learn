@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useProjectIdentifier } from '@/hooks';
-import { getQueryKey } from '@/query-client';
+import { useState } from 'react';
+
 import {
     Button,
     ButtonGroup,
@@ -17,12 +17,10 @@ import {
     ProgressCircle,
     Text,
 } from '@geti/ui';
-import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useSpinDelay } from 'spin-delay';
 
 import { useModelLoading, useModelStatus } from '../api/use-model-loading.hook';
-import { useReloadProjectPipeline } from '../api/use-reload-project-pipeline.hook';
 
 import classes from './model-loading-dialog.module.scss';
 
@@ -44,32 +42,13 @@ export const useShowModelLoadingDialog = (): boolean => {
 const ModelLoadingError = () => {
     const { data } = useModelStatus();
     const isError = data?.status === 'error';
-    const reloadProjectPipelineMutation = useReloadProjectPipeline();
-    const { projectId } = useProjectIdentifier();
-    const queryClient = useQueryClient();
+    const [isClosed, setIsClosed] = useState(false);
 
-    const handleRetry = () => {
-        reloadProjectPipelineMutation.mutate(
-            {
-                params: { path: { project_id: projectId } },
-            },
-            {
-                onSuccess: () => {
-                    queryClient.invalidateQueries({
-                        queryKey: getQueryKey([
-                            'get',
-                            '/api/v1/projects/{project_id}/model-status',
-                            { params: { path: { project_id: projectId } } },
-                        ]),
-                    });
-                },
-            }
-        );
-    };
+    const handleClose = () => setIsClosed(true);
 
     return (
-        <DialogContainer onDismiss={() => {}} isDismissable={false} isKeyboardDismissDisabled>
-            {isError && (
+        <DialogContainer onDismiss={handleClose} isDismissable={false} isKeyboardDismissDisabled>
+            {isError && !isClosed && (
                 <Dialog aria-label={'Model loading error'}>
                     <Heading level={3}>Model loading error</Heading>
                     <Divider />
@@ -86,7 +65,7 @@ const ModelLoadingError = () => {
                         </Flex>
                     </Content>
                     <ButtonGroup>
-                        <Button onPress={handleRetry}>Retry</Button>
+                        <Button onPress={handleClose}>Close</Button>
                     </ButtonGroup>
                 </Dialog>
             )}
