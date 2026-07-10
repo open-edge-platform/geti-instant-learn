@@ -93,11 +93,13 @@ class PipelineManager:
         status: ModelStatus,
         error_type: ModelStatusErrorType | None = None,
         error_message: str | None = None,
+        error_doc_url: str | None = None,
     ) -> None:
         self._model_status = ModelStatusSchema(
             status=status,
             error_type=error_type,
             error_message=error_message,
+            error_doc_url=error_doc_url,
         )
 
     def reload_pipeline(self, project_id: UUID) -> None:
@@ -243,8 +245,10 @@ class PipelineManager:
             reference_batch, _ = self._batch_service.build(cfg) or (None, {})
             processor = self._component_factory.create_processor(cfg, reference_batch)
         except Exception as exc:
-            error_type, error_message = model_load_error(exc)
-            self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+            error_type, error_message, error_doc_url = model_load_error(exc)
+            self._set_model_status(
+                ModelStatus.ERROR, error_type=error_type, error_message=error_message, error_doc_url=error_doc_url
+            )
             logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
             processor = self._component_factory.create_processor(cfg, None)
         else:
@@ -293,8 +297,13 @@ class PipelineManager:
                     processor = self._component_factory.create_processor(cfg, reference_batch)
                     self._pipeline.set_processor(processor, True)
                 except Exception as exc:
-                    error_type, error_message = model_load_error(exc)
-                    self._set_model_status(ModelStatus.ERROR, error_type=error_type, error_message=error_message)
+                    error_type, error_message, error_doc_url = model_load_error(exc)
+                    self._set_model_status(
+                        ModelStatus.ERROR,
+                        error_type=error_type,
+                        error_message=error_message,
+                        error_doc_url=error_doc_url,
+                    )
                     logger.exception("Processor rebuild failed for project %s", project_id)
                     raise
                 else:
