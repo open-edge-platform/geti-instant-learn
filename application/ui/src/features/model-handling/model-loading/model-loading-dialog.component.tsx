@@ -17,9 +17,9 @@ import {
     ProgressCircle,
     Text,
 } from '@geti/ui';
-import { Link } from 'react-router-dom';
 import { useSpinDelay } from 'spin-delay';
 
+import { Link } from '../../../components/link/link.component';
 import { useModelLoading, useModelStatus } from '../api/use-model-loading.hook';
 
 import classes from './model-loading-dialog.module.scss';
@@ -57,7 +57,7 @@ const ModelLoadingError = () => {
                             <Text UNSAFE_className={classes.errorMessage}>{data.error_message}</Text>
                             <Text UNSAFE_className={classes.errorMessage}>
                                 See{' '}
-                                <Link to={data.error_doc_url ?? ''} target='_blank'>
+                                <Link href={data.error_doc_url ?? ''} target='_blank' rel={'noopener noreferrer'}>
                                     documentation
                                 </Link>
                                 .
