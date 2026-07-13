@@ -14,11 +14,9 @@ import pytest
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.matcher import MatcherOpenVINO
 from instantlearn.utils.constants import Backend
-from instantlearn.utils.errors import ModelNotFittedError
 
 INPUT_SIZE = 28
 PATCH_SIZE = 14
-EMBED_DIM = 8
 
 
 def _make_sample(h: int = 28, w: int = 28, category: str = "cat") -> Sample:
@@ -34,11 +32,16 @@ def _write_dummy_ir(tmp_path: Path, *, with_metadata: bool = True) -> None:
     """Create dummy IR/metadata files so construction path checks pass."""
     if with_metadata:
         (tmp_path / "metadata.json").write_text(
-            json.dumps({"input_size": INPUT_SIZE, "patch_size": PATCH_SIZE, "embed_dim": EMBED_DIM}),
+            json.dumps(
+                {
+                    "input_size": INPUT_SIZE,
+                    "patch_size": PATCH_SIZE,
+                    "categories": {"0": "cat"},
+                },
+            ),
         )
-    for name in ("encoder", "head"):
-        (tmp_path / f"{name}.xml").touch()
-        (tmp_path / f"{name}.bin").touch()
+    (tmp_path / "matcher.xml").touch()
+    (tmp_path / "matcher.bin").touch()
 
 
 @pytest.fixture
@@ -65,17 +68,27 @@ class TestMatcherOpenVINO:
         assert mock_model.backend == Backend.OPENVINO
 
     def test_metadata_loaded(self, mock_model: MatcherOpenVINO) -> None:
-        """Metadata (input/patch size) is read on construction."""
+        """Metadata (input/patch size + categories) is read on construction."""
         assert mock_model.input_size == INPUT_SIZE
         assert mock_model.patch_size == PATCH_SIZE
+        assert mock_model._category_names == {0: "cat"}  # noqa: SLF001
 
-    def test_predict_without_fit_raises(self, mock_model: MatcherOpenVINO) -> None:
-        """predict() before fit() raises ModelNotFittedError."""
-        with pytest.raises(ModelNotFittedError):
-            mock_model.predict(_make_sample())
+    def test_fit_raises_not_implemented(self, mock_model: MatcherOpenVINO) -> None:
+        """fit() is unsupported: references are baked at export time."""
+        with pytest.raises(NotImplementedError):
+            mock_model.fit(_make_sample())
 
     def test_missing_metadata_raises(self, tmp_path: Path) -> None:
         """Missing metadata.json raises FileNotFoundError."""
         _write_dummy_ir(tmp_path, with_metadata=False)
         with patch("openvino.Core"), pytest.raises(FileNotFoundError):
             MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
+
+    def test_missing_ir_raises(self, tmp_path: Path) -> None:
+        """Missing matcher.xml raises FileNotFoundError."""
+        (tmp_path / "metadata.json").write_text(
+            json.dumps({"input_size": INPUT_SIZE, "patch_size": PATCH_SIZE, "categories": {}}),
+        )
+        with patch("openvino.Core"), pytest.raises(FileNotFoundError):
+            MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
+

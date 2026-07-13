@@ -27,7 +27,7 @@ from instantlearn.data.base import Batch
 from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
-from instantlearn.utils.constants import Backend, SAMModelName
+from instantlearn.utils.constants import SAMModelName
 
 
 @pytest.fixture
@@ -117,22 +117,20 @@ class TestPostProcessingOpenVINO:
         # Get PyTorch predictions for comparison
         pytorch_preds = matcher.predict(target_image_path)
 
-        pt_masks = pytorch_preds[0]["pred_masks"]
+        pt_masks = pytorch_preds[0].masks
 
-        # Export to OpenVINO
-        exported_path = matcher.export(
-            export_dir=tmp_path,
-            backend=Backend.OPENVINO,
-        )
+        # Export to OpenVINO (returns the IR directory)
+        exported_dir = matcher.to_openvino(tmp_path)
 
-        assert exported_path.exists()
-        assert exported_path.suffix == ".xml"
-        assert (exported_path.parent / "matcher.bin").exists()
+        assert exported_dir.is_dir()
+        ir_path = exported_dir / "matcher.xml"
+        assert ir_path.exists()
+        assert (exported_dir / "matcher.bin").exists()
 
         # Run OpenVINO inference
         target_image = read_image(target_image_path)
         core = openvino.Core()
-        ov_model = core.read_model(str(exported_path))
+        ov_model = core.read_model(str(ir_path))
         compiled_model = core.compile_model(ov_model, "CPU")
 
         input_data = target_image.numpy()[None, ...].astype(np.float32)
@@ -196,17 +194,16 @@ class TestPostProcessingOpenVINO:
 
         matcher.fit(reference_batch)
 
-        # Export to OpenVINO
-        exported_path = matcher.export(
-            export_dir=tmp_path,
-            backend=Backend.OPENVINO,
-        )
+        # Export to OpenVINO (returns the IR directory)
+        exported_dir = matcher.to_openvino(tmp_path)
 
-        assert exported_path.exists()
+        assert exported_dir.is_dir()
+        ir_path = exported_dir / "matcher.xml"
+        assert ir_path.exists()
 
         # Run OpenVINO inference
         core = openvino.Core()
-        ov_model = core.read_model(str(exported_path))
+        ov_model = core.read_model(str(ir_path))
         compiled_model = core.compile_model(ov_model, "CPU")
 
         target_image = read_image(target_image_path)
@@ -265,13 +262,10 @@ class TestPostProcessingOpenVINO:
         )
         matcher_no_pp.fit(reference_batch)
 
-        no_pp_path = matcher_no_pp.export(
-            export_dir=tmp_path / "no_pp",
-            backend=Backend.OPENVINO,
-        )
+        no_pp_dir = matcher_no_pp.to_openvino(tmp_path / "no_pp")
 
         core = openvino.Core()
-        compiled_no_pp = core.compile_model(core.read_model(str(no_pp_path)), "CPU")
+        compiled_no_pp = core.compile_model(core.read_model(str(no_pp_dir / "matcher.xml")), "CPU")
         input_data = target_image.numpy()[None, ...].astype(np.float32)
         input_data = _resize_for_ov(input_data, compiled_no_pp)
         out_no_pp = compiled_no_pp(input_data)
@@ -287,12 +281,9 @@ class TestPostProcessingOpenVINO:
         )
         matcher_with_pp.fit(reference_batch)
 
-        with_pp_path = matcher_with_pp.export(
-            export_dir=tmp_path / "with_pp",
-            backend=Backend.OPENVINO,
-        )
+        with_pp_dir = matcher_with_pp.to_openvino(tmp_path / "with_pp")
 
-        compiled_with_pp = core.compile_model(core.read_model(str(with_pp_path)), "CPU")
+        compiled_with_pp = core.compile_model(core.read_model(str(with_pp_dir / "matcher.xml")), "CPU")
         out_with_pp = compiled_with_pp(input_data)
         masks_with_pp = out_with_pp[compiled_with_pp.output(0)]  # reuses resized input_data from above
 
@@ -330,19 +321,17 @@ class TestPostProcessingOpenVINO:
 
         matcher.fit(reference_batch)
 
-        # Export to OpenVINO
-        exported_path = matcher.export(
-            export_dir=tmp_path,
-            backend=Backend.OPENVINO,
-        )
+        # Export to OpenVINO (returns the IR directory)
+        exported_dir = matcher.to_openvino(tmp_path)
 
-        assert exported_path.exists()
-        assert exported_path.suffix == ".xml"
+        assert exported_dir.is_dir()
+        ir_path = exported_dir / "matcher.xml"
+        assert ir_path.exists()
 
         # Run OpenVINO inference
         target_image = read_image(target_image_path)
         core = openvino.Core()
-        compiled_model = core.compile_model(core.read_model(str(exported_path)), "CPU")
+        compiled_model = core.compile_model(core.read_model(str(ir_path)), "CPU")
 
         input_data = target_image.numpy()[None, ...].astype(np.float32)
         input_data = _resize_for_ov(input_data, compiled_model)

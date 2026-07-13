@@ -8,8 +8,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
-from torchvision import tv_tensors
+
+from instantlearn.data.base.prediction import Prediction
 
 
 def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
@@ -28,66 +28,35 @@ def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
     return color_map
 
 
-def _to_prediction_dict(prediction: object) -> dict[str, torch.Tensor]:
-    """Normalize a ``Prediction`` or a legacy dict into the render dict form.
-
-    TODO: drop the dict branch once every model returns ``Prediction``.
-
-    Args:
-        prediction: A ``Prediction`` dataclass or a legacy ``dict`` with
-            ``pred_masks`` / ``pred_labels`` / ``pred_boxes`` keys.
-
-    Returns:
-        Dict with torch tensors under ``pred_masks``, ``pred_labels`` and,
-        when available, ``pred_boxes`` (x1, y1, x2, y2, score) / ``pred_points``.
-    """
-    if isinstance(prediction, dict):
-        return prediction
-
-    # Duck-typed Prediction: numpy fields -> torch tensors expected downstream.
-    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks))
-    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids))
-    result: dict[str, torch.Tensor] = {"pred_masks": masks, "pred_labels": labels}
-
-    boxes = getattr(prediction, "boxes", None)
-    scores = getattr(prediction, "scores", None)
-    if boxes is not None and len(boxes):
-        box_t = torch.as_tensor(np.ascontiguousarray(boxes)).float()
-        if scores is not None and len(scores) == len(boxes):
-            score_t = torch.as_tensor(np.ascontiguousarray(scores)).float().unsqueeze(1)
-            box_t = torch.cat([box_t, score_t], dim=1)
-        result["pred_boxes"] = box_t
-    return result
-
-
 def render_predictions(
     image_rgb: np.ndarray,
-    prediction: dict[str, torch.Tensor] | object,
+    prediction: Prediction,
     color_map: dict[int, list[int]],
     *,
     show_scores: bool = True,
 ) -> np.ndarray:
-    """Render prediction overlays (masks, boxes, points) onto an RGB image.
+    """Render prediction overlays (masks, boxes) onto an RGB image.
 
     This is the shared rendering function used by both ``visualize_single_image``
-    (which additionally saves to disk) and external callers such as web UIs.
+    (which additionally saves to disk) and external callers such as web UIs. It
+    operates directly on the numpy :class:`~instantlearn.data.base.prediction.Prediction`
+    contract (masks ``(N, H, W)``, ``label_ids`` ``(N,)``, ``boxes`` ``(N, 4)``
+    xyxy, ``scores`` ``(N,)``).
 
     Args:
         image_rgb: Image in RGB uint8 format (H, W, 3).
-        prediction: A ``Prediction`` dataclass, or a legacy dict with
-            ``pred_masks``, ``pred_labels``, and optionally ``pred_boxes``
-            (x1, y1, x2, y2, score) and ``pred_points`` (x, y, score, fg_label).
+        prediction: A ``Prediction`` with ``masks`` / ``label_ids`` and optional
+            ``boxes`` (xyxy) and ``scores``.
         color_map: Mapping from class id to ``[R, G, B]`` color.
         show_scores: Whether to draw confidence scores next to boxes.
 
     Returns:
         Annotated RGB image (uint8).
     """
-    prediction = _to_prediction_dict(prediction)
-    pred_masks = prediction["pred_masks"]
-    pred_labels = prediction["pred_labels"]
-    pred_points = prediction.get("pred_points", torch.empty(0, 4))
-    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
+    pred_masks = prediction.masks if prediction.masks is not None else np.empty((0,))
+    pred_labels = prediction.label_ids if prediction.label_ids is not None else np.empty((0,), dtype=np.int32)
+    pred_boxes = prediction.boxes if prediction.boxes is not None else np.empty((0, 4))
+    pred_scores = prediction.scores if prediction.scores is not None else np.empty((0,))
 
     image_vis = image_rgb.copy()
     h, w = image_vis.shape[:2]
@@ -95,8 +64,8 @@ def render_predictions(
     # Draw masks
     if len(pred_masks):
         for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_mask = pred_mask.cpu().numpy()
+            pred_label = int(pred_label)
+            pred_mask = np.asarray(pred_mask)
 
             # Resize mask to image dimensions if needed
             if pred_mask.shape != (h, w):
@@ -113,39 +82,23 @@ def render_predictions(
             contours, _ = cv2.findContours(mask_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(image_vis, contours, -1, (255, 255, 255), 1)
 
-    # Draw points
-    if len(pred_points):
-        for pred_point in pred_points:
-            pred_point = pred_point.float().cpu().numpy()
-            x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
-            size = int(h / 100)
-            cv2.drawMarker(
-                image_vis,
-                (x, y),
-                (255, 255, 255),
-                cv2.MARKER_STAR if fg_label == 1.0 else cv2.MARKER_SQUARE,
-                size,
-            )
-
     # Draw boxes
     if len(pred_boxes):
-        for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_box = pred_box.float().cpu().numpy()
-            x1, y1, x2, y2, score = pred_box
-            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        for idx, (pred_label, pred_box) in enumerate(zip(pred_labels, pred_boxes, strict=False)):
+            pred_label = int(pred_label)
+            x1, y1, x2, y2 = (int(v) for v in np.asarray(pred_box, dtype=np.float32)[:4])
             color = color_map.get(pred_label, [0, 255, 0])
             cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=color, thickness=2)
-            if show_scores:
-                label = f"{100 * score:.0f}%"
+            if show_scores and idx < len(pred_scores):
+                label = f"{100 * float(pred_scores[idx]):.0f}%"
                 cv2.putText(image_vis, label, (x1, max(y1 - 6, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
     return image_vis
 
 
 def visualize_single_image(
-    image: tv_tensors.Image,
-    prediction: dict[str, torch.Tensor],
+    image: np.ndarray,
+    prediction: Prediction,
     file_name: str,
     output_folder: str,
     color_map: dict[int, list[int]],
@@ -156,8 +109,8 @@ def visualize_single_image(
     with automatic deduplication of existing filenames.
 
     Args:
-        image: Image to visualize (CHW tensor).
-        prediction: Prediction dict (see ``render_predictions``).
+        image: Image to visualize as an RGB uint8 numpy array (H, W, 3).
+        prediction: A ``Prediction`` (see ``render_predictions``).
         file_name: Output file name.
         output_folder: Directory to save visualization images.
         color_map: Mapping from class id to ``[R, G, B]`` color.
@@ -165,7 +118,7 @@ def visualize_single_image(
     Returns:
         Annotated RGB image (uint8).
     """
-    image_np = image.permute(1, 2, 0).numpy()
+    image_np = np.asarray(image)
 
     output_path = Path(output_folder) / file_name
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -207,15 +160,15 @@ class Visualizer:
 
     def visualize(
         self,
-        images: list[tv_tensors.Image],
-        predictions: list[dict[str, torch.Tensor]],
+        images: list[np.ndarray],
+        predictions: list[Prediction],
         file_names: list[str],
     ) -> None:
         """This method exports the visualization images.
 
         Args:
-            images: List of images to visualize
-            predictions: List of predictions to visualize
+            images: List of RGB uint8 images (H, W, 3) to visualize
+            predictions: List of ``Prediction`` objects to visualize
             file_names: List of file names to visualize
         """
         for image, prediction, file_name in zip(
