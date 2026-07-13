@@ -138,6 +138,8 @@ class Settings(BaseSettings):
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
+    # WebRTC stream pacing
+    webrtc_idle_frame_fps: float = Field(default=2.0, gt=0.0, le=30.0, alias="WEBRTC_IDLE_FRAME_FPS")
 
     # Simplified WebRTC config
     coturn_host: str | None = Field(default=None, alias="COTURN_HOST")

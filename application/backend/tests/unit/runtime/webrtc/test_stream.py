@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from fractions import Fraction
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -179,3 +180,46 @@ class TestInferenceVideoStreamTrack:
             frame = await track.recv()
             assert frame.width == 1280
             assert frame.height == 720
+
+    @pytest.mark.asyncio
+    async def test_error_frame_bypasses_idle_frame_wait(self, mocker, fxt_output_slot, fxt_output_data):
+        fxt_output_slot.update(fxt_output_data)
+        track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
+
+        await track.recv()
+        await track.recv()
+
+        fxt_output_slot.update(ErrorData(message="Source failed", component=ComponentType.SOURCE))
+        mocker.patch.object(track, "next_timestamp", return_value=(0, Fraction(1, 90000)))
+        sleep_mock = mocker.patch("runtime.webrtc.stream.asyncio.sleep")
+
+        frame = await track.recv()
+
+        assert frame.width == 1280
+        assert frame.height == 720
+        sleep_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_idle_frame_wait_returns_early_when_fresh_output_arrives(
+        self, mocker, fxt_output_slot, fxt_output_data, fxt_sample_frame, fxt_visualization_patches
+    ):
+        fxt_output_slot.update(fxt_output_data)
+        track = InferenceVideoStreamTrack(output_slot=fxt_output_slot)
+
+        await track.recv()
+        await track.recv()
+
+        fresh_output = MagicMock(spec=OutputData)
+        fresh_output.frame = fxt_sample_frame
+        fresh_output.results = []
+
+        async def update_slot(_delay):  # noqa: ANN001, ANN202
+            fxt_output_slot.update(fresh_output)
+
+        sleep_mock = mocker.patch("runtime.webrtc.stream.asyncio.sleep", side_effect=update_slot)
+
+        frame = await track.recv()
+
+        assert frame.width == 640
+        assert frame.height == 480
+        sleep_mock.assert_called()

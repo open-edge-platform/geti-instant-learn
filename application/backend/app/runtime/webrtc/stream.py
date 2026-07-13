@@ -1,8 +1,10 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 import textwrap
+import time
 from collections.abc import Callable
 
 import cv2
@@ -14,10 +16,12 @@ from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.processor import ErrorData, OutputData
 from runtime.core.components.broadcaster import FrameSlot
 from runtime.webrtc.visualizer import InferenceVisualizer
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
+IDLE_FRAME_POLL_INTERVAL_S = 0.02
 
 
 def create_error_frame(error_data: ErrorData, width: int = 1280, height: int = 720) -> np.ndarray:
@@ -74,7 +78,8 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
     consuming from a queue.  Because ``recv()`` is called at ~30 fps by
     aiortc, the same frame may be returned multiple times until the pipeline
     publishes a new one.  Visualization and tracing are applied only once per
-    unique frame.
+    unique frame.  Repeated idle frames are throttled to reduce CPU usage while
+    still letting fresh output and errors reach the client immediately.
     """
 
     def __init__(
@@ -90,6 +95,10 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         self._enable_visualization = enable_visualization
         self._visualizer = InferenceVisualizer(enable_visualization)
         self._visualization_info_provider = visualization_info_provider
+        settings = get_settings()
+        # Configuration uses frames per second, but the throttle logic needs the time between idle frames.
+        self._idle_frame_period_s = 1.0 / settings.webrtc_idle_frame_fps
+        self._last_idle_frame_sent_at_s: float | None = None
 
     async def recv(self) -> VideoFrame:
         """Return the next video frame for WebRTC streaming.
@@ -102,13 +111,15 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         Falls back to a small dark-gray placeholder when no frame has been
         published yet, or displays an error frame if the source encountered an error.
         """
+        output_data = await self._wait_for_fresh_output_or_idle_frame_deadline()
         pts, time_base = await self.next_timestamp()
+        is_idle_frame = True
 
         # Check for error state first
-        output_data = self._slot.latest
         if isinstance(output_data, ErrorData):
             np_frame = create_error_frame(output_data)
         elif output_data is not None and output_data is not self._last_output:
+            is_idle_frame = False
             # New frame from the pipeline — visualize and cache
             self._last_output = output_data
 
@@ -133,4 +144,39 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
+        if is_idle_frame:
+            self._last_idle_frame_sent_at_s = time.perf_counter()
         return frame
+
+    async def _wait_for_fresh_output_or_idle_frame_deadline(self) -> OutputData | ErrorData | None:
+        """Wait until a repeated idle frame may be sent, unless fresh output arrives first.
+
+        WebRTC calls ``recv()`` at its own cadence.  Without this wait, unchanged
+        cached frames are encoded and sent repeatedly.  Fresh ``OutputData`` and
+        ``ErrorData`` bypass the wait so the client sees updates immediately.
+        """
+        output_data = self._slot.latest
+        if isinstance(output_data, ErrorData):
+            return output_data
+
+        if self._is_fresh_output(output_data) or self._last_idle_frame_sent_at_s is None:
+            return output_data
+
+        deadline_s = self._last_idle_frame_sent_at_s + self._idle_frame_period_s
+        while True:
+            wait_s = deadline_s - time.perf_counter()
+            if wait_s <= 0:
+                return self._slot.latest
+
+            await asyncio.sleep(min(wait_s, IDLE_FRAME_POLL_INTERVAL_S))
+            output_data = self._slot.latest
+            if isinstance(output_data, ErrorData):
+                return output_data
+
+            if self._is_fresh_output(output_data):
+                return output_data
+
+    def _is_fresh_output(self, output_data: OutputData | ErrorData | None) -> bool:
+        return (
+            output_data is not None and not isinstance(output_data, ErrorData) and output_data is not self._last_output
+        )

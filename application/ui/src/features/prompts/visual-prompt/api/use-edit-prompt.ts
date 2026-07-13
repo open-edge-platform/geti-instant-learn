@@ -4,7 +4,7 @@
  */
 
 import { $api, VisualPromptType } from '@/api';
-import { setModelLoading } from '@/features/model-loading';
+import { setModelLoading } from '@/features/model-handling/api/use-model-loading.hook';
 import { useProjectIdentifier } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 
