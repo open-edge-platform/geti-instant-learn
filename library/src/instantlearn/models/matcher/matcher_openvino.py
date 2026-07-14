@@ -29,6 +29,8 @@ from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import arrays_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
+from ._card import _MATCHER_CARD
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -100,10 +102,8 @@ class MatcherOpenVINO(OpenVINOModel):
 
     @classmethod
     def card(cls) -> ModelCard:
-        """Delegate the capability card to the PyTorch sibling."""
-        from instantlearn.models.matcher.matcher import Matcher  # noqa: PLC0415
-
-        return Matcher.card()
+        """Return the static capability descriptor for Matcher."""
+        return _MATCHER_CARD
 
     def fit(self, reference: Collatable) -> None:  # noqa: ARG002
         """Not supported: references are baked into the IR at export time.

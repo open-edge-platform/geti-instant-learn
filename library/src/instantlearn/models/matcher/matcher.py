@@ -25,10 +25,11 @@ from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
-from instantlearn.utils.constants import Backend, CompressionMode, PromptType, SAMModelName, ShotMode
+from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 from instantlearn.utils.errors import ModelNotFittedError
 
 from .prompt_generators import BidirectionalPromptGenerator
+from ._card import _MATCHER_CARD
 
 logger = logging.getLogger(__name__)
 
@@ -283,14 +284,7 @@ class Matcher(TorchModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static capability descriptor for Matcher."""
-        return ModelCard(
-            name="Matcher",
-            family="matcher",
-            description="One-shot segmentation via visual feature matching (DINOv3 features + SAM decoder)",
-            prompt_types=frozenset({PromptType.MASK}),
-            shot_modes=frozenset({ShotMode.ONE_SHOT, ShotMode.FEW_SHOT}),
-            exportable_to=frozenset({Backend.OPENVINO, Backend.ONNX}),
-        )
+        return _MATCHER_CARD
 
     @property
     def input_size(self) -> int:
