@@ -297,8 +297,10 @@ class Matcher(TorchModel):
         """Square input size expected by the encoder (e.g. 512)."""
         return self.encoder.input_size
 
-    def fit(self, reference: Sample | list[Sample] | Batch) -> ReferenceFeatures:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference images.
+
+        Caches the reference features and category-name map on the instance.
 
         Args:
             reference: Reference data to learn from. Accepts:
@@ -320,7 +322,6 @@ class Matcher(TorchModel):
                 continue
             for cat_id, label in zip(sample.label_ids, sample.category_labels, strict=False):
                 self._category_names.setdefault(int(cat_id), label)
-        return self.ref_features
 
     def predict(self, target: Collatable) -> list[Prediction]:
         """Predict masks for target images.

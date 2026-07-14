@@ -211,6 +211,46 @@ def dict_to_prediction(
     )
 
 
+def prediction_to_dict(
+    prediction: Prediction,
+    device: str = "cpu",
+) -> dict[str, torch.Tensor]:
+    """Convert a numpy ``Prediction`` back to the torch prediction dict dialect.
+
+    Inverse of :func:`dict_to_prediction`. This is the boundary used by torch
+    consumers that still speak the ``pred_masks`` / ``pred_scores`` /
+    ``pred_labels`` / ``pred_boxes`` dict form — most notably the
+    post-processing subsystem, which stays torch-based while model I/O uses the
+    backend-neutral ``Prediction``.
+
+    ``pred_boxes`` is only emitted when ``prediction.boxes`` is present; it is
+    built as ``[x1, y1, x2, y2, score]`` (5 columns) to match the convention
+    consumed by :func:`~instantlearn.components.postprocessing.base.apply_postprocessing`
+    and re-sliced back to xyxy by :func:`dict_to_prediction`.
+
+    Args:
+        prediction: Backend-neutral numpy ``Prediction``.
+        device: Target device string for the produced tensors.
+
+    Returns:
+        A dict with ``pred_masks`` ``(N, H, W)``, ``pred_scores`` ``(N,)``,
+        ``pred_labels`` ``(N,)`` and optionally ``pred_boxes`` ``(N, 5)``.
+    """
+    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks), device=device)
+    scores = torch.as_tensor(np.ascontiguousarray(prediction.scores), device=device).float()
+    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids), device=device)
+
+    result: dict[str, torch.Tensor] = {
+        "pred_masks": masks,
+        "pred_scores": scores,
+        "pred_labels": labels,
+    }
+    if prediction.boxes is not None and len(prediction.boxes):
+        boxes = torch.as_tensor(np.ascontiguousarray(prediction.boxes), device=device).float()
+        result["pred_boxes"] = torch.cat([boxes, scores.unsqueeze(1)], dim=1)
+    return result
+
+
 def tensors_to_prediction(
     masks: torch.Tensor,
     scores: torch.Tensor,

@@ -98,7 +98,7 @@ class TorchModel(nn.Module, Model):
         Args:
             export_path: Destination directory for the IR. ``None`` writes to a
                 temporary directory.
-            config: Export options (precision, opset, dynamic shapes, ...).
+            config: Export options (compression, opset, dynamic shapes, ...).
                 ``None`` uses :class:`ExportConfig` defaults.
 
         Returns:

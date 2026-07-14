@@ -50,6 +50,7 @@ from instantlearn.components.postprocessing import (
 from instantlearn.data import Sample
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.models import Matcher
+from instantlearn.models.torch_adapter import prediction_to_dict
 from instantlearn.visualizer import render_predictions, setup_colors
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
@@ -185,25 +186,6 @@ def _instance_color_map(n: int) -> dict[int, list[int]]:
         cmap[i] = [int(c * 255) for c in rgb]
     return cmap
 
-
-def _prediction_to_dict(prediction: object) -> dict[str, torch.Tensor]:
-    """Convert a ``Prediction`` to the legacy dict form used by this demo.
-
-    TODO: rework this demo to operate on ``Prediction`` directly once the whole
-    library has migrated off prediction dicts.
-    """
-    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks))
-    scores = torch.as_tensor(np.ascontiguousarray(prediction.scores)).float()
-    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids))
-    result: dict[str, torch.Tensor] = {
-        "pred_masks": masks,
-        "pred_scores": scores,
-        "pred_labels": labels,
-    }
-    if prediction.boxes is not None and len(prediction.boxes):
-        boxes = torch.as_tensor(np.ascontiguousarray(prediction.boxes)).float()
-        result["pred_boxes"] = torch.cat([boxes, scores.unsqueeze(1)], dim=1)
-    return result
 
 
 def _visualize(
@@ -405,7 +387,8 @@ def fit_model(ref_mask_data: dict | None, device: str) -> str:
     resolved = _resolve_device(device)
     logger.info("Fitting Matcher on device=%s  image=%dx%d  mask_area=%d", resolved, w, h, int(mask.sum()))
 
-    model = Matcher(device=resolved, postprocessor=None)
+    model = Matcher(device=resolved)
+    model.postprocessor = None  # to remove the default postprocessing (MaskIoMNMS + BoxIoMNMS)
     ref_sample = Sample(image_path=str(ref_path), mask_paths=str(mask_path))
     model.fit(ref_sample)
     _state.model = model
@@ -448,9 +431,7 @@ def predict_target(
     target_rgb = np.array(pil_img)
 
     logger.info("Running raw prediction on target …")
-    # Matcher.predict() now returns list[Prediction]; this demo works on the
-    # legacy dict form internally, so convert at the boundary.
-    raw_predictions = [_prediction_to_dict(p) for p in _state.model.predict([str(target_path)])]
+    raw_predictions = [prediction_to_dict(p) for p in _state.model.predict([str(target_path)])]
 
     _state.raw_predictions = raw_predictions
     _state.target_image = target_rgb

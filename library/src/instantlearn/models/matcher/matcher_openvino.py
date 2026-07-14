@@ -149,6 +149,15 @@ class MatcherOpenVINO(OpenVINOModel):
             masks = masks[:, row_idx][:, :, col_idx]
         return masks > 0.5
 
+    @staticmethod
+    def _to_hwc_uint8(sample: Sample) -> np.ndarray:
+        """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
+        image = sample.image
+        if image is None:
+            msg = "MatcherOpenVINO.predict() requires each sample to have an image."
+            raise ValueError(msg)
+        return image
+
     def predict(self, target: Collatable) -> list[Prediction]:
         """Run OpenVINO inference on target image(s).
 
@@ -165,7 +174,7 @@ class MatcherOpenVINO(OpenVINOModel):
 
         results: list[Prediction] = []
         for sample in target_batch.samples:
-            frame = _to_hwc_uint8(sample)
+            frame = self._to_hwc_uint8(sample)
             frame_h, frame_w = frame.shape[:2]
             nchw = self._preprocess(frame)
 
@@ -187,12 +196,4 @@ class MatcherOpenVINO(OpenVINOModel):
 
         return results
 
-
-def _to_hwc_uint8(sample: Sample) -> np.ndarray:
-    """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
-    image = sample.image
-    if image is None:
-        msg = "MatcherOpenVINO.predict() requires each sample to have an image."
-        raise ValueError(msg)
-    return image
 
