@@ -40,7 +40,14 @@ _INT4_MODES = frozenset({CompressionMode.INT4_SYM, CompressionMode.INT4_ASYM})
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):
-    """Wrapper for image encoder to expose forward_features method for export."""
+    """Wrapper for image encoder supporting both TIMM and HuggingFace backends for export.
+
+    TIMM models expose a ``forward_features`` method that returns ``(B, N, D)`` directly.
+    HuggingFace DINO models do not have ``forward_features``; instead they are called with
+    ``pixel_values`` and return a structured output whose ``.last_hidden_state`` is ``(B, N, D)``.
+    This wrapper detects which API is available at construction time and dispatches accordingly,
+    so the same ONNX export path works regardless of which backend was used to train/fit the Matcher.
+    """
 
     def __init__(
         self,
@@ -51,25 +58,48 @@ class EncoderForwardFeaturesWrapper(nn.Module):
         """Initialize the encoder wrapper.
 
         Args:
-            encoder: The underlying encoder module.
-            ignore_token_length: Number of tokens to ignore.
+            encoder: The underlying encoder module (raw TIMM or HuggingFace model).
+            ignore_token_length: Number of leading tokens to strip (CLS + register tokens).
             input_size: Input image size.
         """
         super().__init__()
         self.encoder = encoder
         self.ignore_token_length = ignore_token_length
         self.input_size = input_size
+        self._is_timm = hasattr(encoder, "forward_features")
         self.register_buffer("IMAGENET_DEFAULT_MEAN", torch.tensor((0.485, 0.456, 0.406)))
         self.register_buffer("IMAGENET_DEFAULT_STD", torch.tensor((0.229, 0.224, 0.225)))
 
+    def _encode(self, x: torch.Tensor) -> torch.Tensor:
+        """Dispatch to the correct backend encoding API.
+
+        Args:
+            x: Pre-processed image tensor of shape ``(B, 3, H, W)``, float32, normalized.
+
+        Returns:
+            Raw patch token tensor of shape ``(B, N, D)`` including CLS / register tokens.
+        """
+        if self._is_timm:
+            # TIMM: forward_features returns (B, N, D) directly.
+            return self.encoder.forward_features(x)
+        # HuggingFace: called with pixel_values; structured output exposes last_hidden_state.
+        return self.encoder(pixel_values=x).last_hidden_state
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass to get encoder features."""
+        """Forward pass to get normalized patch embeddings.
+
+        Args:
+            x: Raw uint8 image tensor of shape ``(B, 3, H, W)``.
+
+        Returns:
+            L2-normalized patch embeddings of shape ``(B, num_patches, embed_dim)``.
+        """
         imagenet_mean = self.IMAGENET_DEFAULT_MEAN.to(device=x.device, dtype=x.dtype)
         imagenet_std = self.IMAGENET_DEFAULT_STD.to(device=x.device, dtype=x.dtype)
         x = x.float() / 255.0
         x = functional.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
         x = (x - imagenet_mean[None, :, None, None]) / imagenet_std[None, :, None, None]
-        features = self.encoder.forward_features(x)
+        features = self._encode(x)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)
 
