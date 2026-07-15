@@ -17,7 +17,7 @@ from .base import Model
 from .dinotxt import DinoTxtZeroShotClassification
 from .efficient_sam3 import EfficientSAM3
 from .grounded_sam import GroundedSAM
-from .matcher import Matcher
+from .matcher import Matcher, MatcherOpenVINO
 from .model_card import ModelCard
 from .model_loader import ModelLoader, resolve_model_dir
 from .openvino_base import OpenVINOModel
@@ -33,6 +33,7 @@ __all__ = [
     "ExportConfig",
     "GroundedSAM",
     "Matcher",
+    "MatcherOpenVINO",
     "Model",
     "ModelCard",
     "ModelLoader",

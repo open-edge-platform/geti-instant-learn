@@ -25,7 +25,8 @@ import torch.nn.functional as F  # noqa: N812
 
 from instantlearn.data import Sample
 from instantlearn.models import Matcher
-from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
+from instantlearn.models.torch_base import ExportConfig
+from instantlearn.utils.constants import CompressionMode, SAMModelName
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -102,8 +103,8 @@ def benchmark_variant(
         tic = time()
         predictions = model.predict(TARGET_SAMPLE)
         result["pytorch_time"] = time() - tic
-        pt_masks = predictions[0]["pred_masks"].cpu().numpy()
-        result["pt_scores"] = predictions[0]["pred_scores"].cpu().numpy().round(4).tolist()
+        pt_masks = np.asarray(predictions[0].masks)
+        result["pt_scores"] = np.asarray(predictions[0].scores).round(4).tolist()
         logger.info(f"[{combo_name}] PyTorch: {result['pytorch_time']:.3f}s, scores={result['pt_scores']}")
 
         # --- 2. Export to OpenVINO ---
@@ -113,13 +114,12 @@ def benchmark_variant(
             shutil.rmtree(export_dir)
 
         tic = time()
-        ov_path = model.export(
-            export_dir=export_dir,
-            backend=Backend.OPENVINO,
-            compression=compression,
+        ov_dir = model.to_openvino(
+            export_dir,
+            config=ExportConfig(compression=compression),
         )
         result["export_time"] = time() - tic
-        logger.info(f"[{combo_name}] Export: {result['export_time']:.1f}s → {ov_path}")
+        logger.info(f"[{combo_name}] Export: {result['export_time']:.1f}s → {ov_dir}")
 
         # Model size
         total_size = sum(f.stat().st_size for f in export_dir.rglob("*") if f.is_file())
@@ -133,10 +133,13 @@ def benchmark_variant(
 
         # --- 3. OpenVINO inference ---
         core = openvino.Core()
-        ov_model = core.read_model(str(ov_path))
+        ov_model = core.read_model(str(ov_dir / "matcher.xml"))
 
-        # Prepare input (add batch dimension for NCHW layout)
-        input_data = TARGET_SAMPLE.image.numpy()[None]  # [1, 3, H, W]
+        # Prepare input (Sample.image is numpy HWC uint8 -> NCHW float32)
+        input_data = np.ascontiguousarray(
+            TARGET_SAMPLE.image.transpose(2, 0, 1)[None],
+            dtype=np.float32,
+        )  # [1, 3, H, W]
         expected_shape = tuple(ov_model.input(0).shape)
         if input_data.shape != expected_shape:
             tensor = torch.from_numpy(input_data)
