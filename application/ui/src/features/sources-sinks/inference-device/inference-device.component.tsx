@@ -6,7 +6,7 @@
 import { Key } from 'react';
 
 import { type DeviceInfoType } from '@/api';
-import { setModelLoading } from '@/features/model-loading';
+import { setModelLoading } from '@/features/model-handling/api/use-model-loading.hook';
 import { useInferenceDevices } from '@/features/sources-sinks/inference-device/api/use-inference-devices';
 import { useCurrentProject, useProjectIdentifier } from '@/hooks';
 import { Item, Picker } from '@geti/ui';

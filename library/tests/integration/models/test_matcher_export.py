@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration tests for Matcher.export() method with real model inference.
+"""Integration tests for Matcher export methods with real model inference.
 
 This module tests the full export flow including:
 - Exporting to ONNX and OpenVINO formats
@@ -19,7 +19,7 @@ from instantlearn.data.base import Batch
 from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
-from instantlearn.utils.constants import Backend, SAMModelName
+from instantlearn.utils.constants import SAMModelName
 
 
 @pytest.fixture
@@ -96,10 +96,7 @@ class TestMatcherExportIntegration:
         matcher.fit(reference_batch)
 
         # Export to ONNX
-        exported_path = matcher.export(
-            export_dir=tmp_path,
-            backend=Backend.ONNX,
-        )
+        exported_path = matcher.to_onnx(tmp_path)
 
         # Verify file exists
         assert exported_path.exists()
@@ -159,21 +156,19 @@ class TestMatcherExportIntegration:
         # Fit on reference
         matcher.fit(reference_batch)
 
-        # Export to OpenVINO
-        exported_path = matcher.export(
-            export_dir=tmp_path,
-            backend=Backend.OPENVINO,
-        )
+        # Export to OpenVINO (returns the IR directory)
+        exported_dir = matcher.to_openvino(tmp_path)
 
         # Verify files exist
-        assert exported_path.exists()
-        assert exported_path.suffix == ".xml"
-        assert (exported_path.parent / "matcher.bin").exists()
+        assert exported_dir.is_dir()
+        ir_path = exported_dir / "matcher.xml"
+        assert ir_path.exists()
+        assert (exported_dir / "matcher.bin").exists()
 
         # Run inference with OpenVINO
         target_image = read_image(target_image_path)
         core = openvino.Core()
-        ov_model = core.read_model(str(exported_path))
+        ov_model = core.read_model(str(ir_path))
         compiled_model = core.compile_model(ov_model, "CPU")
 
         # Resize input to match the model's static input shape.

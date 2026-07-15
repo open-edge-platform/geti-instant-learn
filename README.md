@@ -133,6 +133,8 @@ for pred in predictions:
 
 **Full-stack web interface for real-time inference.**
 
+Configure Hugging Face access as described in the [Application Documentation](application/README.md)
+
 Deploy models on live video streams, cameras, and video files.
 
 ```bash

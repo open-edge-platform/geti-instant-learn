@@ -17,7 +17,8 @@ to convert inputs and :func:`tensors_to_prediction` (from torch tensors) or
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -56,6 +57,51 @@ class TensorSample:
     scores: torch.Tensor | None = None
     category_labels: list[str] | None = None
     label_ids: torch.Tensor | None = None
+
+
+@dataclass
+class TensorBatch:
+    """Torch-native counterpart of :class:`~instantlearn.data.base.batch.Batch`.
+
+    Produced by :func:`batch_to_tensors`, it holds the per-sample
+    :class:`TensorSample` list and exposes the same batch-level accessors as
+    ``Batch`` (``images`` / ``masks`` / ``label_ids`` / ...) but as torch
+    tensors instead of numpy arrays. This keeps ``TorchModel`` subclasses on a
+    single torch boundary while mirroring the numpy ``Batch`` API.
+
+    Attributes:
+        samples: Ordered list of :class:`TensorSample` objects.
+    """
+
+    samples: list[TensorSample] = field(default_factory=list)
+
+    def __len__(self) -> int:
+        """Return the number of samples in the batch."""
+        return len(self.samples)
+
+    def __iter__(self):  # noqa: ANN204
+        """Iterate over the underlying :class:`TensorSample` objects."""
+        return iter(self.samples)
+
+    @property
+    def images(self) -> list[torch.Tensor | None]:
+        """Per-sample image tensors of shape ``(C, H, W)``."""
+        return [s.image for s in self.samples]
+
+    @property
+    def masks(self) -> list[torch.Tensor | None]:
+        """Per-sample instance masks of shape ``(N, H, W)``."""
+        return [s.masks for s in self.samples]
+
+    @property
+    def label_ids(self) -> list[torch.Tensor | None]:
+        """Per-sample integer category ids of shape ``(N,)``."""
+        return [s.label_ids for s in self.samples]
+
+    @property
+    def category_labels(self) -> list[list[str] | None]:
+        """Per-sample category label strings."""
+        return [s.category_labels for s in self.samples]
 
 
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
@@ -121,11 +167,106 @@ def samples_to_tensors(target: Sample | list[Sample] | Batch, device: str = "cpu
     return [sample_to_tensors(s, device) for s in target]
 
 
+def batch_to_tensors(target: Sample | list[Sample] | Batch, device: str = "cpu") -> TensorBatch:
+    """Convert ``Sample`` / ``list[Sample]`` / ``Batch`` inputs to a ``TensorBatch``.
+
+    Torch-native sibling of :func:`samples_to_tensors` that keeps the batch
+    container (rather than a bare list), giving models ``batch.images`` /
+    ``batch.masks`` / ``batch.label_ids`` as tensors.
+
+    Args:
+        target: One or more samples, or a ``Batch``.
+        device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
+
+    Returns:
+        A ``TensorBatch`` whose samples live on *device*.
+    """
+    return TensorBatch(samples=samples_to_tensors(target, device))
+
+
+def dict_to_prediction(
+    pred: dict[str, torch.Tensor],
+    categories: Mapping[int, str] | Sequence[str],
+) -> Prediction:
+    """Convert a single torch prediction dict to a numpy ``Prediction``.
+
+    Shared by every torch-backed model so the ``pred_masks`` / ``pred_scores`` /
+    ``pred_labels`` / ``pred_boxes`` dict dialect is unpacked in exactly one
+    place. Missing scores default to ones; ``pred_boxes`` is sliced to the first
+    four columns (xyxy), dropping any trailing score column.
+
+    Args:
+        pred: Dict with ``pred_masks`` ``(N, H, W)``, ``pred_labels`` ``(N,)``
+            and optionally ``pred_scores`` ``(N,)`` / ``pred_boxes`` ``(N, 4+)``.
+        categories: Mapping (or sequence) resolving a label id to its name.
+
+    Returns:
+        A numpy ``Prediction`` with contract dtypes enforced.
+    """
+    masks = pred["pred_masks"]
+    label_ids = pred["pred_labels"].to(torch.int32)
+    scores = pred.get("pred_scores")
+    if scores is None:
+        scores = torch.ones(masks.shape[0], device=masks.device)
+
+    boxes = None
+    if "pred_boxes" in pred and pred["pred_boxes"].numel() > 0:
+        boxes = pred["pred_boxes"][:, :4]
+
+    return tensors_to_prediction(
+        masks=masks,
+        scores=scores,
+        label_ids=label_ids,
+        categories=categories,
+        boxes=boxes,
+    )
+
+
+def prediction_to_dict(
+    prediction: Prediction,
+    device: str = "cpu",
+) -> dict[str, torch.Tensor]:
+    """Convert a numpy ``Prediction`` back to the torch prediction dict dialect.
+
+    Inverse of :func:`dict_to_prediction`. This is the boundary used by torch
+    consumers that still speak the ``pred_masks`` / ``pred_scores`` /
+    ``pred_labels`` / ``pred_boxes`` dict form — most notably the
+    post-processing subsystem, which stays torch-based while model I/O uses the
+    backend-neutral ``Prediction``.
+
+    ``pred_boxes`` is only emitted when ``prediction.boxes`` is present; it is
+    built as ``[x1, y1, x2, y2, score]`` (5 columns) to match the convention
+    consumed by :func:`~instantlearn.components.postprocessing.base.apply_postprocessing`
+    and re-sliced back to xyxy by :func:`dict_to_prediction`.
+
+    Args:
+        prediction: Backend-neutral numpy ``Prediction``.
+        device: Target device string for the produced tensors.
+
+    Returns:
+        A dict with ``pred_masks`` ``(N, H, W)``, ``pred_scores`` ``(N,)``,
+        ``pred_labels`` ``(N,)`` and optionally ``pred_boxes`` ``(N, 5)``.
+    """
+    masks = torch.as_tensor(np.ascontiguousarray(prediction.masks), device=device)
+    scores = torch.as_tensor(np.ascontiguousarray(prediction.scores), device=device).float()
+    labels = torch.as_tensor(np.ascontiguousarray(prediction.label_ids), device=device)
+
+    result: dict[str, torch.Tensor] = {
+        "pred_masks": masks,
+        "pred_scores": scores,
+        "pred_labels": labels,
+    }
+    if prediction.boxes is not None and len(prediction.boxes):
+        boxes = torch.as_tensor(np.ascontiguousarray(prediction.boxes), device=device).float()
+        result["pred_boxes"] = torch.cat([boxes, scores.unsqueeze(1)], dim=1)
+    return result
+
+
 def tensors_to_prediction(
     masks: torch.Tensor,
     scores: torch.Tensor,
     label_ids: torch.Tensor,
-    categories: Sequence[str],
+    categories: Mapping[int, str] | Sequence[str],
     boxes: torch.Tensor | None = None,
     points: torch.Tensor | None = None,
     metadata: dict | None = None,
@@ -142,7 +283,7 @@ def tensors_to_prediction(
         masks: Instance masks tensor of shape ``(N, H, W)``.
         scores: Confidence scores tensor of shape ``(N,)``.
         label_ids: Integer category IDs tensor of shape ``(N,)``.
-        categories: Sequence mapping a label ID to its category name.
+        categories: Mapping (or sequence) resolving a label ID to its name.
         boxes: Optional bounding boxes tensor of shape ``(N, 4)``.
         points: Optional point predictions tensor of shape ``(N, K, 2)``.
         metadata: Optional free-form per-prediction metadata.
@@ -172,7 +313,7 @@ def arrays_to_prediction(
     masks: np.ndarray,
     scores: np.ndarray,
     label_ids: np.ndarray,
-    categories: Sequence[str],
+    categories: Mapping[int, str] | Sequence[str],
     boxes: np.ndarray | None = None,
     points: np.ndarray | None = None,
     metadata: dict | None = None,
@@ -186,14 +327,15 @@ def arrays_to_prediction(
     - ``label_ids``: ``int32``.
     - ``boxes`` / ``points``: ``float32`` when present.
 
-    ``label_names`` is derived by indexing ``categories`` with each entry of
-    ``label_ids``; IDs outside the range fall back to ``str(id)``.
+    ``label_names`` is derived by resolving each entry of ``label_ids`` against
+    ``categories`` (a mapping keyed by id, or a sequence indexed by id); ids
+    outside the range / not present fall back to ``str(id)``.
 
     Args:
         masks: Instance masks of shape ``(N, H, W)``.
         scores: Per-instance confidence scores of shape ``(N,)``.
         label_ids: Per-instance integer category IDs of shape ``(N,)``.
-        categories: Sequence mapping a label ID to its category name.
+        categories: Mapping (or sequence) resolving a label ID to its name.
         boxes: Optional bounding boxes of shape ``(N, 4)`` in xyxy format.
         points: Optional point predictions of shape ``(N, K, 2)``.
         metadata: Optional free-form per-prediction metadata.
@@ -208,11 +350,17 @@ def arrays_to_prediction(
     scores = np.ascontiguousarray(scores, dtype=np.float32)
     label_ids = np.ascontiguousarray(label_ids, dtype=np.int32)
 
-    n_categories = len(categories)
-    label_names = np.array(
-        [categories[i] if 0 <= i < n_categories else str(i) for i in label_ids.tolist()],
-        dtype=object,
-    )
+    if isinstance(categories, Mapping):
+        label_names = np.array(
+            [categories.get(int(i), str(i)) for i in label_ids.tolist()],
+            dtype=object,
+        )
+    else:
+        n_categories = len(categories)
+        label_names = np.array(
+            [categories[i] if 0 <= i < n_categories else str(i) for i in label_ids.tolist()],
+            dtype=object,
+        )
 
     if boxes is not None:
         boxes = np.ascontiguousarray(boxes, dtype=np.float32)

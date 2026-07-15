@@ -4,12 +4,35 @@
 
 from __future__ import annotations
 
-from typing import Any
+from abc import abstractmethod
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from torch import nn
 
 from instantlearn.models.base import Model
-from instantlearn.utils.constants import Backend
+from instantlearn.utils.constants import Backend, CompressionMode
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@dataclass
+class ExportConfig:
+    """Options controlling Torch -> OpenVINO conversion.
+
+    Attributes:
+        compression: OpenVINO weight compression mode of the exported IR.
+        opset: ONNX opset version for the intermediate graph.
+        dynamic_shapes: Export with dynamic batch/spatial dims vs. static.
+        keep_intermediate: Keep the intermediate ``.onnx`` files after IR
+            conversion (useful for debugging).
+    """
+
+    compression: CompressionMode = field(default=CompressionMode.INT8_SYM)
+    opset: int = 17
+    dynamic_shapes: bool = True
+    keep_intermediate: bool = False
 
 
 class TorchModel(nn.Module, Model):
@@ -17,8 +40,12 @@ class TorchModel(nn.Module, Model):
 
     Inherits ``nn.Module`` first so ``super().__init__()`` initializes the
     PyTorch internals (``_modules``, parameters, buffers) before the
-    backend-neutral ``Model`` contract. Provides device/precision tracking and
-    an abstract ``to_openvino()`` stub.
+    backend-neutral ``Model`` contract. Provides device/precision tracking.
+
+    Torch -> OpenVINO conversion is owned by the torch model itself via the
+    :meth:`to_openvino` method (each concrete model implements its own graph
+    tracing / submodel splitting). The OpenVINO sibling (e.g.
+    ``MatcherOpenVINO``) is a thin loader of the exported IR directory.
 
     Subclasses convert inputs and outputs through the torch adapter directly:
     :func:`~instantlearn.models.torch_adapter.samples_to_tensors` for inputs and
@@ -59,3 +86,21 @@ class TorchModel(nn.Module, Model):
         """Always ``Backend.TORCH``."""
         return Backend.TORCH
 
+    @abstractmethod
+    def to_openvino(self, export_path: Path | None = None, config: ExportConfig | None = None) -> Path:
+        """Export the Torch model to OpenVINO IR.
+
+        Each concrete model implements its own conversion (graph tracing,
+        dynamic axes, and submodel splitting vary per model). OpenVINO-specific
+        behaviour is controlled through ``config``; values not covered by
+        ``ExportConfig`` are inherited from this model's configuration.
+
+        Args:
+            export_path: Destination directory for the IR. ``None`` writes to a
+                temporary directory.
+            config: Export options (compression, opset, dynamic shapes, ...).
+                ``None`` uses :class:`ExportConfig` defaults.
+
+        Returns:
+            Path to the exported OpenVINO IR directory.
+        """

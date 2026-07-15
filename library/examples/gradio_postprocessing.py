@@ -48,7 +48,9 @@ from instantlearn.components.postprocessing import (
     apply_postprocessing,
 )
 from instantlearn.data import Sample
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.models import Matcher
+from instantlearn.models.torch_adapter import prediction_to_dict
 from instantlearn.visualizer import render_predictions, setup_colors
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
@@ -185,6 +187,7 @@ def _instance_color_map(n: int) -> dict[int, list[int]]:
     return cmap
 
 
+
 def _visualize(
     image_rgb: np.ndarray,
     prediction: dict[str, torch.Tensor],
@@ -192,14 +195,33 @@ def _visualize(
     *,
     show_scores: bool = True,
 ) -> np.ndarray:
-    """Render a prediction overlay onto an image. Returns HWC RGB uint8 array."""
-    pred = {**prediction}
-    n_masks = pred["pred_masks"].shape[0]
+    """Render a prediction overlay onto an image. Returns HWC RGB uint8 array.
+
+    The demo carries predictions as the legacy dict form internally; the numpy
+    :class:`Prediction` is rebuilt here at the (Prediction-only) render boundary.
+    """
+    masks_t = prediction["pred_masks"]
+    scores_t = prediction["pred_scores"]
+    n_masks = int(masks_t.shape[0])
+
     if instance_colors and n_masks > 0:
-        pred["pred_labels"] = torch.arange(n_masks)
+        label_ids = np.arange(n_masks, dtype=np.int32)
         cmap = _instance_color_map(n_masks)
     else:
+        label_ids = np.zeros(n_masks, dtype=np.int32)
         cmap = setup_colors({0: "object"})
+
+    boxes_np = None
+    if "pred_boxes" in prediction and len(prediction["pred_boxes"]):
+        boxes_np = prediction["pred_boxes"][:, :4].detach().cpu().numpy().astype(np.float32)
+
+    pred = Prediction(
+        masks=masks_t.detach().cpu().numpy(),
+        scores=scores_t.detach().cpu().numpy().astype(np.float32),
+        label_ids=label_ids,
+        label_names=np.array([str(i) for i in label_ids], dtype=object),
+        boxes=boxes_np,
+    )
     return render_predictions(image_rgb, pred, cmap, show_scores=show_scores)
 
 
@@ -365,7 +387,8 @@ def fit_model(ref_mask_data: dict | None, device: str) -> str:
     resolved = _resolve_device(device)
     logger.info("Fitting Matcher on device=%s  image=%dx%d  mask_area=%d", resolved, w, h, int(mask.sum()))
 
-    model = Matcher(device=resolved, postprocessor=None)
+    model = Matcher(device=resolved)
+    model.postprocessor = None  # to remove the default postprocessing (MaskIoMNMS + BoxIoMNMS)
     ref_sample = Sample(image_path=str(ref_path), mask_paths=str(mask_path))
     model.fit(ref_sample)
     _state.model = model
@@ -408,7 +431,7 @@ def predict_target(
     target_rgb = np.array(pil_img)
 
     logger.info("Running raw prediction on target …")
-    raw_predictions = _state.model.predict([str(target_path)])
+    raw_predictions = [prediction_to_dict(p) for p in _state.model.predict([str(target_path)])]
 
     _state.raw_predictions = raw_predictions
     _state.target_image = target_rgb
