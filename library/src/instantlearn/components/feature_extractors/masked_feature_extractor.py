@@ -95,7 +95,12 @@ class MaskedFeatureExtractor(nn.Module):
                     per_image_cat_masks[cat_id] = mask
 
             for cat_id, merged_mask in per_image_cat_masks.items():
-                pooled_mask = self.transform(merged_mask).to(embedding.device)
+                # Binarize the pooled mask to a strict 0/1 tensor. ``ToTensor`` rescales uint8 numpy masks
+                # by 1/255 (torchvision behaviour), so a numpy ``Sample.mask`` yields foreground values of ~0.0039
+                # instead of 1.0. Downstream consumers that threshold at ``> 0.5`` (e.g. the export prompt path)
+                # would then see no foreground and emit degenerate prompts.
+                # Normalizing here keeps the reference masks binary regardless of the source dtype (numpy or torch).
+                pooled_mask = (self.transform(merged_mask).to(embedding.device) > 0).to(embedding.dtype)
                 masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings

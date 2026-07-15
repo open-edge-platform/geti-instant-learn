@@ -395,9 +395,10 @@ class Matcher(TorchModel):
             original_sizes,
         )
 
-        # Decode masks for all images
+        # Decode masks for all images. ``SamDecoder`` normalizes the images to CHW tensors on the SAM device/dtype
+        # internally, so pass the converted ``tensor_batch`` (CHW) rather than the numpy ``Sample.image`` arrays.
         predictions = self.segmenter(
-            target_batch.images,
+            tensor_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
             similarities=similarities,
