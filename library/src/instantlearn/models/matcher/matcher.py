@@ -3,7 +3,6 @@
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
-import json
 import logging
 from pathlib import Path
 
@@ -22,21 +21,24 @@ from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
+from instantlearn.models._export_utils import (
+    _INT4_MODES,
+    IR_STEM,
+    convert_and_save_openvino,
+    export_onnx_graph,
+    resolve_export_dir,
+    write_metadata,
+)
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
-from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
+from instantlearn.utils.constants import Backend, SAMModelName
 from instantlearn.utils.errors import ModelNotFittedError
 
-from .prompt_generators import BidirectionalPromptGenerator
 from ._card import _MATCHER_CARD
+from .prompt_generators import BidirectionalPromptGenerator
 
 logger = logging.getLogger(__name__)
-
-#: Fixed IO tensor names of the baked Matcher IR / ONNX graph.
-_OUTPUT_NAMES = ["masks", "scores", "labels"]
-#: INT4 compression modes are blocked for Matcher (produce noisy masks).
-_INT4_MODES = frozenset({CompressionMode.INT4_SYM, CompressionMode.INT4_ASYM})
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):
@@ -406,42 +408,6 @@ class Matcher(TorchModel):
         predictions = apply_postprocessing(predictions, self.postprocessor)
         return [dict_to_prediction(pred, self._category_names) for pred in predictions]
 
-    @staticmethod
-    def _fix_onnx_output_names(onnx_path: Path, expected_names: list[str]) -> None:  # noqa: C901
-        """Ensure ONNX graph outputs have the expected names.
-
-        Registered buffers returned as outputs often get auto-generated names
-        (e.g. '39982') because the ONNX tracer treats them as graph constants.
-        Renames outputs in-place using the ONNX protobuf, also updating all
-        internal node references and initializers so the graph stays valid.
-        """
-        if not onnx_path.exists():
-            return
-
-        import onnx  # noqa: PLC0415
-
-        model = onnx.load(str(onnx_path))
-        rename_map: dict[str, str] = {}
-        for output, expected in zip(model.graph.output, expected_names, strict=False):
-            if output.name != expected:
-                rename_map[output.name] = expected
-        if not rename_map:
-            return
-        # Update node outputs that feed into graph outputs.
-        for node in model.graph.node:
-            for i, name in enumerate(node.output):
-                if name in rename_map:
-                    node.output[i] = rename_map[name]
-        # Update initializers (registered buffers appear here).
-        for initializer in model.graph.initializer:
-            if initializer.name in rename_map:
-                initializer.name = rename_map[initializer.name]
-        # Update the graph output names.
-        for output in model.graph.output:
-            if output.name in rename_map:
-                output.name = rename_map[output.name]
-        onnx.save(model, str(onnx_path))
-
     @torch.no_grad()
     def _build_inference_graph(
         self,
@@ -507,83 +473,6 @@ class Matcher(TorchModel):
             .float()
         )
 
-    def _export_onnx_graph(
-        self,
-        graph: MatcherInferenceGraph,
-        onnx_path: Path,
-        export_device: torch.device,
-        *,
-        dynamic_shapes: bool,
-        opset: int,
-    ) -> None:
-        """Trace *graph* to an ONNX file at *onnx_path*.
-
-        Handles the ONNX 2GiB protobuf limit (large SAM variants) by retrying
-        with a string path so external data files are written.
-
-        Args:
-            graph: The traceable inference graph.
-            onnx_path: Destination ``.onnx`` path.
-            export_device: Device the example input is created on.
-            dynamic_shapes: Export with dynamic spatial axes vs. static.
-            opset: ONNX opset version.
-        """
-        input_size = self.encoder.input_size
-        target_image = torch.randn(1, 3, input_size, input_size, device=export_device)
-        dynamic_axes = (
-            {
-                "target_image": {2: "height", 3: "width"},
-                "masks": {0: "num_masks", 1: "height", 2: "width"},
-                "scores": {0: "num_masks"},
-                "labels": {0: "num_masks"},
-            }
-            if dynamic_shapes
-            else None
-        )
-        try:
-            torch.onnx.export(
-                graph,
-                args=(target_image,),
-                f=onnx_path,
-                input_names=["target_image"],
-                output_names=_OUTPUT_NAMES,
-                dynamic_axes=dynamic_axes,
-                opset_version=opset,
-                dynamo=False,
-            )
-        except RuntimeError as onnx_err:
-            if "2GiB" in str(onnx_err) or "protobuf" in str(onnx_err):
-                # Large models (e.g. SAM-HQ ViT-H ~2.6GB) exceed the protobuf
-                # limit; re-export with a string path so ONNX writes external data.
-                logger.info("Model exceeds ONNX 2GiB limit, re-exporting with external data")
-                torch.onnx.export(
-                    graph,
-                    args=(target_image,),
-                    f=str(onnx_path),
-                    input_names=["target_image"],
-                    output_names=_OUTPUT_NAMES,
-                    dynamic_axes=dynamic_axes,
-                    opset_version=opset,
-                    dynamo=False,
-                )
-            else:
-                raise
-        self._fix_onnx_output_names(onnx_path, _OUTPUT_NAMES)
-
-    def _write_metadata(self, export_dir: Path) -> None:
-        """Write ``metadata.json`` (input/patch size + category id->name map).
-
-        The baked OpenVINO IR carries no reference state, so the category names
-        seen during ``fit()`` are persisted here for ``MatcherOpenVINO`` to build
-        ``Prediction.label_names`` without re-fitting.
-        """
-        metadata = {
-            "input_size": self.encoder.input_size,
-            "patch_size": self.encoder.patch_size,
-            "categories": {str(k): v for k, v in self._category_names.items()},
-        }
-        (export_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
-
     @torch.no_grad()
     def to_onnx(self, export_path: str | Path | None = None, config: ExportConfig | None = None) -> Path:
         """Export the baked Matcher graph to ONNX.
@@ -598,13 +487,13 @@ class Matcher(TorchModel):
             config: Export options. ``None`` uses :class:`ExportConfig` defaults.
 
         Returns:
-            Path to the exported ``matcher.onnx`` file.
+            Path to the exported ``model.onnx`` file.
 
         Raises:
             ModelNotFittedError: If ``fit()`` has not been called.
         """
         config = config or ExportConfig()
-        export_dir = self._resolve_export_dir(export_path)
+        export_dir = resolve_export_dir(export_path, self.card().family)
 
         # Prefer the encoder's own device for the torch-native ONNX graph.
         export_device = self.ref_features.device  # type: ignore[union-attr]
@@ -613,11 +502,12 @@ class Matcher(TorchModel):
             export_device = first_encoder_param.device
 
         graph = self._build_inference_graph(export_device, sam_hq_tiny_fallback=False)
-        onnx_path = export_dir / "matcher.onnx"
-        self._export_onnx_graph(
+        onnx_path = export_dir / f"{IR_STEM}.onnx"
+        export_onnx_graph(
             graph,
             onnx_path,
             export_device,
+            self.encoder.input_size,
             dynamic_shapes=config.dynamic_shapes,
             opset=config.opset,
         )
@@ -640,8 +530,8 @@ class Matcher(TorchModel):
                 :class:`ExportConfig` defaults.
 
         Returns:
-            Path to the exported IR **directory** (containing ``matcher.xml`` /
-            ``matcher.bin`` / ``metadata.json``).
+            Path to the exported IR **directory** (containing ``model.xml`` /
+            ``model.bin`` / ``metadata.json``).
 
         Raises:
             ImportError: If OpenVINO is not installed.
@@ -657,65 +547,37 @@ class Matcher(TorchModel):
             raise ValueError(msg)
 
         try:
-            import openvino  # noqa: PLC0415
+            import openvino  # noqa: F401, PLC0415
         except ImportError as e:
             msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
             raise ImportError(msg) from e
 
-        export_dir = self._resolve_export_dir(export_path)
+        export_dir = resolve_export_dir(export_path, self.card().family)
         export_device = torch.device("cpu")
         graph = self._build_inference_graph(export_device, sam_hq_tiny_fallback=True)
 
         # Keep the OpenVINO intermediate ONNX static: the baked graph is reshaped
-        # to a static input below, and dynamic axes can cause infer-time mismatch.
-        onnx_path = export_dir / "matcher.onnx"
-        self._export_onnx_graph(graph, onnx_path, export_device, dynamic_shapes=False, opset=config.opset)
-
-        # Prefer the ONNX frontend for operator coverage; fall back to direct conversion.
-        input_size = self.encoder.input_size
-        target_image = torch.randn(1, 3, input_size, input_size, device=export_device)
-        core = openvino.Core()
-        if onnx_path.exists():
-            try:
-                ov_model = core.read_model(str(onnx_path))
-            except RuntimeError:
-                ov_model = openvino.convert_model(graph, example_input=target_image)
-        else:
-            ov_model = openvino.convert_model(graph, example_input=target_image)
-
-        # Registered buffers returned as outputs get auto-generated names; fix them.
-        for output, name in zip(ov_model.outputs, _OUTPUT_NAMES, strict=False):
-            output.tensor.set_names({name})
-
-        # Reshape to static input for optimal kernel compilation.
-        input_name = ov_model.inputs[0].get_any_name()
-        ov_model.reshape({input_name: [1, 3, input_size, input_size]})
-
-        if config.compression not in {CompressionMode.FP32, CompressionMode.FP16}:
-            from instantlearn.utils.compression import compress_model  # noqa: PLC0415
-
-            ov_model = compress_model(ov_model, mode=config.compression)
-
-        openvino.save_model(
-            ov_model,
-            export_dir / "matcher.xml",
-            compress_to_fp16=config.compression == CompressionMode.FP16,
+        # to a static input during conversion, and dynamic axes can cause
+        # infer-time mismatch.
+        onnx_path = export_dir / f"{IR_STEM}.onnx"
+        export_onnx_graph(
+            graph,
+            onnx_path,
+            export_device,
+            self.encoder.input_size,
+            dynamic_shapes=False,
+            opset=config.opset,
         )
 
-        if not config.keep_intermediate:
-            onnx_path.unlink(missing_ok=True)
+        convert_and_save_openvino(
+            graph,
+            onnx_path,
+            export_device,
+            export_dir,
+            self.encoder.input_size,
+            compression=config.compression,
+            keep_intermediate=config.keep_intermediate,
+        )
 
-        self._write_metadata(export_dir)
+        write_metadata(export_dir, self.encoder.input_size, self.encoder.patch_size, self._category_names)
         return export_dir
-
-    @staticmethod
-    def _resolve_export_dir(export_path: str | Path | None) -> Path:
-        """Resolve *export_path* to an existing directory (temp dir when ``None``)."""
-        if export_path is None:
-            import tempfile  # noqa: PLC0415
-
-            return Path(tempfile.mkdtemp(prefix="matcher_export_"))
-        export_dir = Path(export_path)
-        export_dir.mkdir(parents=True, exist_ok=True)
-        return export_dir
-

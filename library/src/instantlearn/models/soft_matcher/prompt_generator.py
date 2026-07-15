@@ -415,6 +415,113 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         proj = features @ projection_matrix
         return torch.cat([torch.sin(proj), torch.cos(proj)], dim=-1) / (projection_matrix.shape[1] ** 0.5)
 
+    def _process_single_category_export(
+        self,
+        ref_embed: torch.Tensor,
+        masked_ref_embed: torch.Tensor,
+        flatten_ref_mask: torch.Tensor,
+        target_embed: torch.Tensor,
+        original_size: torch.Tensor,
+        reg: float = 0.1,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Export-optimized soft matching with static shapes only.
+
+        Preserves the soft-correspondence scoring (log-softmax forward /
+        optional backward, geometric-mean-in-log aggregation, ``exp``) but
+        replaces the export-hostile point selection — ``mask.nonzero()``
+        indexing, ``torch.where`` thresholding, ``multinomial`` sampling, RFF
+        random projection and NMS — with:
+
+        - full-map masking via the (guaranteed binary) ``flatten_ref_mask``
+          instead of ``nonzero`` indexing (weight rows by the mask, divide by
+          the mask count), and
+        - deterministic static top-K selection (top ``num_foreground_points``
+          soft scores as foreground, top ``num_background_points`` lowest average
+          masked similarity as background).
+
+        This keeps the exported model faithful to soft matching while satisfying
+        the static-shape / determinism constraints of ONNX/OpenVINO.
+
+        Args:
+            ref_embed: Reference embeddings [num_patches_total, embed_dim]
+            masked_ref_embed: Averaged masked embedding [embed_dim] or [1, embed_dim]
+            flatten_ref_mask: Flattened binary mask [num_patches_total]
+            target_embed: Target embeddings [num_patches, embed_dim]
+            original_size: Original image size tensor [H, W]
+            reg: Entropy regularization for the soft-matching softmaxes.
+
+        Returns:
+            points: Point prompts [N, 4] with (x, y, score, label), unpadded.
+            similarity: Combined similarity map [feat_size, feat_size].
+        """
+        feat_size = self.encoder_feature_size
+        device = target_embed.device
+        dtype = target_embed.dtype
+        num_target = target_embed.size(0)
+
+        # Local similarity grid (for the similarity output).
+        local_similarity = masked_ref_embed.reshape(1, -1) @ target_embed.T  # [1, num_patches]
+        local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
+
+        # Full similarity map [num_ref, num_target].
+        similarity_map = ref_embed @ target_embed.T
+        # Binarize defensively (masks are already binary via the ReferenceFeatures guard).
+        mask_float = (flatten_ref_mask > 0).to(similarity_map.dtype)  # [num_ref]
+        mask_count = mask_float.sum().clamp(min=1.0)
+
+        # Soft correspondence in log-space. log_softmax over targets is the
+        # forward score; masked-mean over reference rows == indexing masked refs
+        # then averaging, but with static shapes (no nonzero).
+        log_forward = torch.log_softmax(similarity_map / reg, dim=1)  # [num_ref, num_target]
+        if self.softmatching_bidirectional:
+            log_backward = torch.log_softmax(similarity_map / reg, dim=0)  # over refs
+            log_combined = log_forward + log_backward
+        else:
+            log_combined = log_forward
+        log_correspondence = (log_combined * mask_float.unsqueeze(1)).sum(dim=0) / mask_count  # [num_target]
+        soft_scores = torch.exp(log_correspondence)  # [num_target]
+
+        # Foreground: top-K soft scores (single topk).
+        fg_k = torch.minimum(
+            torch.tensor(self.num_foreground_points, device=device),
+            torch.tensor(num_target, device=device),
+        )
+        fg_scores, fg_indices = torch.topk(soft_scores, fg_k, largest=True)
+
+        # Background: lowest average masked similarity (single topk).
+        avg_similarity = (similarity_map * mask_float.unsqueeze(1)).sum(dim=0) / mask_count  # [num_target]
+        bg_k = torch.minimum(
+            torch.tensor(self.num_background_points, device=device),
+            torch.tensor(num_target, device=device),
+        )
+        bg_scores, bg_indices = torch.topk(avg_similarity, bg_k, largest=False)
+
+        # Foreground -> image coordinates.
+        fg_y = fg_indices // feat_size
+        fg_x = fg_indices % feat_size
+        fg_points = torch.stack([fg_x, fg_y, fg_scores], dim=1)
+        fg_points = self._convert_to_image_coords(fg_points, original_size)
+        fg_labels = torch.ones(fg_points.size(0), 1, device=device, dtype=dtype)
+        fg_points = torch.cat([fg_points, fg_labels], dim=1)
+
+        # Background -> image coordinates.
+        bg_y = bg_indices // feat_size
+        bg_x = bg_indices % feat_size
+        bg_points = torch.stack([bg_x, bg_y, bg_scores], dim=1)
+        bg_points = self._convert_to_image_coords(bg_points, original_size)
+        bg_labels = -torch.ones(bg_points.size(0), 1, device=device, dtype=dtype)
+        bg_points = torch.cat([bg_points, bg_labels], dim=1)
+
+        points = torch.cat([fg_points, bg_points], dim=0)
+
+        # Combined similarity output: blend local grid with normalized soft map
+        # (mirrors the eager path, but the soft map already matches the grid size
+        # so no interpolation is needed).
+        soft_map = soft_scores.reshape(feat_size, feat_size)
+        soft_map = (soft_map - soft_map.min()) / (soft_map.max() - soft_map.min() + 1e-6)
+        combined_similarity = (local_similarity_grid + soft_map) / 2
+        return points, combined_similarity
+
     def _process_single_category(
         self,
         ref_embed: torch.Tensor,
@@ -516,7 +623,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         category_ids: list[int],
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate prompt candidates based on reference-target similarities using soft matching.
 
         Uses soft matching (OT approximation) to create point prompts for the segmenter.
@@ -555,13 +662,25 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 masked_embed = masked_ref_embeddings[c_idx]
                 mask = flatten_ref_masks[c_idx]
 
-                points, similarity = self._process_single_category(
-                    ref_embed,
-                    masked_embed,
-                    mask,
-                    target_embed,
-                    original_size,
-                )
+                # Use the export-safe soft path during ONNX tracing: it keeps the
+                # soft-correspondence scoring but drops nonzero indexing,
+                # thresholding, sampling, RFF and NMS (all export-hostile).
+                if torch.onnx.is_in_onnx_export():
+                    points, similarity = self._process_single_category_export(
+                        ref_embed,
+                        masked_embed,
+                        mask,
+                        target_embed,
+                        original_size,
+                    )
+                else:
+                    points, similarity = self._process_single_category(
+                        ref_embed,
+                        masked_embed,
+                        mask,
+                        target_embed,
+                        original_size,
+                    )
 
                 # Pad and store points
                 point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)

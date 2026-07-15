@@ -72,7 +72,7 @@ class TestExport:
         cost = torch.rand(5, 5)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "matcher.onnx"
+            path = Path(tmpdir) / "model.onnx"
             torch.onnx.export(
                 matcher,
                 cost,
@@ -102,7 +102,7 @@ class TestExport:
         cost = torch.rand(5, 5)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "matcher.onnx"
+            path = Path(tmpdir) / "model.onnx"
             torch.onnx.export(
                 matcher,
                 cost,
