@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import sys
 from typing import Annotated
 from uuid import UUID
 
@@ -66,7 +67,8 @@ def create_project(
     # This check should be called only when backend called from within a Windows application installed with msix.
     # When backend started just as a python processs, which is the case for install.ps1, this check cannot be called
     # As this distinction is not straightforward, it will not be called  for now because we do not distribute msix yet.
-    # if sys.platform == "win32" and not license_service.is_accepted():
+    if sys.platform == "win32" and not license_service.is_accepted():
+        pass
     #     raise LicenseNotAcceptedError("Geti Instant Learn License must be accepted before creating projects.")
 
     project = project_service.create_project(payload)

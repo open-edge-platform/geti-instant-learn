@@ -60,14 +60,14 @@ install directory, default `./geti-instant-learn`) — forward them through the 
 curl -fsSL https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.sh | bash -s -- --yes --work-dir ~/geti-instant-learn
 ```
 
-#### Windows (PowerShell))
+#### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.ps1 | iex
 ```
 
 To pass parameters — `-Verbose` (stream full output), `-Yes`/`-y` (non-interactive), `-WorkDir <path>`/`-w` (custom
-install directory, default `.\geti`) — run the downloaded script as a script block instead:
+install directory, default `.\geti-instant-learn`) — run the downloaded script as a script block instead:
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.ps1))) -Yes -WorkDir C:\geti-instant-learn
@@ -83,7 +83,6 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 If a build step fails, re-run with `--verbose` (Linux) or `-Verbose` (Windows), or inspect the log at
 `<work-dir>/.build/.install.log`.
-
 
 ### Run from Source (Development)
 
