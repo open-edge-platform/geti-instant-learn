@@ -88,8 +88,9 @@ class PerDinoInferenceGraph(nn.Module):
         masked_ref_embeddings = self.masked_ref_embeddings.to(feature_device)
         category_ids = self.category_ids.to(feature_device)
 
-        # Original size from the input tensor using public APIs only, so the
-        # dynamic shape survives export without private ONNX helpers.
+        # Spatial input is fixed to the encoder ``input_size`` (the OV IR is reshaped
+        # to a static ``[1, 3, S, S]``), so ``original_sizes`` is deliberately the
+        # traced input size; masks are rescaled to the true frame by the OV wrapper.
         height = torch.scalar_tensor(target_image.shape[2], dtype=torch.long, device=feature_device)
         width = torch.scalar_tensor(target_image.shape[3], dtype=torch.long, device=feature_device)
         original_sizes = torch.stack([height, width], dim=0).unsqueeze(0)

@@ -90,9 +90,12 @@ def export_onnx_graph(
             protobuf limit (which is handled by re-exporting with external data).
     """
     target_image = torch.randn(1, 3, input_size, input_size, device=export_device)
+    # The encoder requires a fixed square input and the OV IR is reshaped to a
+    # static ``[1, 3, S, S]``, so the spatial dims of ``target_image`` are not
+    # dynamic. ``dynamic_shapes`` only governs the variable ``num_masks`` count
+    # of the outputs.
     dynamic_axes = (
         {
-            "target_image": {2: "height", 3: "width"},
             "masks": {0: "num_masks", 1: "height", 2: "width"},
             "scores": {0: "num_masks"},
             "labels": {0: "num_masks"},

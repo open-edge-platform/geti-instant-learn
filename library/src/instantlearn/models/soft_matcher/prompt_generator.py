@@ -481,19 +481,14 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         log_correspondence = (log_combined * mask_float.unsqueeze(1)).sum(dim=0) / mask_count  # [num_target]
         soft_scores = torch.exp(log_correspondence)  # [num_target]
 
-        # Foreground: top-K soft scores (single topk).
-        fg_k = torch.minimum(
-            torch.tensor(self.num_foreground_points, device=device),
-            torch.tensor(num_target, device=device),
-        )
+        # Foreground: top-K soft scores (single topk). ``k`` must be a Python int
+        # for torch.topk / ONNX TopK; clamp to the available targets.
+        fg_k = min(self.num_foreground_points, num_target)
         fg_scores, fg_indices = torch.topk(soft_scores, fg_k, largest=True)
 
         # Background: lowest average masked similarity (single topk).
         avg_similarity = (similarity_map * mask_float.unsqueeze(1)).sum(dim=0) / mask_count  # [num_target]
-        bg_k = torch.minimum(
-            torch.tensor(self.num_background_points, device=device),
-            torch.tensor(num_target, device=device),
-        )
+        bg_k = min(self.num_background_points, num_target)
         bg_scores, bg_indices = torch.topk(avg_similarity, bg_k, largest=False)
 
         # Foreground -> image coordinates.

@@ -62,6 +62,15 @@ class TestGridPromptExport:
         assert (x, y) == (5.0, 3.0)
         assert label == 1.0
 
+    def test_export_topk_clamps_to_available_targets(self) -> None:
+        """Requesting more points than patches must clamp (top-K k is an int)."""
+        gen = GridPromptGenerator(num_bg_points=100, num_foreground_points=200, max_points=300)
+        similarities = torch.rand(1, 1, 8, 8)  # only 64 patches available
+        original_sizes = torch.tensor([[64, 64]])
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            out = gen(similarities, [1], original_sizes)
+        assert out.shape == (1, 1, 300, 4)
+
 
 class TestSoftMatcherPromptExport:
     """SoftmatcherPromptGenerator export branch (SoftMatcher)."""
@@ -130,3 +139,22 @@ class TestSoftMatcherPromptExport:
             a, _ = gen._process_single_category_export(ref, masked, mask, tgt, original_size)  # noqa: SLF001
             b, _ = gen._process_single_category_export(ref, masked, mask, tgt, original_size)  # noqa: SLF001
         assert torch.equal(a, b)
+
+    def test_export_topk_clamps_to_available_targets(self) -> None:
+        """Requesting more points than target patches must clamp (top-K k is an int)."""
+        torch.manual_seed(0)
+        feat, embed = 16, 8
+        num_patches = feat * feat  # 256 targets available
+        ref = torch.randn(num_patches, embed)
+        tgt = torch.randn(num_patches, embed)
+        masked = ref.mean(dim=0)
+        mask = torch.zeros(num_patches)
+        mask[:10] = 1.0
+        original_size = torch.tensor([224, 224])
+
+        gen = self._gen(num_foreground_points=500, num_background_points=500)
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            points, _ = gen._process_single_category_export(ref, masked, mask, tgt, original_size)  # noqa: SLF001
+        # Foreground + background each clamp to at most num_patches.
+        assert points.shape[0] <= 2 * num_patches
+        assert points.shape[1] == 4
