@@ -29,7 +29,7 @@ from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import arrays_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
-from ._card import _PER_DINO_CARD
+from ._card import _PERDINO_CARD
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -102,7 +102,7 @@ class PerDinoOpenVINO(OpenVINOModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static capability descriptor for PerDino."""
-        return _PER_DINO_CARD
+        return _PERDINO_CARD
 
     def fit(self, reference: Collatable) -> None:
         """Not supported: references are baked into the IR at export time.

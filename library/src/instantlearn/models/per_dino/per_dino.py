@@ -36,7 +36,7 @@ from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils.constants import Backend, SAMModelName
 from instantlearn.utils.errors import ModelNotFittedError
 
-from ._card import _PER_DINO_CARD
+from ._card import _PERDINO_CARD
 from .prompt_generators import GridPromptGenerator
 
 logger = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ class PerDino(TorchModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static capability descriptor for PerDino."""
-        return _PER_DINO_CARD
+        return _PERDINO_CARD
 
     @property
     def input_size(self) -> int:
