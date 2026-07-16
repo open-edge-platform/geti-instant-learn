@@ -635,7 +635,6 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
         Returns:
             point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
-            num_points: [T, C] - actual valid point counts per (target, category)
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
         num_targets = target_embeddings.shape[0]
