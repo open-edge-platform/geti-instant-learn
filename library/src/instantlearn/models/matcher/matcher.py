@@ -91,14 +91,17 @@ class EncoderForwardFeaturesWrapper(nn.Module):
         """Forward pass to get normalized patch embeddings.
 
         Args:
-            x: Raw uint8 image tensor of shape ``(B, 3, H, W)``.
+            x: Image tensor of shape ``(B, 3, H, W)`` with values in ``[0, 255]``
+                (any float/int dtype; it is cast to float before normalization).
 
         Returns:
             L2-normalized patch embeddings of shape ``(B, num_patches, embed_dim)``.
         """
+        # Cast to float *before* deriving the ImageNet mean/std dtype, otherwise a
+        # uint8 ``x`` would truncate mean/std to 0 (breaking normalization / div-by-zero).
+        x = x.float() / 255.0
         imagenet_mean = self.IMAGENET_DEFAULT_MEAN.to(device=x.device, dtype=x.dtype)
         imagenet_std = self.IMAGENET_DEFAULT_STD.to(device=x.device, dtype=x.dtype)
-        x = x.float() / 255.0
         x = functional.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
         x = (x - imagenet_mean[None, :, None, None]) / imagenet_std[None, :, None, None]
         features = self._encode(x)

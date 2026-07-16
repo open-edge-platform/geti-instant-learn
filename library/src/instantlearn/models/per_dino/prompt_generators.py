@@ -35,11 +35,9 @@ class GridPromptGenerator(nn.Module):
         >>> category_ids = [1, 2]
         >>> original_sizes = torch.tensor([[20, 20]])
         >>>
-        >>> point_prompts, num_points = generator(similarities, category_ids, original_sizes)
+        >>> point_prompts = generator(similarities, category_ids, original_sizes)
         >>> point_prompts.shape  # [T, C, max_points, 4]
         torch.Size([1, 2, 42, 4])
-        >>> num_points.shape  # [T, C]
-        torch.Size([1, 2])
     """
 
     def __init__(

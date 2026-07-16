@@ -52,9 +52,11 @@ class ReferenceFeatures:
         Raises:
             ValueError: If ``flatten_ref_masks`` holds values other than 0/1.
         """
-        unique_vals = torch.unique(self.flatten_ref_masks)
-        allowed = torch.tensor([0.0, 1.0], device=unique_vals.device, dtype=unique_vals.dtype)
-        if not bool(torch.isin(unique_vals, allowed).all()):
+        masks = self.flatten_ref_masks
+        # Cheap strict-binary check on the fast path: avoid torch.unique (sort +
+        # host sync) on every construction. Only the single boolean reduction syncs.
+        if not bool(((masks == 0) | (masks == 1)).all()):
+            unique_vals = torch.unique(masks)
             msg = (
                 "flatten_ref_masks must be strictly binary (values in {0, 1}), but got "
                 f"unique values {unique_vals.tolist()}. Reference masks are expected to be "

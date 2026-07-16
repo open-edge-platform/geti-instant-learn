@@ -96,7 +96,7 @@ def export_onnx_graph(
     # of the outputs.
     dynamic_axes = (
         {
-            "masks": {0: "num_masks", 1: "height", 2: "width"},
+            "masks": {0: "num_masks"},
             "scores": {0: "num_masks"},
             "labels": {0: "num_masks"},
         }
