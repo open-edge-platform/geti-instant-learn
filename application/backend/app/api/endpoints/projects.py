@@ -17,7 +17,6 @@ from domain.services.schemas.project import (
     ProjectUpdateSchema,
 )
 from runtime.errors import PipelineReloadInProgressError
-from runtime.services.license import LicenseNotAcceptedError
 
 logger = logging.getLogger(__name__)
 
