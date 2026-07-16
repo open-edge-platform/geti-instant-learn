@@ -36,6 +36,55 @@ Some models are gated on Hugging Face. Loading them fails until you have an acco
 
 Retry the model load once access is granted and your token is set.
 
+### Install from source code
+
+The installer clones the repository, sets up its own
+copy of `uv`, Node.js and npm under `.build/`, detects your accelerator (Intel® XPU, NVIDIA® CUDA, or CPU), builds the
+backend and UI, and starts the app. The first build downloads several GB of packages (PyTorch, OpenVINO, …) and can
+take a while — progress is shown for each step.
+
+> [!NOTE]
+> `git` is required on all platforms; `curl` is also required on Linux/WSL. Re-running the installer reuses the cached
+> tools and dependencies so only the first build is slow.
+
+#### Linux / WSL2
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.sh | bash
+```
+
+To pass flags — `-v`/`--verbose` (stream full output), `-y`/`--yes` (non-interactive), `-w`/`--work-dir <path>` (custom
+install directory, default `./geti-instant-learn`) — forward them through the pipe with `bash -s --`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.sh | bash -s -- --yes --work-dir ~/geti-instant-learn
+```
+
+#### Windows (PowerShell))
+
+```powershell
+irm https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.ps1 | iex
+```
+
+To pass parameters — `-Verbose` (stream full output), `-Yes`/`-y` (non-interactive), `-WorkDir <path>`/`-w` (custom
+install directory, default `.\geti`) — run the downloaded script as a script block instead:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.ps1))) -Yes -WorkDir C:\geti-instant-learn
+```
+
+If your execution policy blocks remote scripts, download first and run it explicitly (Bypass applies only to this
+process and does not change your machine policy):
+
+```powershell
+curl.exe -L https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/main/install.ps1 -o install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+If a build step fails, re-run with `--verbose` (Linux) or `-Verbose` (Windows), or inspect the log at
+`<work-dir>/.build/.install.log`.
+
+
 ### Run from Source (Development)
 
 **Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.13, Node.js v24+, [HF token](#hugging-face-model-access)
