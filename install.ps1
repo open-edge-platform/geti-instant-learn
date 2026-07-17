@@ -646,7 +646,7 @@ function Main {
 
 function Start-App {
     Write-Host ""
-    Write-Step "Installation complete! Starting Intel Geti..."
+    Write-Step "Installation complete! Starting Intel Geti Instant Learn..."
 
     $uvExe = Join-Path $UV_DIR "uv.exe"
     $backendDir = Join-Path $WorkDir "application\backend"
@@ -654,7 +654,7 @@ function Start-App {
     # Resolve the URL the user should open. The server binds to 0.0.0.0 by
     # default, which is not a valid address to open in a browser, so use
     # localhost. Honour PORT/HOST overrides if the user set them.
-    $port = if ($env:PORT) { $env:PORT } else { "7860" }
+    $port = if ($env:PORT) { $env:PORT } else { "9100" }
     $browserHost = if ($env:HOST -and $env:HOST -ne "0.0.0.0") { $env:HOST } else { "localhost" }
     $url = "http://${browserHost}:${port}"
 
