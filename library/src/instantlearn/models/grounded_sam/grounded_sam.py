@@ -1,23 +1,36 @@
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
+"""Zero-shot object detection with text grounding followed by SAM masks."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 import torch
+from torchvision import tv_tensors
 
 from instantlearn.components import SamDecoder
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
+from instantlearn.components.postprocessing.base import apply_postprocessing
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.data.base.sample import Sample
-from instantlearn.models.base import Model
-from instantlearn.utils.constants import SAMModelName
+from instantlearn.models.model_card import ModelCard
+from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction
+from instantlearn.models.torch_base import ExportConfig, TorchModel
+from instantlearn.utils.constants import PromptType, SAMModelName, ShotMode
 
 from .grounded import GroundingModel, TextToBoxPromptGenerator
 from .prompt_filter import BoxPromptFilter
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-class GroundedSAM(Model):
+    from instantlearn.data.base.prediction import Prediction
+    from instantlearn.data.base.sample import Sample
+
+
+class GroundedSAM(TorchModel):
     """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
     def __init__(
@@ -29,6 +42,7 @@ class GroundedSAM(Model):
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
         device: str = "cuda",
+        preprocessor: Any = None,  # noqa: ANN401
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the model.
@@ -41,13 +55,19 @@ class GroundedSAM(Model):
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             device: The device to use.
+            preprocessor: Optional numpy-based preprocessor.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
-        super().__init__(postprocessor=postprocessor)
+        super().__init__(
+            device=device,
+            precision=precision,
+            preprocessor=preprocessor,
+            postprocessor=postprocessor,
+        )
         self.sam_predictor = load_sam_model(
             sam,
             device=device,
@@ -65,9 +85,22 @@ class GroundedSAM(Model):
         )
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
+        self.category_mapping: dict[str, int] = {}
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static capability descriptor for GroundedSAM."""
+        return ModelCard(
+            name="GroundedSAM",
+            family="grounded_sam",
+            description="Zero-shot object detection via text grounding + SAM",
+            prompt_types=frozenset({PromptType.TEXT}),
+            shot_modes=frozenset({ShotMode.ZERO_SHOT}),
+            exportable_to=frozenset(),
+        )
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
-        """Perform learning step on the reference images and priors.
+        """Optionally cache category names and IDs for later prediction.
 
         Args:
             reference: Reference data to learn from. Accepts:
@@ -82,29 +115,36 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
-        """Perform inference step on the target images.
+    @torch.no_grad()
+    def predict(self, target: Collatable) -> list[Prediction]:
+        """Run zero-shot grounded segmentation on one or more targets.
 
         Args:
-            target: Target data to infer. Accepts:
-                - Sample: A single target sample
-                - list[Sample]: A list of target samples
-                - Batch: A batch of target samples
-                - str | Path: A single image path
-                - list[str] | list[Path]: Multiple image paths
+            target: Target samples or a compatibility ``Batch``.
 
         Returns:
-            A list of predictions, one per sample. Each prediction contains:
-                "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_scores": torch.Tensor of shape [num_masks]
-                "pred_labels": torch.Tensor of shape [num_masks]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
+            A numpy-based ``Prediction`` for each target sample.
+
+        Raises:
+            ValueError: If neither ``fit()`` nor the target samples provide a
+                category name.
         """
         target_batch = Batch.collate(target)
+        category_mapping = self.category_mapping or _category_mapping(target_batch)
+        if not category_mapping:
+            msg = "GroundedSAM requires categories from fit() or target samples."
+            raise ValueError(msg)
+
+        tensor_batch = batch_to_tensors(target_batch, device=self.device)
+        images = [tv_tensors.Image(image) for image in tensor_batch.images if image is not None]
+        if len(images) != len(target_batch):
+            msg = "GroundedSAM.predict() requires each sample to contain an image."
+            raise ValueError(msg)
+
         # Generate box prompts (tensor format)
         box_prompts, category_ids = self.prompt_generator(
-            target_batch.images,
-            self.category_mapping,
+            images,
+            category_mapping,
         )
 
         # Filter box prompts
@@ -112,8 +152,29 @@ class GroundedSAM(Model):
 
         # Decode masks
         predictions = self.segmenter(
-            target_batch.images,
+            images,
             category_ids,
             box_prompts=box_prompts,
         )
-        return self.apply_postprocessing(predictions)
+        predictions = apply_postprocessing(predictions, self.postprocessor)
+        id_to_category = {category_id: category for category, category_id in category_mapping.items()}
+        return [dict_to_prediction(prediction, id_to_category) for prediction in predictions]
+
+    def to_openvino(  # noqa: PLR6301
+        self,
+        export_path: Path | None = None,
+        config: ExportConfig | None = None,
+    ) -> Path:
+        """Raise until GroundedSAM has a functional OpenVINO sibling."""
+        del export_path, config
+        msg = "GroundedSAM does not support OpenVINO export because no GroundedSAMOpenVINO implementation exists."
+        raise NotImplementedError(msg)
+
+
+def _category_mapping(batch: Batch) -> dict[str, int]:
+    """Build a stable label-to-ID mapping from the supplied target samples."""
+    mapping: dict[str, int] = {}
+    for sample in batch.samples:
+        for category in sample.categories:
+            mapping.setdefault(category.label, category.id)
+    return mapping
