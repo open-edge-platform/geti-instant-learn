@@ -5,19 +5,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 from torchvision import tv_tensors
 
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import arrays_to_prediction, batch_to_tensors
 from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils import precision_to_torch_dtype
-from instantlearn.utils.constants import DINOv3BackboneSize, PromptType, ShotMode
+from instantlearn.utils.constants import DINOv3BackboneSize
 
+from ._card import _DINOTXT_CARD
 from .encoder import IMAGENET_TEMPLATES, DinoTextEncoder
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from instantlearn.components.postprocessing import PostProcessor
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.models.model_card import ModelCard
 
 
 class DinoTxtZeroShotClassification(TorchModel):
@@ -52,14 +53,12 @@ class DinoTxtZeroShotClassification(TorchModel):
         device: str = "cuda",
         image_size: tuple[int, int] | None = (512, 512),
         backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
-        preprocessor: Any = None,  # noqa: ANN401
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the DinoTxtZeroShotClassification."""
         super().__init__(
             device=device,
             precision=precision,
-            preprocessor=preprocessor,
             postprocessor=postprocessor,
         )
         self.torch_precision = precision_to_torch_dtype(precision)
@@ -76,14 +75,7 @@ class DinoTxtZeroShotClassification(TorchModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static capability descriptor for DinoTxt."""
-        return ModelCard(
-            name="DinoTxt",
-            family="dinotxt",
-            description="Zero-shot classification via DINOv3 + text templates",
-            prompt_types=frozenset({PromptType.TEXT}),
-            shot_modes=frozenset({ShotMode.ZERO_SHOT}),
-            exportable_to=frozenset(),
-        )
+        return _DINOTXT_CARD
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference batch.

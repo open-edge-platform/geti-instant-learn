@@ -5,29 +5,31 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import torch
 from torchvision import tv_tensors
 
 from instantlearn.components import SamDecoder
-from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
+from instantlearn.components.postprocessing import default_postprocessor
 from instantlearn.components.postprocessing.base import apply_postprocessing
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
-from instantlearn.utils.constants import PromptType, SAMModelName, ShotMode
+from instantlearn.utils.constants import SAMModelName
 
+from ._card import _GROUNDED_SAM_CARD
 from .grounded import GroundingModel, TextToBoxPromptGenerator
 from .prompt_filter import BoxPromptFilter
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from instantlearn.components.postprocessing import PostProcessor
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.models.model_card import ModelCard
 
 
 class GroundedSAM(TorchModel):
@@ -42,7 +44,6 @@ class GroundedSAM(TorchModel):
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
         device: str = "cuda",
-        preprocessor: Any = None,  # noqa: ANN401
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the model.
@@ -55,7 +56,6 @@ class GroundedSAM(TorchModel):
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             device: The device to use.
-            preprocessor: Optional numpy-based preprocessor.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -65,7 +65,6 @@ class GroundedSAM(TorchModel):
         super().__init__(
             device=device,
             precision=precision,
-            preprocessor=preprocessor,
             postprocessor=postprocessor,
         )
         self.sam_predictor = load_sam_model(
@@ -90,14 +89,7 @@ class GroundedSAM(TorchModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static capability descriptor for GroundedSAM."""
-        return ModelCard(
-            name="GroundedSAM",
-            family="grounded_sam",
-            description="Zero-shot object detection via text grounding + SAM",
-            prompt_types=frozenset({PromptType.TEXT}),
-            shot_modes=frozenset({ShotMode.ZERO_SHOT}),
-            exportable_to=frozenset(),
-        )
+        return _GROUNDED_SAM_CARD
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Optionally cache category names and IDs for later prediction.

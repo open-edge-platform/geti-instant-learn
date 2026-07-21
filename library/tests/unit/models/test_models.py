@@ -356,10 +356,12 @@ class TestSoftMatcher:
 class TestGroundedSAM:
     """Test GroundedSAM model."""
 
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_grounded_sam_initialization(self, mock_load_sam: MagicMock) -> None:
+    def test_grounded_sam_initialization(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
         """Test GroundedSAM initialization with new components."""
         mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
 
         model = GroundedSAM(device="cpu")
 
@@ -368,10 +370,12 @@ class TestGroundedSAM:
         assert hasattr(model, "segmenter")
         assert hasattr(model, "prompt_filter")
 
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_predict_returns_predictions(self, mock_load_sam: MagicMock) -> None:
+    def test_predict_returns_predictions(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
         """predict() converts segmenter dicts to Prediction using target categories."""
         mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
         model = GroundedSAM(device="cpu")
         model.postprocessor = None
         model.prompt_generator = MagicMock(
@@ -399,20 +403,24 @@ class TestGroundedSAM:
         assert predictions[0].label_names.tolist() == ["cat"]
         assert predictions[0].masks.shape == (1, 4, 4)
 
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_predict_raises_without_categories(self, mock_load_sam: MagicMock) -> None:
+    def test_predict_raises_without_categories(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
         """predict() raises when neither fit() nor the target provide categories."""
         mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
         model = GroundedSAM(device="cpu")
         sample = Sample(image=np.zeros((4, 4, 3), dtype=np.uint8), categories=[])
 
         with pytest.raises(ValueError, match="requires categories"):
             model.predict(sample)
 
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_predict_raises_without_image(self, mock_load_sam: MagicMock) -> None:
+    def test_predict_raises_without_image(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
         """predict() raises when a target sample has no image."""
         mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
         model = GroundedSAM(device="cpu")
         sample = Sample(image=None, categories=[Category(7, "cat")])
 
