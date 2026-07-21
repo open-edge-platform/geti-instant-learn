@@ -23,22 +23,28 @@ logger = logging.getLogger(__name__)
 _DINOV3_HUB_REPO = "facebookresearch/dinov3"
 _DINOV3_HUB_ENTRYPOINT = "dinov3_vitl16_dinotxt_tet1280d20h24l"
 
+_ACCESS_URL = "https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/"
+
 
 class DinoTextEncoder(nn.Module):
     """DINOv3 text encoder for zero-shot classification.
 
-    Weights are downloaded automatically from Meta's servers via ``torch.hub``
-    on first use (cached in ``~/.cache/torch/hub``). Usage of DINOv3 is
-    subject to Meta's terms of use.
+    DINOv3 DinoTxt weights are gated by Meta and require requesting access at
+    `<https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/>`_.
+    Once accepted, Meta sends download URLs via email. Download the backbone
+    and text-head ``.pth`` files, place them in a directory, and pass that
+    path as ``weights_location``.
+
+    Unlike Matcher (which uses timm/HuggingFace for publicly hosted backbones),
+    the DinoTxt text-head weights are only available from Meta's gated servers.
 
     Args:
         image_size: The size of the input image.
         precision: The precision to use for the model.
         device: The device to use for the model.
-        backbone_size: The size of the backbone model (currently only "large" is supported for dinotxt).
-        weights_location: Optional path to pre-downloaded weights directory.
-            When provided, weights are loaded from this directory instead of
-            auto-downloading. Pass ``None`` (default) for auto-download.
+        backbone_size: The size of the backbone model (only "large" is supported).
+        weights_location: Path to directory containing the downloaded ``.pth``
+            weight files, or a direct URL obtained from Meta after access approval.
         mean: The mean to use for image normalization.
         std: The standard deviation to use for image normalization.
 
@@ -46,7 +52,7 @@ class DinoTextEncoder(nn.Module):
         >>> import torch
         >>> from torchvision import tv_tensors
         >>> from instantlearn.models.dinotxt import DinoTextEncoder
-        >>> encoder = DinoTextEncoder(device="cpu")
+        >>> encoder = DinoTextEncoder(device="cpu", weights_location="~/data/dinov3_weights")
         >>> category_mapping = {0: "cat", 1: "dog"}
         >>> text_embedding = encoder.encode_text(category_mapping)
         >>> image_embedding = encoder.encode_image([tv_tensors.Image(torch.randn(224, 224, 3))])
@@ -88,38 +94,48 @@ class DinoTextEncoder(nn.Module):
         device: str = "cuda",
         weights_location: str | Path | None = None,
     ) -> tuple[torch.nn.Module, object]:
-        """Load DINOv3 DinoTxt model and tokenizer.
-
-        When ``weights_location`` is ``None`` (default), weights are
-        auto-downloaded from Meta's servers via ``torch.hub`` and cached
-        in ``~/.cache/torch/hub``. When a path is provided, weights are
-        loaded from that directory (for air-gapped / offline environments).
+        """Load DINOv3 DinoTxt model and tokenizer via ``torch.hub``.
 
         Args:
             device: The device to place the model on.
-            weights_location: Optional directory with pre-downloaded ``.pth``
-                files (text head + backbone). ``None`` triggers auto-download.
+            weights_location: Directory containing pre-downloaded ``.pth``
+                files, or a direct URL from Meta. When ``None``, attempts
+                auto-download (works only if Meta has granted access).
 
         Returns:
             Tuple of (model, tokenizer).
+
+        Raises:
+            RuntimeError: If download fails (likely 403 — access not granted).
         """
+        hub_kwargs: dict[str, object] = {"pretrained": True}
+
         if weights_location is not None:
-            weights_dir = Path(weights_location).expanduser()
-            logger.info("Loading DINOv3 DinoTxt from local weights: %s", weights_dir)
-            model, tokenizer = torch.hub.load(
-                _DINOV3_HUB_REPO,
-                _DINOV3_HUB_ENTRYPOINT,
-                pretrained=True,
-                dinotxt_weights=str(weights_dir),
-                backbone_weights=str(weights_dir),
-            )
+            weights_str = str(Path(weights_location).expanduser())
+            hub_kwargs["dinotxt_weights"] = weights_str
+            hub_kwargs["backbone_weights"] = weights_str
+            logger.info("Loading DINOv3 DinoTxt from local weights: %s", weights_str)
         else:
-            logger.info("Loading DINOv3 DinoTxt (auto-downloading weights if needed)...")
+            logger.info("Loading DINOv3 DinoTxt (downloading weights if needed)...")
+
+        try:
             model, tokenizer = torch.hub.load(
                 _DINOV3_HUB_REPO,
                 _DINOV3_HUB_ENTRYPOINT,
-                pretrained=True,
+                **hub_kwargs,
             )
+        except Exception as exc:
+            if "403" in str(exc) or "Forbidden" in str(exc):
+                msg = (
+                    "DINOv3 DinoTxt weight download failed (HTTP 403 Forbidden).\n"
+                    "Meta gates these weights behind an access request.\n\n"
+                    "To fix:\n"
+                    f"  1. Request access at {_ACCESS_URL}\n"
+                    "  2. Once approved, download the backbone + text-head .pth files\n"
+                    "  3. Place them in a directory and pass weights_location='path/to/dir'\n"
+                )
+                raise RuntimeError(msg) from exc
+            raise
 
         return model.to(device), tokenizer
 

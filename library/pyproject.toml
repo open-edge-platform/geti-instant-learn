@@ -51,6 +51,7 @@ dependencies = [
     # huggingface_hub is required for auto-downloading pre-exported SAM3
     # OpenVINO models from HuggingFace Hub.
     "huggingface_hub>=0.25.0",
+    "termcolor",
 ]
 
 [dependency-groups]

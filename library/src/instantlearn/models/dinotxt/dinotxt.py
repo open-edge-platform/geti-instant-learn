@@ -53,9 +53,22 @@ class DinoTxtZeroShotClassification(TorchModel):
         device: str = "cuda",
         image_size: tuple[int, int] | None = (512, 512),
         backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
+        weights_location: str | Path | None = None,
         postprocessor: PostProcessor | None = None,
     ) -> None:
-        """Initialize the DinoTxtZeroShotClassification."""
+        """Initialize the DinoTxtZeroShotClassification.
+
+        Args:
+            prompt_templates: Text templates for zero-shot classification.
+            precision: Weight precision (``"fp32"``, ``"fp16"``, ``"bf16"``).
+            device: Torch device string.
+            image_size: Input image size.
+            backbone_size: DINOv3 backbone variant (only ``LARGE`` supported).
+            weights_location: Path to pre-downloaded DINOv3 weights directory,
+                or ``None`` to auto-download from Meta (requires prior access
+                approval at https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/).
+            postprocessor: Optional post-processor.
+        """
         super().__init__(
             device=device,
             precision=precision,
@@ -67,6 +80,7 @@ class DinoTxtZeroShotClassification(TorchModel):
             image_size=image_size,
             precision=self.torch_precision,
             backbone_size=backbone_size,
+            weights_location=weights_location,
         )
         self.prompt_templates = prompt_templates
         self.category_mapping: dict[int, str] = {}
