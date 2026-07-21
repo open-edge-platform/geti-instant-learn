@@ -10,8 +10,7 @@ installed.
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import openvino as ov
 
@@ -22,22 +21,6 @@ from instantlearn.utils.constants import Backend
 if TYPE_CHECKING:
     from pathlib import Path
 
-@dataclass
-class ImportConfig:
-    """Options controlling Torch -> OpenVINO conversion.
-
-    Attributes:
-        precision: Weight/activation precision of the exported IR.
-        opset: ONNX opset version for the intermediate graph.
-        dynamic_shapes: Export with dynamic batch/spatial dims vs. static.
-        keep_intermediate: Keep the intermediate ``.onnx`` files after IR
-            conversion (useful for debugging).
-    """
-
-    precision: Literal["fp32", "fp16", "int8", "int4"] = "fp16"
-    opset: int = 17
-    dynamic_shapes: bool = True
-    keep_intermediate: bool = False
 
 class OpenVINOModel(Model):
     """Intermediate base for all OpenVINO-backed models.

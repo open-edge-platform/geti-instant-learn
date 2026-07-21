@@ -104,6 +104,126 @@ class TensorBatch:
         return [s.category_labels for s in self.samples]
 
 
+def label_ids_as_ints(sample: Sample | TensorSample) -> list[int]:
+    """Return a sample's category ids as plain Python integers.
+
+    Normalizes the three shapes ``label_ids`` can take at the torch boundary:
+    ``None`` (no categories), a ``torch.Tensor`` (``TensorSample``), or a plain
+    list of ints (``Sample``).
+
+    Args:
+        sample: A backend-neutral ``Sample`` or torch-native ``TensorSample``.
+
+    Returns:
+        Category ids as a list of ``int`` (empty when ``label_ids`` is ``None``).
+    """
+    label_ids = sample.label_ids
+    if label_ids is None:
+        return []
+    if isinstance(label_ids, torch.Tensor):
+        return [int(label_id) for label_id in label_ids.detach().cpu().tolist()]
+    return [int(label_id) for label_id in label_ids]
+
+
+@dataclass(frozen=True)
+class CategoryRegistry(Mapping):
+    """Bidirectional category id <-> name identity, built once from references.
+
+    This is the single home for category identity across every model.
+
+    Because it implements :class:`collections.abc.Mapping` over
+    ``id_to_name``, an instance can be passed directly as the ``categories``
+    argument of :func:`arrays_to_prediction`, :func:`tensors_to_prediction`, and
+    :func:`dict_to_prediction`.
+
+    Attributes:
+        id_to_name: Mapping from integer category id to category name.
+        name_to_id: Mapping from category name to integer category id.
+    """
+
+    id_to_name: dict[int, str] = field(default_factory=dict)
+    name_to_id: dict[str, int] = field(default_factory=dict)
+
+    def __getitem__(self, key: int) -> str:
+        """Return the category name for *key* (an integer id)."""
+        return self.id_to_name[key]
+
+    def __iter__(self):  # noqa: ANN204
+        """Iterate over the integer category ids."""
+        return iter(self.id_to_name)
+
+    def __len__(self) -> int:
+        """Return the number of registered categories."""
+        return len(self.id_to_name)
+
+    @classmethod
+    def from_samples(
+        cls,
+        samples: Sample | list[Sample] | Batch | list[TensorSample],
+    ) -> CategoryRegistry:
+        """Build a registry from reference samples, keeping first occurrences.
+
+        Iterates samples in order and records each ``(id, name)`` pair the first
+        time its name is seen, so earlier references win on duplicates.
+
+        Args:
+            samples: A single ``Sample``, a list of ``Sample`` / ``TensorSample``,
+                or a ``Batch``.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+        """
+        if isinstance(samples, Sample):
+            sample_list: list[Sample | TensorSample] = [samples]
+        elif isinstance(samples, Batch):
+            sample_list = list(samples.samples)
+        else:
+            sample_list = list(samples)
+
+        id_to_name: dict[int, str] = {}
+        name_to_id: dict[str, int] = {}
+        for sample in sample_list:
+            labels = sample.category_labels
+            if not labels:
+                continue
+            for cat_id, name in zip(label_ids_as_ints(sample), labels, strict=False):
+                if name not in name_to_id:
+                    name_to_id[name] = cat_id
+                    id_to_name.setdefault(cat_id, name)
+        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
+
+    @classmethod
+    def from_metadata(cls, categories: Mapping) -> CategoryRegistry:
+        """Build a registry from a serialized ``{id: name}`` mapping.
+
+        Used by OpenVINO siblings that load category identity from
+        ``metadata.json`` (ids are JSON object keys, hence strings).
+
+        Args:
+            categories: Mapping from category id (``int`` or ``str``) to name.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+        """
+        id_to_name = {int(key): value for key, value in categories.items()}
+        name_to_id = {name: cat_id for cat_id, name in id_to_name.items()}
+        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
+
+    def names_indexed(self) -> list[str]:
+        """Return category names as a dense list indexed by id.
+
+        Ids missing from the registry fall back to their string form. Useful for
+        callers that want a ``Sequence[str]`` rather than a mapping.
+
+        Returns:
+            ``[name_for(0), name_for(1), ...]`` up to the largest known id.
+        """
+        if not self.id_to_name:
+            return []
+        max_id = max(self.id_to_name)
+        return [self.id_to_name.get(cat_id, str(cat_id)) for cat_id in range(max_id + 1)]
+
+
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     """Convert a :class:`Sample` to a torch :class:`TensorSample`.
 

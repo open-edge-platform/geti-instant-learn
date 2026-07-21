@@ -20,7 +20,7 @@ from .grounded_sam import GroundedSAM
 from .matcher import Matcher, MatcherOpenVINO
 from .model_card import ModelCard
 from .model_loader import ModelLoader, resolve_model_dir
-from .openvino_base import OpenVINOModel, ImportConfig
+from .openvino_base import OpenVINOModel
 from .per_dino import PerDino
 from .sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode
 from .soft_matcher import SoftMatcher
@@ -30,7 +30,6 @@ __all__ = [
     "SAM3",
     "DinoTxtZeroShotClassification",
     "EfficientSAM3",
-    "ImportConfig",
     "GroundedSAM",
     "Matcher",
     "MatcherOpenVINO",

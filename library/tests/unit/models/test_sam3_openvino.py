@@ -14,6 +14,7 @@ from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import Backend
 
 
@@ -97,7 +98,7 @@ class TestSAM3OpenVINOPredict:
         """Public predict() converts internal tensor dicts to Prediction objects."""
         model = object.__new__(SAM3OpenVINO)
         model.prompt_mode = prompt_mode
-        model.category_mapping = {"shoe": 0}
+        model.categories = CategoryRegistry.from_metadata({0: "shoe"})
 
         raw_prediction = {
             "pred_masks": torch.ones(1, 4, 4, dtype=torch.uint8),

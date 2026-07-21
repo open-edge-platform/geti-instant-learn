@@ -11,6 +11,7 @@ from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
+from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils.constants import SAMModelName
 
 from .grounded import GroundingModel, TextToBoxPromptGenerator
@@ -65,6 +66,8 @@ class GroundedSAM(Model):
         )
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
+        # Category identity (populated by fit()).
+        self.categories: CategoryRegistry = CategoryRegistry()
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference images and priors.
@@ -76,11 +79,7 @@ class GroundedSAM(Model):
                 - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
-        self.category_mapping = {}
-        for sample in reference_batch.samples:
-            for category_id, category in zip(sample.label_ids, sample.category_labels, strict=False):
-                if category not in self.category_mapping:
-                    self.category_mapping[category] = int(category_id)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
@@ -104,7 +103,7 @@ class GroundedSAM(Model):
         # Generate box prompts (tensor format)
         box_prompts, category_ids = self.prompt_generator(
             target_batch.images,
-            self.category_mapping,
+            self.categories.name_to_id,
         )
 
         # Filter box prompts

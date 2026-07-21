@@ -34,7 +34,13 @@ from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.openvino_base import OpenVINOModel
-from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
+from instantlearn.models.torch_adapter import (
+    CategoryRegistry,
+    TensorSample,
+    dict_to_prediction,
+    label_ids_as_ints,
+    samples_to_tensors,
+)
 from instantlearn.utils import device_to_openvino_device
 
 from .canvas_helpers import (
@@ -198,7 +204,7 @@ class SAM3OpenVINO(OpenVINOModel):
         self.drop_spatial_bias = drop_spatial_bias
 
         # Category mapping from fit()
-        self.category_mapping: dict[str, int] | None = None
+        self.categories: CategoryRegistry | None = None
 
         # Exemplar cache (populated in _fit_visual_exemplar)
         self.exemplar_geometry_features: list[np.ndarray] | None = None
@@ -270,7 +276,6 @@ class SAM3OpenVINO(OpenVINOModel):
         # Tokenizer
         self.tokenizer = self._load_tokenizer(tokenizer_path)
         logger.info("SAM3 OpenVINO model loaded successfully (mode=%s).", prompt_mode.value)
-
 
     @classmethod
     def card(cls) -> ModelCard:
@@ -499,7 +504,7 @@ class SAM3OpenVINO(OpenVINOModel):
         Args:
             reference_batch: Batch of reference samples.
         """
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
     def _fit_visual_exemplar(self, reference_batch: list[TensorSample]) -> None:
         """Encode exemplar geometry features from reference images.
@@ -567,7 +572,7 @@ class SAM3OpenVINO(OpenVINOModel):
         self.exemplar_text_features = text_features_list
         self.exemplar_text_mask = text_masks_list
         self.exemplar_category_ids = category_ids
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
         # Log shot counts
         shot_info = {
@@ -620,7 +625,7 @@ class SAM3OpenVINO(OpenVINOModel):
         # Build metadata
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
         categories = sample.category_labels or ["visual"] * num_prompts
-        category_ids = self._label_ids(sample) or [0] * num_prompts
+        category_ids = label_ids_as_ints(sample) or [0] * num_prompts
 
         # Convert all prompts to normalised point coords grouped by category
         category_coords: dict[int, list[np.ndarray]] = defaultdict(list)
@@ -695,15 +700,6 @@ class SAM3OpenVINO(OpenVINOModel):
         return value.size > 0
 
     @staticmethod
-    def _label_ids(sample: Sample | TensorSample) -> list[int]:
-        """Return sample label IDs as plain Python integers."""
-        if sample.label_ids is None:
-            return []
-        if isinstance(sample.label_ids, torch.Tensor):
-            return [int(label_id) for label_id in sample.label_ids.detach().cpu().tolist()]
-        return [int(label_id) for label_id in sample.label_ids]
-
-    @staticmethod
     def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
         """Ensure raw SAM3OpenVINO predictions contain ``pred_scores``."""
         for prediction in predictions:
@@ -719,27 +715,14 @@ class SAM3OpenVINO(OpenVINOModel):
 
     def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: TensorSample) -> Prediction:
         """Convert one raw SAM3OpenVINO prediction dictionary to ``Prediction``."""
-        boxes = prediction.get("pred_boxes")
-        boxes_xyxy = boxes[:, :4] if boxes is not None else None
-        return tensors_to_prediction(
-            masks=prediction["pred_masks"],
-            scores=prediction["pred_scores"],
-            label_ids=prediction["pred_labels"],
-            categories=self._prediction_categories(sample, prediction["pred_labels"]),
-            boxes=boxes_xyxy,
-        )
+        return dict_to_prediction(prediction, self._categories_for(sample))
 
-    def _prediction_categories(self, sample: TensorSample, label_ids: torch.Tensor) -> list[str]:
-        """Build category names aligned with integer prediction labels."""
-        id_to_label: dict[int, str] = {}
-        if self.category_mapping is not None:
-            id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
-        id_to_label.update(dict(zip(self._label_ids(sample), sample.category_labels or [], strict=False)))
-
-        if label_ids.numel() == 0 and not id_to_label:
-            return []
-        max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
-        return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
+    def _categories_for(self, sample: TensorSample) -> CategoryRegistry:
+        """Merge fitted categories with this sample's per-instance category metadata."""
+        id_to_name: dict[int, str] = dict(self.categories.id_to_name) if self.categories is not None else {}
+        id_to_name.update(dict(zip(label_ids_as_ints(sample), sample.category_labels or [], strict=False)))
+        name_to_id = {name: cat_id for cat_id, name in id_to_name.items()}
+        return CategoryRegistry(id_to_name=id_to_name, name_to_id=name_to_id)
 
     def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
         """Classic prediction with per-image text/box/point prompts.
@@ -751,7 +734,7 @@ class SAM3OpenVINO(OpenVINOModel):
             List of prediction dicts per image.
         """
         results = []
-        use_fitted_categories = self.category_mapping is not None
+        use_fitted_categories = self.categories is not None
 
         for sample in target:
             img_size = sample.image.shape[-2:]
@@ -766,11 +749,11 @@ class SAM3OpenVINO(OpenVINOModel):
 
             # Determine prompts
             if use_fitted_categories:
-                texts = list(self.category_mapping.keys())
-                category_ids = list(self.category_mapping.values())
+                texts = list(self.categories.name_to_id.keys())
+                category_ids = list(self.categories.name_to_id.values())
             else:
                 texts = sample.category_labels or []
-                category_ids = self._label_ids(sample)
+                category_ids = label_ids_as_ints(sample)
 
             # Keep prompt text and category ids aligned with the effective number of prompts.
             num_prompts = max(len(texts), len(bboxes), len(points))
@@ -977,7 +960,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
         # Pre-cache text features
         for cat_refs in refs_by_category.values():
@@ -1344,26 +1327,6 @@ class SAM3OpenVINO(OpenVINOModel):
             "pred_boxes": torch.empty(0, 5),
             "pred_masks": torch.empty(0, *canvas_size),
         }
-
-    @staticmethod
-    def _build_category_mapping(reference_batch: Batch | list[TensorSample]) -> dict[str, int]:
-        """Build category name → id mapping from reference samples.
-
-        Args:
-            reference_batch: Batch of reference samples.
-
-        Returns:
-            Mapping from category name to category id.
-        """
-        mapping: dict[str, int] = {}
-        samples = reference_batch.samples if isinstance(reference_batch, Batch) else reference_batch
-        for sample in samples:
-            if not sample.category_labels:
-                continue
-            for category_id, category in zip(SAM3OpenVINO._label_ids(sample), sample.category_labels, strict=False):
-                if category not in mapping:
-                    mapping[category] = category_id
-        return mapping
 
     @staticmethod
     def _aggregate_results(

@@ -271,10 +271,10 @@ class TestModelIntegration:
 
         model = GroundedSAM(sam=sam_model, device="cpu", precision="fp32")
 
-        # GroundedSAM's fit() only creates category mapping
+        # GroundedSAM's fit() only creates the category registry
         model.fit(reference_batch)
-        assert hasattr(model, "category_mapping")
-        assert isinstance(model.category_mapping, dict)
+        assert hasattr(model, "categories")
+        assert isinstance(model.categories.name_to_id, dict)
 
         # predict should work with just category mapping
         predictions = model.predict(target_batch)

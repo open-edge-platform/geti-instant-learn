@@ -23,10 +23,18 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard
-from instantlearn.models.torch_adapter import TensorSample, samples_to_tensors, tensors_to_prediction
-from instantlearn.models.torch_base import TorchModel
-from instantlearn.utils import Backend, PromptType, ShotMode, precision_to_torch_dtype
+from instantlearn.models.torch_adapter import (
+    CategoryRegistry,
+    TensorSample,
+    dict_to_prediction,
+    label_ids_as_ints,
+    samples_to_tensors,
+)
+from instantlearn.models.torch_base import ExportConfig, TorchModel
+from instantlearn.utils import precision_to_torch_dtype
+from instantlearn.utils.constants import CompressionMode
 
+from ._card import _SAM3_CARD
 from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
@@ -39,6 +47,7 @@ from .canvas_helpers import (
 from .model import Sam3Model
 from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
+
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +326,7 @@ class SAM3(TorchModel):
         self.canvas_config = canvas_config or CanvasConfig()
 
         # Category mapping from fit() - optional for consistency with GroundedSAM
-        self.category_mapping: dict[str, int] | None = None
+        self.categories: CategoryRegistry | None = None
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None
@@ -352,57 +361,121 @@ class SAM3(TorchModel):
             .eval()
         )
 
-    def to_openvino(
-        self,
-        *,
-        model_id: str | None = None,
-        resolution: int | None = None,
-        output_dir: Path,
-        precision: str,
-        opset_version: int,
-        compression_mode: str | None,
-        validate: bool = False,
-        device: str = "CPU",
-    ) -> Path:
-        """Export this SAM3 model to OpenVINO artifacts."""
-        output_dir = Path(output_dir)
-        export_model_id = model_id or self.model_id
-        export_resolution = resolution or self.resolution
+    @torch.no_grad()
+    def to_openvino(self, export_path: str | Path | None = None, config: ExportConfig | None = None) -> Path:
+        """Export this SAM3 model to an OpenVINO IR directory.
+
+        Conversion goes Torch -> ONNX -> OpenVINO IR. The intermediate image
+        resolution is taken from ``self.resolution``; weight precision and
+        compression are driven entirely by ``config.compression``:
+
+        - ``FP32`` / ``FP16``: IR weight storage precision, no NNCF pass.
+        - ``INT8_SYM`` / ``INT8_ASYM``: FP16 IR followed by INT8 weight compression.
+        - ``INT4_SYM`` / ``INT4_ASYM``: FP16 IR followed by INT4 weight
+          compression (per-channel, ``group_size=-1``).
+
+        For the compressed modes the FP16 IR is written to a separate
+        ``openvino-<mode>-fp16-source`` directory that serves as the compression
+        input, keeping it distinct from the final ``openvino-<mode>`` output so
+        the compression pass never reads and writes the same files.
+
+        Args:
+            export_path: Destination directory for the IR. ``None`` writes to a
+                temporary directory that is *not* auto-deleted.
+            config: Export options. ``None`` uses :class:`ExportConfig` defaults.
+
+        Returns:
+            Path to the exported IR **directory**.
+
+        Raises:
+            ImportError: If OpenVINO is not installed.
+        """
+        config = config or ExportConfig()
+
+        try:
+            import openvino  # noqa: F401, PLC0415
+        except ImportError as e:
+            msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
+            raise ImportError(msg) from e
+
+        export_root = self._resolve_export_dir(export_path)
 
         onnx_dir, exported = SAM3.export_to_onnx(
-            model_id=export_model_id,
-            output_dir=output_dir,
-            opset_version=opset_version,
-            resolution=export_resolution,
+            model_id=self.model_id,
+            export_root=export_root,
+            opset_version=config.opset,
+            resolution=self.resolution,
         )
         logger.info("ONNX export complete: %s", list(exported.keys()))
 
-        ir_dir = output_dir / f"openvino-{precision}"
-        logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", precision)
-        SAM3.convert_to_openvino(onnx_dir=onnx_dir, output_dir=ir_dir, precision=precision)
-        SAM3._ensure_openvino_export_complete(ir_dir)
+        compress_modes = {
+            CompressionMode.INT8_SYM,
+            CompressionMode.INT8_ASYM,
+            CompressionMode.INT4_SYM,
+            CompressionMode.INT4_ASYM,
+        }
+        needs_compression = config.compression in compress_modes
+        ir_precision = "fp16" if config.compression in {CompressionMode.FP16, *compress_modes} else "fp32"
 
-        result_dir = ir_dir
-        if compression_mode is not None:
-            logger.info("Applying SAM3 OpenVINO weight compression: %s", compression_mode)
-            result_dir = SAM3.apply_weight_compression(ir_dir, output_dir, compression_mode)
-            SAM3._ensure_openvino_export_complete(result_dir)
+        if needs_compression:
+            # Write the FP16 IR to a dedicated source directory so the weight
+            # compression pass reads from and writes to distinct locations.
+            source_ir_dir = export_root / f"openvino-{config.compression.value}-fp16-source"
+            logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
+            SAM3.convert_to_openvino(onnx_dir=onnx_dir, ir_dir=source_ir_dir, precision=ir_precision)
+            SAM3._ensure_openvino_export_complete(source_ir_dir)
 
-        if validate:
-            SAM3.validate_openvino_models(result_dir, device=device, resolution=export_resolution)
+            logger.info("Applying SAM3 OpenVINO weight compression: %s", config.compression.value)
+            ir_dir = SAM3.apply_weight_compression(source_ir_dir, export_root, config.compression.value)
+            SAM3._ensure_openvino_export_complete(ir_dir)
 
-        logger.info("SAM3 OpenVINO export complete: %s", result_dir)
-        return result_dir
+            if not config.keep_intermediate:
+                shutil.rmtree(source_ir_dir, ignore_errors=True)
+        else:
+            ir_dir = export_root / f"openvino-{config.compression.value}"
+            logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
+            SAM3.convert_to_openvino(onnx_dir=onnx_dir, ir_dir=ir_dir, precision=ir_precision)
+            SAM3._ensure_openvino_export_complete(ir_dir)
+
+        if not config.keep_intermediate:
+            shutil.rmtree(onnx_dir, ignore_errors=True)
+
+        logger.info("SAM3 OpenVINO export complete: %s", ir_dir)
+        return ir_dir
+
+    @staticmethod
+    def _resolve_export_dir(export_path: str | Path | None) -> Path:
+        """Resolve *export_path* to an existing export root (temp dir when ``None``)."""
+        if export_path is None:
+            import tempfile  # noqa: PLC0415
+
+            return Path(tempfile.mkdtemp(prefix="sam3_export_"))
+        export_root = Path(export_path)
+        export_root.mkdir(parents=True, exist_ok=True)
+        return export_root
 
     @staticmethod
     def export_to_onnx(  # noqa: PLR0915
         model_id: str,
-        output_dir: Path,
+        export_root: Path,
         *,
         resolution: int = 1008,
         opset_version: int = 17,
     ) -> tuple[Path, dict[str, Path]]:
-        """Load SAM3 weights and export all sub-components to ONNX."""
+        """Load SAM3 weights and export all sub-components to ONNX.
+
+        Args:
+            model_id: HuggingFace model id or local path to load SAM3 weights.
+            export_root: Base export directory. ONNX files are written to its
+                ``onnx`` subdirectory.
+            resolution: Input image resolution used for the dummy trace inputs.
+            opset_version: ONNX opset version for the exported graphs.
+
+        Returns:
+            Tuple of ``(onnx_dir, exported)`` where ``onnx_dir`` is the
+            ``export_root/onnx`` directory and ``exported`` maps sub-model names
+            to their ONNX file paths.
+        """
         from instantlearn.scripts.sam3.onnx_wrappers import (  # noqa: PLC0415
             OnnxGeometryEncoder,
             OnnxPromptDecoder,
@@ -415,7 +488,7 @@ class SAM3(TorchModel):
         model.eval()
         logger.info("Model loaded successfully.")
 
-        onnx_dir = output_dir / "onnx"
+        onnx_dir = export_root / "onnx"
         onnx_dir.mkdir(parents=True, exist_ok=True)
         device = next(model.parameters()).device
 
@@ -576,15 +649,24 @@ class SAM3(TorchModel):
     @staticmethod
     def convert_to_openvino(
         onnx_dir: Path,
-        output_dir: Path,
+        ir_dir: Path,
         *,
         precision: str = "fp16",
     ) -> dict[str, Path]:
-        """Convert SAM3 ONNX models to OpenVINO IR and copy tokenizer files."""
+        """Convert SAM3 ONNX models to OpenVINO IR and copy tokenizer files.
+
+        Args:
+            onnx_dir: Directory containing the exported ONNX sub-models.
+            ir_dir: Destination directory for the OpenVINO IR files.
+            precision: IR weight storage precision (``"fp16"`` or ``"fp32"``).
+
+        Returns:
+            Mapping of sub-model names to their written ``.xml`` IR paths.
+        """
         import openvino as ov  # noqa: PLC0415
 
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        ir_dir = Path(ir_dir)
+        ir_dir.mkdir(parents=True, exist_ok=True)
         compress_to_fp16 = precision == "fp16"
 
         converted: dict[str, Path] = {}
@@ -598,146 +680,60 @@ class SAM3(TorchModel):
 
             logger.info("Converting %s to OpenVINO IR...", name)
             ov_model = ov.convert_model(str(onnx_path))
-            ir_path = output_dir / f"{name}.xml"
+            ir_path = ir_dir / f"{name}.xml"
             ov.save_model(ov_model, str(ir_path), compress_to_fp16=compress_to_fp16)
             converted[name] = ir_path
             logger.info("  -> %s", ir_path)
 
         for filename in _TOKENIZER_FILES:
             src = onnx_dir / filename
-            dst = output_dir / filename
+            dst = ir_dir / filename
             if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
                 logger.info("Copied tokenizer file: %s", filename)
 
-        logger.info("OpenVINO conversion complete. %d models written to %s", len(converted), output_dir)
+        logger.info("OpenVINO conversion complete. %d models written to %s", len(converted), ir_dir)
         return converted
 
     @staticmethod
-    def _ensure_openvino_export_complete(model_dir: Path) -> None:
-        """Validate that all expected SAM3 OpenVINO sub-model files exist."""
-        missing = [
-            model_dir / f"{model_name}.xml"
-            for model_name in MODEL_NAMES
-            if not (model_dir / f"{model_name}.xml").exists()
-        ]
-        if missing:
-            missing_names = ", ".join(path.name for path in missing)
-            msg = f"Incomplete SAM3 OpenVINO export in {model_dir}: missing {missing_names}"
+    def _ensure_openvino_export_complete(ir_dir: Path) -> None:
+        """Validate that all expected SAM3 OpenVINO sub-model files are usable.
+
+        A sub-model is considered incomplete if its ``.xml`` or ``.bin`` file is
+        missing or empty (0 bytes). Empty files can result from an interrupted
+        or corrupted export and would otherwise only surface later at load time.
+        """
+        incomplete: list[str] = []
+        for model_name in MODEL_NAMES:
+            xml_path = ir_dir / f"{model_name}.xml"
+            bin_path = ir_dir / f"{model_name}.bin"
+            if not xml_path.exists() or xml_path.stat().st_size == 0:
+                incomplete.append(xml_path.name)
+            elif not bin_path.exists() or bin_path.stat().st_size == 0:
+                incomplete.append(bin_path.name)
+        if incomplete:
+            incomplete_names = ", ".join(incomplete)
+            msg = f"Incomplete SAM3 OpenVINO export in {ir_dir}: missing or empty {incomplete_names}"
             raise FileNotFoundError(msg)
 
     @staticmethod
-    def validate_openvino_models(  # noqa: PLR0915
-        model_dir: Path,
-        device: str = "CPU",
-        resolution: int = 1008,
-    ) -> None:
-        """Validate exported OpenVINO models with dummy inference."""
-        import openvino as ov  # noqa: PLC0415
-
-        core = ov.Core()
-        rng = np.random.default_rng(42)
-        feat_size = resolution // 14
-
-        logger.info("Validating OpenVINO models in %s...", model_dir)
-
-        vision_xml = model_dir / "vision-encoder.xml"
-        if vision_xml.exists():
-            vision_model = core.compile_model(vision_xml, device)
-            dummy_img = rng.standard_normal((1, 3, resolution, resolution)).astype(np.float32)
-            vision_result = vision_model([dummy_img])
-            logger.info(
-                "  Vision encoder: OK - %s",
-                {key: vision_result[key].shape for key in ["fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2"]},
-            )
-        else:
-            logger.warning("  Vision encoder: MISSING (%s)", vision_xml)
-
-        text_xml = model_dir / "text-encoder.xml"
-        if text_xml.exists():
-            text_model = core.compile_model(text_xml, device)
-            dummy_ids = np.ones((1, 32), dtype=np.int64)
-            dummy_mask = np.ones((1, 32), dtype=np.int64)
-            text_result = text_model([dummy_ids, dummy_mask])
-            logger.info(
-                "  Text encoder: OK - %s",
-                {key: text_result[key].shape for key in ["text_features", "text_mask"]},
-            )
-        else:
-            logger.warning("  Text encoder: MISSING (%s)", text_xml)
-
-        geo_xml = model_dir / "geometry-encoder.xml"
-        if geo_xml.exists():
-            geo_model = core.compile_model(geo_xml, device)
-            dummy_fpn = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
-            dummy_pos = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
-            dummy_boxes = rng.random((1, 1, _BOX_COORDINATE_COLUMNS)).astype(np.float32)
-            dummy_box_labels = np.ones((1, 1), dtype=np.int64)
-            dummy_points = np.zeros((1, 1, 2), dtype=np.float32)
-            dummy_point_labels = np.full((1, 1), -10, dtype=np.int64)
-            geo_result = geo_model([
-                dummy_fpn,
-                dummy_pos,
-                dummy_boxes,
-                dummy_box_labels,
-                dummy_points,
-                dummy_point_labels,
-            ])
-            logger.info(
-                "  Geometry encoder (classic): OK - %s",
-                {key: geo_result[key].shape for key in ["geometry_features", "geometry_mask"]},
-            )
-        else:
-            logger.warning("  Geometry encoder (classic): MISSING (%s)", geo_xml)
-
-        geo_ex_xml = model_dir / "geometry-encoder-exemplar.xml"
-        if geo_ex_xml.exists():
-            geo_ex_model = core.compile_model(geo_ex_xml, device)
-            dummy_boxes_ignore = np.zeros((1, 1, _BOX_COORDINATE_COLUMNS), dtype=np.float32)
-            dummy_box_labels_ignore = np.full((1, 1), -10, dtype=np.int64)
-            dummy_pts = rng.random((1, 1, 2)).astype(np.float32)
-            dummy_pt_labels = np.ones((1, 1), dtype=np.int64)
-            geo_ex_result = geo_ex_model([
-                dummy_fpn,
-                dummy_pos,
-                dummy_boxes_ignore,
-                dummy_box_labels_ignore,
-                dummy_pts,
-                dummy_pt_labels,
-            ])
-            logger.info(
-                "  Geometry encoder (exemplar): OK - %s",
-                {key: geo_ex_result[key].shape for key in ["geometry_features", "geometry_mask"]},
-            )
-        else:
-            logger.warning("  Geometry encoder (exemplar): MISSING (%s)", geo_ex_xml)
-
-        dec_xml = model_dir / "prompt-decoder.xml"
-        if dec_xml.exists():
-            dec_model = core.compile_model(dec_xml, device)
-            dummy_f0 = rng.standard_normal((1, 256, feat_size * 4, feat_size * 4)).astype(np.float32)
-            dummy_f1 = rng.standard_normal((1, 256, feat_size * 2, feat_size * 2)).astype(np.float32)
-            dummy_f2 = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
-            dummy_p2 = rng.standard_normal((1, 256, feat_size, feat_size)).astype(np.float32)
-            dummy_prompt = rng.standard_normal((1, 32, 256)).astype(np.float32)
-            dummy_pmask = np.ones((1, 32), dtype=bool)
-            dec_result = dec_model([dummy_f0, dummy_f1, dummy_f2, dummy_p2, dummy_prompt, dummy_pmask])
-            logger.info(
-                "  Prompt decoder: OK - %s",
-                {key: dec_result[key].shape for key in ["pred_masks", "pred_boxes", "pred_logits", "presence_logits"]},
-            )
-        else:
-            logger.warning("  Prompt decoder: MISSING (%s)", dec_xml)
-
-        logger.info("Validation complete!")
-
-    @staticmethod
     def apply_weight_compression(
-        source_dir: Path,
-        output_dir: Path,
+        source_ir_dir: Path,
+        export_root: Path,
         mode: str = "int8_sym",
     ) -> Path:
-        """Apply weight compression to SAM3 OpenVINO IR models."""
+        """Apply weight compression to SAM3 OpenVINO IR models.
+
+        Args:
+            source_ir_dir: Directory containing the uncompressed (FP16) IR
+                sub-models to compress.
+            export_root: Base export directory; the compressed IR is written to
+                its ``openvino-<mode>`` subdirectory.
+            mode: Compression mode string (e.g. ``"int8_sym"``, ``"int4_sym"``).
+
+        Returns:
+            Path to the ``openvino-<mode>`` directory containing the compressed IR.
+        """
         import openvino as ov  # noqa: PLC0415
 
         from instantlearn.utils.compression import compress_model  # noqa: PLC0415
@@ -749,14 +745,14 @@ class SAM3(TorchModel):
         logger.info("Applying %s weight compression", mode.upper())
         logger.info("=" * 60)
 
-        ir_dir = output_dir / f"openvino-{mode}"
+        ir_dir = export_root / f"openvino-{mode}"
         ir_dir.mkdir(parents=True, exist_ok=True)
 
         core = ov.Core()
         logger.info("Compressing %d models", len(MODEL_NAMES))
 
         for model_name in MODEL_NAMES:
-            xml_path = source_dir / f"{model_name}.xml"
+            xml_path = source_ir_dir / f"{model_name}.xml"
             if not xml_path.exists():
                 logger.warning("Source model not found: %s", xml_path)
                 continue
@@ -778,7 +774,7 @@ class SAM3(TorchModel):
             logger.info("Saved: %s (%.1f MB)", out_xml, size_mb)
 
         for filename in _TOKENIZER_FILES:
-            src = source_dir / filename
+            src = source_ir_dir / filename
             dst = ir_dir / filename
             if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
@@ -795,7 +791,7 @@ class SAM3(TorchModel):
         return total / (1024 * 1024)
 
     @staticmethod
-    def print_comparison_table(output_dir: Path) -> None:
+    def print_comparison_table(export_root: Path) -> None:
         """Print a comparison table of all quantized variants."""
         from rich.console import Console  # noqa: PLC0415
         from rich.table import Table  # noqa: PLC0415
@@ -807,7 +803,7 @@ class SAM3(TorchModel):
         table.add_column("Model Count", justify="right")
         table.add_column("Status", style="green")
 
-        variant_dirs = sorted([*output_dir.glob("openvino-*"), *output_dir.glob("onnx-*")])
+        variant_dirs = sorted([*export_root.glob("openvino-*"), *export_root.glob("onnx-*")])
         for variant_dir in variant_dirs:
             if not variant_dir.is_dir():
                 continue
@@ -838,14 +834,7 @@ class SAM3(TorchModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static model card for SAM3 capabilities."""
-        return ModelCard(
-            name="SAM3",
-            family="sam3",
-            description="Segment Anything 3 model for text, box, point, and visual-exemplar prompting.",
-            prompt_types=frozenset({PromptType.TEXT, PromptType.MASK, PromptType.BOUNDING_BOX, PromptType.POINT}),
-            shot_modes=frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT}),
-            exportable_to=frozenset({Backend.OPENVINO}),
-        )
+        return _SAM3_CARD
 
     # Hook methods for subclass customization
 
@@ -938,7 +927,6 @@ class SAM3(TorchModel):
         processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
         return list(starmap(self._to_prediction, zip(processed_predictions, target_batch, strict=True)))
 
-
     @staticmethod
     def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
         """Return whether an optional array/tensor contains at least one value."""
@@ -947,15 +935,6 @@ class SAM3(TorchModel):
         if isinstance(value, torch.Tensor):
             return value.numel() > 0
         return value.size > 0
-
-    @staticmethod
-    def _label_ids(sample: Sample | TensorSample) -> list[int]:
-        """Return sample label IDs as plain Python integers."""
-        if sample.label_ids is None:
-            return []
-        if isinstance(sample.label_ids, torch.Tensor):
-            return [int(label_id) for label_id in sample.label_ids.detach().cpu().tolist()]
-        return [int(label_id) for label_id in sample.label_ids]
 
     @staticmethod
     def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
@@ -988,35 +967,25 @@ class SAM3(TorchModel):
         Returns:
             Backend-neutral prediction with numpy arrays.
         """
-        boxes = prediction.get("pred_boxes")
-        boxes_coordinates = boxes[:, :_BOX_COORDINATE_COLUMNS] if boxes is not None else None
-        return tensors_to_prediction(
-            masks=prediction["pred_masks"],
-            scores=prediction["pred_scores"],
-            label_ids=prediction["pred_labels"],
-            categories=self._prediction_categories(sample, prediction["pred_labels"]),
-            boxes=boxes_coordinates,
-        )
+        return dict_to_prediction(prediction, self._categories_for(sample))
 
-    def _prediction_categories(self, sample: TensorSample, label_ids: torch.Tensor) -> list[str]:
-        """Build category names aligned with integer prediction labels.
+    def _categories_for(self, sample: TensorSample) -> CategoryRegistry:
+        """Merge fitted categories with this sample's per-instance category metadata.
+
+        Fitted categories (from ``fit()``) provide the base id->name map; any
+        category names carried on the target sample override them for overlapping
+        ids, mirroring the previous per-call behaviour.
 
         Args:
-            sample: Torch-native sample containing per-instance category metadata.
-            label_ids: Predicted category ids.
+            sample: Torch-native target sample.
 
         Returns:
-            Category names indexed by category id for ``tensors_to_prediction``.
+            A :class:`CategoryRegistry` used as the ``categories`` mapping.
         """
-        id_to_label: dict[int, str] = {}
-        if self.category_mapping is not None:
-            id_to_label.update({category_id: label for label, category_id in self.category_mapping.items()})
-        id_to_label.update(dict(zip(self._label_ids(sample), sample.category_labels or [], strict=False)))
-
-        if label_ids.numel() == 0 and not id_to_label:
-            return []
-        max_id = max([int(label_id) for label_id in label_ids.detach().cpu().tolist()] + list(id_to_label.keys()) + [0])
-        return [id_to_label.get(category_id, str(category_id)) for category_id in range(max_id + 1)]
+        id_to_name: dict[int, str] = dict(self.categories.id_to_name) if self.categories is not None else {}
+        id_to_name.update(dict(zip(label_ids_as_ints(sample), sample.category_labels or [], strict=False)))
+        name_to_id = {name: cat_id for cat_id, name in id_to_name.items()}
+        return CategoryRegistry(id_to_name=id_to_name, name_to_id=name_to_id)
 
     def _fit_classic(self, reference_batch: list[TensorSample]) -> None:
         """Store category mapping from reference batch.
@@ -1024,7 +993,7 @@ class SAM3(TorchModel):
         Args:
             reference_batch: Batch of reference samples.
         """
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
     def _fit_visual_exemplar(self, reference_batch: list[TensorSample]) -> None:
         """Encode visual exemplar features from reference images and boxes/points.
@@ -1063,7 +1032,7 @@ class SAM3(TorchModel):
         self.exemplar_geometry_mask = geometry_masks
         self.exemplar_category_ids = category_ids
         self.exemplar_text_features, self.exemplar_text_mask = self._cache_text_features(text_prompts)
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
         # Log shot counts per category
         shot_info = {
@@ -1143,7 +1112,7 @@ class SAM3(TorchModel):
         # Build aligned metadata lists
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
         categories = sample.category_labels or ["visual"] * num_prompts
-        category_ids = self._label_ids(sample) or [0] * num_prompts
+        category_ids = label_ids_as_ints(sample) or [0] * num_prompts
 
         # Convert prompts to point coords grouped by category
         category_coords: dict[int, list[torch.Tensor]] = defaultdict(list)
@@ -1254,7 +1223,7 @@ class SAM3(TorchModel):
         results = []
 
         # Use stored categories from fit() if available, otherwise use per-sample
-        use_fitted_categories = self.category_mapping is not None
+        use_fitted_categories = self.categories is not None
 
         # Process each image's prompts individually
         for sample in target:
@@ -1270,11 +1239,11 @@ class SAM3(TorchModel):
 
             # Determine text prompts and category IDs
             if use_fitted_categories:
-                texts = list(self.category_mapping.keys())
-                category_ids = list(self.category_mapping.values())
+                texts = list(self.categories.name_to_id.keys())
+                category_ids = list(self.categories.name_to_id.values())
             else:
                 texts = sample.category_labels or []
-                category_ids = self._label_ids(sample)
+                category_ids = label_ids_as_ints(sample)
                 # Use "visual" placeholder when only bboxes/points are provided
                 num_visual_prompts = max(len(bboxes), len(points))
                 if num_visual_prompts and len(texts) != num_visual_prompts:
@@ -1424,7 +1393,7 @@ class SAM3(TorchModel):
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}  # Clear stale cache from previous fit()
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
         # Pre-cache text features (T4 optimization)
         for cat_refs in refs_by_category.values():
@@ -2004,27 +1973,6 @@ class SAM3(TorchModel):
     ) -> dict[str, torch.Tensor]:
         """Extract predictions from the target region and remap to original coords."""
         return extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
-
-    @staticmethod
-    def _build_category_mapping(reference_batch: Batch | list[TensorSample]) -> dict[str, int]:
-        """Build category name → id mapping from reference samples.
-
-        Args:
-            reference_batch: Batch of reference samples.
-
-        Returns:
-            Mapping from category name to category id.
-        """
-        mapping: dict[str, int] = {}
-        samples = reference_batch.samples if isinstance(reference_batch, Batch) else reference_batch
-        for sample in samples:
-            if not sample.category_labels:
-                continue
-            category_ids = SAM3._label_ids(sample)
-            for category_id, category in zip(category_ids, sample.category_labels, strict=False):
-                if category not in mapping:
-                    mapping[category] = category_id
-        return mapping
 
     @staticmethod
     def _aggregate_results(

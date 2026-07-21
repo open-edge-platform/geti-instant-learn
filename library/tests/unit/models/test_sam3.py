@@ -7,6 +7,7 @@ These tests mock the underlying Sam3Model, tokenizer, and preprocessors
 to validate SAM3 logic without loading real weights.
 """
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -18,7 +19,10 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
+from instantlearn.models.torch_base import ExportConfig
 from instantlearn.utils import Backend, PromptType, ShotMode
+from instantlearn.utils.constants import CompressionMode
 
 
 def _make_mock_model() -> MagicMock:
@@ -153,7 +157,7 @@ class TestSAM3Initialization:
             PromptType.POINT,
         })
         assert card.shot_modes == frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT})
-        assert card.exportable_to == frozenset({Backend.OPENVINO})
+        assert card.exportable_to == frozenset({Backend.OPENVINO, Backend.ONNX})
 
     @pytest.mark.parametrize(
         ("device", "expected_precision", "expected_dtype"),
@@ -257,8 +261,8 @@ class TestSAM3Classic:
         ref = Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")])
         model.fit(ref)
 
-        assert model.category_mapping is not None
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.categories is not None
+        assert model.categories.name_to_id == {"shoe": 0, "bag": 1}
 
     def test_fit_multiple_samples(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() merges categories across samples."""
@@ -270,7 +274,7 @@ class TestSAM3Classic:
         ]
         model.fit(refs)
 
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.categories.name_to_id == {"shoe": 0, "bag": 1}
 
     def test_predict_returns_correct_structure(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() in classic mode returns expected keys and shapes."""
@@ -418,8 +422,8 @@ class TestSAM3VisualExemplar:
         )
         model.fit(ref)
 
-        assert model.category_mapping is not None
-        assert "shoe" in model.category_mapping
+        assert model.categories is not None
+        assert "shoe" in model.categories.name_to_id
 
     def test_fit_multi_category(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() with multiple categories across samples."""
@@ -504,26 +508,26 @@ class TestSAM3Utilities:
     """Test SAM3 static utility methods."""
 
     def test_build_category_mapping(self) -> None:
-        """Test _build_category_mapping builds correct mapping."""
+        """Test CategoryRegistry builds correct name->id mapping."""
         samples = [
             Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")]),
             Sample(categories=[Category(id=2, label="hat")]),
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
 
         assert mapping == {"shoe": 0, "bag": 1, "hat": 2}
 
     def test_build_category_mapping_no_duplicates(self) -> None:
-        """Test _build_category_mapping keeps first occurrence."""
+        """Test CategoryRegistry keeps first occurrence."""
         samples = [
             Sample(categories=[Category(id=0, label="shoe")]),
             Sample(categories=[Category(id=5, label="shoe")]),
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
 
         assert mapping == {"shoe": 0}
 

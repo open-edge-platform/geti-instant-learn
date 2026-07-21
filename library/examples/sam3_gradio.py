@@ -112,7 +112,7 @@ def run_visual_exemplar(
     """
     model.prompt_mode = Sam3PromptMode.VISUAL_EXEMPLAR
     model.drop_spatial_bias = drop_spatial_bias
-    model.postprocessor.threshold = det_threshold
+    model.sam3_postprocessor.threshold = det_threshold
 
     ref_samples = [_build_sample_from_shot(shot) for shot in shots]
 
@@ -159,7 +159,7 @@ def run_text_prompt(
         (result_image, info_text)
     """
     model.prompt_mode = Sam3PromptMode.CLASSIC
-    model.postprocessor.threshold = det_threshold
+    model.sam3_postprocessor.threshold = det_threshold
 
     labels = [c.strip() for c in text_prompt.split(",") if c.strip()]
     if not labels:
