@@ -3,6 +3,7 @@
 
 """Tests for MaskedFeatureExtractor class."""
 
+import numpy as np
 import pytest
 import torch
 
@@ -370,3 +371,116 @@ class TestMaskedFeatureExtractor:
         pytest.assume(ref_features.category_ids == [1])
         pytest.assume(ref_features.masked_ref_embeddings.shape == (1, 1, embedding_dim))
         pytest.assume(ref_features.flatten_ref_masks.shape == (1, total_patches))
+
+    def test_forward_numpy_uint8_mask_binarized(self) -> None:
+        """Numpy ``uint8`` masks (the real ``Batch.masks``/``Sample.mask`` contract) stay binary.
+
+        ``read_mask`` yields ``uint8`` masks with foreground value ``1``. Passing them through
+        the extractor's ``ToTensor`` rescales by 1/255 (torchvision behaviour), so foreground
+        becomes ~0.0039 instead of 1.0. Without the ``> 0`` binarization the pooled reference
+        mask is non-binary and the downstream export-prompt threshold (``> 0.5``) sees no
+        foreground, collapsing prompts to a degenerate grid (the "sky" bug).
+        """
+        extractor = MaskedFeatureExtractor(
+            input_size=224,
+            patch_size=14,
+            device="cpu",
+        )
+
+        batch_size = 1
+        patches_per_dim = 16
+        total_patches = patches_per_dim * patches_per_dim
+        embedding_dim = 768
+        mask_height, mask_width = 224, 224
+
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+        # Mirror Batch.masks: a list of (N, H, W) uint8 arrays with foreground value 1.
+        np_mask = np.zeros((1, mask_height, mask_width), dtype=np.uint8)
+        np_mask[0, 50:100, 50:100] = 1
+        masks = [np_mask]
+        category_ids = torch.tensor([[1]], dtype=torch.long)
+
+        ref_features = extractor(embeddings, masks, category_ids)
+
+        fg = ref_features.flatten_ref_masks[0]
+        # Strictly binary regardless of the 1/255 ToTensor rescale.
+        pytest.assume(bool(torch.all((fg == 0) | (fg == 1))))
+        # Regression: foreground survives (pre-fix ~0.0039 values would be lost).
+        pytest.assume(fg.sum() > 0)
+        # Downstream export-prompt threshold selects exactly the foreground patches.
+        pytest.assume(torch.equal(fg > 0.5, fg.bool()))
+
+    @pytest.mark.parametrize("as_numpy", [False, True])
+    def test_forward_numpy_and_torch_masks_equivalent(self, *, as_numpy: bool) -> None:
+        """A torch ``bool`` mask and a numpy ``uint8`` mask for the same region agree.
+
+        Guards against the source dtype (torch vs numpy ``Sample.mask``) changing the
+        binarized reference mask or the set of selected masked patches.
+        """
+        extractor = MaskedFeatureExtractor(
+            input_size=224,
+            patch_size=14,
+            device="cpu",
+        )
+
+        batch_size = 1
+        patches_per_dim = 16
+        total_patches = patches_per_dim * patches_per_dim
+        embedding_dim = 768
+        mask_height, mask_width = 224, 224
+
+        torch.manual_seed(0)
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+
+        def run(*, numpy_mask: bool) -> ReferenceFeatures:
+            if numpy_mask:
+                np_mask = np.zeros((1, mask_height, mask_width), dtype=np.uint8)
+                np_mask[0, 50:100, 50:100] = 1
+                masks: list[np.ndarray] | torch.Tensor = [np_mask]
+            else:
+                masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+                masks[0, 0, 50:100, 50:100] = True
+            category_ids = torch.tensor([[1]], dtype=torch.long)
+            return extractor(embeddings, masks, category_ids)
+
+        result = run(numpy_mask=as_numpy)
+        reference = run(numpy_mask=False)
+
+        # Both sources must yield the identical binarized reference mask.
+        pytest.assume(torch.equal(result.flatten_ref_masks, reference.flatten_ref_masks))
+        pytest.assume(bool(torch.all((result.flatten_ref_masks == 0) | (result.flatten_ref_masks == 1))))
+
+    def test_forward_mask_smaller_than_input_size_stays_binary(self) -> None:
+        """A mask at the original (non-``input_size``) resolution stays strictly binary.
+
+        Reference masks arrive at the source image resolution and are resized to ``input_size``
+        inside the extractor. Nearest-neighbour resizing keeps the mask ``{0, 1}``; bilinear
+        (the torchvision default) would blend edges into fractional values that the min-pool
+        propagates, producing a non-binary reference mask and breaking ``> 0.5`` thresholding.
+        """
+        extractor = MaskedFeatureExtractor(
+            input_size=224,
+            patch_size=14,
+            device="cpu",
+        )
+
+        batch_size = 1
+        patches_per_dim = 16
+        total_patches = patches_per_dim * patches_per_dim
+        embedding_dim = 768
+
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+        # Odd, non-square resolution unrelated to input_size forces a real resize.
+        mask_height, mask_width = 375, 500
+        np_mask = np.zeros((1, mask_height, mask_width), dtype=np.uint8)
+        np_mask[0, 80:300, 120:400] = 1
+        masks = [np_mask]
+        category_ids = torch.tensor([[1]], dtype=torch.long)
+
+        ref_features = extractor(embeddings, masks, category_ids)
+
+        fg = ref_features.flatten_ref_masks[0]
+        pytest.assume(bool(torch.all((fg == 0) | (fg == 1))))
+        pytest.assume(fg.sum() > 0)
+        pytest.assume(torch.equal(fg > 0.5, fg.bool()))
+
