@@ -441,18 +441,13 @@ class BidirectionalPromptGenerator(nn.Module):
         mask_count = mask_float.sum().clamp(min=1.0)
         avg_similarity = masked_sim_positive.sum(dim=0) / mask_count
 
-        # Foreground: top-K highest max-similarity targets (single topk)
-        fg_k = torch.minimum(
-            torch.tensor(self.num_foreground_points, device=device),
-            torch.tensor(num_target, device=device),
-        )
+        # Foreground: top-K highest max-similarity targets (single topk). ``k`` must
+        # be a Python int for torch.topk / ONNX TopK; clamp to the available targets.
+        fg_k = min(self.num_foreground_points, num_target)
         fg_scores, fg_indices = torch.topk(max_sim_per_target, fg_k, largest=True)
 
         # Background: top-K lowest avg-similarity targets (single topk)
-        bg_k = torch.minimum(
-            torch.tensor(self.num_background_points, device=device),
-            torch.tensor(num_target, device=device),
-        )
+        bg_k = min(self.num_background_points, num_target)
         bg_scores, bg_indices = torch.topk(avg_similarity, bg_k, largest=False)
 
         # Convert foreground target indices to image coordinates

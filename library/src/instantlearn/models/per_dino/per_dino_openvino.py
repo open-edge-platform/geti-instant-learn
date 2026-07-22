@@ -1,18 +1,18 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Matcher OpenVINO inference model.
+"""PerDino OpenVINO inference model.
 
-``MatcherOpenVINO`` runs the baked Matcher IR (``model.xml``) produced by
-:meth:`~instantlearn.models.matcher.matcher.Matcher.to_openvino`. The reference
+``PerDinoOpenVINO`` runs the baked PerDino IR (``model.xml``) produced by
+:meth:`~instantlearn.models.per_dino.per_dino.PerDino.to_openvino`. The reference
 features and post-processing are baked into the graph at export time, so this
 class is a thin loader: it takes the IR directory, runs the single
 ``target_image -> (masks, scores, labels)`` graph, and returns
 :class:`~instantlearn.data.base.prediction.Prediction` objects.
 
 Because the references are baked in, ``fit()`` is **not** supported here — call
-``Matcher.fit(...)`` before ``Matcher.to_openvino(...)`` to choose the
-references, then load the resulting directory with ``MatcherOpenVINO``.
+``PerDino.fit(...)`` before ``PerDino.to_openvino(...)`` to choose the
+references, then load the resulting directory with ``PerDinoOpenVINO``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import arrays_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
-from ._card import _MATCHER_CARD
+from ._card import _PERDINO_CARD
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,21 +44,20 @@ logger = logging.getLogger(__name__)
 _INPUT = "target_image"
 
 
-class MatcherOpenVINO(OpenVINOModel):
-    """Matcher model running the baked OpenVINO IR for inference.
+class PerDinoOpenVINO(OpenVINOModel):
+    """PerDino model running the baked OpenVINO IR for inference.
 
     Examples:
-        >>> from instantlearn.models.matcher import Matcher, MatcherOpenVINO
-        >>> from instantlearn.data.base.sample import Category, Sample
-        >>> import numpy as np
+        >>> from instantlearn.models.per_dino import PerDino, PerDinoOpenVINO
+        >>> from instantlearn.data.base.sample import Sample
 
-        >>> # 1. Fit references and export the baked IR with a torch Matcher.
-        >>> matcher = Matcher(device="cpu")
-        >>> matcher.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
-        >>> ir_dir = matcher.to_openvino("./matcher-ov")
+        >>> # 1. Fit references and export the baked IR with a torch PerDino.
+        >>> perdino = PerDino(device="cpu")
+        >>> perdino.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
+        >>> ir_dir = perdino.to_openvino("./perdino-ov")
 
         >>> # 2. Load and run the baked IR (no fit needed).
-        >>> ov_model = MatcherOpenVINO(model_dir=ir_dir, device="CPU")
+        >>> ov_model = PerDinoOpenVINO(model_dir=ir_dir, device="CPU")
         >>> predictions = ov_model.predict(Sample(image_path="target.jpg"))
     """
 
@@ -67,11 +66,11 @@ class MatcherOpenVINO(OpenVINOModel):
         model_dir: str | Path,
         device: str = "CPU",
     ) -> None:
-        """Load the Matcher IR from *model_dir*.
+        """Load the PerDino IR from *model_dir*.
 
         Args:
             model_dir: Directory containing ``model.xml`` / ``model.bin`` and
-                ``metadata.json`` (produced by ``Matcher.to_openvino``). May be a
+                ``metadata.json`` (produced by ``PerDino.to_openvino``). May be a
                 local path or a remote URI (``file://``, ``hf://``, ``s3://``).
             device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``). PyTorch-style
                 names (``"cuda"``, ``"cpu"``) are also accepted.
@@ -83,7 +82,7 @@ class MatcherOpenVINO(OpenVINOModel):
 
         metadata_path = self.model_dir / "metadata.json"
         if not metadata_path.exists():
-            msg = f"metadata.json not found in {self.model_dir}. Export with Matcher.to_openvino()."
+            msg = f"metadata.json not found in {self.model_dir}. Export with PerDino.to_openvino()."
             raise FileNotFoundError(msg)
         metadata = json.loads(metadata_path.read_text())
         self.input_size: int = metadata["input_size"]
@@ -96,26 +95,26 @@ class MatcherOpenVINO(OpenVINOModel):
             msg = f"Required IR file not found: {ir_path}"
             raise FileNotFoundError(msg)
 
-        logger.info("Loading Matcher OpenVINO model from %s on %s...", self.model_dir, self.device)
+        logger.info("Loading PerDino OpenVINO model from %s on %s...", self.model_dir, self.device)
         self._model = self._core.compile_model(str(ir_path), self.device)
         self._request = self._model.create_infer_request()
 
     @classmethod
     def card(cls) -> ModelCard:
-        """Return the static capability descriptor for Matcher."""
-        return _MATCHER_CARD
+        """Return the static capability descriptor for PerDino."""
+        return _PERDINO_CARD
 
     def fit(self, reference: Collatable) -> None:
         """Not supported: references are baked into the IR at export time.
 
         Raises:
-            NotImplementedError: Always. Fit the torch ``Matcher`` and re-export
-                with :meth:`~instantlearn.models.matcher.matcher.Matcher.to_openvino`
+            NotImplementedError: Always. Fit the torch ``PerDino`` and re-export
+                with :meth:`~instantlearn.models.per_dino.per_dino.PerDino.to_openvino`
                 to change the references.
         """
         msg = (
-            "MatcherOpenVINO does not support fit(): reference features are baked into the IR "
-            "at export time. Call Matcher.fit(...) then Matcher.to_openvino(...) to (re)build the IR."
+            "PerDinoOpenVINO does not support fit(): reference features are baked into the IR "
+            "at export time. Call PerDino.fit(...) then PerDino.to_openvino(...) to (re)build the IR."
         )
         raise NotImplementedError(msg)
 
@@ -154,7 +153,7 @@ class MatcherOpenVINO(OpenVINOModel):
         """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
         image = sample.image
         if image is None:
-            msg = "MatcherOpenVINO.predict() requires each sample to have an image."
+            msg = "PerDinoOpenVINO.predict() requires each sample to have an image."
             raise ValueError(msg)
         return image
 

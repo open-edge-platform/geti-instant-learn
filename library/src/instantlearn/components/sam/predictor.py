@@ -491,6 +491,21 @@ class SAMPredictor(nn.Module):
 
         mask_decoder.predict_masks = MethodType(_predict_masks_xpu_safe, mask_decoder)
 
+    @property
+    def dtype(self) -> torch.dtype:
+        """Weight dtype of the wrapped SAM model (e.g. ``torch.bfloat16``).
+
+        The SAM model is held on ``self._predictor.model`` rather than as a
+        registered submodule, so ``SAMPredictor.parameters()`` is empty; read the
+        dtype from the wrapped model directly. Falls back to ``float32`` when the
+        model exposes no parameters.
+        """
+        if hasattr(self, "_predictor") and hasattr(self._predictor, "model"):
+            param = next(self._predictor.model.parameters(), None)
+            if param is not None:
+                return param.dtype
+        return torch.float32
+
     def sync_device(self, device: str | torch.device, dtype: torch.dtype | None = None) -> None:
         """Synchronize predictor runtime and wrapped model to a target device and optional dtype."""
         target_device = torch.device(device)

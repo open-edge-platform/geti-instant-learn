@@ -11,12 +11,10 @@ through :func:`instantlearn.models.torch_adapter.sample_to_tensors`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
-from instantlearn.data.utils.image import read_image
+import numpy as np
 
-if TYPE_CHECKING:
-    import numpy as np
+from instantlearn.data.utils.image import read_image, read_mask
 
 
 @dataclass(frozen=True)
@@ -56,11 +54,18 @@ class Sample:
         categories: List of :class:`Category` (id + label) objects.
         is_reference: Per-instance flags marking reference (support) instances.
         n_shot: Per-instance shot index for n-shot references.
-        mask_paths: Optional per-instance source mask file paths.
+        mask_paths: Optional per-instance source mask file paths. Accepts a
+            single path string or a list of path strings; normalized to a list
+            automatically.
 
     Example:
         >>> sample = Sample(image=image, masks=masks, categories=[Category(0, "cat")])
         >>> sample = Sample(image_path="image.jpg")
+        >>> sample = Sample(
+        ...     image_path="image.jpg",
+        ...     mask_paths="mask.png",
+        ...     categories=[Category(0, "cat")],
+        ... )
         >>> sample = Sample(
         ...     image_path="image.jpg",
         ...     masks=masks,
@@ -80,12 +85,26 @@ class Sample:
 
     is_reference: list[bool] | None = field(default_factory=lambda: [False])
     n_shot: list[int] | None = field(default_factory=lambda: [-1])
-    mask_paths: list[str] | None = None
+    mask_paths: str | list[str] | None = None
 
     def __post_init__(self) -> None:
-        """Auto-load the image from ``image_path`` when ``image`` is unset."""
+        """Auto-load image and masks from paths when the array fields are unset.
+
+        * ``mask_paths`` is normalized from ``str`` to ``list[str]`` silently.
+        * ``image`` is loaded from ``image_path`` when ``image`` is ``None``.
+        * ``masks`` is loaded from ``mask_paths`` when ``masks`` is ``None``,
+          producing an ``(N, H, W)`` uint8 array stacked from the per-path HW
+          arrays returned by :func:`~instantlearn.data.utils.image.read_mask`.
+        """
+        # Normalize mask_paths: str -> list[str]
+        if isinstance(self.mask_paths, str):
+            self.mask_paths = [self.mask_paths]
+
         if self.image is None and self.image_path is not None:
             self.image = read_image(self.image_path)
+
+        if self.masks is None and self.mask_paths is not None:
+            self.masks = np.stack([read_mask(p) for p in self.mask_paths], axis=0)  # (N, H, W)
 
     @property
     def category_labels(self) -> list[str]:

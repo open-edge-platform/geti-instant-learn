@@ -43,7 +43,11 @@ class MaskedFeatureExtractor(nn.Module):
             ToTensor(),
             transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
             transforms.Lambda(lambda x: x.float()),
-            transforms.Resize([input_size, input_size]),
+            # Nearest-neighbour keeps a 0/1 mask strictly binary through the resize.
+            # Bilinear (the torchvision default) would blend mask edges into fractional
+            # values that the min-pool below then propagates, yielding a non-binary
+            # reference mask that breaks downstream ``> 0.5`` thresholding.
+            transforms.Resize([input_size, input_size], interpolation=transforms.InterpolationMode.NEAREST),
             transforms.Lambda(lambda x: (x * -1) + 1),
             torch.nn.MaxPool2d(kernel_size=(patch_size, patch_size)),
             transforms.Lambda(lambda x: (x * -1) + 1),
@@ -89,13 +93,20 @@ class MaskedFeatureExtractor(nn.Module):
             per_image_cat_masks: dict[int, torch.Tensor] = {}
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 cat_id = int(category_id.item()) if isinstance(category_id, torch.Tensor) else category_id
+                # Normalize each mask to a strict boolean tensor at the numpy/torch boundary.
+                # Reference masks arrive as torch-free numpy ``Sample.mask`` (uint8) arrays; converting
+                # here (a) avoids torchvision ``ToTensor`` rescaling numpy uint8 by 1/255 in the transform
+                # pipeline, and (b) lets the same-category merge run on tensors regardless of source dtype.
+                mask_bool = torch.as_tensor(mask).bool()
                 if cat_id in per_image_cat_masks:
-                    per_image_cat_masks[cat_id] = torch.maximum(per_image_cat_masks[cat_id], mask)
+                    per_image_cat_masks[cat_id] = torch.logical_or(per_image_cat_masks[cat_id], mask_bool)
                 else:
-                    per_image_cat_masks[cat_id] = mask
+                    per_image_cat_masks[cat_id] = mask_bool
 
             for cat_id, merged_mask in per_image_cat_masks.items():
-                pooled_mask = self.transform(merged_mask).to(embedding.device)
+                # The mask is already a strict boolean tensor and the transform preserves binarity
+                # (nearest-neighbour resize + min-pool), so the pooled mask is binary by construction.
+                pooled_mask = self.transform(merged_mask).to(embedding.device).to(embedding.dtype)
                 masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings

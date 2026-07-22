@@ -123,9 +123,9 @@ class TestPostProcessingOpenVINO:
         exported_dir = matcher.to_openvino(tmp_path)
 
         assert exported_dir.is_dir()
-        ir_path = exported_dir / "matcher.xml"
+        ir_path = exported_dir / "model.xml"
         assert ir_path.exists()
-        assert (exported_dir / "matcher.bin").exists()
+        assert (exported_dir / "model.bin").exists()
 
         # Run OpenVINO inference
         target_image = read_image(target_image_path)
@@ -198,7 +198,7 @@ class TestPostProcessingOpenVINO:
         exported_dir = matcher.to_openvino(tmp_path)
 
         assert exported_dir.is_dir()
-        ir_path = exported_dir / "matcher.xml"
+        ir_path = exported_dir / "model.xml"
         assert ir_path.exists()
 
         # Run OpenVINO inference
@@ -265,7 +265,7 @@ class TestPostProcessingOpenVINO:
         no_pp_dir = matcher_no_pp.to_openvino(tmp_path / "no_pp")
 
         core = openvino.Core()
-        compiled_no_pp = core.compile_model(core.read_model(str(no_pp_dir / "matcher.xml")), "CPU")
+        compiled_no_pp = core.compile_model(core.read_model(str(no_pp_dir / "model.xml")), "CPU")
         input_data = target_image.numpy()[None, ...].astype(np.float32)
         input_data = _resize_for_ov(input_data, compiled_no_pp)
         out_no_pp = compiled_no_pp(input_data)
@@ -283,7 +283,7 @@ class TestPostProcessingOpenVINO:
 
         with_pp_dir = matcher_with_pp.to_openvino(tmp_path / "with_pp")
 
-        compiled_with_pp = core.compile_model(core.read_model(str(with_pp_dir / "matcher.xml")), "CPU")
+        compiled_with_pp = core.compile_model(core.read_model(str(with_pp_dir / "model.xml")), "CPU")
         out_with_pp = compiled_with_pp(input_data)
         masks_with_pp = out_with_pp[compiled_with_pp.output(0)]  # reuses resized input_data from above
 
@@ -325,7 +325,7 @@ class TestPostProcessingOpenVINO:
         exported_dir = matcher.to_openvino(tmp_path)
 
         assert exported_dir.is_dir()
-        ir_path = exported_dir / "matcher.xml"
+        ir_path = exported_dir / "model.xml"
         assert ir_path.exists()
 
         # Run OpenVINO inference
