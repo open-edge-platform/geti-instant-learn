@@ -8,7 +8,7 @@ permissions: {} # No permissions by default on workflow level
 jobs:
   collect-packages-names:
     name: Generate SBOM with Syft
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
@@ -96,7 +96,7 @@ jobs:
           retention-days: 5
 
   get-unique-names:
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     needs:
       - collect-packages-names
     outputs:
@@ -135,7 +135,7 @@ jobs:
           echo "unique_package_names_oneline=$(cat unique_package_names_oneline.txt)" >> $GITHUB_OUTPUT
 
   collect-source-code:
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     needs: get-unique-names
     container:
       image: debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
