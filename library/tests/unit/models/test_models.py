@@ -12,6 +12,7 @@ import torch
 from torchvision.tv_tensors import Image
 
 from instantlearn.data.base.prediction import Prediction
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
@@ -235,29 +236,14 @@ class TestSoftMatcher:
 
 
 class TestGroundedSAM:
-    """Test GroundedSAM model.
+    """Test GroundedSAM model."""
 
-    GroundedSAM has not yet been migrated to the backend-agnostic ``Model`` ABC
-    (it still lacks the abstract ``card`` / ``backend`` implementations), so it
-    cannot be instantiated. These tests are marked ``xfail`` until GroundedSAM is
-    migrated in a follow-up.
-    """
-
-    @pytest.fixture
-    def mock_components(self) -> dict[str, Any]:
-        """Create mock components for GroundedSAM."""
-        return {
-            "sam_predictor": MagicMock(),
-            "prompt_generator": MagicMock(),
-            "segmenter": MagicMock(),
-            "multi_instance_prior_filter": MagicMock(),
-        }
-
-    @pytest.mark.xfail(reason="GroundedSAM not yet migrated to the Model ABC (missing card/backend)", strict=False)
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_grounded_sam_initialization(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
+    def test_grounded_sam_initialization(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
         """Test GroundedSAM initialization with new components."""
-        mock_load_sam.return_value = mock_components["sam_predictor"]
+        mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
 
         model = GroundedSAM(device="cpu")
 
@@ -266,31 +252,59 @@ class TestGroundedSAM:
         assert hasattr(model, "segmenter")
         assert hasattr(model, "prompt_filter")
 
-    @pytest.mark.xfail(reason="GroundedSAM not yet migrated to the Model ABC (missing card/backend)", strict=False)
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
     @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
-    def test_grounded_sam_forward_pass(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
-        """Test GroundedSAM forward pass with new architecture."""
-        mock_load_sam.return_value = mock_components["sam_predictor"]
-
+    def test_predict_returns_predictions(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
+        """predict() converts segmenter dicts to Prediction using target categories."""
+        mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
         model = GroundedSAM(device="cpu")
-
-        model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
+        model.postprocessor = None
+        model.prompt_generator = MagicMock(
+            spec=torch.nn.Module,
+            return_value=(torch.zeros(1, 1, 1, 5), torch.tensor([7])),
+        )
+        model.prompt_filter = MagicMock(spec=torch.nn.Module, side_effect=lambda box_prompts: box_prompts)
+        model.segmenter = MagicMock(
+            spec=torch.nn.Module,
             return_value=[
                 {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                    "pred_masks": torch.ones(1, 4, 4),
+                    "pred_labels": torch.tensor([7]),
+                    "pred_scores": torch.tensor([0.9]),
                 },
             ],
         )
 
-        target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-        predictions = model.predict(target_images)
+        sample = Sample(image=np.zeros((4, 4, 3), dtype=np.uint8), categories=[Category(7, "cat")])
+        predictions = model.predict(sample)
 
-        assert isinstance(predictions, list)
         assert len(predictions) == 1
-        assert isinstance(predictions[0], dict)
-        assert "pred_masks" in predictions[0]
-        model.predict.assert_called_once_with(target_images)
+        assert isinstance(predictions[0], Prediction)
+        assert predictions[0].label_ids.tolist() == [7]
+        assert predictions[0].label_names.tolist() == ["cat"]
+        assert predictions[0].masks.shape == (1, 4, 4)
+
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
+    @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
+    def test_predict_raises_without_categories(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
+        """predict() raises when neither fit() nor the target provide categories."""
+        mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
+        model = GroundedSAM(device="cpu")
+        sample = Sample(image=np.zeros((4, 4, 3), dtype=np.uint8), categories=[])
+
+        with pytest.raises(ValueError, match="requires categories"):
+            model.predict(sample)
+
+    @patch("instantlearn.models.grounded_sam.grounded.TextToBoxPromptGenerator._load_grounding_model_and_processor")
+    @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
+    def test_predict_raises_without_image(self, mock_load_sam: MagicMock, mock_grounding: MagicMock) -> None:
+        """predict() raises when a target sample has no image."""
+        mock_load_sam.return_value = MagicMock()
+        mock_grounding.return_value = (MagicMock(), MagicMock())
+        model = GroundedSAM(device="cpu")
+        sample = Sample(image=None, categories=[Category(7, "cat")])
+
+        with pytest.raises(ValueError, match="each sample to contain an image"):
+            model.predict(sample)
