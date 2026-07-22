@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import starmap, zip_longest
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import numpy as np
 import torch
@@ -48,11 +48,8 @@ from .model import Sam3Model
 from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
-
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    from .sam3_openvino import SAM3OpenVINO
 
 SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
 
@@ -140,10 +137,7 @@ class CanvasConfig:
             "grouped",
             "spaced",
         }:
-            msg = (
-                "share_vision must be a bool or one of "
-                f'{{"auto", "grouped", "spaced"}}, got {self.share_vision!r}'
-            )
+            msg = f'share_vision must be a bool or one of {{"auto", "grouped", "spaced"}}, got {self.share_vision!r}'
             raise ValueError(msg)
 
 
@@ -553,9 +547,12 @@ class SAM3(TorchModel):
             opset_version=opset_version,
             dynamo=False,
             input_names=[
-                "fpn_feat_2", "fpn_pos_2",
-                "input_boxes", "input_boxes_labels",
-                "input_points", "input_points_labels",
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "input_boxes",
+                "input_boxes_labels",
+                "input_points",
+                "input_points_labels",
             ],
             output_names=["geometry_features", "geometry_mask"],
             dynamic_axes={
@@ -591,9 +588,12 @@ class SAM3(TorchModel):
             opset_version=opset_version,
             dynamo=False,
             input_names=[
-                "fpn_feat_2", "fpn_pos_2",
-                "input_boxes", "input_boxes_labels",
-                "input_points", "input_points_labels",
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "input_boxes",
+                "input_boxes_labels",
+                "input_points",
+                "input_points_labels",
             ],
             output_names=["geometry_features", "geometry_mask"],
             dynamic_axes={
@@ -626,8 +626,12 @@ class SAM3(TorchModel):
             opset_version=opset_version,
             dynamo=False,
             input_names=[
-                "fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2",
-                "prompt_features", "prompt_mask",
+                "fpn_feat_0",
+                "fpn_feat_1",
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "prompt_features",
+                "prompt_mask",
             ],
             output_names=["pred_masks", "pred_boxes", "pred_logits", "presence_logits"],
             dynamic_axes={
@@ -702,6 +706,12 @@ class SAM3(TorchModel):
         A sub-model is considered incomplete if its ``.xml`` or ``.bin`` file is
         missing or empty (0 bytes). Empty files can result from an interrupted
         or corrupted export and would otherwise only surface later at load time.
+
+        Args:
+            ir_dir (Path): The directory containing the exported OpenVINO IR files.
+
+        Raises:
+            FileNotFoundError: If any expected .xml or .bin file is missing or empty.
         """
         incomplete: list[str] = []
         for model_name in MODEL_NAMES:
@@ -1411,8 +1421,7 @@ class SAM3(TorchModel):
                 )
 
         logger.info(
-            "Canvas mode: stored %d reference(s) across %d category(ies), "
-            "ratio=%.2f, cached %d text embeddings",
+            "Canvas mode: stored %d reference(s) across %d category(ies), ratio=%.2f, cached %d text embeddings",
             sum(len(g["images"]) for g in refs_by_category.values()),
             len(refs_by_category),
             self.canvas_config.split_ratio,
@@ -1454,7 +1463,9 @@ class SAM3(TorchModel):
                 result = self._predict_canvas_single_category(tgt_image, tgt_h, tgt_w)
             elif isinstance(self.canvas_config.share_vision, str):
                 result = self._predict_canvas_shared_spaced(
-                    tgt_image, tgt_h, tgt_w,
+                    tgt_image,
+                    tgt_h,
+                    tgt_w,
                     spacing=self.canvas_config.share_vision,
                 )
             else:
@@ -1485,7 +1496,9 @@ class SAM3(TorchModel):
         cat_text = cat_refs["text"]
 
         canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
-            cat_images, tgt_image, cat_bboxes,
+            cat_images,
+            tgt_image,
+            cat_bboxes,
         )
 
         pred = self._run_canvas_forward(canvas, canvas_bboxes, cat_text)
@@ -1494,7 +1507,9 @@ class SAM3(TorchModel):
         boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
         if boxes.shape[0] > 0:
             remapped["pred_labels"] = torch.full(
-                (boxes.shape[0],), cat_id, dtype=torch.int64,
+                (boxes.shape[0],),
+                cat_id,
+                dtype=torch.int64,
             )
         else:
             remapped["pred_labels"] = torch.empty(0, dtype=torch.int64)
@@ -1525,7 +1540,8 @@ class SAM3(TorchModel):
             Merged prediction dict with cross-category NMS.
         """
         canvas, per_cat_bboxes, tgt_region = self._build_canvas_shared_spaced(
-            tgt_image, spacing=spacing,
+            tgt_image,
+            spacing=spacing,
         )
 
         # Single ViT pass on the shared canvas
@@ -1544,11 +1560,17 @@ class SAM3(TorchModel):
         for cat_id, cat_refs in self._canvas_refs_by_category.items():
             cat_bboxes = per_cat_bboxes[cat_id]
             pred = self._run_canvas_forward_with_vision(
-                vision_embeds, original_sizes,
-                canvas.shape[-2:], cat_bboxes, cat_refs["text"],
+                vision_embeds,
+                original_sizes,
+                canvas.shape[-2:],
+                cat_bboxes,
+                cat_refs["text"],
             )
             remapped = self._extract_target_predictions(
-                pred, tgt_region, tgt_h, tgt_w,
+                pred,
+                tgt_region,
+                tgt_h,
+                tgt_w,
             )
             boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
@@ -1562,7 +1584,10 @@ class SAM3(TorchModel):
 
         if all_boxes_list:
             return self._merge_cross_category(
-                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+                all_boxes_list,
+                all_masks_list,
+                all_labels_list,
+                (tgt_h, tgt_w),
             )
         return {
             "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
@@ -1622,8 +1647,10 @@ class SAM3(TorchModel):
         tgt_canvas_h = canvas_h - ref_strip_h
 
         tgt_resized = F.interpolate(
-            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
-            mode="bilinear", align_corners=False,
+            tgt_image.unsqueeze(0).float(),
+            size=(tgt_canvas_h, canvas_w),
+            mode="bilinear",
+            align_corners=False,
         ).squeeze(0)
 
         cat_items = list(self._canvas_refs_by_category.items())
@@ -1634,7 +1661,9 @@ class SAM3(TorchModel):
         all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
         for cat_id, cat_refs in cat_items:
             for ref_img, ref_bbox in zip(
-                cat_refs["images"], cat_refs["bboxes"], strict=True,
+                cat_refs["images"],
+                cat_refs["bboxes"],
+                strict=True,
             ):
                 all_refs.append((cat_id, ref_img, ref_bbox))
 
@@ -1653,19 +1682,25 @@ class SAM3(TorchModel):
             ref_resized = F.interpolate(
                 ref_img.unsqueeze(0).float(),
                 size=(ref_strip_h, this_w),
-                mode="bilinear", align_corners=False,
+                mode="bilinear",
+                align_corners=False,
             ).squeeze(0)
-            ref_strip[:, :, slot_x:slot_x + this_w] = ref_resized
+            ref_strip[:, :, slot_x : slot_x + this_w] = ref_resized
 
             sx = this_w / ref_w
             sy = ref_strip_h / ref_h
             x1, y1, x2, y2 = ref_bbox[:_BOX_COORDINATE_COLUMNS]
-            per_cat_bboxes[cat_id].append(np.array([
-                x1 * sx + slot_x,
-                y1 * sy + tgt_canvas_h,
-                x2 * sx + slot_x,
-                y2 * sy + tgt_canvas_h,
-            ], dtype=np.float32))
+            per_cat_bboxes[cat_id].append(
+                np.array(
+                    [
+                        x1 * sx + slot_x,
+                        y1 * sy + tgt_canvas_h,
+                        x2 * sx + slot_x,
+                        y2 * sy + tgt_canvas_h,
+                    ],
+                    dtype=np.float32,
+                )
+            )
 
         canvas = torch.zeros(channels, canvas_h, canvas_w, dtype=tgt_resized.dtype)
         canvas[:, :tgt_canvas_h, :] = tgt_resized
@@ -1698,13 +1733,20 @@ class SAM3(TorchModel):
 
         for cat_id, cat_refs in self._canvas_refs_by_category.items():
             canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
-                cat_refs["images"], tgt_image, cat_refs["bboxes"],
+                cat_refs["images"],
+                tgt_image,
+                cat_refs["bboxes"],
             )
             pred = self._run_canvas_forward(
-                canvas, canvas_bboxes, cat_refs["text"],
+                canvas,
+                canvas_bboxes,
+                cat_refs["text"],
             )
             remapped = self._extract_target_predictions(
-                pred, tgt_region, tgt_h, tgt_w,
+                pred,
+                tgt_region,
+                tgt_h,
+                tgt_w,
             )
             boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
@@ -1718,7 +1760,10 @@ class SAM3(TorchModel):
 
         if all_boxes_list:
             return self._merge_cross_category(
-                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+                all_boxes_list,
+                all_masks_list,
+                all_labels_list,
+                (tgt_h, tgt_w),
             )
         return {
             "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
@@ -1751,7 +1796,8 @@ class SAM3(TorchModel):
             text_embeds, attention_mask = (None, None)
             if self.canvas_config.cache_text:
                 text_embeds, attention_mask = self._canvas_text_cache.get(
-                    text, (None, None),
+                    text,
+                    (None, None),
                 )
 
             all_masks: list[torch.Tensor] = []
@@ -1759,10 +1805,13 @@ class SAM3(TorchModel):
 
             for bbox in canvas_bboxes:
                 input_boxes, _ = self.prompt_preprocessor(
-                    original_sizes, input_boxes=bbox,
+                    original_sizes,
+                    input_boxes=bbox,
                 )
                 input_boxes_labels = torch.ones(
-                    (1, 1), dtype=torch.long, device=self.device,
+                    (1, 1),
+                    dtype=torch.long,
+                    device=self.device,
                 )
 
                 if text_embeds is not None:
@@ -1784,7 +1833,8 @@ class SAM3(TorchModel):
                     )
 
                 result = self.sam3_postprocessor(
-                    outputs, target_sizes=[canvas_size],
+                    outputs,
+                    target_sizes=[canvas_size],
                 )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
@@ -1822,7 +1872,9 @@ class SAM3(TorchModel):
         n_refs = len(cat_images)
         if n_refs == 1:
             canvas, cbbox, tgt_region = self._build_canvas_vertical(
-                cat_images[0], tgt_image, cat_bboxes[0],
+                cat_images[0],
+                tgt_image,
+                cat_bboxes[0],
             )
             return canvas, [cbbox], tgt_region
         return self._build_canvas_multishot(cat_images, tgt_image, cat_bboxes)
@@ -1867,7 +1919,8 @@ class SAM3(TorchModel):
             text_embeds, attention_mask = (None, None)
             if self.canvas_config.cache_text:
                 text_embeds, attention_mask = self._canvas_text_cache.get(
-                    text, (None, None),
+                    text,
+                    (None, None),
                 )
 
             all_masks: list[torch.Tensor] = []
@@ -1875,10 +1928,13 @@ class SAM3(TorchModel):
 
             for bbox in canvas_bboxes:
                 input_boxes, _ = self.prompt_preprocessor(
-                    original_sizes, input_boxes=bbox,
+                    original_sizes,
+                    input_boxes=bbox,
                 )
                 input_boxes_labels = torch.ones(
-                    (1, 1), dtype=torch.long, device=self.device,
+                    (1, 1),
+                    dtype=torch.long,
+                    device=self.device,
                 )
 
                 if text_embeds is not None:
@@ -1901,7 +1957,8 @@ class SAM3(TorchModel):
                     )
 
                 result = self.sam3_postprocessor(
-                    outputs, target_sizes=[img_size],
+                    outputs,
+                    target_sizes=[img_size],
                 )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
@@ -1960,8 +2017,11 @@ class SAM3(TorchModel):
     ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
         """Build multi-shot canvas: multiple cropped references in a strip."""
         return build_canvas_multishot(
-            ref_images, tgt_image, ref_bboxes,
-            self.canvas_config.split_ratio, self.canvas_config.crop_padding,
+            ref_images,
+            tgt_image,
+            ref_bboxes,
+            self.canvas_config.split_ratio,
+            self.canvas_config.crop_padding,
         )
 
     @staticmethod
