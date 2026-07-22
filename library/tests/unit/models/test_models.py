@@ -19,6 +19,29 @@ from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
 
+def _empty_prediction() -> Prediction:
+    """Build an empty backend-neutral ``Prediction`` for mock returns."""
+    return Prediction(
+        masks=np.zeros((0, 224, 224), dtype=bool),
+        scores=np.zeros((0,), dtype=np.float32),
+        label_ids=np.zeros((0,), dtype=np.int32),
+        label_names=np.array([], dtype=object),
+        boxes=np.zeros((0, 4), dtype=np.float32),
+        points=None,
+    )
+
+
+def _assert_prediction_list(predictions: list) -> None:
+    """Assert a predict() result is a list of ``Prediction`` objects."""
+    assert isinstance(predictions, list)
+    assert len(predictions) == 1
+    assert isinstance(predictions[0], Prediction)
+    assert predictions[0].masks is not None
+    assert predictions[0].scores is not None
+    assert predictions[0].label_ids is not None
+    assert predictions[0].label_names is not None
+
+
 class TestPerDino:
     """Test PerDino model."""
 
@@ -55,6 +78,12 @@ class TestPerDino:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
+    def test_per_dino_card(self) -> None:
+        """PerDino advertises its own capability card."""
+        card = PerDino.card()
+        assert card.name == "PerDino"
+        assert card.family == "per_dino"
+
     @patch("instantlearn.models.per_dino.per_dino.load_sam_model")
     @patch("instantlearn.models.per_dino.per_dino.ImageEncoder")
     def test_per_dino_forward_pass(
@@ -63,71 +92,18 @@ class TestPerDino:
         mock_load_sam: MagicMock,
         mock_components: dict[str, Any],
     ) -> None:
-        """Test PerDino forward pass."""
+        """Test PerDino predict() returns a list of Prediction objects."""
         mock_load_sam.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
         model = PerDino(device="cpu")
-
-        # Mock the fit method to set up the model
         model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
+        model.predict = MagicMock(return_value=[_empty_prediction()])
 
-        # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
         predictions = model.predict(target_images)
 
-        assert isinstance(predictions, list)
-        assert len(predictions) == 1
-        assert isinstance(predictions[0], dict)
-        assert "pred_masks" in predictions[0]
-        assert "pred_points" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
-        model.predict.assert_called_once_with(target_images)
-
-    @patch("instantlearn.models.per_dino.per_dino.load_sam_model")
-    @patch("instantlearn.models.per_dino.per_dino.ImageEncoder")
-    def test_per_dino_multi_instance_filtering(
-        self,
-        mock_image_encoder: MagicMock,
-        mock_load_sam: MagicMock,
-        mock_components: dict[str, Any],
-    ) -> None:
-        """Test that PerDino uses multi-instance prior filtering."""
-        mock_load_sam.return_value = mock_components["sam_predictor"]
-        mock_image_encoder.return_value = mock_components["encoder"]
-
-        model = PerDino(device="cpu")
-
-        # Mock the fit and predict methods
-        model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
-
-        target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
-        model.predict(target_images)
-
-        # Verify that predict was called
+        _assert_prediction_list(predictions)
         model.predict.assert_called_once_with(target_images)
 
 
@@ -166,6 +142,12 @@ class TestMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
+    def test_matcher_card(self) -> None:
+        """Matcher advertises its own capability card."""
+        card = Matcher.card()
+        assert card.name == "Matcher"
+        assert card.family == "matcher"
+
     @patch("instantlearn.models.matcher.matcher.load_sam_model")
     @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_matcher_forward_pass(
@@ -174,71 +156,18 @@ class TestMatcher:
         mock_sam_predictor: MagicMock,
         mock_components: dict[str, Any],
     ) -> None:
-        """Test Matcher forward pass."""
+        """Test Matcher predict() returns a list of Prediction objects."""
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
         model = Matcher(device="cpu")
-
-        # Mock the learn and infer methods
         model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
+        model.predict = MagicMock(return_value=[_empty_prediction()])
 
-        # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
         predictions = model.predict(target_images)
 
-        assert isinstance(predictions, list)
-        assert len(predictions) == 1
-        assert isinstance(predictions[0], dict)
-        assert "pred_masks" in predictions[0]
-        assert "pred_points" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
-        model.predict.assert_called_once_with(target_images)
-
-    @patch("instantlearn.models.matcher.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
-    def test_matcher_multi_instance_filtering(
-        self,
-        mock_image_encoder: MagicMock,
-        mock_sam_predictor: MagicMock,
-        mock_components: dict[str, Any],
-    ) -> None:
-        """Test that Matcher uses multi-instance prior filtering."""
-        mock_sam_predictor.return_value = mock_components["sam_predictor"]
-        mock_image_encoder.return_value = mock_components["encoder"]
-
-        model = Matcher(device="cpu")
-
-        # Mock the learn and infer methods
-        model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
-
-        target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
-        model.predict(target_images)
-
-        # Verify that predict was called
+        _assert_prediction_list(predictions)
         model.predict.assert_called_once_with(target_images)
 
 
@@ -247,7 +176,7 @@ class TestSoftMatcher:
 
     @pytest.fixture
     def mock_components(self) -> dict[str, Any]:
-        """Create mock components for Matcher."""
+        """Create mock components for SoftMatcher."""
         return {
             "sam_predictor": MagicMock(),
             "encoder": MagicMock(),
@@ -277,6 +206,12 @@ class TestSoftMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
+    def test_soft_matcher_card(self) -> None:
+        """SoftMatcher advertises its own distinct capability card."""
+        card = SoftMatcher.card()
+        assert card.name == "SoftMatcher"
+        assert card.family == "soft_matcher"
+
     @patch("instantlearn.models.matcher.matcher.load_sam_model")
     @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_soft_matcher_forward_pass(
@@ -285,71 +220,18 @@ class TestSoftMatcher:
         mock_sam_predictor: MagicMock,
         mock_components: dict[str, Any],
     ) -> None:
-        """Test SoftMatcher forward pass with new architecture."""
+        """Test SoftMatcher predict() returns a list of Prediction objects."""
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
         model = SoftMatcher(device="cpu")
-
-        # Mock the learn and infer methods
         model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
+        model.predict = MagicMock(return_value=[_empty_prediction()])
 
-        # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
         predictions = model.predict(target_images)
 
-        assert isinstance(predictions, list)
-        assert len(predictions) == 1
-        assert isinstance(predictions[0], dict)
-        assert "pred_masks" in predictions[0]
-        assert "pred_points" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
-        model.predict.assert_called_once_with(target_images)
-
-    @patch("instantlearn.models.matcher.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
-    def test_soft_matcher_multi_instance_filtering(
-        self,
-        mock_image_encoder: MagicMock,
-        mock_sam_predictor: MagicMock,
-        mock_components: dict[str, Any],
-    ) -> None:
-        """Test that SoftMatcher uses multi-instance prior filtering."""
-        mock_sam_predictor.return_value = mock_components["sam_predictor"]
-        mock_image_encoder.return_value = mock_components["encoder"]
-
-        model = SoftMatcher(device="cpu")
-
-        # Mock the learn and infer methods
-        model.fit = MagicMock(return_value=None)
-        model.predict = MagicMock(
-            return_value=[
-                {
-                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
-                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
-                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
-                    "pred_labels": torch.zeros((0,), dtype=torch.long),
-                },
-            ],
-        )
-
-        target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
-
-        model.predict(target_images)
-
-        # Verify that predict was called
+        _assert_prediction_list(predictions)
         model.predict.assert_called_once_with(target_images)
 
 

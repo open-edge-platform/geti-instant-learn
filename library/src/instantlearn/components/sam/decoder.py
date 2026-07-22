@@ -3,6 +3,7 @@
 
 """Traceable SAM decoder for ONNX/TorchScript export."""
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional
@@ -86,6 +87,29 @@ class SamDecoder(nn.Module):
         self.use_mask_refinement = use_mask_refinement
         self.max_image_side = max_image_side
         self.device = sam_predictor.device
+
+    def _prepare_image(self, image: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """Normalize a single input image to a CHW tensor on the SAM device/dtype.
+
+        Accepts either a numpy ``(H, W, C)`` array (the backend-neutral
+        ``Sample.image`` layout) or an already-CHW torch tensor. This is the
+        single place where SAM-based models (Matcher, PerDino, SoftMatcher) cross
+        the numpy/torch boundary for the decoder, so callers can simply forward
+        ``batch.images`` without per-model conversion boilerplate.
+
+        Args:
+            image: ``(H, W, C)`` numpy array or ``(C, H, W)`` torch tensor.
+
+        Returns:
+            A contiguous ``(C, H, W)`` tensor on the predictor's device and dtype.
+        """
+        if isinstance(image, np.ndarray):
+            arr = image
+            # HWC -> CHW when the channel axis is last (3 or 1 channels).
+            if arr.ndim == 3 and arr.shape[2] in (1, 3) and arr.shape[0] not in (1, 3):
+                arr = arr.transpose(2, 0, 1)
+            image = torch.from_numpy(np.ascontiguousarray(arr))
+        return image.to(device=self.device, dtype=self.predictor.dtype)
 
     def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # noqa: PLR6301
         """Preprocess points for SAM predictor.
@@ -534,7 +558,7 @@ class SamDecoder(nn.Module):
 
     def forward(
         self,
-        images: list[torch.Tensor],
+        images: list[torch.Tensor] | list[np.ndarray],
         category_ids: list[int],
         point_prompts: torch.Tensor | None = None,
         box_prompts: torch.Tensor | None = None,
@@ -546,7 +570,8 @@ class SamDecoder(nn.Module):
         segmentation, or (box_prompts, num_boxes) for box-based segmentation.
 
         Args:
-            images: List of input images, each [3, H, W]
+            images: List of input images, each ``(3, H, W)`` torch tensor or
+                ``(H, W, 3)`` numpy array (normalized internally).
             category_ids: Category ID mapping [C]
             point_prompts: Point prompts [T, C, max_points, 4] (optional)
             box_prompts: Box prompts [T, C, max_boxes, 5] (optional)
@@ -569,6 +594,11 @@ class SamDecoder(nn.Module):
         if use_points == use_boxes:
             msg = "Provide either point_prompts or box_prompts, not both or neither"
             raise ValueError(msg)
+
+        # Normalize images to CHW tensors on the SAM device/dtype. Accepts numpy
+        # HWC (the backend-neutral ``Sample.image`` layout) or torch CHW, so
+        # every SAM-based model can pass ``batch.images`` directly.
+        images = [self._prepare_image(image) for image in images]
 
         predictions: list[dict[str, torch.Tensor]] = []
 

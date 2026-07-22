@@ -5,8 +5,10 @@
 
 from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.models.matcher import Matcher
+from instantlearn.models.model_card import ModelCard
 from instantlearn.utils.constants import SAMModelName
 
+from ._card import _SOFT_MATCHER_CARD
 from .prompt_generator import SoftmatcherPromptGenerator
 
 
@@ -30,22 +32,14 @@ class SoftMatcher(Matcher):
         >>> from instantlearn.models import SoftMatcher
         >>> from instantlearn.data.base import Batch
         >>> from instantlearn.data.base.sample import Category, Sample
-        >>> from instantlearn.types import Results
-        >>> from torchvision import tv_tensors
-        >>> import torch
         >>> import numpy as np
         >>>
         >>> soft_matcher = SoftMatcher()
         >>>
-        >>> # Create mock inputs
-        >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
-        >>>
-        >>> # Create reference sample
+        >>> # Create reference sample (image is numpy HWC per the Sample contract)
         >>> ref_sample = Sample(
-        ...     image=ref_image,
-        ...     masks=ref_mask.unsqueeze(0).numpy(),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
+        ...     masks=np.ones((1, 30, 30), dtype=bool),
         ...     is_reference=[True],
         ...     categories=[Category(1, "object")],
         ... )
@@ -53,7 +47,7 @@ class SoftMatcher(Matcher):
         >>>
         >>> # Create target sample
         >>> target_sample = Sample(
-        ...     image=target_image,
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     is_reference=[False],
         ...     categories=[Category(0, "object")],
         ... )
@@ -61,11 +55,11 @@ class SoftMatcher(Matcher):
         >>>
         >>> # Run fit and predict
         >>> soft_matcher.fit(ref_batch)
-        >>> predict_results = soft_matcher.predict(target_batch)
+        >>> predictions = soft_matcher.predict(target_batch)
         >>>
-        >>> isinstance(predict_results, Results)
+        >>> isinstance(predictions, list)
         True
-        >>> predict_results.masks is not None
+        >>> predictions[0].masks is not None
         True
     """
 
@@ -130,3 +124,8 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold=softmatching_score_threshold,
             softmatching_bidirectional=softmatching_bidirectional,
         )
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static capability descriptor for SoftMatcher."""
+        return _SOFT_MATCHER_CARD

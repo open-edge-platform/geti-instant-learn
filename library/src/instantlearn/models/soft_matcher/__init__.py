@@ -9,8 +9,10 @@ This package contains the SoftMatcher model implementation based on the paper
 
 from .prompt_generator import SoftmatcherPromptGenerator
 from .soft_matcher import SoftMatcher
+from .soft_matcher_openvino import SoftMatcherOpenVINO
 
 __all__ = [
     "SoftMatcher",
+    "SoftMatcherOpenVINO",
     "SoftmatcherPromptGenerator",
 ]
