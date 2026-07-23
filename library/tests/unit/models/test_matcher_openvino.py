@@ -40,8 +40,8 @@ def _write_dummy_ir(tmp_path: Path, *, with_metadata: bool = True) -> None:
                 },
             ),
         )
-    (tmp_path / "matcher.xml").touch()
-    (tmp_path / "matcher.bin").touch()
+    (tmp_path / "model.xml").touch()
+    (tmp_path / "model.bin").touch()
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ class TestMatcherOpenVINO:
             MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
 
     def test_missing_ir_raises(self, tmp_path: Path) -> None:
-        """Missing matcher.xml raises FileNotFoundError."""
+        """Missing model.xml raises FileNotFoundError."""
         (tmp_path / "metadata.json").write_text(
             json.dumps({"input_size": INPUT_SIZE, "patch_size": PATCH_SIZE, "categories": {}}),
         )

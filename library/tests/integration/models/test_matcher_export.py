@@ -161,9 +161,9 @@ class TestMatcherExportIntegration:
 
         # Verify files exist
         assert exported_dir.is_dir()
-        ir_path = exported_dir / "matcher.xml"
+        ir_path = exported_dir / "model.xml"
         assert ir_path.exists()
-        assert (exported_dir / "matcher.bin").exists()
+        assert (exported_dir / "model.bin").exists()
 
         # Run inference with OpenVINO
         target_image = read_image(target_image_path)

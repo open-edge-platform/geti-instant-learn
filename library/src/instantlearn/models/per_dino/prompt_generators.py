@@ -35,11 +35,9 @@ class GridPromptGenerator(nn.Module):
         >>> category_ids = [1, 2]
         >>> original_sizes = torch.tensor([[20, 20]])
         >>>
-        >>> point_prompts, num_points = generator(similarities, category_ids, original_sizes)
+        >>> point_prompts = generator(similarities, category_ids, original_sizes)
         >>> point_prompts.shape  # [T, C, max_points, 4]
         torch.Size([1, 2, 42, 4])
-        >>> num_points.shape  # [T, C]
-        torch.Size([1, 2])
     """
 
     def __init__(
@@ -220,7 +218,10 @@ class GridPromptGenerator(nn.Module):
         return foreground_points[top_indices]
 
     def _pad_points(self, points: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        """Pad points tensor to max_points size.
+        """Pad or truncate points tensor to exactly max_points size.
+
+        Fully traceable: always concatenates a full padding tensor, then
+        truncates. No conditionals on tensor shapes (ONNX-safe).
 
         Args:
             points: Points tensor [N, 4]
@@ -230,12 +231,63 @@ class GridPromptGenerator(nn.Module):
         Returns:
             Padded points tensor [max_points, 4]
         """
-        num_points = points.shape[0]
-        if num_points >= self.max_points:
-            return points[: self.max_points]
+        full_padding = torch.zeros(self.max_points, 4, device=device, dtype=dtype)
+        combined = torch.cat([points, full_padding], dim=0)  # [N + max_points, 4]
+        return combined[: self.max_points]  # [max_points, 4]
 
-        padding = torch.zeros(self.max_points - num_points, 4, device=device, dtype=dtype)
-        return torch.cat([points, padding], dim=0)
+    def _process_single_category_export(
+        self,
+        similarity_map: torch.Tensor,
+        original_size: torch.Tensor,
+    ) -> torch.Tensor:
+        """Export-optimized single-category point selection (static shapes only).
+
+        Replaces the grid-cell dedup / ``torch.where`` / ``torch.unique`` path
+        (which produces a data-dependent number of points) with static top-K
+        selection over the flattened similarity map:
+
+        - Foreground: top ``num_foreground_points`` highest-similarity patches.
+        - Background: top ``num_bg_points`` lowest-similarity patches.
+
+        Coordinates follow the same convention as the eager path (``x`` = column,
+        ``y`` = row of the similarity map) and are scaled to the original image
+        size. No data-dependent control flow, so the trace is stable for ONNX.
+
+        Args:
+            similarity_map: Similarity map [feat_h, feat_w]
+            original_size: Original image size tensor [H, W]
+
+        Returns:
+            Points [N, 4] with (x, y, score, label), before padding.
+        """
+        device = similarity_map.device
+        dtype = similarity_map.dtype
+        map_h, map_w = similarity_map.shape
+        flat = similarity_map.flatten()
+        num_elements = flat.numel()
+
+        fg_k = min(self.num_foreground_points, num_elements)
+        fg_scores, fg_idx = torch.topk(flat, fg_k, largest=True)
+        fg_x = (fg_idx % map_w).to(dtype)
+        fg_y = (fg_idx // map_w).to(dtype)
+        fg_points = torch.stack([fg_x, fg_y, fg_scores.to(dtype)], dim=1)
+        fg_points = self._convert_points_to_original_size(fg_points, (map_h, map_w), original_size)
+        fg_labels = torch.ones((fg_points.shape[0], 1), device=device, dtype=dtype)
+        fg_points = torch.cat([fg_points, fg_labels], dim=1)
+
+        if self.num_bg_points > 0:
+            bg_k = min(self.num_bg_points, num_elements)
+            bg_scores, bg_idx = torch.topk(flat, bg_k, largest=False)
+            bg_x = (bg_idx % map_w).to(dtype)
+            bg_y = (bg_idx // map_w).to(dtype)
+            bg_points = torch.stack([bg_x, bg_y, bg_scores.to(dtype)], dim=1)
+            bg_points = self._convert_points_to_original_size(bg_points, (map_h, map_w), original_size)
+            bg_labels = -torch.ones((bg_points.shape[0], 1), device=device, dtype=dtype)
+            bg_points = torch.cat([bg_points, bg_labels], dim=1)
+        else:
+            bg_points = torch.empty(0, 4, device=device, dtype=dtype)
+
+        return torch.cat([fg_points, bg_points], dim=0)
 
     def _process_single_category(
         self,
@@ -280,7 +332,7 @@ class GridPromptGenerator(nn.Module):
         similarities: torch.Tensor,
         category_ids: list[int],
         original_sizes: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         """Generate point prompts from similarity maps.
 
         Args:
@@ -290,7 +342,6 @@ class GridPromptGenerator(nn.Module):
 
         Returns:
             point_prompts: [T, C, max_points, 4] - padded point prompts
-            num_points: [T, C] - actual valid point counts per (target, category)
         """
         num_targets = similarities.shape[0]
         num_categories = len(category_ids)
@@ -304,7 +355,13 @@ class GridPromptGenerator(nn.Module):
 
             for c_idx in range(num_categories):
                 similarity_map = similarities[t_idx, c_idx]
-                points = self._process_single_category(similarity_map, original_size)
+                # Use static top-K selection during ONNX export to avoid the
+                # data-dependent grid-cell dedup / torch.where / torch.unique
+                # path (which yields a variable number of points).
+                if torch.onnx.is_in_onnx_export():
+                    points = self._process_single_category_export(similarity_map, original_size)
+                else:
+                    points = self._process_single_category(similarity_map, original_size)
                 point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)
 
         return point_prompts
