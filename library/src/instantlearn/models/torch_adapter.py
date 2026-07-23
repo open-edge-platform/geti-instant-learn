@@ -159,7 +159,7 @@ class CategoryRegistry(Mapping):
     @classmethod
     def from_samples(
         cls,
-        samples: Sample | list[Sample] | Batch | list[TensorSample],
+        samples: Sample | TensorSample | list[Sample] | list[TensorSample] | Batch,
     ) -> CategoryRegistry:
         """Build a registry from reference samples, keeping first occurrences.
 
@@ -167,16 +167,16 @@ class CategoryRegistry(Mapping):
         time its name is seen, so earlier references win on duplicates.
 
         Args:
-            samples: A single ``Sample``, a list of ``Sample`` / ``TensorSample``,
+            samples: A single ``Sample`` / ``TensorSample``, a list of either,
                 or a ``Batch``.
 
         Returns:
             A populated :class:`CategoryRegistry`.
         """
-        if isinstance(samples, Sample):
-            sample_list: list[Sample | TensorSample] = [samples]
-        elif isinstance(samples, Batch):
-            sample_list = list(samples.samples)
+        if isinstance(samples, Batch):
+            sample_list: list[Sample | TensorSample] = list(samples.samples)
+        elif isinstance(samples, (Sample, TensorSample)):
+            sample_list = [samples]
         else:
             sample_list = list(samples)
 
@@ -223,6 +223,62 @@ class CategoryRegistry(Mapping):
         max_id = max(self.id_to_name)
         return [self.id_to_name.get(cat_id, str(cat_id)) for cat_id in range(max_id + 1)]
 
+    def merge(self, other: CategoryRegistry) -> CategoryRegistry:
+        """Return a new registry that overlays *other*'s entries on top of *self*.
+
+        Entries in *other* take precedence for any overlapping category id or
+        name.  Entries present only in *self* are preserved unchanged.  Neither
+        registry is mutated.
+
+        Args:
+            other: The registry whose entries take precedence.
+
+        Returns:
+            A new :class:`CategoryRegistry` containing the merged mappings.
+
+        Examples:
+            >>> base = CategoryRegistry(id_to_name={0: "cat"}, name_to_id={"cat": 0})
+            >>> overlay = CategoryRegistry(id_to_name={1: "dog"}, name_to_id={"dog": 1})
+            >>> merged = base.merge(overlay)
+            >>> sorted(merged.id_to_name.items())
+            [(0, 'cat'), (1, 'dog')]
+        """
+        id_to_name = {**self.id_to_name, **other.id_to_name}
+        name_to_id = {**self.name_to_id, **other.name_to_id}
+        return CategoryRegistry(id_to_name=id_to_name, name_to_id=name_to_id)
+
+    @classmethod
+    def from_names(cls, names: list[str], start_id: int = 0) -> CategoryRegistry:
+        """Build a registry from a plain list of category name strings.
+
+        IDs are assigned sequentially starting from *start_id*. Duplicate
+        names in *names* will produce duplicate id entries; callers should
+        deduplicate if required.
+
+        Args:
+            names: Ordered list of category name strings.
+            start_id: Integer ID for the first name. Default: 0.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+
+        Examples:
+            >>> reg = CategoryRegistry.from_names(["cat", "dog"])
+            >>> reg.name_to_id
+            {'cat': 0, 'dog': 1}
+            >>> reg = CategoryRegistry.from_names(["a", "b"], start_id=1)
+            >>> reg.id_to_name
+            {1: 'a', 2: 'b'}
+        """
+        id_to_name = {start_id + i: name for i, name in enumerate(names)}
+        name_to_id = {name: start_id + i for i, name in enumerate(names)}
+        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
+
+    def __repr__(self) -> str:
+        """Return a concise developer-friendly representation."""
+        pairs = ", ".join(f"{k}: {v!r}" for k, v in sorted(self.id_to_name.items()))
+        return f"CategoryRegistry({{{pairs}}})"
+
 
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     """Convert a :class:`Sample` to a torch :class:`TensorSample`.
@@ -239,6 +295,7 @@ def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     Returns:
         A ``TensorSample`` with all non-``None`` fields moved to *device*.
     """
+
     def _to_tensor(value: np.ndarray | torch.Tensor | None, *, dtype: torch.dtype | None = None) -> torch.Tensor | None:
         if value is None:
             return None

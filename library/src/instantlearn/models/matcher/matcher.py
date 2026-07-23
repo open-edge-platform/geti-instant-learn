@@ -315,7 +315,7 @@ class Matcher(TorchModel):
         self.ref_features: ReferenceFeatures | None = None
         # Category identity (set during fit), used to build
         # ``Prediction.label_names`` at the numpy boundary.
-        self._categories: CategoryRegistry = CategoryRegistry()
+        self.categories: CategoryRegistry = CategoryRegistry()
 
     @classmethod
     def card(cls) -> ModelCard:
@@ -346,7 +346,7 @@ class Matcher(TorchModel):
             reference_batch.label_ids,
         )
         # Cache category identity so predict() can build Prediction.label_names.
-        self._categories = CategoryRegistry.from_samples(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
     def predict(self, target: Collatable) -> list[Prediction]:
         """Predict masks for target images.
@@ -405,7 +405,7 @@ class Matcher(TorchModel):
             similarities=similarities,
         )
         predictions = apply_postprocessing(predictions, self.postprocessor)
-        return [dict_to_prediction(pred, self._categories) for pred in predictions]
+        return [dict_to_prediction(pred, self.categories) for pred in predictions]
 
     @torch.no_grad()
     def _build_inference_graph(
@@ -578,5 +578,5 @@ class Matcher(TorchModel):
             keep_intermediate=config.keep_intermediate,
         )
 
-        write_metadata(export_dir, self.encoder.input_size, self.encoder.patch_size, self._category_names)
+        write_metadata(export_dir, self.encoder.input_size, self.encoder.patch_size, self.categories.id_to_name)
         return export_dir

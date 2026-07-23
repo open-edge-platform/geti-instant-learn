@@ -719,10 +719,8 @@ class SAM3OpenVINO(OpenVINOModel):
 
     def _categories_for(self, sample: TensorSample) -> CategoryRegistry:
         """Merge fitted categories with this sample's per-instance category metadata."""
-        id_to_name: dict[int, str] = dict(self.categories.id_to_name) if self.categories is not None else {}
-        id_to_name.update(dict(zip(label_ids_as_ints(sample), sample.category_labels or [], strict=False)))
-        name_to_id = {name: cat_id for cat_id, name in id_to_name.items()}
-        return CategoryRegistry(id_to_name=id_to_name, name_to_id=name_to_id)
+        base = self.categories or CategoryRegistry()
+        return base.merge(CategoryRegistry.from_samples(sample))
 
     def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
         """Classic prediction with per-image text/box/point prompts.

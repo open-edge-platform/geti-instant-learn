@@ -33,6 +33,7 @@ from instantlearn.models.sam3.processing import (
     Sam3PromptPreprocessor as EfficientSam3PromptPreprocessor,
 )
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import precision_to_torch_dtype
 
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
@@ -160,7 +161,7 @@ class EfficientSAM3(SAM3):
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
 
-        self.category_mapping: dict[str, int] | None = None
+        self.categories: CategoryRegistry | None = None
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None

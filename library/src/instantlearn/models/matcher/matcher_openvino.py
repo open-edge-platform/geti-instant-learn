@@ -89,7 +89,7 @@ class MatcherOpenVINO(OpenVINOModel):
         self.input_size: int = metadata["input_size"]
         self.patch_size: int = metadata.get("patch_size", 0)
         # Category identity baked at export time (id keys stored as strings).
-        self._categories = CategoryRegistry.from_metadata(metadata.get("categories", {}))
+        self.categories = CategoryRegistry.from_metadata(metadata.get("categories", {}))
 
         ir_path = self.model_dir / "model.xml"
         if not ir_path.exists():
@@ -190,7 +190,7 @@ class MatcherOpenVINO(OpenVINOModel):
                     masks=masks_frame,
                     scores=scores.astype(np.float32),
                     label_ids=labels.astype(np.int32),
-                    categories=self._categories,
+                    categories=self.categories,
                 ),
             )
 

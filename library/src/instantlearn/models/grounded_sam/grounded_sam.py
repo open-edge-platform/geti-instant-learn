@@ -119,10 +119,14 @@ class GroundedSAM(TorchModel):
                 category name.
         """
         target_batch = Batch.collate(target)
-        category_mapping = self.category_mapping or _category_mapping(target_batch)
-        if not category_mapping:
+        # Prefer categories from fit(); fall back to per-target-sample categories.
+        categories = self.categories if self.categories else CategoryRegistry.from_samples(target_batch)
+        if not categories:
             msg = "GroundedSAM requires categories from fit() or target samples."
             raise ValueError(msg)
+
+        # Build the name→id mapping expected by the prompt generator.
+        category_mapping = categories.name_to_id
 
         tensor_batch = batch_to_tensors(target_batch, device=self.device)
         images = [tv_tensors.Image(image) for image in tensor_batch.images if image is not None]
@@ -146,8 +150,7 @@ class GroundedSAM(TorchModel):
             box_prompts=box_prompts,
         )
         predictions = apply_postprocessing(predictions, self.postprocessor)
-        id_to_category = {category_id: category for category, category_id in category_mapping.items()}
-        return [dict_to_prediction(prediction, id_to_category) for prediction in predictions]
+        return [dict_to_prediction(prediction, categories) for prediction in predictions]
 
     def to_openvino(  # noqa: PLR6301
         self,
@@ -159,11 +162,3 @@ class GroundedSAM(TorchModel):
         msg = "GroundedSAM does not support OpenVINO export because no GroundedSAMOpenVINO implementation exists."
         raise NotImplementedError(msg)
 
-
-def _category_mapping(batch: Batch) -> dict[str, int]:
-    """Build a stable label-to-ID mapping from the supplied target samples."""
-    mapping: dict[str, int] = {}
-    for sample in batch.samples:
-        for category in sample.categories:
-            mapping.setdefault(category.label, category.id)
-    return mapping
