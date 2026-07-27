@@ -113,6 +113,10 @@ def _make_mock_prompt_preprocessor() -> MagicMock:
     return pre
 
 
+def _zero_hwc_image(height: int = 224, width: int = 224) -> np.ndarray:
+    return np.zeros((height, width, 3), dtype=np.uint8)
+
+
 @pytest.fixture
 def mock_sam3_deps() -> dict[str, Any]:
     """Create all mocked SAM3 dependencies."""
@@ -283,7 +287,7 @@ class TestSAM3Classic:
         ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
         assert isinstance(predictions, list)
@@ -303,7 +307,7 @@ class TestSAM3Classic:
         ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
         masks = predictions[0].masks
@@ -318,8 +322,8 @@ class TestSAM3Classic:
         model.fit(ref)
 
         targets = [
-            Sample(image=torch.zeros(3, 224, 224)),
-            Sample(image=torch.zeros(3, 320, 320)),
+            Sample(image=_zero_hwc_image(224, 224)),
+            Sample(image=_zero_hwc_image(320, 320)),
         ]
         predictions = model.predict(targets)
 
@@ -337,7 +341,7 @@ class TestSAM3Classic:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
         target = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=[Category(id=0, label="shoe")],
         )
@@ -360,7 +364,7 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=[Category(id=0, label="shoe")],
         )
@@ -378,7 +382,7 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             points=np.array([[100, 100]]),
             categories=[Category(id=0, label="shoe")],
         )
@@ -392,7 +396,7 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             categories=[Category(id=0, label="shoe")],
         )
 
@@ -416,7 +420,7 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=[Category(id=0, label="shoe")],
         )
@@ -431,12 +435,12 @@ class TestSAM3VisualExemplar:
 
         refs = [
             Sample(
-                image=torch.zeros(3, 224, 224),
+                image=_zero_hwc_image(224, 224),
                 bboxes=np.array([[10, 10, 50, 50]]),
                 categories=[Category(id=0, label="shoe")],
             ),
             Sample(
-                image=torch.zeros(3, 224, 224),
+                image=_zero_hwc_image(224, 224),
                 bboxes=np.array([[60, 60, 100, 100]]),
                 categories=[Category(id=1, label="bag")],
             ),
@@ -451,13 +455,13 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
         assert isinstance(predictions, list)
@@ -474,7 +478,7 @@ class TestSAM3VisualExemplar:
         """Test predict() raises RuntimeError before fit() is called."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
 
         with pytest.raises(RuntimeError, match="fit"):
             model.predict(target)
@@ -484,15 +488,15 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
         targets = [
-            Sample(image=torch.zeros(3, 224, 224)),
-            Sample(image=torch.zeros(3, 320, 320)),
+            Sample(image=_zero_hwc_image(224, 224)),
+            Sample(image=_zero_hwc_image(320, 320)),
         ]
         predictions = model.predict(targets)
 
@@ -519,17 +523,16 @@ class TestSAM3Utilities:
 
         assert mapping == {"shoe": 0, "bag": 1, "hat": 2}
 
-    def test_build_category_mapping_no_duplicates(self) -> None:
-        """Test CategoryRegistry keeps first occurrence."""
+    def test_build_category_mapping_no_duplicate_names(self) -> None:
+        """Test CategoryRegistry rejects duplicate names with different ids."""
         samples = [
             Sample(categories=[Category(id=0, label="shoe")]),
             Sample(categories=[Category(id=5, label="shoe")]),
         ]
         batch = Batch.collate(samples)
 
-        mapping = CategoryRegistry.from_samples(batch).name_to_id
-
-        assert mapping == {"shoe": 0}
+        with pytest.raises(ValueError, match="Category name 'shoe' is assigned to multiple ids"):
+            CategoryRegistry.from_samples(batch)
 
     def test_aggregate_results_with_detections(self) -> None:
         """Test _aggregate_results concatenates non-empty results."""

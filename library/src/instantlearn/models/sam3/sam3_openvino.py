@@ -22,7 +22,7 @@ See Also:
 
 import logging
 from collections import defaultdict
-from itertools import starmap, zip_longest
+from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +39,7 @@ from instantlearn.models.torch_adapter import (
     TensorSample,
     dict_to_prediction,
     label_ids_as_ints,
+    prediction_categories_for_sample,
     samples_to_tensors,
 )
 from instantlearn.utils import device_to_openvino_device
@@ -47,12 +48,13 @@ from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
     build_canvas_vertical,
+    category_registry_from_canvas_references,
     extract_target_predictions,
     group_references_by_category,
     merge_cross_category,
 )
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
-from .sam3 import SAM3, SAM3_LIBRARY_MODEL_ID, CanvasConfig, Sam3PromptMode
+from .sam3 import SAM3, SAM3_MODEL_ID, CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +113,7 @@ class SAM3OpenVINO(OpenVINOModel):
     * **VISUAL_EXEMPLAR** mode — encode reference-image prompts during ``fit()``
       and reuse cached geometry features for every target image in ``predict()``.
 
-    The model loads pre-exported sub-models from *ir_path*:
+    The model loads pre-exported sub-models from *model_dir*:
 
     * ``vision-encoder`` (always)
     * ``text-encoder`` (always)
@@ -139,7 +141,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         >>> # Text-only prompting (classic mode)
         >>> model = SAM3OpenVINO(
-        ...     ir_path="./sam3-openvino/openvino-int8_sym",
+        ...     model_dir="./sam3-openvino/openvino-int8_sym",
         ...     prompt_mode=Sam3PromptMode.CLASSIC,
         ...     device="CPU",
         ... )
@@ -154,26 +156,26 @@ class SAM3OpenVINO(OpenVINOModel):
 
     def __init__(  # noqa: PLR0915
         self,
-        ir_path: str | Path,
-        model_id: str = SAM3_LIBRARY_MODEL_ID,
+        model_dir: str | Path,
+        model_id: str = SAM3_MODEL_ID,
         device: str = "AUTO",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         prompt_mode: Sam3PromptMode = Sam3PromptMode.CANVAS,
-        drop_spatial_bias: bool = True,
+        drop_spatial_bias: bool = False,
         tokenizer_path: str | Path | None = None,
         canvas_config: CanvasConfig | None = None,
         cache_dir: str | Path | None = None,
     ) -> None:
         """Initialise SAM3 OpenVINO model.
 
-        The model loads already-exported OpenVINO artifacts from *ir_path*.
+        The model loads already-exported OpenVINO artifacts from *model_dir*.
         Export is handled by the torch ``SAM3.to_openvino()`` method.
 
         Args:
-            ir_path: Directory containing OpenVINO IR or ONNX sub-models.
+            model_dir: Directory containing OpenVINO IR or ONNX sub-models.
             model_id: HuggingFace model ID or local path used as tokenizer fallback.
-                Default: SAM3_LIBRARY_MODEL_ID.
+                Default: SAM3_MODEL_ID.
             device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``).
                 PyTorch-style names (``"cuda"``, ``"cpu"``) are also accepted.
             confidence_threshold: Minimum confidence score for predictions.
@@ -195,7 +197,7 @@ class SAM3OpenVINO(OpenVINOModel):
                 Pass an empty string ``""`` to disable caching.
         """
         ov_device = device_to_openvino_device(device)
-        super().__init__(model_dir=ir_path, device=ov_device)
+        super().__init__(model_dir=model_dir, device=ov_device)
         self.ov_device = self.device
         self.model_id = model_id
         self.confidence_threshold = confidence_threshold
@@ -204,7 +206,7 @@ class SAM3OpenVINO(OpenVINOModel):
         self.drop_spatial_bias = drop_spatial_bias
 
         # Category mapping from fit()
-        self.categories: CategoryRegistry | None = None
+        self.categories: CategoryRegistry = CategoryRegistry()
 
         # Exemplar cache (populated in _fit_visual_exemplar)
         self.exemplar_geometry_features: list[np.ndarray] | None = None
@@ -281,23 +283,6 @@ class SAM3OpenVINO(OpenVINOModel):
     def card(cls) -> ModelCard:
         """Return the static model card for SAM3 OpenVINO capabilities."""
         return SAM3.card()
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        ir_path: str | Path,
-        **kwargs: object,
-    ) -> "SAM3OpenVINO":
-        """Create a SAM3OpenVINO model from exported OpenVINO artifacts.
-
-        Args:
-            ir_path: Directory containing OpenVINO IR or ONNX sub-models.
-            **kwargs: Additional arguments forwarded to :class:`SAM3OpenVINO`.
-
-        Returns:
-            A loaded ``SAM3OpenVINO`` instance.
-        """
-        return cls(ir_path=ir_path, **kwargs)
 
     def _load_tokenizer(self, tokenizer_path: str | Path | None) -> CLIPTokenizerFast:
         """Load CLIP tokenizer from local path or HuggingFace.
@@ -688,7 +673,10 @@ class SAM3OpenVINO(OpenVINOModel):
             raw_predictions = self._predict_classic(target_batch)
 
         raw_predictions = self._ensure_prediction_scores(raw_predictions)
-        return list(starmap(self._to_prediction, zip(raw_predictions, target_batch, strict=True)))
+        return [
+            dict_to_prediction(prediction, prediction_categories_for_sample(self.categories, sample))
+            for prediction, sample in zip(raw_predictions, target_batch, strict=True)
+        ]
 
     @staticmethod
     def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
@@ -713,15 +701,6 @@ class SAM3OpenVINO(OpenVINOModel):
                 prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
         return predictions
 
-    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: TensorSample) -> Prediction:
-        """Convert one raw SAM3OpenVINO prediction dictionary to ``Prediction``."""
-        return dict_to_prediction(prediction, self._categories_for(sample))
-
-    def _categories_for(self, sample: TensorSample) -> CategoryRegistry:
-        """Merge fitted categories with this sample's per-instance category metadata."""
-        base = self.categories or CategoryRegistry()
-        return base.merge(CategoryRegistry.from_samples(sample))
-
     def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: C901, PLR0915
         """Classic prediction with per-image text/box/point prompts.
 
@@ -732,7 +711,7 @@ class SAM3OpenVINO(OpenVINOModel):
             List of prediction dicts per image.
         """
         results = []
-        use_fitted_categories = self.categories is not None
+        use_fitted_categories = bool(self.categories)
 
         for sample in target:
             img_size = sample.image.shape[-2:]
@@ -958,7 +937,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}
-        self.categories = CategoryRegistry.from_samples(reference_batch)
+        self.categories = category_registry_from_canvas_references(refs_by_category)
 
         # Pre-cache text features
         for cat_refs in refs_by_category.values():

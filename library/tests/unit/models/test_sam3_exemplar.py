@@ -36,6 +36,10 @@ from instantlearn.models.torch_adapter import CategoryRegistry
 # Sam3PromptMode
 
 
+def _zero_hwc_image(height: int = 100, width: int = 100) -> np.ndarray:
+    return np.zeros((height, width, 3), dtype=np.uint8)
+
+
 class TestSam3PromptMode:
     """Tests for Sam3PromptMode enum."""
 
@@ -152,7 +156,7 @@ class TestSAM3Init:
         """SAM3 defaults to CLASSIC prompt mode."""
         sam3 = SAM3(device="cpu")
         assert sam3.prompt_mode == Sam3PromptMode.CLASSIC
-        assert sam3.drop_spatial_bias is True
+        assert sam3.drop_spatial_bias is False
         assert sam3.exemplar_geometry_features is None
 
     @patch("instantlearn.models.sam3.sam3.Sam3Model.from_pretrained", return_value=_mock_sam3_model())
@@ -241,7 +245,7 @@ class TestSAM3ExemplarErrors:
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
         sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             sam3.predict(target)
 
@@ -322,7 +326,7 @@ class TestEfficientSAM3ExemplarErrors:
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
         model = EfficientSAM3(device="cpu", prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             model.predict(target)
 

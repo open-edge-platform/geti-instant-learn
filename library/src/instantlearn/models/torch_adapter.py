@@ -125,7 +125,7 @@ def label_ids_as_ints(sample: Sample | TensorSample) -> list[int]:
     return [int(label_id) for label_id in label_ids]
 
 
-@dataclass(frozen=True)
+@dataclass
 class CategoryRegistry(Mapping):
     """Bidirectional category id <-> name identity, built once from references.
 
@@ -161,10 +161,11 @@ class CategoryRegistry(Mapping):
         cls,
         samples: Sample | TensorSample | list[Sample] | list[TensorSample] | Batch,
     ) -> CategoryRegistry:
-        """Build a registry from reference samples, keeping first occurrences.
+        """Build a registry from reference samples.
 
-        Iterates samples in order and records each ``(id, name)`` pair the first
-        time its name is seen, so earlier references win on duplicates.
+        Iterates samples in order and records each ``(id, name)`` pair. Repeated
+        identical pairs are accepted, but conflicting ids or names are rejected
+        so the resulting mapping is bidirectional.
 
         Args:
             samples: A single ``Sample`` / ``TensorSample``, a list of either,
@@ -172,6 +173,10 @@ class CategoryRegistry(Mapping):
 
         Returns:
             A populated :class:`CategoryRegistry`.
+
+        Raises:
+            ValueError: If an id is assigned different names, or a name is
+                assigned different ids.
         """
         if isinstance(samples, Batch):
             sample_list: list[Sample | TensorSample] = list(samples.samples)
@@ -181,16 +186,29 @@ class CategoryRegistry(Mapping):
             sample_list = list(samples)
 
         id_to_name: dict[int, str] = {}
-        name_to_id: dict[str, int] = {}
         for sample in sample_list:
             labels = sample.category_labels
             if not labels:
                 continue
             for cat_id, name in zip(label_ids_as_ints(sample), labels, strict=False):
-                if name not in name_to_id:
-                    name_to_id[name] = cat_id
-                    id_to_name.setdefault(cat_id, name)
-        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
+                existing = id_to_name.get(cat_id)
+                if existing is not None and existing != name:
+                    msg = f"Category id {cat_id} has conflicting names: {existing!r} and {name!r}"
+                    raise ValueError(msg)
+                id_to_name[cat_id] = name
+        return cls._from_id_to_name(id_to_name)
+
+    @classmethod
+    def _from_id_to_name(cls, id_to_name: dict[int, str]) -> CategoryRegistry:
+        """Build a registry from canonical id->name entries."""
+        name_to_id: dict[str, int] = {}
+        for cat_id, name in id_to_name.items():
+            existing = name_to_id.get(name)
+            if existing is not None and existing != cat_id:
+                msg = f"Category name {name!r} is assigned to multiple ids: {existing} and {cat_id}"
+                raise ValueError(msg)
+            name_to_id[name] = cat_id
+        return cls(id_to_name=dict(id_to_name), name_to_id=name_to_id)
 
     @classmethod
     def from_metadata(cls, categories: Mapping) -> CategoryRegistry:
@@ -206,22 +224,7 @@ class CategoryRegistry(Mapping):
             A populated :class:`CategoryRegistry`.
         """
         id_to_name = {int(key): value for key, value in categories.items()}
-        name_to_id = {name: cat_id for cat_id, name in id_to_name.items()}
-        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
-
-    def names_indexed(self) -> list[str]:
-        """Return category names as a dense list indexed by id.
-
-        Ids missing from the registry fall back to their string form. Useful for
-        callers that want a ``Sequence[str]`` rather than a mapping.
-
-        Returns:
-            ``[name_for(0), name_for(1), ...]`` up to the largest known id.
-        """
-        if not self.id_to_name:
-            return []
-        max_id = max(self.id_to_name)
-        return [self.id_to_name.get(cat_id, str(cat_id)) for cat_id in range(max_id + 1)]
+        return cls._from_id_to_name(id_to_name)
 
     def merge(self, other: CategoryRegistry) -> CategoryRegistry:
         """Return a new registry that overlays *other*'s entries on top of *self*.
@@ -244,16 +247,13 @@ class CategoryRegistry(Mapping):
             [(0, 'cat'), (1, 'dog')]
         """
         id_to_name = {**self.id_to_name, **other.id_to_name}
-        name_to_id = {**self.name_to_id, **other.name_to_id}
-        return CategoryRegistry(id_to_name=id_to_name, name_to_id=name_to_id)
+        return CategoryRegistry._from_id_to_name(id_to_name)
 
     @classmethod
     def from_names(cls, names: list[str], start_id: int = 0) -> CategoryRegistry:
         """Build a registry from a plain list of category name strings.
 
-        IDs are assigned sequentially starting from *start_id*. Duplicate
-        names in *names* will produce duplicate id entries; callers should
-        deduplicate if required.
+        IDs are assigned sequentially starting from *start_id*.
 
         Args:
             names: Ordered list of category name strings.
@@ -261,6 +261,9 @@ class CategoryRegistry(Mapping):
 
         Returns:
             A populated :class:`CategoryRegistry`.
+
+        Raises:
+            ValueError: If *names* contains duplicates.
 
         Examples:
             >>> reg = CategoryRegistry.from_names(["cat", "dog"])
@@ -271,13 +274,22 @@ class CategoryRegistry(Mapping):
             {1: 'a', 2: 'b'}
         """
         id_to_name = {start_id + i: name for i, name in enumerate(names)}
-        name_to_id = {name: start_id + i for i, name in enumerate(names)}
-        return cls(id_to_name=id_to_name, name_to_id=name_to_id)
+        return cls._from_id_to_name(id_to_name)
 
     def __repr__(self) -> str:
         """Return a concise developer-friendly representation."""
         pairs = ", ".join(f"{k}: {v!r}" for k, v in sorted(self.id_to_name.items()))
         return f"CategoryRegistry({{{pairs}}})"
+
+
+def prediction_categories_for_sample(base_categories: CategoryRegistry, sample: Sample | TensorSample) -> CategoryRegistry:
+    """Return category identity used to convert one sample's prediction.
+
+    Fitted categories provide the base id->name map. Category metadata carried
+    by the target sample overlays that base for overlapping ids, preserving the
+    previous per-call behaviour for ``Prediction.label_names``.
+    """
+    return base_categories.merge(CategoryRegistry.from_samples(sample))
 
 
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
@@ -306,11 +318,11 @@ def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     if sample.image is not None:
         arr = sample.image
         if isinstance(arr, torch.Tensor):
-            image_t = arr.float().to(device)
-        else:
-            if arr.ndim == 3:
-                arr = arr.transpose(2, 0, 1)  # HWC -> CHW
-            image_t = torch.from_numpy(np.ascontiguousarray(arr)).float().to(device)
+            msg = "Sample.image must be a numpy array in HWC layout"
+            raise TypeError(msg)
+        if arr.ndim == 3:
+            arr = arr.transpose(2, 0, 1)  # HWC -> CHW
+        image_t = torch.from_numpy(np.ascontiguousarray(arr)).float().to(device)
 
     label_ids = sample.label_ids
     return TensorSample(

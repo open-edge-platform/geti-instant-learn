@@ -149,6 +149,7 @@ class TestDinoTxtZeroShotClassification:
 
         # Fit first
         model_instance.fit(sample_reference_batch)
+        assert model_instance.categories.id_to_name == {0: "circle", 1: "rectangle", 2: "triangle"}
 
         samples = [
             Sample(image=image, is_reference=[False], categories=[Category(id=0, label="object")])

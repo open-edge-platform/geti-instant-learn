@@ -9,7 +9,7 @@ from collections import defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
-from itertools import starmap, zip_longest
+from itertools import zip_longest
 from pathlib import Path
 from typing import Literal
 
@@ -28,6 +28,7 @@ from instantlearn.models.torch_adapter import (
     TensorSample,
     dict_to_prediction,
     label_ids_as_ints,
+    prediction_categories_for_sample,
     samples_to_tensors,
 )
 from instantlearn.models.torch_base import ExportConfig, TorchModel
@@ -39,6 +40,7 @@ from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
     build_canvas_vertical,
+    category_registry_from_canvas_references,
     crop_around_bbox,
     extract_target_predictions,
     group_references_by_category,
@@ -51,7 +53,7 @@ from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreproces
 logger = logging.getLogger(__name__)
 
 
-SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
+SAM3_MODEL_ID = "facebook/sam3.1"
 
 MODEL_NAMES = [
     "vision-encoder",
@@ -270,10 +272,10 @@ class SAM3(TorchModel):
         resolution: int = 1008,
         precision: str | None = None,
         compile_models: bool = False,
-        model_id: str = SAM3_LIBRARY_MODEL_ID,
+        model_id: str = SAM3_MODEL_ID,
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
-        drop_spatial_bias: bool = True,
+        drop_spatial_bias: bool = False,
         postprocessor: PostProcessor | None = None,
         canvas_config: CanvasConfig | None = None,
     ) -> None:
@@ -287,7 +289,7 @@ class SAM3(TorchModel):
                 ``None`` selects ``'fp16'`` for CUDA/XPU and ``'fp32'`` for CPU.
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
-                and tokenizer from. Default: SAM3_LIBRARY_MODEL_ID.
+                and tokenizer from. Default: SAM3_MODEL_ID.
             post_processing: Optional post-processing configuration for NMS,
                 mask overlap removal, and non-overlapping pixel constraints.
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
@@ -296,7 +298,7 @@ class SAM3(TorchModel):
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
-                spatial bias from the reference image position. Default: True.
+                spatial bias from the reference image position. Default: False.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -319,8 +321,8 @@ class SAM3(TorchModel):
         self.drop_spatial_bias = drop_spatial_bias
         self.canvas_config = canvas_config or CanvasConfig()
 
-        # Category mapping from fit() - optional for consistency with GroundedSAM
-        self.categories: CategoryRegistry | None = None
+        # Category identity from fit(), used to build Prediction.label_names.
+        self.categories: CategoryRegistry = CategoryRegistry()
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None
@@ -416,7 +418,7 @@ class SAM3(TorchModel):
             # compression pass reads from and writes to distinct locations.
             source_ir_dir = export_root / f"openvino-{config.compression.value}-fp16-source"
             logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
-            SAM3.convert_to_openvino(onnx_dir=onnx_dir, ir_dir=source_ir_dir, precision=ir_precision)
+            SAM3._convert_to_openvino(onnx_dir=onnx_dir, ir_dir=source_ir_dir, precision=ir_precision)
             SAM3._ensure_openvino_export_complete(source_ir_dir)
 
             logger.info("Applying SAM3 OpenVINO weight compression: %s", config.compression.value)
@@ -428,7 +430,7 @@ class SAM3(TorchModel):
         else:
             ir_dir = export_root / f"openvino-{config.compression.value}"
             logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
-            SAM3.convert_to_openvino(onnx_dir=onnx_dir, ir_dir=ir_dir, precision=ir_precision)
+            SAM3._convert_to_openvino(onnx_dir=onnx_dir, ir_dir=ir_dir, precision=ir_precision)
             SAM3._ensure_openvino_export_complete(ir_dir)
 
         if not config.keep_intermediate:
@@ -651,7 +653,7 @@ class SAM3(TorchModel):
         return onnx_dir, exported
 
     @staticmethod
-    def convert_to_openvino(
+    def _convert_to_openvino(
         onnx_dir: Path,
         ir_dir: Path,
         *,
@@ -935,7 +937,10 @@ class SAM3(TorchModel):
 
         raw_predictions = self._ensure_prediction_scores(raw_predictions)
         processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
-        return list(starmap(self._to_prediction, zip(processed_predictions, target_batch, strict=True)))
+        return [
+            dict_to_prediction(prediction, prediction_categories_for_sample(self.categories, sample))
+            for prediction, sample in zip(processed_predictions, target_batch, strict=True)
+        ]
 
     @staticmethod
     def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
@@ -966,34 +971,6 @@ class SAM3(TorchModel):
                 masks = prediction["pred_masks"]
                 prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
         return predictions
-
-    def _to_prediction(self, prediction: dict[str, torch.Tensor], sample: TensorSample) -> Prediction:
-        """Convert one raw SAM3 prediction dictionary to ``Prediction``.
-
-        Args:
-            prediction: Raw tensor prediction with masks, labels, scores, and boxes.
-            sample: Torch-native sample used to recover category label names.
-
-        Returns:
-            Backend-neutral prediction with numpy arrays.
-        """
-        return dict_to_prediction(prediction, self._categories_for(sample))
-
-    def _categories_for(self, sample: TensorSample) -> CategoryRegistry:
-        """Merge fitted categories with this sample's per-instance category metadata.
-
-        Fitted categories (from ``fit()``) provide the base id->name map; any
-        category names carried on the target sample override them for overlapping
-        ids, mirroring the previous per-call behaviour.
-
-        Args:
-            sample: Torch-native target sample.
-
-        Returns:
-            A :class:`CategoryRegistry` used as the ``categories`` mapping.
-        """
-        base = self.categories or CategoryRegistry()
-        return base.merge(CategoryRegistry.from_samples(sample))
 
     def _fit_classic(self, reference_batch: list[TensorSample]) -> None:
         """Store category mapping from reference batch.
@@ -1231,7 +1208,7 @@ class SAM3(TorchModel):
         results = []
 
         # Use stored categories from fit() if available, otherwise use per-sample
-        use_fitted_categories = self.categories is not None
+        use_fitted_categories = bool(self.categories)
 
         # Process each image's prompts individually
         for sample in target:
@@ -1401,7 +1378,7 @@ class SAM3(TorchModel):
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}  # Clear stale cache from previous fit()
-        self.categories = CategoryRegistry.from_samples(reference_batch)
+        self.categories = category_registry_from_canvas_references(refs_by_category)
 
         # Pre-cache text features (T4 optimization)
         for cat_refs in refs_by_category.values():
