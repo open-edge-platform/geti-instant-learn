@@ -53,18 +53,17 @@ from .canvas_helpers import (
     group_references_by_category,
     merge_cross_category,
 )
+from .constants import (
+    GEOMETRY_ENCODER,
+    GEOMETRY_ENCODER_EXEMPLAR,
+    PROMPT_DECODER,
+    TEXT_ENCODER,
+    VISION_ENCODER,
+)
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 from .sam3 import SAM3, SAM3_MODEL_ID, CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
-
-
-# Sub-model file names
-_VISION_ENCODER = "vision-encoder"
-_TEXT_ENCODER = "text-encoder"
-_GEOMETRY_ENCODER = "geometry-encoder"
-_GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
-_PROMPT_DECODER = "prompt-decoder"
 
 
 def _get_model_file(model_dir: Path, name: str, *, required: bool = True) -> Path | None:
@@ -236,9 +235,9 @@ class SAM3OpenVINO(OpenVINOModel):
             _compile_props["CACHE_DIR"] = str(_cache_path)
 
         # Always required: vision encoder, text encoder, prompt decoder
-        vision_path = _get_model_file(self.model_dir, _VISION_ENCODER)
-        text_path = _get_model_file(self.model_dir, _TEXT_ENCODER)
-        prompt_decoder_path = _get_model_file(self.model_dir, _PROMPT_DECODER)
+        vision_path = _get_model_file(self.model_dir, VISION_ENCODER)
+        text_path = _get_model_file(self.model_dir, TEXT_ENCODER)
+        prompt_decoder_path = _get_model_file(self.model_dir, PROMPT_DECODER)
 
         logger.info("Loading SAM3 OpenVINO models from %s on %s...", self.model_dir, self.ov_device)
         self.vision_model = self._core.compile_model(vision_path, self.ov_device, _compile_props)
@@ -249,7 +248,7 @@ class SAM3OpenVINO(OpenVINOModel):
         logger.info("  Prompt decoder: %s", prompt_decoder_path.name)
 
         # Geometry encoder (classic) — needed for box/point/canvas prompts
-        geo_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER, required=False)
+        geo_path = _get_model_file(self.model_dir, GEOMETRY_ENCODER, required=False)
         if geo_path is not None:
             self.geometry_model = self._core.compile_model(geo_path, self.ov_device, _compile_props)
             logger.info("  Geometry encoder (classic): %s", geo_path.name)
@@ -303,7 +302,7 @@ class SAM3OpenVINO(OpenVINOModel):
         """Lazy-load the geometry-encoder-exemplar model on first use."""
         if self.geometry_exemplar_model is not None:
             return
-        geo_ex_path = _get_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
+        geo_ex_path = _get_model_file(self.model_dir, GEOMETRY_ENCODER_EXEMPLAR)
         self.geometry_exemplar_model = self._core.compile_model(
             geo_ex_path, self.ov_device, self._compile_props,
         )

@@ -32,6 +32,12 @@ class Category:
     label: str
 
 
+# Category assigned to a Sample when the caller supplies none. Models treat a
+# lone DEFAULT_CATEGORY as "no category information" so that it never overrides
+# names learned during fit().
+DEFAULT_CATEGORY = Category(id=0, label="object")
+
+
 @dataclass
 class Sample:
     """A single image with its annotations, used as input to all models.
@@ -81,7 +87,7 @@ class Sample:
     points: np.ndarray | None = None
     scores: np.ndarray | None = None
 
-    categories: list[Category] = field(default_factory=lambda: [Category(id=0, label="object")])
+    categories: list[Category] = field(default_factory=lambda: [DEFAULT_CATEGORY])
 
     is_reference: list[bool] | None = field(default_factory=lambda: [False])
     n_shot: list[int] | None = field(default_factory=lambda: [-1])

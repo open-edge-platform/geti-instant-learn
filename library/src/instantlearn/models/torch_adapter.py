@@ -26,7 +26,7 @@ import torch
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import DEFAULT_CATEGORY, Sample
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -286,10 +286,18 @@ def prediction_categories_for_sample(base_categories: CategoryRegistry, sample: 
     """Return category identity used to convert one sample's prediction.
 
     Fitted categories provide the base id->name map. Category metadata carried
-    by the target sample overlays that base for overlapping ids, preserving the
-    previous per-call behaviour for ``Prediction.label_names``.
+    by the target sample overlays that base for overlapping ids, so a caller can
+    rename categories per call.
+
+    A target sample that only carries :data:`DEFAULT_CATEGORY` holds no real
+    category information, so it is ignored whenever ``fit()`` already supplied
+    names -- otherwise the placeholder name ``"object"`` would silently
+    overwrite the fitted name for id 0.
     """
-    return base_categories.merge(CategoryRegistry.from_samples(sample))
+    overlay = CategoryRegistry.from_samples(sample)
+    if base_categories and overlay.id_to_name == {DEFAULT_CATEGORY.id: DEFAULT_CATEGORY.label}:
+        return base_categories
+    return base_categories.merge(overlay)
 
 
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:

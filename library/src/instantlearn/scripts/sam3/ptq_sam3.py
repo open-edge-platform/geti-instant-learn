@@ -334,7 +334,8 @@ def quantize_sam3_ptq(  # noqa: C901, PLR0915
     """
     import openvino as ov  # noqa: PLC0415
 
-    from instantlearn.scripts.sam3.export_sam3 import MODEL_NAMES, validate_openvino_models  # noqa: PLC0415
+    from instantlearn.models.sam3.constants import MODEL_NAMES  # noqa: PLC0415
+    from instantlearn.scripts.sam3.export_sam3 import validate_openvino_models  # noqa: PLC0415
     from instantlearn.utils.compression import quantize_model  # noqa: PLC0415
 
     if models is None:
@@ -445,7 +446,7 @@ def quantize_sam3_ptq(  # noqa: C901, PLR0915
 
 def main() -> None:
     """CLI entry point for SAM3 full post-training quantization."""
-    from instantlearn.scripts.sam3.export_sam3 import MODEL_NAMES  # noqa: PLC0415
+    from instantlearn.models.sam3.constants import MODEL_NAMES  # noqa: PLC0415
 
     parser = argparse.ArgumentParser(
         description="Apply full INT8 post-training quantization to SAM3 OpenVINO IR models.",

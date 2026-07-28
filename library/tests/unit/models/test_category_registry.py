@@ -17,7 +17,7 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Category, Sample
+from instantlearn.data.base.sample import DEFAULT_CATEGORY, Category, Sample
 from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample, prediction_categories_for_sample
 
 
@@ -184,6 +184,32 @@ class TestPredictionCategoriesForSample:
         categories = prediction_categories_for_sample(CategoryRegistry(), sample)
 
         assert categories.id_to_name == {0: "shoe"}
+
+    def test_default_placeholder_category_does_not_override_fitted_names(self) -> None:
+        """An unannotated target must not relabel fitted id 0 as ``"object"``."""
+        base = CategoryRegistry.from_metadata({0: "elephant", 1: "tree"})
+        sample = _make_tensor_sample([DEFAULT_CATEGORY.id], [DEFAULT_CATEGORY.label])
+
+        categories = prediction_categories_for_sample(base, sample)
+
+        assert categories.id_to_name == {0: "elephant", 1: "tree"}
+
+    def test_default_placeholder_still_used_when_nothing_fitted(self) -> None:
+        """With no fitted categories the placeholder is the only name available."""
+        sample = _make_tensor_sample([DEFAULT_CATEGORY.id], [DEFAULT_CATEGORY.label])
+
+        categories = prediction_categories_for_sample(CategoryRegistry(), sample)
+
+        assert categories.id_to_name == {DEFAULT_CATEGORY.id: DEFAULT_CATEGORY.label}
+
+    def test_explicit_object_named_category_beyond_default_still_overlays(self) -> None:
+        """A real multi-category target keeps overlay behaviour."""
+        base = CategoryRegistry.from_metadata({0: "elephant"})
+        sample = _make_tensor_sample([0, 1], ["object", "tree"])
+
+        categories = prediction_categories_for_sample(base, sample)
+
+        assert categories.id_to_name == {0: "object", 1: "tree"}
 
 
 class TestMappingProtocol:
