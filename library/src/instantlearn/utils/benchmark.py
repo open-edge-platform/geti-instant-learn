@@ -182,7 +182,7 @@ def convert_masks_to_one_hot_tensor(
             if cat_id in category_id_to_index:
                 class_idx = category_id_to_index[cat_id]
                 # Apply logical OR to handle multiple instances of same class
-                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)  # noqa: PLR6104
+                gt_tensor[class_idx] = gt_tensor[class_idx] | torch.as_tensor(gt_mask, device=device)  # noqa: PLR6104
 
         # Process prediction masks
         # Temporary dict/Prediction shim: TODO remove the dict branch once every model returns Prediction.

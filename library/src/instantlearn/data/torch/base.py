@@ -13,12 +13,11 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 import polars as pl
-import torch
 from torch.utils.data import Dataset as TorchDataset
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Category, Sample
-from instantlearn.data.torch.image import read_image
+from instantlearn.data.utils.image import read_image
 
 
 class Dataset(TorchDataset, ABC):
@@ -129,7 +128,7 @@ class Dataset(TorchDataset, ABC):
               Future refactoring should:
               1. Add optional transform parameter to __init__
               2. Apply transforms here in __getitem__
-              3. Return images in CHW format consistently
+              3. Return images in HWC numpy format consistently
               4. Remove preprocessing logic from model code
               This would improve:
               - Consistency across models
@@ -154,8 +153,7 @@ class Dataset(TorchDataset, ABC):
             raise IndexError(msg) from e
 
         # Load image (once per sample!)
-        # Returns CHW tensor for model preprocessors (HuggingFace, SAM)
-        image = read_image(raw_sample["image_path"])  # torch.Tensor, (C, H, W)
+        image = read_image(raw_sample["image_path"])  # numpy, (H, W, C)
 
         # Load masks using dataset-specific implementation
         masks = self._load_masks(raw_sample)  # (N, H, W) or None
@@ -171,7 +169,7 @@ class Dataset(TorchDataset, ABC):
 
         # Create and return Sample
         return Sample(
-            image=image,  # torch.Tensor, (C, H, W)
+            image=image,  # numpy, (H, W, C)
             masks=masks,  # (N, H, W) or None
             bboxes=bboxes,  # (N, 4) or None
             categories=[
@@ -352,7 +350,7 @@ class Dataset(TorchDataset, ABC):
         return Batch.collate
 
     @abstractmethod
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
         """Load masks for a sample.
 
         This method should be implemented by subclasses to load masks in their
@@ -362,8 +360,8 @@ class Dataset(TorchDataset, ABC):
             raw_sample: Dictionary from DataFrame row containing sample metadata.
 
         Returns:
-            torch.Tensor with shape (N, H, W) where N is the number of instances,
-            and dtype torch.bool, or None if no masks are available.
+            Numpy array with shape (N, H, W) where N is the number of instances,
+            and dtype bool, or None if no masks are available.
         """
 
     @abstractmethod
