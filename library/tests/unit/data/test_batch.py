@@ -351,9 +351,9 @@ class TestBatchTensorConversion:
 
     def test_batch_tensor_conversion_torch_preserved(self) -> None:
         """Test that torch tensors are preserved without conversion."""
-        # Create sample with torch tensors
+        # Create sample with a numpy image and torch annotations.
         sample = Sample(
-            image=torch.randint(0, 255, (3, 224, 224), dtype=torch.uint8),
+            image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
             image_path="test.jpg",
             masks=torch.randint(0, 2, (1, 224, 224), dtype=torch.uint8),
             bboxes=torch.tensor([[10, 20, 100, 120]], dtype=torch.float32),
@@ -365,7 +365,7 @@ class TestBatchTensorConversion:
 
         batch = Batch.collate([sample])
 
-        # Test that tensors are preserved
+        # Test that values are preserved as stored.
         images = batch.images
         assert images[0] is sample.image  # Same object
 
@@ -394,7 +394,7 @@ class TestBatchTensorConversion:
         )
 
         sample_torch = Sample(
-            image=torch.randint(0, 255, (3, 224, 224), dtype=torch.uint8),
+            image=_rng.integers(0, 255, (224, 224, 3), dtype=np.uint8),
             image_path="torch.jpg",
             masks=torch.randint(0, 2, (1, 224, 224), dtype=torch.uint8),
             categories=[Category(1, "dog")],
@@ -407,7 +407,7 @@ class TestBatchTensorConversion:
         # Backend-neutral: arrays returned as stored (numpy stays numpy, torch stays torch)
         images = batch.images
         assert isinstance(images[0], np.ndarray)  # numpy sample
-        assert isinstance(images[1], torch.Tensor)  # torch sample
+        assert isinstance(images[1], np.ndarray)  # numpy image contract
 
         masks = batch.masks
         assert isinstance(masks[0], np.ndarray)  # numpy sample

@@ -12,7 +12,7 @@ import torch
 from torchvision import tv_tensors
 
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.models.torch_adapter import arrays_to_prediction, batch_to_tensors
+from instantlearn.models.torch_adapter import CategoryRegistry, arrays_to_prediction, batch_to_tensors
 from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils import precision_to_torch_dtype
 from instantlearn.utils.constants import DINOv3BackboneSize
@@ -83,7 +83,7 @@ class DinoTxtZeroShotClassification(TorchModel):
             weights_location=weights_location,
         )
         self.prompt_templates = prompt_templates
-        self.category_mapping: dict[int, str] = {}
+        self.categories: CategoryRegistry = CategoryRegistry()
         self.reference_features: torch.Tensor | None = None
 
     @classmethod
@@ -110,15 +110,15 @@ class DinoTxtZeroShotClassification(TorchModel):
             msg = "reference_batch must contain at least one sample"
             raise ValueError(msg)
 
-        category_mapping = _category_mapping(reference_batch)
+        categories = CategoryRegistry.from_samples(reference_batch)
 
-        if not category_mapping:
+        if not categories:
             msg = "reference_batch must contain samples with categories"
             raise ValueError(msg)
 
-        self.category_mapping = category_mapping
+        self.categories = categories
         # reference features is zero shot weights from DinoTxtEncoder
-        self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
+        self.reference_features = self.dino_encoder.encode_text(categories.id_to_name, self.prompt_templates)
 
     @torch.no_grad()
     def predict(self, target: Collatable) -> list[Prediction]:
@@ -134,14 +134,14 @@ class DinoTxtZeroShotClassification(TorchModel):
             ValueError: If categories or an image are missing from a target.
         """
         target_batch = Batch.collate(target)
-        category_mapping = self.category_mapping or _category_mapping(target_batch)
-        if not category_mapping:
+        categories = self.categories or CategoryRegistry.from_samples(target_batch)
+        if not categories:
             msg = "DinoTxt requires categories from fit() or target samples."
             raise ValueError(msg)
 
         reference_features = self.reference_features
-        if reference_features is None or category_mapping != self.category_mapping:
-            reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
+        if reference_features is None or categories != self.categories:
+            reference_features = self.dino_encoder.encode_text(categories.id_to_name, self.prompt_templates)
 
         tensor_batch = batch_to_tensors(target_batch, device=self.device)
         if any(image is None for image in tensor_batch.images):
@@ -153,7 +153,7 @@ class DinoTxtZeroShotClassification(TorchModel):
         logits = 100.0 * target_features @ reference_features
         scores = logits.softmax(dim=1)
         max_scores, max_class_indexes = scores.max(dim=1)
-        category_ids = sorted(category_mapping)
+        category_ids = sorted(categories)
 
         predictions: list[Prediction] = []
         for sample, max_score, max_class_index in zip(
@@ -172,7 +172,7 @@ class DinoTxtZeroShotClassification(TorchModel):
                     masks=np.empty((0, height, width), dtype=np.uint8),
                     scores=np.array([max_score.detach().cpu().item()], dtype=np.float32),
                     label_ids=np.array([label_id], dtype=np.int32),
-                    categories=category_mapping,
+                    categories=categories,
                 ),
             )
         return predictions
@@ -187,11 +187,3 @@ class DinoTxtZeroShotClassification(TorchModel):
         msg = "DinoTxt does not support OpenVINO export because no DinoTxtOpenVINO implementation exists."
         raise NotImplementedError(msg)
 
-
-def _category_mapping(batch: Batch) -> dict[int, str]:
-    """Build a stable category-ID-to-label mapping from batch samples."""
-    mapping: dict[int, str] = {}
-    for sample in batch.samples:
-        for category in sample.categories:
-            mapping.setdefault(category.id, category.label)
-    return mapping

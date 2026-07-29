@@ -26,7 +26,7 @@ import torch
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import DEFAULT_CATEGORY, Sample
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -104,22 +104,230 @@ class TensorBatch:
         return [s.category_labels for s in self.samples]
 
 
+def label_ids_as_ints(sample: Sample | TensorSample) -> list[int]:
+    """Return a sample's category ids as plain Python integers.
+
+    Normalizes the three shapes ``label_ids`` can take at the torch boundary:
+    ``None`` (no categories), a ``torch.Tensor`` (``TensorSample``), or a plain
+    list of ints (``Sample``).
+
+    Args:
+        sample: A backend-neutral ``Sample`` or torch-native ``TensorSample``.
+
+    Returns:
+        Category ids as a list of ``int`` (empty when ``label_ids`` is ``None``).
+    """
+    label_ids = sample.label_ids
+    if label_ids is None:
+        return []
+    if isinstance(label_ids, torch.Tensor):
+        return [int(label_id) for label_id in label_ids.detach().cpu().tolist()]
+    return [int(label_id) for label_id in label_ids]
+
+
+@dataclass
+class CategoryRegistry(Mapping):
+    """Bidirectional category id <-> name identity, built once from references.
+
+    This is the single home for category identity across every model.
+
+    Because it implements :class:`collections.abc.Mapping` over
+    ``id_to_name``, an instance can be passed directly as the ``categories``
+    argument of :func:`arrays_to_prediction`, :func:`tensors_to_prediction`, and
+    :func:`dict_to_prediction`.
+
+    Attributes:
+        id_to_name: Mapping from integer category id to category name.
+        name_to_id: Mapping from category name to integer category id.
+    """
+
+    id_to_name: dict[int, str] = field(default_factory=dict)
+    name_to_id: dict[str, int] = field(default_factory=dict)
+
+    def __getitem__(self, key: int) -> str:
+        """Return the category name for *key* (an integer id)."""
+        return self.id_to_name[key]
+
+    def __iter__(self):  # noqa: ANN204
+        """Iterate over the integer category ids."""
+        return iter(self.id_to_name)
+
+    def __len__(self) -> int:
+        """Return the number of registered categories."""
+        return len(self.id_to_name)
+
+    @classmethod
+    def from_samples(
+        cls,
+        samples: Sample | TensorSample | list[Sample] | list[TensorSample] | Batch,
+    ) -> CategoryRegistry:
+        """Build a registry from reference samples.
+
+        Iterates samples in order and records each ``(id, name)`` pair. Repeated
+        identical pairs are accepted, but conflicting ids or names are rejected
+        so the resulting mapping is bidirectional.
+
+        Args:
+            samples: A single ``Sample`` / ``TensorSample``, a list of either,
+                or a ``Batch``.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+
+        Raises:
+            ValueError: If an id is assigned different names, or a name is
+                assigned different ids.
+        """
+        if isinstance(samples, Batch):
+            sample_list: list[Sample | TensorSample] = list(samples.samples)
+        elif isinstance(samples, (Sample, TensorSample)):
+            sample_list = [samples]
+        else:
+            sample_list = list(samples)
+
+        id_to_name: dict[int, str] = {}
+        for sample in sample_list:
+            labels = sample.category_labels
+            if not labels:
+                continue
+            for cat_id, name in zip(label_ids_as_ints(sample), labels, strict=False):
+                existing = id_to_name.get(cat_id)
+                if existing is not None and existing != name:
+                    msg = f"Category id {cat_id} has conflicting names: {existing!r} and {name!r}"
+                    raise ValueError(msg)
+                id_to_name[cat_id] = name
+        return cls._from_id_to_name(id_to_name)
+
+    @classmethod
+    def _from_id_to_name(cls, id_to_name: dict[int, str]) -> CategoryRegistry:
+        """Build a registry from canonical id->name entries."""
+        name_to_id: dict[str, int] = {}
+        for cat_id, name in id_to_name.items():
+            existing = name_to_id.get(name)
+            if existing is not None and existing != cat_id:
+                msg = f"Category name {name!r} is assigned to multiple ids: {existing} and {cat_id}"
+                raise ValueError(msg)
+            name_to_id[name] = cat_id
+        return cls(id_to_name=dict(id_to_name), name_to_id=name_to_id)
+
+    @classmethod
+    def from_metadata(cls, categories: Mapping) -> CategoryRegistry:
+        """Build a registry from a serialized ``{id: name}`` mapping.
+
+        Used by OpenVINO siblings that load category identity from
+        ``metadata.json`` (ids are JSON object keys, hence strings).
+
+        Args:
+            categories: Mapping from category id (``int`` or ``str``) to name.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+        """
+        id_to_name = {int(key): value for key, value in categories.items()}
+        return cls._from_id_to_name(id_to_name)
+
+    def merge(self, other: CategoryRegistry) -> CategoryRegistry:
+        """Return a new registry that overlays *other*'s entries on top of *self*.
+
+        Entries in *other* take precedence for any overlapping category id or
+        name.  Entries present only in *self* are preserved unchanged.  Neither
+        registry is mutated.
+
+        Args:
+            other: The registry whose entries take precedence.
+
+        Returns:
+            A new :class:`CategoryRegistry` containing the merged mappings.
+
+        Examples:
+            >>> base = CategoryRegistry(id_to_name={0: "cat"}, name_to_id={"cat": 0})
+            >>> overlay = CategoryRegistry(id_to_name={1: "dog"}, name_to_id={"dog": 1})
+            >>> merged = base.merge(overlay)
+            >>> sorted(merged.id_to_name.items())
+            [(0, 'cat'), (1, 'dog')]
+        """
+        id_to_name = {**self.id_to_name, **other.id_to_name}
+        return CategoryRegistry._from_id_to_name(id_to_name)
+
+    @classmethod
+    def from_names(cls, names: list[str], start_id: int = 0) -> CategoryRegistry:
+        """Build a registry from a plain list of category name strings.
+
+        IDs are assigned sequentially starting from *start_id*.
+
+        Args:
+            names: Ordered list of category name strings.
+            start_id: Integer ID for the first name. Default: 0.
+
+        Returns:
+            A populated :class:`CategoryRegistry`.
+
+        Raises:
+            ValueError: If *names* contains duplicates.
+
+        Examples:
+            >>> reg = CategoryRegistry.from_names(["cat", "dog"])
+            >>> reg.name_to_id
+            {'cat': 0, 'dog': 1}
+            >>> reg = CategoryRegistry.from_names(["a", "b"], start_id=1)
+            >>> reg.id_to_name
+            {1: 'a', 2: 'b'}
+        """
+        id_to_name = {start_id + i: name for i, name in enumerate(names)}
+        return cls._from_id_to_name(id_to_name)
+
+    def __repr__(self) -> str:
+        """Return a concise developer-friendly representation."""
+        pairs = ", ".join(f"{k}: {v!r}" for k, v in sorted(self.id_to_name.items()))
+        return f"CategoryRegistry({{{pairs}}})"
+
+
+def prediction_categories_for_sample(base_categories: CategoryRegistry, sample: Sample | TensorSample) -> CategoryRegistry:
+    """Return category identity used to convert one sample's prediction.
+
+    Fitted categories provide the base id->name map. Category metadata carried
+    by the target sample overlays that base for overlapping ids, so a caller can
+    rename categories per call.
+
+    A target sample that only carries :data:`DEFAULT_CATEGORY` holds no real
+    category information, so it is ignored whenever ``fit()`` already supplied
+    names -- otherwise the placeholder name ``"object"`` would silently
+    overwrite the fitted name for id 0.
+    """
+    overlay = CategoryRegistry.from_samples(sample)
+    if base_categories and overlay.id_to_name == {DEFAULT_CATEGORY.id: DEFAULT_CATEGORY.label}:
+        return base_categories
+    return base_categories.merge(overlay)
+
+
 def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
-    """Convert a numpy :class:`Sample` to a torch :class:`TensorSample`.
+    """Convert a :class:`Sample` to a torch :class:`TensorSample`.
 
     ``image`` is permuted from HWC to CHW and cast to float32. This is the
     torch boundary — ``Sample`` itself never imports torch.
 
     Args:
-        sample: Backend-neutral numpy sample.
+        sample: Backend-neutral sample. Numpy arrays are converted to tensors;
+            tensor-valued fields are moved to *device* for compatibility with
+            existing torch examples.
         device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
 
     Returns:
         A ``TensorSample`` with all non-``None`` fields moved to *device*.
     """
+
+    def _to_tensor(value: np.ndarray | torch.Tensor | None, *, dtype: torch.dtype | None = None) -> torch.Tensor | None:
+        if value is None:
+            return None
+        tensor = value if isinstance(value, torch.Tensor) else torch.from_numpy(np.ascontiguousarray(value))
+        return tensor.to(device=device, dtype=dtype) if dtype is not None else tensor.to(device=device)
+
     image_t = None
     if sample.image is not None:
         arr = sample.image
+        if isinstance(arr, torch.Tensor):
+            msg = "Sample.image must be a numpy array in HWC layout"
+            raise TypeError(msg)
         if arr.ndim == 3:
             arr = arr.transpose(2, 0, 1)  # HWC -> CHW
         image_t = torch.from_numpy(np.ascontiguousarray(arr)).float().to(device)
@@ -127,10 +335,10 @@ def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     label_ids = sample.label_ids
     return TensorSample(
         image=image_t,
-        masks=torch.from_numpy(sample.masks).to(device) if sample.masks is not None else None,
-        bboxes=torch.from_numpy(sample.bboxes).float().to(device) if sample.bboxes is not None else None,
-        points=torch.from_numpy(sample.points).float().to(device) if sample.points is not None else None,
-        scores=torch.from_numpy(sample.scores).float().to(device) if sample.scores is not None else None,
+        masks=_to_tensor(sample.masks),
+        bboxes=_to_tensor(sample.bboxes, dtype=torch.float32),
+        points=_to_tensor(sample.points, dtype=torch.float32),
+        scores=_to_tensor(sample.scores, dtype=torch.float32),
         category_labels=sample.category_labels,
         label_ids=torch.tensor(label_ids, dtype=torch.int32, device=device) if label_ids else None,
     )

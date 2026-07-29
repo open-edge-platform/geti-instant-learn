@@ -43,22 +43,16 @@ from pathlib import Path
 
 import numpy as np
 
+from instantlearn.models.sam3.constants import (
+    GEOMETRY_ENCODER,
+    GEOMETRY_ENCODER_EXEMPLAR,
+    MODEL_NAMES,
+    PROMPT_DECODER,
+    TEXT_ENCODER,
+    VISION_ENCODER,
+)
+
 logger = logging.getLogger(__name__)
-
-# Canonical sub-model names (5-model split)
-MODEL_NAMES = [
-    "vision-encoder",
-    "text-encoder",
-    "geometry-encoder",
-    "geometry-encoder-exemplar",
-    "prompt-decoder",
-]
-
-_VISION_ENCODER = "vision-encoder"
-_TEXT_ENCODER = "text-encoder"
-_GEOMETRY_ENCODER = "geometry-encoder"
-_GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
-_PROMPT_DECODER = "prompt-decoder"
 
 # Tokenizer files needed for inference
 _TOKENIZER_FILES = [
@@ -120,7 +114,7 @@ def export_to_onnx(  # noqa: PLR0915
     vision_wrapper = OnnxVisionEncoder(model)
     vision_wrapper.eval()
     dummy_pixel = torch.randn(1, 3, resolution, resolution, device=device)
-    vision_path = onnx_dir / f"{_VISION_ENCODER}.onnx"
+    vision_path = onnx_dir / f"{VISION_ENCODER}.onnx"
     torch.onnx.export(
         vision_wrapper,
         (dummy_pixel,),
@@ -131,7 +125,7 @@ def export_to_onnx(  # noqa: PLR0915
         output_names=["fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2"],
         dynamic_axes={"pixel_values": {0: "batch"}},
     )
-    exported[_VISION_ENCODER] = vision_path
+    exported[VISION_ENCODER] = vision_path
     logger.info("  -> %s", vision_path)
 
     # 2. Text encoder
@@ -140,7 +134,7 @@ def export_to_onnx(  # noqa: PLR0915
     text_wrapper.eval()
     dummy_ids = torch.ones(1, 32, dtype=torch.long, device=device)
     dummy_mask = torch.ones(1, 32, dtype=torch.long, device=device)
-    text_path = onnx_dir / f"{_TEXT_ENCODER}.onnx"
+    text_path = onnx_dir / f"{TEXT_ENCODER}.onnx"
     torch.onnx.export(
         text_wrapper,
         (dummy_ids, dummy_mask),
@@ -154,7 +148,7 @@ def export_to_onnx(  # noqa: PLR0915
             "attention_mask": {0: "batch"},
         },
     )
-    exported[_TEXT_ENCODER] = text_path
+    exported[TEXT_ENCODER] = text_path
     logger.info("  -> %s", text_path)
 
     # 3. Geometry encoder (classic)
@@ -169,7 +163,7 @@ def export_to_onnx(  # noqa: PLR0915
     dummy_points = torch.rand(1, 1, 2, device=device)
     dummy_point_labels = torch.full((1, 1), -10, dtype=torch.long, device=device)
 
-    geo_path = onnx_dir / f"{_GEOMETRY_ENCODER}.onnx"
+    geo_path = onnx_dir / f"{GEOMETRY_ENCODER}.onnx"
     torch.onnx.export(
         geo_wrapper,
         (dummy_fpn, dummy_pos, dummy_boxes, dummy_box_labels, dummy_points, dummy_point_labels),
@@ -189,7 +183,7 @@ def export_to_onnx(  # noqa: PLR0915
             "input_points_labels": {0: "batch", 1: "num_points"},
         },
     )
-    exported[_GEOMETRY_ENCODER] = geo_path
+    exported[GEOMETRY_ENCODER] = geo_path
     logger.info("  -> %s", geo_path)
 
     # 4. Geometry encoder (exemplar, drop_spatial_bias=True)
@@ -201,7 +195,7 @@ def export_to_onnx(  # noqa: PLR0915
     dummy_ex_points = torch.rand(1, 1, 2, device=device)
     dummy_ex_point_labels = torch.ones(1, 1, dtype=torch.long, device=device)
 
-    geo_exemplar_path = onnx_dir / f"{_GEOMETRY_ENCODER_EXEMPLAR}.onnx"
+    geo_exemplar_path = onnx_dir / f"{GEOMETRY_ENCODER_EXEMPLAR}.onnx"
     torch.onnx.export(
         geo_exemplar_wrapper,
         (dummy_fpn, dummy_pos, dummy_boxes_ignore, dummy_box_labels_ignore,
@@ -222,7 +216,7 @@ def export_to_onnx(  # noqa: PLR0915
             "input_points_labels": {0: "batch", 1: "num_points"},
         },
     )
-    exported[_GEOMETRY_ENCODER_EXEMPLAR] = geo_exemplar_path
+    exported[GEOMETRY_ENCODER_EXEMPLAR] = geo_exemplar_path
     logger.info("  -> %s", geo_exemplar_path)
 
     # 5. Prompt decoder
@@ -238,7 +232,7 @@ def export_to_onnx(  # noqa: PLR0915
     dummy_prompt = torch.randn(1, 32, 256, device=device)
     dummy_pmask = torch.ones(1, 32, dtype=torch.bool, device=device)
 
-    decoder_path = onnx_dir / f"{_PROMPT_DECODER}.onnx"
+    decoder_path = onnx_dir / f"{PROMPT_DECODER}.onnx"
     torch.onnx.export(
         decoder_wrapper,
         (dummy_f0, dummy_f1, dummy_f2, dummy_p2, dummy_prompt, dummy_pmask),
@@ -255,7 +249,7 @@ def export_to_onnx(  # noqa: PLR0915
             "prompt_mask": {0: "batch", 1: "prompt_len"},
         },
     )
-    exported[_PROMPT_DECODER] = decoder_path
+    exported[PROMPT_DECODER] = decoder_path
     logger.info("  -> %s", decoder_path)
 
     # Save tokenizer alongside the ONNX files
@@ -563,7 +557,7 @@ def print_comparison_table(output_dir: Path) -> None:
 
 # CLI
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0915
     """CLI entry point for SAM3 PyTorch → ONNX → OpenVINO export and quantization."""
     parser = argparse.ArgumentParser(
         description="Export SAM3 PyTorch model to OpenVINO IR via ONNX, with optional weight compression.",
