@@ -70,20 +70,20 @@ target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
-masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
+masks = predictions[0].masks  # Predicted segmentation masks
 ```
 
 ### Text-Based Prompting with GroundedSAM
 
 ```python
 from instantlearn.models import GroundedSAM
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
 # Initialize GroundedSAM (no reference masks needed)
 model = GroundedSAM(device="xpu")
 
 # Create reference with category labels only
-ref_sample = Sample(categories=["elephant"])
+ref_sample = Sample(categories=[Category(0, "elephant")])
 
 # Fit and predict
 model.fit(ref_sample)
@@ -91,27 +91,34 @@ target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
-masks = predictions[0]["pred_masks"]
-boxes = predictions[0]["pred_boxes"]
-labels = predictions[0]["pred_labels"]
+masks = predictions[0].masks
+boxes = predictions[0].boxes
+labels = predictions[0].label_names
 ```
 
 ### Zero-Shot Segmentation with SAM3 OpenVINO
 
 SAM3OpenVINO provides text, box, point, canvas, and visual exemplar prompting
-using pre-exported OpenVINO IR models — no PyTorch required at inference time.
+using OpenVINO IR models — no PyTorch required at inference time. Export the IR
+once with `SAM3.to_openvino()`, then load it from disk.
 
 ```python
-from instantlearn.models import SAM3OpenVINO
-from instantlearn.models.sam3 import SAM3OVVariant
-from instantlearn.data import Sample
+from instantlearn.models import SAM3, SAM3OpenVINO
+from instantlearn.models.torch_base import ExportConfig
+from instantlearn.utils.constants import CompressionMode
+from instantlearn.data import Category, Sample
 
-# Auto-downloads INT8_SYM model from HuggingFace (also supports FP16, INT4, FP32)
-model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
+# One-off export: Torch -> ONNX -> OpenVINO IR (also supports FP16, INT4, FP32)
+SAM3(device="cpu").to_openvino(
+    export_path="./sam3-openvino",
+    config=ExportConfig(compression=CompressionMode.INT8_SYM),
+)
+
+model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
 
 # Text prompt — detect elephants
 predictions = model.predict([
-    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
@@ -124,7 +131,7 @@ from instantlearn.models.sam3.sam3 import CanvasConfig
 import numpy as np
 
 model = SAM3OpenVINO(
-    variant=SAM3OVVariant.INT8_SYM,
+    model_dir="./sam3-openvino/openvino-int8_sym",
     prompt_mode=Sam3PromptMode.CANVAS,
     device="CPU",
 )
@@ -132,8 +139,7 @@ model = SAM3OpenVINO(
 ref = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
     bboxes=np.array([[180, 105, 490, 370]]),
-    categories=["elephant"],
-    category_ids=[0],
+    categories=[Category(0, "elephant")],
 )
 model.fit(ref)
 predictions = model.predict([
@@ -143,7 +149,7 @@ predictions = model.predict([
 
 </details>
 
-See the full set of examples in [sam3_openvino_example.py](../examples/sam3_openvino_example.py).
+See the full set of examples in [sam3_openvino.ipynb](../examples/sam3_openvino.ipynb).
 
 ## CLI Usage
 

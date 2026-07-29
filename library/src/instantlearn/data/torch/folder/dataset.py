@@ -51,7 +51,7 @@ class FolderDataset(Dataset):
 
     Example:
         >>> from pathlib import Path
-        >>> from instantlearn.data.folder import FolderDataset
+        >>> from instantlearn.data.torch import FolderDataset
 
         >>> dataset = FolderDataset(
         ...     root=Path("./datasets/fss-1000"),

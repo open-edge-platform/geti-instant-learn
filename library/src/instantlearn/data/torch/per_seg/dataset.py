@@ -36,7 +36,7 @@ class PerSegDataset(Dataset):
 
     Example:
         >>> from pathlib import Path
-        >>> from instantlearn.data.datasets import PerSegDataset
+        >>> from instantlearn.data.torch import PerSegDataset
 
         >>> dataset = PerSegDataset(
         ...     root=Path("./datasets/PerSeg"),

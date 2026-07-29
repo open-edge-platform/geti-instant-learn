@@ -124,7 +124,7 @@ predictions = model.predict([
 
 # Access results for each image
 for pred in predictions:
-    masks = pred["pred_masks"]  # Predicted segmentation masks
+    masks = pred.masks  # Predicted segmentation masks
 ```
 
 > For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
