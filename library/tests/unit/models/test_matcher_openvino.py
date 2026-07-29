@@ -71,7 +71,7 @@ class TestMatcherOpenVINO:
         """Metadata (input/patch size + categories) is read on construction."""
         assert mock_model.input_size == INPUT_SIZE
         assert mock_model.patch_size == PATCH_SIZE
-        assert mock_model._category_names == {0: "cat"}  # noqa: SLF001
+        assert mock_model.categories.id_to_name == {0: "cat"}
 
     def test_fit_raises_not_implemented(self, mock_model: MatcherOpenVINO) -> None:
         """fit() is unsupported: references are baked at export time."""

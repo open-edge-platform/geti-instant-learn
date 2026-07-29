@@ -30,7 +30,7 @@ from instantlearn.models._export_utils import (
     write_metadata,
 )
 from instantlearn.models.model_card import ModelCard
-from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction
+from instantlearn.models.torch_adapter import CategoryRegistry, batch_to_tensors, dict_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils.constants import Backend, SAMModelName
 from instantlearn.utils.errors import ModelNotFittedError
@@ -313,9 +313,9 @@ class Matcher(TorchModel):
 
         # Reference features (set during fit)
         self.ref_features: ReferenceFeatures | None = None
-        # Category id -> label name mapping (set during fit), used to build
+        # Category identity (set during fit), used to build
         # ``Prediction.label_names`` at the numpy boundary.
-        self._category_names: dict[int, str] = {}
+        self.categories: CategoryRegistry = CategoryRegistry()
 
     @classmethod
     def card(cls) -> ModelCard:
@@ -345,13 +345,8 @@ class Matcher(TorchModel):
             reference_batch.masks,
             reference_batch.label_ids,
         )
-        # Cache category id -> name so predict() can build Prediction.label_names.
-        self._category_names = {}
-        for sample in reference_batch.samples:
-            if not sample.label_ids or not sample.category_labels:
-                continue
-            for cat_id, label in zip(sample.label_ids, sample.category_labels, strict=False):
-                self._category_names.setdefault(int(cat_id), label)
+        # Cache category identity so predict() can build Prediction.label_names.
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
     def predict(self, target: Collatable) -> list[Prediction]:
         """Predict masks for target images.
@@ -410,7 +405,7 @@ class Matcher(TorchModel):
             similarities=similarities,
         )
         predictions = apply_postprocessing(predictions, self.postprocessor)
-        return [dict_to_prediction(pred, self._category_names) for pred in predictions]
+        return [dict_to_prediction(pred, self.categories) for pred in predictions]
 
     @torch.no_grad()
     def _build_inference_graph(
@@ -583,5 +578,5 @@ class Matcher(TorchModel):
             keep_intermediate=config.keep_intermediate,
         )
 
-        write_metadata(export_dir, self.encoder.input_size, self.encoder.patch_size, self._category_names)
+        write_metadata(export_dir, self.encoder.input_size, self.encoder.patch_size, self.categories.id_to_name)
         return export_dir

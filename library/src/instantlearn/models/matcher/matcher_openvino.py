@@ -26,7 +26,7 @@ import numpy as np
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.openvino_base import OpenVINOModel
-from instantlearn.models.torch_adapter import arrays_to_prediction
+from instantlearn.models.torch_adapter import CategoryRegistry, arrays_to_prediction
 from instantlearn.utils import device_to_openvino_device
 
 from ._card import _MATCHER_CARD
@@ -88,8 +88,8 @@ class MatcherOpenVINO(OpenVINOModel):
         metadata = json.loads(metadata_path.read_text())
         self.input_size: int = metadata["input_size"]
         self.patch_size: int = metadata.get("patch_size", 0)
-        # Category id -> name map baked at export time (id keys stored as strings).
-        self._category_names: dict[int, str] = {int(k): v for k, v in metadata.get("categories", {}).items()}
+        # Category identity baked at export time (id keys stored as strings).
+        self.categories = CategoryRegistry.from_metadata(metadata.get("categories", {}))
 
         ir_path = self.model_dir / "model.xml"
         if not ir_path.exists():
@@ -190,7 +190,7 @@ class MatcherOpenVINO(OpenVINOModel):
                     masks=masks_frame,
                     scores=scores.astype(np.float32),
                     label_ids=labels.astype(np.int32),
-                    categories=self._category_names,
+                    categories=self.categories,
                 ),
             )
 

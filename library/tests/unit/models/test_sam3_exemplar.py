@@ -31,8 +31,13 @@ from instantlearn.models.efficient_sam3.efficient_sam3 import EfficientSAM3
 from instantlearn.models.sam3.model import GeometryEncoder, Sam3Model
 from instantlearn.models.sam3.processing import Sam3PromptPreprocessor
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
 
 # Sam3PromptMode
+
+
+def _zero_hwc_image(height: int = 100, width: int = 100) -> np.ndarray:
+    return np.zeros((height, width, 3), dtype=np.uint8)
 
 
 class TestSam3PromptMode:
@@ -170,14 +175,14 @@ class TestSAM3Init:
             SAM3(device="cpu", prompt_mode="nonexistent")
 
 
-# SAM3 class — _build_category_mapping
+# SAM3 class — category registry
 class TestBuildCategoryMapping:
-    """Tests for SAM3._build_category_mapping static method."""
+    """Tests for CategoryRegistry.from_samples name->id mapping."""
 
     def test_single_sample(self) -> None:
         """Single sample with two categories."""
         batch = Batch.collate(Sample(categories=[Category(id=0, label="cat"), Category(id=1, label="dog")]))
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {"cat": 0, "dog": 1}
 
     def test_multiple_samples_dedup(self) -> None:
@@ -187,14 +192,14 @@ class TestBuildCategoryMapping:
             Sample(categories=[Category(id=0, label="cat"), Category(id=1, label="dog")]),
         ]
         batch = Batch.collate(samples)
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {"cat": 0, "dog": 1}
 
     def test_empty_categories(self) -> None:
         """Empty categories produce empty mapping."""
         sample = Sample(categories=[])
         batch = Batch.collate(sample)
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {}
 
 
@@ -240,7 +245,7 @@ class TestSAM3ExemplarErrors:
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
         sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             sam3.predict(target)
 
@@ -321,7 +326,7 @@ class TestEfficientSAM3ExemplarErrors:
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
         model = EfficientSAM3(device="cpu", prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             model.predict(target)
 
