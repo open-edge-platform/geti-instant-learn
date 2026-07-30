@@ -3,6 +3,7 @@
 
 import logging
 import threading
+from collections.abc import Callable
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,6 +34,7 @@ from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.processor import Processor
 from runtime.errors import (
     PipelineNotActiveError,
     PipelineProjectMismatchError,
@@ -76,6 +78,12 @@ class PipelineManager:
         self._current_config: PipelineConfig | None = None
         self._visualization_info: VisualizationInfo | None = None
         self._lock = threading.RLock()
+        # Serializes the long-running model builds. Kept separate from ``_lock``
+        # so building a model never blocks the fast state accessors.
+        self._build_lock = threading.Lock()
+        # Bumped on every teardown so a build that finished after the pipeline
+        # was torn down can be discarded instead of resurrecting it.
+        self._build_generation = 0  #todo wtf?
         self._model_status: ModelStatusSchema | None = None
 
     def is_model_loading(self) -> bool:
@@ -104,16 +112,15 @@ class PipelineManager:
 
     def reload_pipeline(self, project_id: UUID) -> None:
         """Stop and fully rebuild the active pipeline for the given project."""
-        with self._lock:
-            if self.is_model_loading():
-                raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
-            self._teardown_pipeline()
-            try:
-                self._build_and_start_pipeline(project_id)
-            except Exception:
-                logger.exception("Pipeline reload failed for project %s", project_id)
-            else:
-                logger.info("Pipeline reloaded for project %s", project_id)
+        if self.is_model_loading():
+            raise PipelineReloadInProgressError("Pipeline reload is already in progress.")
+        self._teardown_pipeline()
+        try:
+            self._build_and_start_pipeline(project_id)
+        except Exception:
+            logger.exception("Pipeline reload failed for project %s", project_id)
+        else:
+            logger.info("Pipeline reloaded for project %s", project_id)
 
     def start(self) -> None:
         """
@@ -123,21 +130,19 @@ class PipelineManager:
             svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
             cfg = svc.get_active_pipeline_config()
         if cfg:
-            with self._lock:
-                try:
-                    self._build_and_start_pipeline(cfg.project_id)
-                except Exception:
-                    logger.exception("Pipeline startup failed for project %s", cfg.project_id)
-                else:
-                    logger.info("Pipeline started: project_id=%s", cfg.project_id)
+            try:
+                self._build_and_start_pipeline(cfg.project_id)
+            except Exception:
+                logger.exception("Pipeline startup failed for project %s", cfg.project_id)
+            else:
+                logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
             logger.info("No active project found at startup.")
         self._event_dispatcher.subscribe(self.on_config_change)
 
     def stop(self) -> None:
         """Stop and dispose the running pipeline."""
-        with self._lock:
-            self._teardown_pipeline()
+        self._teardown_pipeline()
 
     def _teardown_pipeline(self) -> None:
         """Stop and clear the active pipeline and its associated state."""
@@ -147,6 +152,7 @@ class PipelineManager:
                 self._pipeline = None
             self._current_config = None
             self._visualization_info = None
+            self._build_generation += 1
 
     def get_visualization_info(self, project_id: UUID) -> VisualizationInfo | None:
         """Get cached visualization info for the active pipeline."""
@@ -195,39 +201,64 @@ class PipelineManager:
         logger.debug("Refreshed visualization info for project %s", project_id)
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
-        """React to configuration change events."""
-        with self._lock:
-            match event:
-                case ProjectActivationEvent() as e:
+        """React to configuration change events.
+
+        Model builds are intentionally performed without holding ``_lock`` so a
+        slow export never stalls WebRTC connections or status polling.
+        """
+        match event:
+            case ProjectActivationEvent() as e:
+                self._teardown_pipeline()
+                self._build_and_start_pipeline(e.project_id)
+                logger.info("Pipeline started for activated project %s", e.project_id)
+
+            case ProjectDeactivationEvent() as e:
+                if self._is_active_project(e.project_id):
                     self._teardown_pipeline()
-                    self._build_and_start_pipeline(e.project_id)
-                    logger.info("Pipeline started for activated project %s", e.project_id)
+                    logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
-                case ProjectDeactivationEvent() as e:
-                    if self._pipeline and self._pipeline.project_id == e.project_id:
-                        self._teardown_pipeline()
-                        logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
+            case ComponentConfigChangeEvent() as e:
+                if self._is_active_project(e.project_id):
+                    self._update_pipeline_components(e.project_id, e.component_type)
+                    if e.component_type == ComponentType.PROCESSOR:
+                        self._refresh_visualization_info(e.project_id)
+                    logger.info("Pipeline components updated for project %s", e.project_id)
 
-                case ComponentConfigChangeEvent() as e:
-                    if self._pipeline and self._pipeline.project_id == e.project_id:
-                        self._update_pipeline_components(e.project_id, e.component_type)
-                        if e.component_type == ComponentType.PROCESSOR:
-                            self._refresh_visualization_info(e.project_id)
-                        logger.info("Pipeline components updated for project %s", e.project_id)
+    def _is_active_project(self, project_id: UUID) -> bool:
+        """Return True when a pipeline is running for *project_id*."""
+        with self._lock:
+            return self._pipeline is not None and self._pipeline.project_id == project_id
 
     def _build_and_start_pipeline(self, project_id: UUID) -> None:
         """
         Create and start a new pipeline for the given project.
+
+        The pipeline is built outside ``_lock`` (model loading can take minutes)
+        and only installed if no teardown happened in the meantime.
         """
-        with self._lock:
-            self._pipeline = self._create_pipeline(project_id)
-            self._refresh_visualization_info(project_id)
-            self._pipeline.start()
+        with self._build_lock:
+            with self._lock:
+                generation = self._build_generation
+
+            pipeline = self._create_pipeline(project_id)
+
+            with self._lock:
+                if generation != self._build_generation:
+                    logger.info("Discarding stale pipeline build for project %s", project_id)
+                    pipeline.stop()
+                    return
+                self._pipeline = pipeline
+                self._refresh_visualization_info(project_id)
+                self._pipeline.start()
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
         Create a new Pipeline instance with components from the given configuration.
-        Must be called while self._lock is held.
+
+        The processor (model download, OpenVINO export, and fit) is built *outside*
+        ``self._lock``: it can take minutes, and holding the lock would block
+        every other manager call, including ``get_output_slot()`` which is invoked
+        from the asyncio event loop when a WebRTC client connects.
 
         If processor creation fails, records ERROR status and falls back to a
         PassThroughModelHandler so the pipeline can still start.
@@ -240,19 +271,7 @@ class PipelineManager:
             cfg = svc.get_pipeline_config(project_id)
         self._current_config = cfg
         source = self._component_factory.create_source(cfg.reader)
-        self._set_model_status(ModelStatus.LOADING)
-        try:
-            reference_batch, _ = self._batch_service.build(cfg) or (None, {})
-            processor = self._component_factory.create_processor(cfg, reference_batch)
-        except Exception as exc:
-            error_type, error_message, error_doc_url = model_load_error(exc)
-            self._set_model_status(
-                ModelStatus.ERROR, error_type=error_type, error_message=error_message, error_doc_url=error_doc_url
-            )
-            logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
-            processor = self._component_factory.create_processor(cfg, None)
-        else:
-            self._set_model_status(ModelStatus.READY)
+        processor = self._build_processor(cfg, project_id, fallback_to_passthrough=True)
         sink = self._component_factory.create_sink(cfg.writer)
 
         return (
@@ -267,52 +286,83 @@ class PipelineManager:
             .set_sink(sink)
         )
 
+    def _build_processor(self, cfg: PipelineConfig, project_id: UUID, fallback_to_passthrough: bool) -> Processor:
+        """Build the processor and track its load status.
+
+        The model is fully constructed, fitted and (when OpenVINO is enabled)
+        exported here, so ``ModelStatus.READY`` is only reported once inference
+        can actually run.
+
+        Args:
+            cfg: Pipeline configuration to build from.
+            project_id: Project the processor belongs to, for logging.
+            fallback_to_passthrough: When True, a build failure yields a
+                pass-through processor so the pipeline still streams raw frames.
+                When False, the error is re-raised to the caller.
+
+        Returns:
+            A processor ready to be installed in the pipeline.
+        """
+        self._set_model_status(ModelStatus.LOADING)
+        try:
+            reference_batch, _ = self._batch_service.build(cfg) or (None, {})
+            processor = self._component_factory.create_processor(cfg, reference_batch)
+        except Exception as exc:
+            error_type, error_message, error_doc_url = model_load_error(exc)
+            self._set_model_status(
+                ModelStatus.ERROR, error_type=error_type, error_message=error_message, error_doc_url=error_doc_url
+            )
+            if not fallback_to_passthrough:
+                logger.exception("Processor rebuild failed for project %s", project_id)
+                raise
+            logger.exception("Processor failed for project %s, falling back to passthrough", project_id)
+            return self._component_factory.create_processor(cfg, None)
+        self._set_model_status(ModelStatus.READY)
+        return processor
+
     def _update_pipeline_components(self, project_id: UUID, component_type: ComponentType) -> None:
         """
         Compare current and new configurations, updating only changed components.
-        Must be called while self._lock is held.
+
+        Component construction happens outside ``_lock``; the lock is only taken
+        to swap the finished component into the running pipeline.
 
         Args:
             project_id: The project ID for the pipeline.
             component_type: The type of component to update.
         """
-        if not self._pipeline:
-            return
+        with self._build_lock:
+            if not self._is_active_project(project_id):
+                return
 
-        with self._session_factory() as session:
-            svc = ProjectService(session=session)
-            cfg = svc.get_pipeline_config(project_id)
-        self._current_config = cfg
+            with self._session_factory() as session:
+                svc = ProjectService(session=session)
+                cfg = svc.get_pipeline_config(project_id)
+            with self._lock:
+                self._current_config = cfg
 
-        match component_type:
-            case ComponentType.SOURCE:
-                source = self._component_factory.create_source(cfg.reader)
-                self._pipeline.set_source(source, True)
-            case ComponentType.PROCESSOR:
-                # Building the reference batch + downloading weights + initializing the model
-                # can take a while. Surface a "busy" flag so the UI can show a blocking overlay.
-                self._set_model_status(ModelStatus.LOADING)
-                try:
-                    reference_batch, _ = self._batch_service.build(cfg) or (None, {})
-                    processor = self._component_factory.create_processor(cfg, reference_batch)
-                    self._pipeline.set_processor(processor, True)
-                except Exception as exc:
-                    error_type, error_message, error_doc_url = model_load_error(exc)
-                    self._set_model_status(
-                        ModelStatus.ERROR,
-                        error_type=error_type,
-                        error_message=error_message,
-                        error_doc_url=error_doc_url,
-                    )
-                    logger.exception("Processor rebuild failed for project %s", project_id)
-                    raise
-                else:
-                    self._set_model_status(ModelStatus.READY)
-            case ComponentType.SINK:
-                sink = self._component_factory.create_sink(cfg.writer)
-                self._pipeline.set_sink(sink, True)
-            case _ as unknown:
-                logger.error(f"Unknown component type {unknown}")
+            match component_type:
+                case ComponentType.SOURCE:
+                    source = self._component_factory.create_source(cfg.reader)
+                    self._swap_component(lambda pipeline: pipeline.set_source(source, True))
+                case ComponentType.PROCESSOR:
+                    # Building the reference batch + downloading weights + initializing the model
+                    # can take a while. Surface a "busy" flag so the UI can show a blocking overlay.
+                    processor = self._build_processor(cfg, project_id, fallback_to_passthrough=False)
+                    self._swap_component(lambda pipeline: pipeline.set_processor(processor, True))
+                case ComponentType.SINK:
+                    sink = self._component_factory.create_sink(cfg.writer)
+                    self._swap_component(lambda pipeline: pipeline.set_sink(sink, True))
+                case _ as unknown:
+                    logger.error(f"Unknown component type {unknown}")
+
+    def _swap_component(self, install: Callable[[Pipeline], None]) -> None:
+        """Install a freshly built component into the active pipeline, if any."""
+        with self._lock:
+            if self._pipeline is None:
+                logger.info("Pipeline was deleted while building a component, discarding it")
+                return
+            install(self._pipeline)
 
     def get_output_slot(self, project_id: UUID) -> FrameSlot[OutputData]:
         """Get the shared output slot for reading the latest processed frame.

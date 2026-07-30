@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.utils.constants import CompressionMode, SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
@@ -223,12 +224,21 @@ class InputData(TraceableFrameData):
 
 @dataclass(kw_only=True)
 class OutputData(TraceableFrameData):
-    results: list[dict[str, np.ndarray]]
+    results: list[Prediction]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
 
-    def to_list(self) -> list[dict[str, list]]:
-        # Method to convert results to list of dict with numpy arrays converted to list for JSON serialization
-        return [{pos[0]: pos[1].tolist() for pos in el.items()} for el in self.results]
+    def to_list(self) -> list[dict[str, Any]]:
+        """Serialize predictions to JSON-compatible primitives (e.g. for MQTT)."""
+        return [
+            {
+                "masks": prediction.masks.tolist(),
+                "scores": prediction.scores.tolist(),
+                "label_ids": prediction.label_ids.tolist(),
+                "label_names": prediction.label_names.tolist(),
+                "boxes": prediction.boxes.tolist() if prediction.boxes is not None else [],
+            }
+            for prediction in self.results
+        ]
 
 
 @dataclass

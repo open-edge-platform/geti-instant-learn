@@ -4,15 +4,11 @@
 import logging
 from queue import Empty, Queue
 
-import numpy as np
-
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
-
-EMPTY_RESULT: dict[str, np.ndarray] = {}
 
 
 class FrameSkipPolicy:
@@ -174,13 +170,17 @@ class Processor(PipelineComponent):
         Args:
             batch_data: List of InputData items to process.
         """
-        results = self._model_handler.predict(batch_data)
+        predictions = self._model_handler.predict(batch_data)
 
         for i, data in enumerate(batch_data):
-            result = results[i] if i < len(results) else EMPTY_RESULT
+            prediction = predictions[i] if i < len(predictions) else None
             if data.trace:
                 data.trace.record_end("processor")
-            output_data = OutputData(frame=data.frame, results=[result] if result else [], trace=data.trace)
+            output_data = OutputData(
+                frame=data.frame,
+                results=[prediction] if prediction is not None else [],
+                trace=data.trace,
+            )
             self._outbound_broadcaster.broadcast(output_data)
 
     def _stop(self) -> None:

@@ -1,6 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import threading
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -588,3 +589,141 @@ class TestPipelineManagerModelLoadingFlag:
 
         with pytest.raises(PipelineReloadInProgressError):
             mgr.reload_pipeline(uuid4())
+
+
+class TestPipelineManagerBuildConcurrency:
+    """The model build must never run while holding the manager lock.
+
+    ``get_output_slot()`` is called from the asyncio event loop when a WebRTC
+    client connects; if a multi-minute export held ``_lock``, the whole event
+    loop would stall.
+    """
+
+    def test_lock_is_free_while_the_processor_is_built(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+
+        lock_free_during_build: list[bool] = []
+
+        def probe_lock_from_another_thread() -> None:
+            """``_lock`` is re-entrant, so it must be probed off the building thread."""
+            acquired = mgr._lock.acquire(blocking=False)
+            lock_free_during_build.append(acquired)
+            if acquired:
+                mgr._lock.release()
+
+        def slow_create_processor(*args, **kwargs):
+            probe = threading.Thread(target=probe_lock_from_another_thread)
+            probe.start()
+            probe.join(timeout=5)
+            return Mock()
+
+        mock_component_factory.create_processor.side_effect = slow_create_processor
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameRepository"),
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
+
+            mgr._build_and_start_pipeline(pipeline_cfg.project_id)
+
+        assert lock_free_during_build == [True], "the manager lock must not be held during the model build"
+
+    def test_status_polling_is_not_blocked_by_a_running_build(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        """``/model-status`` must stay responsive while a model is loading."""
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+
+        observed: list[ModelStatus] = []
+
+        def poll_status_from_another_thread(*args, **kwargs):
+            probe = threading.Thread(target=lambda: observed.append(mgr.get_model_status().status))
+            probe.start()
+            probe.join(timeout=5)
+            assert not probe.is_alive(), "get_model_status() blocked while the model was building"
+            return Mock()
+
+        mock_component_factory.create_processor.side_effect = poll_status_from_another_thread
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameRepository"),
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
+
+            mgr._build_and_start_pipeline(pipeline_cfg.project_id)
+
+        assert observed == [ModelStatus.LOADING]
+
+    def test_stale_build_is_discarded_after_teardown(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        """A build finishing after a teardown must not resurrect the pipeline."""
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+
+        def teardown_midway(*args, **kwargs):
+            # Simulate a project deactivation landing while the model is loading.
+            mgr._teardown_pipeline()
+            return Mock()
+
+        mock_component_factory.create_processor.side_effect = teardown_midway
+
+        with (
+            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameRepository"),
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
+        ):
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
+
+            mgr._build_and_start_pipeline(pipeline_cfg.project_id)
+
+        assert mgr._pipeline is None
+        pipeline_inst.start.assert_not_called()
+        pipeline_inst.stop.assert_called_once()
+
+    def test_component_swap_is_skipped_when_pipeline_disappeared(
+        self, dispatcher, session_factory, pipeline_cfg, mock_component_factory
+    ):
+        with patch("runtime.pipeline_manager.ReferenceBatchService") as batch_svc_cls:
+            batch_svc_cls.return_value.build.return_value = None
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+        mgr._pipeline = Mock()
+        mgr._pipeline.project_id = pipeline_cfg.project_id
+
+        def teardown_midway(*args, **kwargs):
+            mgr._teardown_pipeline()
+            return Mock()
+
+        mock_component_factory.create_processor.side_effect = teardown_midway
+
+        with patch("runtime.pipeline_manager.ProjectService") as svc_cls:
+            svc_cls.return_value.get_pipeline_config.return_value = pipeline_cfg
+            mgr._update_pipeline_components(pipeline_cfg.project_id, ComponentType.PROCESSOR)
+
+        assert mgr._pipeline is None

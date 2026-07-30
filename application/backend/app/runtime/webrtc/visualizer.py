@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
 import cv2
@@ -13,6 +13,9 @@ import numpy as np
 from domain.services.schemas.label import RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.processor import OutputData
 from settings import get_settings
+
+if TYPE_CHECKING:
+    from instantlearn.data.base.prediction import Prediction
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +60,16 @@ class CategoryResolver:
             if visualization_info.text_categories is not None:
                 self._text_categories = visualization_info.text_categories
 
-    def resolve(self, category_id: int | None) -> VisualizationLabel:
-        """Return visualization label for a predicted category."""
+    def resolve(self, category_id: int | None, label_name: str | None = None) -> VisualizationLabel:
+        """Return visualization label for a predicted category.
+
+        Args:
+            category_id: Predicted integer category id, or ``None`` when unknown.
+            label_name: Category name reported by the model, used as the caption
+                fallback for text prompts that have no label mapping.
+        """
         if category_id is None:
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR))
+            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR), object_name=label_name)
 
         # Check text category mapping first (text prompt mode)
         text_name = self._text_categories.get(category_id)
@@ -74,12 +83,20 @@ class CategoryResolver:
         label_id = self._category_id_to_label_id.get(category_id)
         if label_id is None:
             logger.warning("No label mapping found for category_id=%d", category_id)
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
+            return VisualizationLabel(
+                id=_FALLBACK_ID,
+                color=RGBColor(*generate_deterministic_color(category_id)),
+                object_name=label_name,
+            )
 
         info = self._label_id_to_vis.get(label_id)
         if info is None:
             logger.warning("No color found for label_id=%s (category_id=%d)", label_id, category_id)
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
+            return VisualizationLabel(
+                id=_FALLBACK_ID,
+                color=RGBColor(*generate_deterministic_color(category_id)),
+                object_name=label_name,
+            )
 
         logger.debug("Category %d -> label %s -> color %s", category_id, label_id, info.color)
         return info
@@ -91,16 +108,19 @@ class CategoryResolver:
             return None
         return int(labels[index])
 
+    @staticmethod
+    def extract_label_name(prediction: Prediction, index: int) -> str | None:
+        """Return the model-reported category name at *index*, when available."""
+        names = prediction.label_names
+        if names is None or index >= len(names):
+            return None
+        return str(names[index])
+
 
 class OverlayRenderer(Protocol):
     """Strategy interface for rendering a specific overlay type onto a frame."""
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray: ...
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray: ...
 
 
 class MaskRenderer:
@@ -114,23 +134,18 @@ class MaskRenderer:
         self._resolver = resolver
         self._scaler = scaler
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray:
-        masks = prediction.get("pred_masks")
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray:
+        masks = prediction.masks
         if masks is None or masks.size == 0:
             return frame
 
-        labels_np = labels if labels is not None and labels.size > 0 else None
+        labels = prediction.label_ids if prediction.label_ids is not None and prediction.label_ids.size > 0 else None
         overlay = frame.copy()
         scale = self._scaler.factor(frame)
 
         for mask_idx, mask in enumerate(masks):
-            category_id = self._resolver.extract_category_id(labels_np, mask_idx)
-            info = self._resolver.resolve(category_id)
+            category_id = self._resolver.extract_category_id(labels, mask_idx)
+            info = self._resolver.resolve(category_id, self._resolver.extract_label_name(prediction, mask_idx))
             color = info.color.to_tuple()
 
             mask_bool = mask > 0.5
@@ -185,22 +200,18 @@ class BoxRenderer:
         self._resolver = resolver
         self._scaler = scaler
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray:
-        boxes = prediction.get("pred_boxes")
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray:
+        boxes = prediction.boxes
         if boxes is None or boxes.size == 0:
             return frame
 
-        labels_np = labels if labels is not None and labels.size > 0 else None
+        labels = prediction.label_ids if prediction.label_ids is not None and prediction.label_ids.size > 0 else None
+        scores = prediction.scores
         scale = self._scaler.factor(frame)
 
         for box_idx, box in enumerate(boxes):
-            category_id = self._resolver.extract_category_id(labels_np, box_idx)
-            info = self._resolver.resolve(category_id)
+            category_id = self._resolver.extract_category_id(labels, box_idx)
+            info = self._resolver.resolve(category_id, self._resolver.extract_label_name(prediction, box_idx))
             color = info.color.to_tuple()
 
             x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
@@ -208,7 +219,7 @@ class BoxRenderer:
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, box_thick)
 
             if self._visualize_labels:
-                score = float(box[4]) if len(box) > 4 else None
+                score = float(scores[box_idx]) if scores is not None and box_idx < len(scores) else None
                 self._draw_caption(frame, x1, y1, info.object_name, score, color, scale)
 
         return frame
@@ -306,9 +317,8 @@ class InferenceVisualizer:
 
         logger.debug("Visualizing %d predictions", len(output_data.results))
         for prediction in output_data.results:
-            labels = prediction.get("pred_labels")
             for renderer in renderers:
-                annotated = renderer.draw(annotated, prediction, labels)
+                annotated = renderer.draw(annotated, prediction)
 
         return annotated
 

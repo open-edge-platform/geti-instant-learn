@@ -8,12 +8,23 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from instantlearn.data.base.prediction import Prediction
 
 from domain.dispatcher import ComponentType
 from domain.services.schemas.processor import ErrorData, InputData, OutputData
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.processor import FrameSkipPolicy, Processor
+
+
+def make_prediction() -> Prediction:
+    """Minimal single-instance prediction, as returned by any model backend."""
+    return Prediction(
+        masks=np.zeros((1, 64, 64), dtype=np.uint8),
+        scores=np.array([0.5], dtype=np.float32),
+        label_ids=np.array([0], dtype=np.int32),
+        label_names=np.array(["object"], dtype=object),
+    )
 
 
 def make_input_data(requires_manual_control: bool = False, with_trace: bool = False) -> InputData:
@@ -29,7 +40,7 @@ def make_input_data(requires_manual_control: bool = False, with_trace: bool = Fa
 def mock_model_handler() -> Mock:
     handler = Mock(spec=ModelHandler)
     handler.initialise = Mock()
-    handler.predict = Mock(return_value=[{"masks": np.zeros((1, 64, 64))}])
+    handler.predict = Mock(return_value=[make_prediction()])
     return handler
 
 
@@ -226,7 +237,7 @@ class TestProcessorRun:
     ) -> None:
         processor, queue = configured_processor
         frame = make_input_data()
-        mock_model_handler.predict.return_value = [{"masks": np.zeros((1, 64, 64))}]
+        mock_model_handler.predict.return_value = [make_prediction()]
 
         self._run_processor_with_frames(processor, queue, [frame])
 
@@ -242,7 +253,7 @@ class TestProcessorRun:
         mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        # predict returns empty list -> result falls back to EMPTY_RESULT
+        # predict returns an empty list -> no prediction is attached to the frame
         mock_model_handler.predict.return_value = []
 
         frame = make_input_data()
@@ -338,7 +349,7 @@ class TestProcessorRun:
         mock_outbound_broadcaster: Mock,
     ) -> None:
         processor, queue = configured_processor
-        mock_model_handler.predict.side_effect = [RuntimeError("GPU error"), [{"masks": np.zeros((1,))}]]
+        mock_model_handler.predict.side_effect = [RuntimeError("GPU error"), [make_prediction()]]
 
         # First frame triggers exception, second should still be broadcast
         queue.put(make_input_data())
@@ -357,8 +368,8 @@ class TestProcessorRun:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
         mock_model_handler.predict.return_value = [
-            {"masks": np.zeros((1,))},
-            {"masks": np.zeros((1,))},
+            make_prediction(),
+            make_prediction(),
         ]
 
         processor = Processor(
@@ -388,7 +399,7 @@ class TestProcessorRun:
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
-        mock_model_handler.predict.return_value = [{"masks": np.zeros((1,))}]
+        mock_model_handler.predict.return_value = [make_prediction()]
 
         processor = Processor(
             model_handler=mock_model_handler,
@@ -413,7 +424,7 @@ class TestProcessorRun:
     ) -> None:
         queue: Queue = Queue()
         mock_inbound_broadcaster.register.return_value = queue
-        mock_model_handler.predict.return_value = [{"masks": np.zeros((1,))}]
+        mock_model_handler.predict.return_value = [make_prediction()]
 
         processor = Processor(
             model_handler=mock_model_handler,

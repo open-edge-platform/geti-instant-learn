@@ -56,6 +56,14 @@ class Settings(BaseSettings):
         alias="SAMPLE_DATASET_DIR",
     )
 
+    # OpenVINO IR cache
+    # Only used for models whose exported IR is reference-independent (SAM3): the
+    # exported sub-models do not embed the reference prompts, so the IR can be
+    # reused across prompt changes and only ``fit()`` has to be re-run. Models that
+    # bake reference features into the graph (Matcher, SoftMatcher, PerDino) are
+    # always re-exported to a temporary directory.
+    ir_cache_dir: Path = Field(default=current_dir.parent / ".data" / "ir-cache", alias="IR_CACHE_DIR")
+
     # License
     license_accept_env_var: str = "INSTANTLEARN_LICENSE_ACCEPTED"
 
