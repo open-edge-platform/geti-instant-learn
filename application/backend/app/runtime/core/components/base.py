@@ -160,10 +160,6 @@ class ModelHandler(ABC):
     """Lifecycle wrapper around a library model used by the :class:`Processor`."""
 
     @abstractmethod
-    def initialise(self) -> None:
-        pass
-
-    @abstractmethod
     def predict(self, inputs: list[InputData]) -> list[Prediction]:
         """Run inference for a batch of frames, one ``Prediction`` per input."""
 

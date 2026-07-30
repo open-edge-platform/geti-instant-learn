@@ -83,7 +83,7 @@ class PipelineManager:
         self._build_lock = threading.Lock()
         # Bumped on every teardown so a build that finished after the pipeline
         # was torn down can be discarded instead of resurrecting it.
-        self._build_generation = 0  #todo wtf?
+        self._build_generation = 0  # todo wtf?
         self._model_status: ModelStatusSchema | None = None
 
     def is_model_loading(self) -> bool:

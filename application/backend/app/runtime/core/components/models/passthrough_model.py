@@ -18,9 +18,6 @@ class PassThroughModelHandler(ModelHandler):
     created any prompts yet, so the ``Processor`` can still forward frames.
     """
 
-    def initialise(self) -> None:
-        pass
-
     def predict(self, inputs: list[InputData]) -> list[Prediction]:  # noqa: ARG002
         logger.debug("Using PassThroughModelHandler, returning empty results.")
         return []

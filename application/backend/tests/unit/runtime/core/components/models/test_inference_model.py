@@ -8,7 +8,7 @@ import pytest
 from instantlearn.data.base.prediction import Prediction
 
 from domain.services.schemas.processor import InputData
-from runtime.core.components.models.inference_model import InferenceModelHandler, masks_to_boxes
+from runtime.core.components.models.inference_model import InferenceModelHandler
 
 
 def _input(frame: np.ndarray | None = None) -> InputData:
@@ -68,15 +68,6 @@ class TestInferenceModelHandler:
 
         np.testing.assert_array_equal(results[0].boxes, np.array([[1, 2, 3, 4]], dtype=np.float32))
 
-    def test_predict_derives_boxes_from_masks_when_missing(self, model):
-        model.predict.return_value = [_prediction(boxes=None)]
-        handler = InferenceModelHandler(model)
-
-        results = handler.predict([_input()])
-
-        # mask covers rows 1-2 and cols 2-3 -> xyxy (2, 1, 4, 3)
-        np.testing.assert_array_equal(results[0].boxes, np.array([[2, 1, 4, 3]], dtype=np.float32))
-
     def test_predict_raises_after_close(self, model):
         handler = InferenceModelHandler(model)
         handler.close()
@@ -90,34 +81,3 @@ class TestInferenceModelHandler:
         handler.close()
 
         assert handler._model is None
-
-    def test_initialise_is_a_noop(self, model):
-        handler = InferenceModelHandler(model)
-
-        handler.initialise()
-
-        model.fit.assert_not_called()
-        model.predict.assert_not_called()
-
-
-class TestMasksToBoxes:
-    def test_returns_empty_for_no_masks(self):
-        assert masks_to_boxes(np.zeros((0, 4, 4), dtype=bool)).shape == (0, 4)
-
-    def test_returns_empty_for_none(self):
-        assert masks_to_boxes(None).shape == (0, 4)
-
-    def test_empty_mask_yields_zero_box(self):
-        boxes = masks_to_boxes(np.zeros((1, 4, 4), dtype=bool))
-
-        np.testing.assert_array_equal(boxes, np.zeros((1, 4), dtype=np.float32))
-
-    def test_derives_tight_box_per_instance(self):
-        masks = np.zeros((2, 6, 6), dtype=bool)
-        masks[0, 1:3, 2:5] = True
-        masks[1, 4:6, 0:2] = True
-
-        boxes = masks_to_boxes(masks)
-
-        np.testing.assert_array_equal(boxes, np.array([[2, 1, 5, 3], [0, 4, 2, 6]], dtype=np.float32))
-        assert boxes.dtype == np.float32

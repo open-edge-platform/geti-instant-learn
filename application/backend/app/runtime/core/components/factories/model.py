@@ -11,6 +11,7 @@ so the pipeline itself stays backend-agnostic.
 """
 
 import logging
+import os
 import re
 import shutil
 import tempfile
@@ -32,7 +33,7 @@ from instantlearn.models import (
     TorchModel,
 )
 from instantlearn.models.sam3.sam3 import MODEL_NAMES as SAM3_MODEL_NAMES
-from instantlearn.models.sam3.sam3 import SAM3_LIBRARY_MODEL_ID
+from instantlearn.models.sam3.sam3 import SAM3_MODEL_ID
 from instantlearn.models.torch_base import ExportConfig
 from instantlearn.utils.constants import CompressionMode
 
@@ -56,6 +57,13 @@ logger = logging.getLogger(__name__)
 # OpenVINO graphs are traced in fp32; low-precision weights come from the
 # compression pass driven by ``ExportConfig.compression`` instead.
 _OPENVINO_PRECISION = "fp32"
+
+# Written into an IR directory only after every sub-model has been verified, so a
+# SAM3 cache entry is usable if and only if this file is present.
+_IR_COMPLETE_MARKER = ".instantlearn-complete"
+
+# Presence of this file lets SAM3OpenVINO load the tokenizer without network access.
+_TOKENIZER_MARKER_FILE = "tokenizer.json"
 
 
 class ModelFactory:
@@ -237,9 +245,9 @@ class ModelFactory:
 
         model.fit(reference_batch)
 
-        # Export on CPU to avoid XPU/CUDA compilation issues during tracing.
-        # The exported model can then run on any OpenVINO device.
-        model.cpu()  #todo for sure?
+        # Export on CPU: tracing on XPU/CUDA hits device-specific issues, the resulting
+        # IR is device-agnostic, and the target device is applied at compile time below.
+        model.cpu()
         with tempfile.TemporaryDirectory(prefix="instantlearn-ir-") as tmp_dir:
             logger.info("Exporting %s to OpenVINO IR (compression=%s)", type(model).__name__, compression.value)
             ir_dir = model.to_openvino(tmp_dir, ExportConfig(compression=compression))
@@ -263,7 +271,7 @@ class ModelFactory:
             logger.info("Using the OpenVINO backend for SAM3")
             ir_dir = self._resolve_sam3_ir(config=config, compression=_compression_mode(config))
             model: Model = SAM3OpenVINO(
-                ir_path=ir_dir,
+                model_dir=ir_dir,
                 device=device_info.as_openvino,
                 confidence_threshold=config.confidence_threshold,
                 resolution=config.resolution,
@@ -292,6 +300,13 @@ class ModelFactory:
         changes and is cached on disk, keyed by model id, resolution, and
         compression mode.
 
+        The export runs inside a staging directory next to the cache entry and
+        is moved into place only once it is complete. This keeps the published
+        cache entry atomic (an interrupted export can never be mistaken for a
+        usable one) and guarantees the library's intermediate artefacts
+        (``onnx/``, ``openvino-<mode>-fp16-source/``) are removed even when the
+        export raises.
+
         Args:
             config: SAM3 configuration providing the input resolution.
             compression: Weight compression mode for the exported IR.
@@ -300,32 +315,52 @@ class ModelFactory:
             Path to a complete SAM3 OpenVINO IR directory.
         """
         settings = get_settings()
-        export_root = Path(settings.ir_cache_dir) / f"sam3-{_slugify(SAM3_LIBRARY_MODEL_ID)}-r{config.resolution}"
+        cache_root = Path(settings.ir_cache_dir)
+        export_root = cache_root / f"sam3-{_slugify(SAM3_MODEL_ID)}-r{config.resolution}"
         ir_dir = export_root / f"openvino-{compression.value}"
 
         if _sam3_ir_complete(ir_dir):
             logger.info("Reusing cached SAM3 OpenVINO IR: %s", ir_dir)
             return ir_dir
 
+        if ir_dir.exists():
+            logger.info("Discarding incomplete SAM3 IR cache entry at %s", ir_dir)
+            shutil.rmtree(ir_dir, ignore_errors=True)
+
         logger.info("No cached SAM3 IR at %s, exporting it now (this may take several minutes)", ir_dir)
         export_root.mkdir(parents=True, exist_ok=True)
+        # Stage inside the cache root so publishing is a same-filesystem rename.
+        staging_root = Path(tempfile.mkdtemp(prefix=f"{export_root.name}-{compression.value}-", dir=cache_root))
+        try:
+            exported_dir = ModelFactory._export_sam3_ir(
+                config=config, compression=compression, export_root=staging_root
+            )
+            _mark_sam3_ir_complete(exported_dir)
+            _publish_ir_dir(exported_dir, ir_dir)
+        finally:
+            # Removes the staging tree wholesale: the ONNX dump and the fp16 compression
+            # source the library leaves behind on failure, plus the moved IR on success.
+            shutil.rmtree(staging_root, ignore_errors=True)
+
+        logger.info("SAM3 OpenVINO IR cached at %s", ir_dir)
+        return ir_dir
+
+    @staticmethod
+    def _export_sam3_ir(config: Sam3Config, compression: CompressionMode, export_root: Path) -> Path:
+        """Export a throwaway torch SAM3 to OpenVINO IR under *export_root*."""
         exporter = SAM3(
-            device="cpu",  #todo for sure?
+            # This instance only exports, it never predicts: CPU keeps tracing stable
+            # and leaves accelerator memory free for the compiled OpenVINO model.
+            device="cpu",
             precision=_OPENVINO_PRECISION,
             resolution=config.resolution,
-            model_id=SAM3_LIBRARY_MODEL_ID,
+            model_id=SAM3_MODEL_ID,
         )
         try:
-            exported_dir = exporter.to_openvino(export_root, ExportConfig(compression=compression))
-        except Exception:
-            shutil.rmtree(ir_dir, ignore_errors=True)  # cleanup corrupted directory
-            raise
+            return exporter.to_openvino(export_root, ExportConfig(compression=compression))
         finally:
             del exporter
             empty_accelerator_cache()
-
-        logger.info("SAM3 OpenVINO IR cached at %s", exported)
-        return exported_dir
 
 
 def _compression_mode(config: ModelConfig) -> CompressionMode:
@@ -344,8 +379,19 @@ def _slugify(value: str) -> str:
 
 
 def _sam3_ir_complete(ir_dir: Path) -> bool:
-    """Return ``True`` when *ir_dir* holds every SAM3 sub-model as a non-empty IR pair."""
+    """Return ``True`` when *ir_dir* is a fully published SAM3 IR cache entry.
+
+    Requires the completion marker written by :func:`_mark_sam3_ir_complete` in
+    addition to a non-empty ``.xml``/``.bin`` pair per sub-model. The marker is
+    what distinguishes a finished export from one that was interrupted midway:
+    a truncated file is still non-empty, so size checks alone cannot detect it.
+    Cache entries created before the marker existed are re-exported once.
+    """
     if not ir_dir.is_dir():
+        return False
+    marker = ir_dir / _IR_COMPLETE_MARKER
+    if not marker.exists():
+        logger.debug("SAM3 IR cache miss: %s has no completion marker", ir_dir)
         return False
     for name in SAM3_MODEL_NAMES:
         for suffix in (".xml", ".bin"):
@@ -354,3 +400,56 @@ def _sam3_ir_complete(ir_dir: Path) -> bool:
                 logger.debug("SAM3 IR cache miss: %s is missing or empty", path)
                 return False
     return True
+
+
+def _mark_sam3_ir_complete(ir_dir: Path) -> None:
+    """Validate *ir_dir* and stamp it with the completion marker.
+
+    Called on the staged directory just before it is published, so the marker
+    travels with the atomic rename and is never visible on a partial export.
+
+    Raises:
+        FileNotFoundError: If a sub-model IR file is missing or empty.
+    """
+    missing = [
+        f"{name}{suffix}"
+        for name in SAM3_MODEL_NAMES
+        for suffix in (".xml", ".bin")
+        if not (ir_dir / f"{name}{suffix}").exists() or (ir_dir / f"{name}{suffix}").stat().st_size == 0
+    ]
+    if missing:
+        msg = f"Incomplete SAM3 OpenVINO export in {ir_dir}: missing or empty {', '.join(missing)}"
+        raise FileNotFoundError(msg)
+
+    # Not fatal: SAM3OpenVINO falls back to the HuggingFace hub, which only fails offline.
+    if not (ir_dir / _TOKENIZER_MARKER_FILE).exists():
+        logger.warning(
+            "SAM3 IR at %s has no %s; the tokenizer will be fetched from the hub at load time",
+            ir_dir,
+            _TOKENIZER_MARKER_FILE,
+        )
+
+    (ir_dir / _IR_COMPLETE_MARKER).touch()
+
+
+def _publish_ir_dir(staged_dir: Path, target_dir: Path) -> None:
+    """Move *staged_dir* onto *target_dir* as a single rename.
+
+    The staged directory lives in the same cache root as the target, so the
+    rename is atomic and readers never observe a half-written cache entry.
+    Normalising onto *target_dir* also keeps the on-disk layout owned by this
+    factory even if the library changes its own export directory naming.
+    """
+    if staged_dir.name != target_dir.name:
+        logger.debug("Publishing exported IR %s under the cache name %s", staged_dir.name, target_dir.name)
+
+    if target_dir.exists():
+        if _sam3_ir_complete(target_dir):
+            # A concurrent export won the race; its entry is complete, so keep it.
+            logger.info("SAM3 IR was published concurrently at %s, discarding the staged copy", target_dir)
+            return
+        logger.info("Replacing incomplete SAM3 IR cache entry at %s", target_dir)
+        shutil.rmtree(target_dir, ignore_errors=True)
+
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(staged_dir, target_dir)

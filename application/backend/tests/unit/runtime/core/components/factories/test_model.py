@@ -16,7 +16,7 @@ from domain.services.schemas.processor import (
     Sam3Config,
     SoftMatcherConfig,
 )
-from runtime.core.components.factories.model import ModelFactory, _sam3_ir_complete
+from runtime.core.components.factories.model import _IR_COMPLETE_MARKER, ModelFactory, _sam3_ir_complete
 from runtime.core.components.models.inference_model import InferenceModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
@@ -27,12 +27,35 @@ def _cpu() -> DeviceInfo:
     return DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
 
 
-def _write_sam3_ir(ir_dir: Path) -> None:
-    """Create a complete-looking SAM3 IR directory."""
+def _write_sam3_ir(ir_dir: Path, *, complete: bool = True) -> Path:
+    """Create a SAM3 IR directory, published (marker present) by default."""
     ir_dir.mkdir(parents=True, exist_ok=True)
     for name in SAM3_MODEL_NAMES:
         (ir_dir / f"{name}.xml").write_text("<net/>")
         (ir_dir / f"{name}.bin").write_bytes(b"\x00")
+    (ir_dir / "tokenizer.json").write_text("{}")
+    if complete:
+        (ir_dir / _IR_COMPLETE_MARKER).touch()
+    return ir_dir
+
+
+def _sam3_cache_dir(settings, compression: CompressionMode = CompressionMode.INT8_SYM) -> Path:
+    """Return the published cache path the factory uses for the default SAM3 config."""
+    return Path(settings.ir_cache_dir) / "sam3-facebook-sam3.1-r1008" / f"openvino-{compression.value}"
+
+
+def _fake_export(export_root, export_config) -> Path:
+    """Stand in for ``SAM3.to_openvino``, writing an IR into the staging directory."""
+    return _write_sam3_ir(Path(export_root) / f"openvino-{export_config.compression.value}", complete=False)
+
+
+def _fake_export_with_intermediates(export_root, export_config) -> Path:
+    """Like :func:`_fake_export` but also leaves the library's intermediate artefacts."""
+    export_root = Path(export_root)
+    (export_root / "onnx").mkdir(parents=True, exist_ok=True)
+    (export_root / "onnx" / "vision_encoder.onnx").write_bytes(b"\x00")
+    (export_root / f"openvino-{export_config.compression.value}-fp16-source").mkdir(parents=True, exist_ok=True)
+    return _fake_export(export_root, export_config)
 
 
 class TestModelFactory:
@@ -335,10 +358,12 @@ class TestModelFactory:
     def test_factory_exports_sam3_ir_on_cache_miss(self, mock_reference_batch, mock_settings, model_factory):
         mock_settings.processor_openvino_enabled = True
         config = Sam3Config(resolution=1008)
+        expected_dir = _sam3_cache_dir(mock_settings)
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
             exporter = mocks["SAM3"].return_value
+            exporter.to_openvino.side_effect = _fake_export
 
             result = model_factory.create(mock_reference_batch, config)
 
@@ -346,19 +371,44 @@ class TestModelFactory:
             exporter.to_openvino.assert_called_once()
             exporter.fit.assert_not_called()
             mocks["SAM3OpenVINO"].assert_called_once()
-            assert mocks["SAM3OpenVINO"].call_args.kwargs["ir_path"] == exporter.to_openvino.return_value
+            # The IR is published into the cache, not loaded from the staging directory.
+            assert mocks["SAM3OpenVINO"].call_args.kwargs["model_dir"] == expected_dir
             mocks["SAM3OpenVINO"].return_value.fit.assert_called_once_with(mock_reference_batch)
             assert isinstance(result, InferenceModelHandler)
+
+        assert _sam3_ir_complete(expected_dir)
+
+    def test_factory_exports_sam3_on_cpu(self, mock_reference_batch, mock_settings, model_factory):
+        mock_settings.processor_openvino_enabled = True
+        config = Sam3Config(resolution=1008)
+
+        with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mocks["SAM3"].return_value.to_openvino.side_effect = _fake_export
+
+            model_factory.create(mock_reference_batch, config)
+
+        # Tracing runs on CPU regardless of the accelerator chosen for inference.
+        assert mocks["SAM3"].call_args.kwargs["device"] == "cpu"
+
+    def test_factory_removes_staging_directory_after_export(self, mock_reference_batch, mock_settings, model_factory):
+        mock_settings.processor_openvino_enabled = True
+        config = Sam3Config(resolution=1008)
+
+        with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mocks["SAM3"].return_value.to_openvino.side_effect = _fake_export_with_intermediates
+
+            model_factory.create(mock_reference_batch, config)
+
+        # Only the model-keyed cache entry survives; ONNX dumps and fp16 sources are gone.
+        cache_root = Path(mock_settings.ir_cache_dir)
+        assert [p.name for p in cache_root.iterdir()] == ["sam3-facebook-sam3.1-r1008"]
 
     def test_factory_reuses_cached_sam3_ir(self, mock_reference_batch, mock_settings, model_factory):
         mock_settings.processor_openvino_enabled = True
         config = Sam3Config(resolution=1008)
-        cached_dir = (
-            Path(mock_settings.ir_cache_dir)
-            / "sam3-facebook-sam3.1-r1008"
-            / f"openvino-{CompressionMode.INT8_SYM.value}"
-        )
-        _write_sam3_ir(cached_dir)
+        cached_dir = _write_sam3_ir(_sam3_cache_dir(mock_settings))
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -367,19 +417,30 @@ class TestModelFactory:
 
             # No export at all: the torch SAM3 is never constructed.
             mocks["SAM3"].assert_not_called()
-            assert mocks["SAM3OpenVINO"].call_args.kwargs["ir_path"] == cached_dir
+            assert mocks["SAM3OpenVINO"].call_args.kwargs["model_dir"] == cached_dir
+
+    def test_factory_re_exports_when_completion_marker_is_missing(
+        self, mock_reference_batch, mock_settings, model_factory
+    ):
+        mock_settings.processor_openvino_enabled = True
+        config = Sam3Config(resolution=1008)
+        # Every file is present but the export never finished: must not be trusted.
+        _write_sam3_ir(_sam3_cache_dir(mock_settings), complete=False)
+
+        with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mocks["SAM3"].return_value.to_openvino.side_effect = _fake_export
+
+            model_factory.create(mock_reference_batch, config)
+
+            mocks["SAM3"].return_value.to_openvino.assert_called_once()
 
     def test_factory_cleans_up_partial_sam3_ir_on_export_failure(
         self, mock_reference_batch, mock_settings, model_factory
     ):
         mock_settings.processor_openvino_enabled = True
         config = Sam3Config(resolution=1008)
-        ir_dir = (
-            Path(mock_settings.ir_cache_dir)
-            / "sam3-facebook-sam3.1-r1008"
-            / f"openvino-{CompressionMode.INT8_SYM.value}"
-        )
-        _write_sam3_ir(ir_dir)
+        ir_dir = _write_sam3_ir(_sam3_cache_dir(mock_settings))
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -391,6 +452,26 @@ class TestModelFactory:
                 model_factory.create(mock_reference_batch, config)
 
         assert not ir_dir.exists(), "a half-written IR directory must not be left behind"
+        # The staging directory must not survive the failure either.
+        assert list(Path(mock_settings.ir_cache_dir).glob("*openvino*")) == []
+
+    def test_factory_rejects_incomplete_export(self, mock_reference_batch, mock_settings, model_factory):
+        mock_settings.processor_openvino_enabled = True
+        config = Sam3Config(resolution=1008)
+
+        def _truncated_export(export_root, export_config):
+            ir_dir = _fake_export(export_root, export_config)
+            (ir_dir / f"{SAM3_MODEL_NAMES[0]}.bin").write_bytes(b"")
+            return ir_dir
+
+        with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mocks["SAM3"].return_value.to_openvino.side_effect = _truncated_export
+
+            with pytest.raises(FileNotFoundError, match="Incomplete SAM3 OpenVINO export"):
+                model_factory.create(mock_reference_batch, config)
+
+        assert not _sam3_cache_dir(mock_settings).exists()
 
 
 class TestSam3IrComplete:
@@ -400,6 +481,10 @@ class TestSam3IrComplete:
     def test_complete_directory_is_complete(self, tmp_path):
         _write_sam3_ir(tmp_path)
         assert _sam3_ir_complete(tmp_path) is True
+
+    def test_missing_marker_is_incomplete(self, tmp_path):
+        _write_sam3_ir(tmp_path, complete=False)
+        assert _sam3_ir_complete(tmp_path) is False
 
     def test_empty_file_is_incomplete(self, tmp_path):
         _write_sam3_ir(tmp_path)

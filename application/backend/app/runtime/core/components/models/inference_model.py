@@ -13,7 +13,6 @@ objects unchanged.
 
 import logging
 
-import numpy as np
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
@@ -26,16 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceModelHandler(ModelHandler):
-
     def __init__(self, model: Model) -> None:
         self._model: Model | None = model
-
-    def initialise(self) -> None:  #todo remove completely??
-        """No-op: the model is built and fitted before the handler is created."""
         logger.info(
             "Inference handler ready: model=%s backend=%s",
-            type(self._model).__name__,
-            getattr(self._model, "backend", None),
+            type(model).__name__,
+            getattr(model, "backend", None),
         )
 
     def predict(self, inputs: list[InputData]) -> list[Prediction]:
@@ -57,8 +52,7 @@ class InferenceModelHandler(ModelHandler):
         batch = Batch.collate([Sample(image=data.frame) for data in inputs])
         logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(inputs))
 
-        predictions = self._model.predict(batch)
-        return predictions
+        return self._model.predict(batch)
 
     def close(self) -> None:
         """Drop the model reference and free accelerator memory."""

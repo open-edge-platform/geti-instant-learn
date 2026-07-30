@@ -39,7 +39,6 @@ def make_input_data(requires_manual_control: bool = False, with_trace: bool = Fa
 @pytest.fixture
 def mock_model_handler() -> Mock:
     handler = Mock(spec=ModelHandler)
-    handler.initialise = Mock()
     handler.predict = Mock(return_value=[make_prediction()])
     return handler
 
@@ -207,15 +206,6 @@ class TestProcessorRun:
         time.sleep(stop_after)
         processor.stop()
         thread.join(timeout=2)
-
-    def test_model_handler_initialised_on_run(
-        self,
-        configured_processor: tuple[Processor, Queue],
-        mock_model_handler: Mock,
-    ) -> None:
-        processor, queue = configured_processor
-        self._run_processor_with_frames(processor, queue, [])
-        mock_model_handler.initialise.assert_called_once()
 
     def test_single_frame_is_processed(
         self,

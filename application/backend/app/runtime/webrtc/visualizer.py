@@ -26,6 +26,9 @@ _REFERENCE_AREA: int = 1920 * 1080
 _MIN_SCALE: float = 0.6
 _MAX_SCALE: float = 2.0
 
+# Soft masks are probabilities; anything above this counts as foreground.
+_MASK_THRESHOLD: float = 0.5
+
 
 class ResolutionScaler:
     """Scale visualization parameters relative to a 1920x1080 reference."""
@@ -148,7 +151,7 @@ class MaskRenderer:
             info = self._resolver.resolve(category_id, self._resolver.extract_label_name(prediction, mask_idx))
             color = info.color.to_tuple()
 
-            mask_bool = mask > 0.5
+            mask_bool = mask > _MASK_THRESHOLD
             overlay = self._apply_overlay(overlay, mask_bool, color)
             overlay = self._draw_contours(overlay, mask_bool, color, scale)
 
@@ -184,7 +187,11 @@ def _font_scale_for_pixel_height(target_height_px: float) -> float:
 
 
 class BoxRenderer:
-    """Render bounding boxes with optional label captions onto a frame."""
+    """Render bounding boxes with optional label captions onto a frame.
+
+    Boxes reported by the model are used as-is.
+    When a model emits masks only, the boxes are derived from those masks.
+    """
 
     def __init__(
         self,
@@ -203,6 +210,8 @@ class BoxRenderer:
     def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray:
         boxes = prediction.boxes
         if boxes is None or boxes.size == 0:
+            boxes = masks_to_boxes(prediction.masks)
+        if boxes.size == 0:
             return frame
 
         labels = prediction.label_ids if prediction.label_ids is not None and prediction.label_ids.size > 0 else None
@@ -329,3 +338,30 @@ def generate_deterministic_color(index: int) -> tuple[int, int, int]:
     hsv_color = np.array([[[hue, 255, 255]]], dtype=np.uint8)
     rgb_color = cv2.cvtColor(hsv_color, cv2.COLOR_HSV2RGB)[0, 0]
     return int(rgb_color[0]), int(rgb_color[1]), int(rgb_color[2])
+
+
+def masks_to_boxes(masks: np.ndarray | None) -> np.ndarray:
+    """Derive one tight bounding box per instance mask.
+
+    Used only for visualization, when a model reports masks but no boxes.
+
+    Args:
+        masks: Instance masks of shape ``(N, H, W)``, boolean or float
+            probabilities. ``None`` and empty arrays are accepted.
+
+    Returns:
+        Boxes of shape ``(N, 4)`` float32 in ``xyxy`` format with exclusive
+        lower-right corners, matching the mask pixel extent. An all-background
+        mask yields an all-zero box so that box indices stay aligned with mask,
+        score, and label indices.
+    """
+    if masks is None or masks.size == 0:
+        return np.zeros((0, 4), dtype=np.float32)
+
+    boxes = np.zeros((len(masks), 4), dtype=np.float32)
+    for idx, mask in enumerate(masks):
+        rows, cols = np.nonzero(mask > _MASK_THRESHOLD)
+        if cols.size == 0:
+            continue  # keep the zero box: dropping it would misalign the indices
+        boxes[idx] = (cols.min(), rows.min(), cols.max() + 1, rows.max() + 1)
+    return boxes

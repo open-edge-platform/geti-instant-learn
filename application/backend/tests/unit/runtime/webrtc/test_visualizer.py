@@ -22,6 +22,7 @@ from runtime.webrtc.visualizer import (
     InferenceVisualizer,
     ResolutionScaler,
     generate_deterministic_color,
+    masks_to_boxes,
 )
 
 
@@ -133,6 +134,13 @@ def _two_pixel_disjoint_masks(h: int, w: int) -> np.ndarray:
     return masks
 
 
+def _block_mask(h: int, w: int, start: int, stop: int) -> np.ndarray:
+    """Single mask covering the square ``[start:stop, start:stop]``."""
+    mask = np.zeros((1, h, w), dtype=np.float32)
+    mask[0, start:stop, start:stop] = 1.0
+    return mask
+
+
 def _make_vis_info(
     *,
     category_id_to_label_id: dict[int, str],
@@ -234,17 +242,18 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
 
 
 def test_visualize_masks_disabled_does_not_draw_masks(
-    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_frame: np.ndarray
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
 ) -> None:
     output = OutputData(
-        frame=fxt_frame,
-        results=[_prediction(masks=_single_pixel_mask(8, 8, 4, 4), labels=np.array([0]))],
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
 
-    # Frame should remain unchanged (all zeros) since masks are disabled and no boxes provided
-    assert tuple(result[4, 4].tolist()) == (0, 0, 0)
+    # The mask interior is never filled while mask visualization is off; only the
+    # box derived from that mask is drawn.
+    assert tuple(result[30, 30].tolist()) == (0, 0, 0)
 
 
 def test_visualize_draws_box_with_correct_color(
@@ -476,6 +485,98 @@ def test_visualize_prediction_with_only_boxes_no_masks(
 
     # Box should be drawn
     assert tuple(result[10, 20].tolist()) == (0, 0, 255)
+
+
+def test_visualize_derives_boxes_from_masks_when_model_omits_them(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    """Mask-only models (e.g. the OpenVINO Matcher family) still get box overlays."""
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],  # boxes=None
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # Box is drawn around the mask extent (rows/cols 20..39).
+    assert tuple(result[20, 30].tolist()) == (0, 255, 0)
+
+
+def test_visualize_prefers_model_boxes_over_derived_ones(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+    # The mask sits at 20..39 but the model reports a box far away from it.
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[
+            _prediction(
+                masks=_block_mask(100, 100, 20, 40),
+                boxes=np.array([[60, 60, 80, 80]], dtype=np.float32),
+                labels=np.array([0]),
+            )
+        ],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    assert tuple(result[60, 70].tolist()) == (0, 255, 0), "model-reported box must be drawn"
+    assert tuple(result[20, 30].tolist()) == (0, 0, 0), "mask-derived box must not be drawn"
+
+
+def test_visualize_boxes_disabled_skips_derivation(
+    fxt_visualizer: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    """Derivation is gated on the visualize_boxes setting, not on mask availability."""
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],
+    )
+
+    result = fxt_visualizer.visualize(output_data=output, visualization_info=None)
+
+    # Mask fill is applied, but no box outline is added just outside the mask.
+    assert tuple(result[19, 30].tolist()) == (0, 0, 0)
+
+
+class TestMasksToBoxes:
+    def test_returns_empty_for_none(self) -> None:
+        assert masks_to_boxes(None).shape == (0, 4)
+
+    def test_returns_empty_for_no_masks(self) -> None:
+        assert masks_to_boxes(np.zeros((0, 4, 4), dtype=bool)).shape == (0, 4)
+
+    def test_all_background_mask_yields_zero_box(self) -> None:
+        boxes = masks_to_boxes(np.zeros((1, 4, 4), dtype=bool))
+
+        # A zero box keeps indices aligned with scores and labels.
+        np.testing.assert_array_equal(boxes, np.zeros((1, 4), dtype=np.float32))
+
+    def test_derives_tight_box_per_instance(self) -> None:
+        masks = np.zeros((2, 6, 6), dtype=bool)
+        masks[0, 1:3, 2:5] = True
+        masks[1, 4:6, 0:2] = True
+
+        boxes = masks_to_boxes(masks)
+
+        np.testing.assert_array_equal(boxes, np.array([[2, 1, 5, 3], [0, 4, 2, 6]], dtype=np.float32))
+        assert boxes.dtype == np.float32
+
+    def test_thresholds_soft_masks(self) -> None:
+        masks = np.zeros((1, 4, 4), dtype=np.float32)
+        masks[0, 1, 1] = 0.4  # below threshold, ignored
+        masks[0, 2, 2] = 0.9
+
+        np.testing.assert_array_equal(masks_to_boxes(masks), np.array([[2, 2, 3, 3]], dtype=np.float32))
 
 
 # --- Label caption tests ---

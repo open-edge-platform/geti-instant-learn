@@ -95,9 +95,8 @@ class Processor(PipelineComponent):
             raise RuntimeError("Processor must be set up before running")
         logger.debug("Starting a pipeline runner loop")
 
-        self._model_handler.initialise()
         logger.info(
-            "Pipeline model handler initialized, batch size: %d, frame skip interval: %d, skip amount: %d",
+            "Pipeline model handler ready, batch size: %d, frame skip interval: %d, skip amount: %d",
             self._batch_size,
             self._skip_policy.interval,
             self._skip_policy.skip_amount,
