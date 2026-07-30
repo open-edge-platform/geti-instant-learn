@@ -529,7 +529,7 @@ class TestSAM3Integration:
         )
 
         ref_sample = Sample(
-            image=torch.zeros((3, 256, 256)),
+            image=np.zeros((256, 256, 3), dtype=np.uint8),
             categories=[Category(id=0, label="object")],
         )
 

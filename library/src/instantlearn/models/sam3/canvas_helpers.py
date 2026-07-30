@@ -17,6 +17,8 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torchvision.ops import nms as torchvision_nms
 
+from instantlearn.models.torch_adapter import CategoryRegistry
+
 if TYPE_CHECKING:
     from instantlearn.models.torch_adapter import TensorSample
 
@@ -66,6 +68,16 @@ def group_references_by_category(
         raise ValueError(msg)
 
     return refs_by_category
+
+
+def category_registry_from_canvas_references(refs_by_category: dict[int, dict]) -> CategoryRegistry:
+    """Build prediction label metadata for grouped canvas references."""
+    visual_count = sum(1 for cat_refs in refs_by_category.values() if cat_refs.get("text") == "visual")
+    id_to_name = {
+        cat_id: f"visual_{cat_id}" if cat_refs.get("text") == "visual" and visual_count > 1 else cat_refs["text"]
+        for cat_id, cat_refs in refs_by_category.items()
+    }
+    return CategoryRegistry.from_metadata(id_to_name)
 
 
 def build_canvas_shared_grouped(

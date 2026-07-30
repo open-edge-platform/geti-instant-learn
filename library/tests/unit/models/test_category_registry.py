@@ -17,8 +17,8 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Category, Sample
-from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample
+from instantlearn.data.base.sample import DEFAULT_CATEGORY, Category, Sample
+from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample, prediction_categories_for_sample
 
 
 def _make_sample(label_ids: list[int], labels: list[str]) -> Sample:
@@ -54,19 +54,26 @@ class TestFromSamples:
         reg = CategoryRegistry.from_samples(ts)
         assert reg.id_to_name == {2: "shoe", 3: "hat"}
 
-    def test_first_occurrence_wins_on_duplicate_name(self) -> None:
-        """Same name with conflicting ids — the first id assignment wins."""
+    def test_duplicate_name_with_different_id_raises(self) -> None:
+        """Same name with conflicting ids is not bidirectional."""
         s1 = _make_sample([0], ["cat"])
         s2 = _make_sample([99], ["cat"])  # same name, different id
-        reg = CategoryRegistry.from_samples([s1, s2])
-        assert reg.name_to_id["cat"] == 0  # first wins
+        with pytest.raises(ValueError, match="Category name 'cat' is assigned to multiple ids"):
+            CategoryRegistry.from_samples([s1, s2])
 
-    def test_first_occurrence_wins_on_duplicate_id(self) -> None:
-        """Same id with different names — from_samples keeps first by setdefault logic."""
+    def test_duplicate_id_with_different_name_raises(self) -> None:
+        """Same id with conflicting names is not bidirectional."""
         s1 = _make_sample([0], ["cat"])
         s2 = _make_sample([0], ["kitten"])
+        with pytest.raises(ValueError, match="Category id 0 has conflicting names"):
+            CategoryRegistry.from_samples([s1, s2])
+
+    def test_duplicate_pair_is_deduplicated(self) -> None:
+        s1 = _make_sample([0], ["cat"])
+        s2 = _make_sample([0], ["cat"])
         reg = CategoryRegistry.from_samples([s1, s2])
-        assert reg.id_to_name[0] == "cat"  # first wins
+        assert reg.id_to_name == {0: "cat"}
+        assert reg.name_to_id == {"cat": 0}
 
     def test_empty_sample_list(self) -> None:
         reg = CategoryRegistry.from_samples([])
@@ -94,6 +101,10 @@ class TestFromMetadata:
         reg = CategoryRegistry.from_metadata({})
         assert len(reg) == 0
 
+    def test_duplicate_names_raise(self) -> None:
+        with pytest.raises(ValueError, match="Category name 'cat' is assigned to multiple ids"):
+            CategoryRegistry.from_metadata({0: "cat", 1: "cat"})
+
 
 class TestFromNames:
     def test_default_start_id(self) -> None:
@@ -113,6 +124,10 @@ class TestFromNames:
     def test_single_name(self) -> None:
         reg = CategoryRegistry.from_names(["only"])
         assert reg[0] == "only"
+
+    def test_duplicate_names_raise(self) -> None:
+        with pytest.raises(ValueError, match="Category name 'cat' is assigned to multiple ids"):
+            CategoryRegistry.from_names(["cat", "cat"])
 
 
 class TestMerge:
@@ -154,17 +169,47 @@ class TestMerge:
         assert len(other) == 1
 
 
-class TestNamesIndexed:
-    def test_contiguous_ids(self) -> None:
-        reg = CategoryRegistry.from_names(["cat", "dog", "bird"])
-        assert reg.names_indexed() == ["cat", "dog", "bird"]
+class TestPredictionCategoriesForSample:
+    def test_sample_categories_overlay_fitted_categories(self) -> None:
+        base = CategoryRegistry.from_metadata({0: "cat", 1: "dog"})
+        sample = _make_tensor_sample([1, 2], ["puppy", "bird"])
 
-    def test_gap_falls_back_to_str(self) -> None:
-        reg = CategoryRegistry.from_metadata({0: "cat", 2: "dog"})
-        assert reg.names_indexed() == ["cat", "1", "dog"]
+        categories = prediction_categories_for_sample(base, sample)
 
-    def test_empty_registry(self) -> None:
-        assert CategoryRegistry().names_indexed() == []
+        assert categories.id_to_name == {0: "cat", 1: "puppy", 2: "bird"}
+
+    def test_empty_base_uses_sample_categories(self) -> None:
+        sample = _make_tensor_sample([0], ["shoe"])
+
+        categories = prediction_categories_for_sample(CategoryRegistry(), sample)
+
+        assert categories.id_to_name == {0: "shoe"}
+
+    def test_default_placeholder_category_does_not_override_fitted_names(self) -> None:
+        """An unannotated target must not relabel fitted id 0 as ``"object"``."""
+        base = CategoryRegistry.from_metadata({0: "elephant", 1: "tree"})
+        sample = _make_tensor_sample([DEFAULT_CATEGORY.id], [DEFAULT_CATEGORY.label])
+
+        categories = prediction_categories_for_sample(base, sample)
+
+        assert categories.id_to_name == {0: "elephant", 1: "tree"}
+
+    def test_default_placeholder_still_used_when_nothing_fitted(self) -> None:
+        """With no fitted categories the placeholder is the only name available."""
+        sample = _make_tensor_sample([DEFAULT_CATEGORY.id], [DEFAULT_CATEGORY.label])
+
+        categories = prediction_categories_for_sample(CategoryRegistry(), sample)
+
+        assert categories.id_to_name == {DEFAULT_CATEGORY.id: DEFAULT_CATEGORY.label}
+
+    def test_explicit_object_named_category_beyond_default_still_overlays(self) -> None:
+        """A real multi-category target keeps overlay behaviour."""
+        base = CategoryRegistry.from_metadata({0: "elephant"})
+        sample = _make_tensor_sample([0, 1], ["object", "tree"])
+
+        categories = prediction_categories_for_sample(base, sample)
+
+        assert categories.id_to_name == {0: "object", 1: "tree"}
 
 
 class TestMappingProtocol:

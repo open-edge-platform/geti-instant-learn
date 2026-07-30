@@ -52,36 +52,19 @@ class TestSAM3OpenVINOInit:
             patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
             patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained") as mock_tokenizer,
         ):
-            model = SAM3OpenVINO(ir_path=openvino_model_dir, device="cpu", prompt_mode=Sam3PromptMode.CLASSIC)
+            model = SAM3OpenVINO(model_dir=openvino_model_dir, device="cpu", prompt_mode=Sam3PromptMode.CLASSIC)
 
         assert isinstance(model, OpenVINOModel)
         assert model.backend == Backend.OPENVINO
         assert model.ov_device == "CPU"
         assert model.model_dir == openvino_model_dir
+        assert model.drop_spatial_bias is False
         assert mock_core.compile_model.call_count == 4
         mock_tokenizer.assert_called_once_with(str(openvino_model_dir))
 
     def test_card_delegates_to_sam3(self) -> None:
         """SAM3OpenVINO exposes the same model capabilities as SAM3."""
         assert SAM3OpenVINO.card() == SAM3.card()
-
-    def test_from_pretrained_loads_exported_model_dir(self, tmp_path: Path) -> None:
-        """from_pretrained() forwards an exported OpenVINO artifact directory."""
-        expected = object()
-        ir_path = tmp_path / "openvino-int8_sym"
-
-        with patch.object(SAM3OpenVINO, "__init__", return_value=None) as mock_init:
-            result = SAM3OpenVINO.from_pretrained(
-                ir_path,
-                device="CPU",
-            )
-
-        assert isinstance(result, SAM3OpenVINO)
-        mock_init.assert_called_once_with(
-            ir_path=ir_path,
-            device="CPU",
-        )
-        del expected
 
 class TestSAM3OpenVINOPredict:
     """Prediction return contract tests."""
