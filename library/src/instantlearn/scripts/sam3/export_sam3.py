@@ -314,26 +314,6 @@ def convert_to_openvino(
     return converted
 
 
-def _ensure_openvino_export_complete(model_dir: Path) -> None:
-    """Validate that all expected SAM3 OpenVINO sub-model files exist.
-
-    Args:
-        model_dir: Directory expected to contain the 5 OpenVINO IR models.
-
-    Raises:
-        FileNotFoundError: If any required ``.xml`` file is missing.
-    """
-    missing = [
-        model_dir / f"{model_name}.xml"
-        for model_name in MODEL_NAMES
-        if not (model_dir / f"{model_name}.xml").exists()
-    ]
-    if missing:
-        missing_names = ", ".join(path.name for path in missing)
-        msg = f"Incomplete SAM3 OpenVINO export in {model_dir}: missing {missing_names}"
-        raise FileNotFoundError(msg)
-
-
 # Validation
 
 def validate_openvino_models(  # noqa: PLR0915
