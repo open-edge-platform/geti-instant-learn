@@ -46,7 +46,21 @@ _PRESET_TO_MODE: dict[CompressionPreset, CompressionMode] = {
 }
 
 
-class BaseModelConfig(BaseModel):
+class CompressibleConfig(BaseModel):
+    """Base for model configs that can be exported to OpenVINO IR.
+
+    Every model type must answer which weight compression its export uses, because the
+    mode is baked into the exported IR (and, for SAM3, into the IR cache directory name).
+    Models that expose no user-facing preset inherit the throughput default.
+    """
+
+    @property
+    def compression_mode(self) -> CompressionMode:
+        """Weight compression mode applied when exporting this model to OpenVINO IR."""
+        return _PRESET_TO_MODE[CompressionPreset.THROUGHPUT]
+
+
+class BaseModelConfig(CompressibleConfig):
     """Base configuration class with common validators for all model types."""
 
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
@@ -110,6 +124,11 @@ class MatcherConfig(BaseModelConfig):
         description="Weight compression preset: 'throughput' (smaller/faster) or 'accuracy' (higher fidelity).",
     )
 
+    @property
+    def compression_mode(self) -> CompressionMode:
+        """Matcher is the only model exposing a user-selectable compression preset."""
+        return self.preset.to_compression_mode()
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -160,7 +179,7 @@ class SoftMatcherConfig(BaseModelConfig):
     }
 
 
-class Sam3Config(BaseModel):
+class Sam3Config(CompressibleConfig):
     """
     Configuration for SAM3 visual or text-prompted segmentation model.
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.

@@ -1,14 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-"""Factory building ready-to-use models for the inference pipeline.
-
-The factory owns every backend decision. It constructs the PyTorch model, fits
-it with the reference batch and — when OpenVINO is enabled — exports it and
-loads the corresponding OpenVINO sibling. The resulting model is handed to a
-single :class:`~runtime.core.components.models.inference_model.InferenceModelHandler`,
-so the pipeline itself stays backend-agnostic.
-"""
+"""Factory building ready-to-use models for the inference pipeline."""
 
 import logging
 import os
@@ -39,7 +32,6 @@ from instantlearn.utils.constants import CompressionMode
 
 from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import (
-    CompressionPreset,
     MatcherConfig,
     ModelConfig,
     PerDinoConfig,
@@ -67,10 +59,7 @@ _TOKENIZER_MARKER_FILE = "tokenizer.json"
 
 
 class ModelFactory:
-    def __init__(
-        self,
-        device_service: DeviceService,
-    ) -> None:
+    def __init__(self, device_service: DeviceService) -> None:
         self._device_service = device_service
 
     def _resolve_device(self, configured_device: str | None) -> DeviceInfo:
@@ -79,18 +68,15 @@ class ModelFactory:
         if device_info.type == DeviceType.AUTO:
             device_info = self._device_service.resolve_auto()
         logger.info(
-            "Accelerator selected: torch=%s ov=%s (configured=%r)",
-            device_info.as_torch,
-            device_info.as_openvino,
+            "Accelerator selected: device=%s backend=%s (configured=%r)",
+            device_info.as_key,
+            "openvino" if device_info.uses_openvino else "torch",
             configured_device,
         )
         return device_info
 
     def create(
-        self,
-        reference_batch: Batch | None,
-        config: ModelConfig | None,
-        configured_device: str | None = None,
+        self, reference_batch: Batch | None, config: ModelConfig | None, configured_device: str | None = None
     ) -> ModelHandler:
         """Build a fully initialised model handler for the given configuration.
 
@@ -121,7 +107,7 @@ class ModelFactory:
             config=config,
             reference_batch=reference_batch,
             device_info=device_info,
-            use_openvino=settings.processor_openvino_enabled,
+            use_openvino=device_info.uses_openvino,
         )
         if model is None:
             logger.info("Model config didn't match any known type, falling back to a pass through processing")
@@ -138,7 +124,7 @@ class ModelFactory:
         use_openvino: bool,
     ) -> Model | None:
         """Construct and fit a model, converting it to OpenVINO when enabled."""
-        selected_device = device_info.as_torch
+        selected_device = _torch_device(device_info)
         # If the model is converted to the OV format the precision must be fp32:
         # the graph is traced in full precision and compressed afterwards.
         precision = _OPENVINO_PRECISION if use_openvino else config.precision
@@ -206,7 +192,7 @@ class ModelFactory:
                 ov_cls=ov_cls,
                 reference_batch=reference_batch,
                 ov_device=device_info.as_openvino,
-                compression=_compression_mode(config),
+                compression=config.compression_mode,
             )
             del model  # release the torch graph as soon as the IR is compiled
             empty_accelerator_cache()
@@ -269,7 +255,7 @@ class ModelFactory:
 
         if use_openvino:
             logger.info("Using the OpenVINO backend for SAM3")
-            ir_dir = self._resolve_sam3_ir(config=config, compression=_compression_mode(config))
+            ir_dir = self._resolve_sam3_ir(config=config, compression=config.compression_mode)
             model: Model = SAM3OpenVINO(
                 model_dir=ir_dir,
                 device=device_info.as_openvino,
@@ -283,7 +269,7 @@ class ModelFactory:
                 confidence_threshold=config.confidence_threshold,
                 resolution=config.resolution,
                 precision=config.precision,
-                device=device_info.as_torch,
+                device=_torch_device(device_info),
                 prompt_mode=prompt_mode,
             )
 
@@ -363,14 +349,16 @@ class ModelFactory:
             empty_accelerator_cache()
 
 
-def _compression_mode(config: ModelConfig) -> CompressionMode:
-    """Return the weight compression mode for *config*.
+def _torch_device(device_info: DeviceInfo) -> str:
+    """Return the torch device string to build and fit the model on.
 
-    Only Matcher currently exposes a user-facing preset; every other model
-    falls back to the throughput preset.
+    Fitting runs on the accelerator whenever torch can reach it. An NPU has no torch
+    backend, so its torch-side work (fitting, then tracing during the export) falls back
+    to the CPU; only the compiled OpenVINO model then runs on the NPU itself.
     """
-    preset: CompressionPreset = getattr(config, "preset", CompressionPreset.THROUGHPUT)
-    return preset.to_compression_mode()
+    if device_info.type == DeviceType.NPU:
+        return "cpu"
+    return device_info.as_torch
 
 
 def _slugify(value: str) -> str:
