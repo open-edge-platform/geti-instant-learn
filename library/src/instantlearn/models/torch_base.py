@@ -10,11 +10,14 @@ from typing import TYPE_CHECKING, Any
 
 from torch import nn
 
+from instantlearn.device import resolve_device_for_runtime
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, CompressionMode
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from instantlearn.device import DeviceInfo
 
 
 @dataclass
@@ -54,6 +57,7 @@ class TorchModel(nn.Module, Model):
     torch->numpy ``Prediction`` boundary.
 
     Attributes:
+        device_info: Selected physical device and its runtime identifiers.
         device: Torch device string (e.g. ``"cpu"``, ``"cuda"``).
         precision: Weight precision string (e.g. ``"fp32"``, ``"fp16"``).
         preprocessor: Optional numpy-based preprocessor applied before inference.
@@ -62,7 +66,7 @@ class TorchModel(nn.Module, Model):
 
     def __init__(
         self,
-        device: str = "cpu",
+        device: DeviceInfo | None = None,
         precision: str = "fp32",
         preprocessor: Any = None,  # noqa: ANN401
         postprocessor: Any = None,  # noqa: ANN401
@@ -70,13 +74,17 @@ class TorchModel(nn.Module, Model):
         """Initialize with device, precision, and optional processors.
 
         Args:
-            device: Torch device string, e.g. ``"cpu"`` or ``"cuda"``.
+            device: Physical device to use, or ``None`` to select a compatible device.
             precision: Weight precision, e.g. ``"fp32"`` or ``"fp16"``.
             preprocessor: Optional numpy-based preprocessor.
             postprocessor: Optional post-processor.
         """
         super().__init__()
-        self.device = device
+        self.device_info, self.device = resolve_device_for_runtime(
+            device=device,
+            runtime=Backend.TORCH,
+            supported_device_types=type(self).card().supported_device_types(Backend.TORCH),
+        )
         self.precision = precision
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor

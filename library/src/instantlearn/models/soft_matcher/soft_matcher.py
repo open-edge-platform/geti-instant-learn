@@ -4,6 +4,7 @@
 """SoftMatcher model."""
 
 from instantlearn.components.postprocessing import PostProcessor
+from instantlearn.device import DeviceInfo
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.model_card import ModelCard
 from instantlearn.utils.constants import SAMModelName
@@ -77,7 +78,7 @@ class SoftMatcher(Matcher):
         encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
@@ -96,7 +97,7 @@ class SoftMatcher(Matcher):
             encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            device: The device to use for the model.
+            device: Physical device, or ``None`` to select automatically.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).

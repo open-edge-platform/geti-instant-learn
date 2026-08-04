@@ -3,66 +3,27 @@
 
 import logging
 import re
+from dataclasses import dataclass
 
-from domain.services.schemas.device import DEVICE_STR_PATTERN, DeviceInfo, DeviceType
+from instantlearn.device import DeviceInfo, DeviceType, enumerate_system_devices
+from instantlearn.models.model_card import ModelCard
+from instantlearn.utils.constants import Backend
+
+from domain.services.schemas.device import DEVICE_STR_PATTERN
 
 logger = logging.getLogger(__name__)
 
 _DEVICE_RE = re.compile(DEVICE_STR_PATTERN)
 
 
-def _list_xpu_devices() -> list[DeviceInfo]:
-    """List all Intel XPU devices exposed by PyTorch."""
-    try:
-        import torch
+@dataclass(frozen=True)
+class ResolvedDevice:
+    """Concrete runtime route selected for a model."""
 
-        if not torch.xpu.is_available():
-            return []
-
-        devices: list[DeviceInfo] = []
-        for index in range(torch.xpu.device_count()):
-            name = torch.xpu.get_device_name(index)
-            props = torch.xpu.get_device_properties(index)
-            memory = getattr(props, "total_memory", None)
-            devices.append(DeviceInfo(type=DeviceType.XPU, name=name, memory=memory, index=index))
-        return devices
-    except (ImportError, AttributeError, RuntimeError):
-        return []
-
-
-def _list_cuda_devices() -> list[DeviceInfo]:
-    """List all CUDA devices exposed by PyTorch."""
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return []
-
-        devices: list[DeviceInfo] = []
-        for index in range(torch.cuda.device_count()):
-            name = torch.cuda.get_device_name(index)
-            props = torch.cuda.get_device_properties(index)
-            memory = getattr(props, "total_memory", None)
-            devices.append(DeviceInfo(type=DeviceType.CUDA, name=name, memory=memory, index=index))
-        return devices
-    except (ImportError, AttributeError, RuntimeError):
-        return []
-
-
-def _cpu_info() -> DeviceInfo:
-    return DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
-
-
-def _auto_info() -> DeviceInfo:
-    return DeviceInfo(type=DeviceType.AUTO, name="AUTO", memory=None, index=None)
-
-
-def enumerate_system_devices() -> list[DeviceInfo]:
-    """Enumerate all currently available runtime devices.
-
-    CPU is always present. Intel XPU and NVIDIA CUDA devices are enumerated when detected.
-    """
-    return [*_list_xpu_devices(), *_list_cuda_devices(), _cpu_info()]
+    device: DeviceInfo
+    runtime: Backend
+    runtime_id: str
+    fallback_used: bool = False
 
 
 class DeviceService:
@@ -85,70 +46,140 @@ class DeviceService:
         return list(self._devices)
 
     @staticmethod
-    def parse(device_str: str) -> tuple[DeviceType, int | None]:
-        """Parse a ``<type>[-<index>]`` string into ``(type, index)``.
+    def parse(device_str: str) -> tuple[str, int | None]:
+        """Parse a device selection key into ``(kind, index)``.
 
         Raises:
-            ValueError: When the string doesn't match the canonical format or carries
-                an index for a type that doesn't support one.
+            ValueError: When the string doesn't match the canonical format.
         """
         normalized = device_str.lower()
         if not _DEVICE_RE.match(normalized):
             raise ValueError(
-                f"Invalid device string: {device_str!r}. "
-                "Expected one of: 'auto', 'cpu', 'xpu', 'cuda', 'xpu-<N>', 'cuda-<N>'."
+                f"Invalid device string: {device_str!r}. Expected 'auto', 'cpu', "
+                "'<gpu|npu|xpu|cuda>', or '<gpu|npu|xpu|cuda>-<N>'."
             )
         if "-" in normalized:
             type_str, idx_str = normalized.split("-", 1)
-            return DeviceType(type_str), int(idx_str)
-        return DeviceType(normalized), None
+            return type_str, int(idx_str)
+        return normalized, None
+
+    def _find_device(self, kind: str, index: int | None) -> DeviceInfo | None:
+        if kind == DeviceType.CPU.value:
+            return next((device for device in self._devices if device.type == DeviceType.CPU), None)
+
+        target_index = 0 if index is None else index
+        if kind in (DeviceType.GPU.value, DeviceType.NPU.value):
+            device_type = DeviceType(kind)
+            return next(
+                (device for device in self._devices if device.type == device_type and device.index == target_index),
+                None,
+            )
+
+        return next(
+            (device for device in self._devices if device.runtime_ids.get(Backend.TORCH) == f"{kind}:{target_index}"),
+            None,
+        )
 
     def validate(self, device_str: str) -> bool:
         """Return True if the device string is syntactically valid AND currently available."""
         try:
-            device_type, index = self.parse(device_str)
+            kind, index = self.parse(device_str)
         except ValueError:
             return False
-        if device_type in (DeviceType.AUTO, DeviceType.CPU):
+        if kind == "auto":
             return True
-        target_index = 0 if index is None else index
-        return any(d.type == device_type and d.index == target_index for d in self._devices)
+        return self._find_device(kind, index) is not None
 
     def resolve(self, device_str: str) -> DeviceInfo:
         """Resolve a stored device preference into a ``DeviceInfo``.
 
-        - ``auto`` returns a synthetic AUTO ``DeviceInfo`` (callers should call
-          :meth:`resolve_auto` to obtain a concrete device).
-        - Unavailable or unparsable values are logged at WARNING level and fall back to AUTO.
+        Unavailable, unparsable, and ``auto`` values resolve to the best concrete device.
         """
         try:
-            device_type, index = self.parse(device_str)
+            kind, index = self.parse(device_str)
         except ValueError:
             logger.warning("Invalid device string %r; falling back to auto.", device_str)
-            return _auto_info()
+            return self.resolve_auto()
 
-        if device_type == DeviceType.AUTO:
-            return _auto_info()
-        if device_type == DeviceType.CPU:
-            return _cpu_info()
+        if kind == "auto":
+            return self.resolve_auto()
 
-        target_index = 0 if index is None else index
-        match = next((d for d in self._devices if d.type == device_type and d.index == target_index), None)
+        match = self._find_device(kind, index)
         if match is None:
             logger.warning("Configured device %r is not available on this system; falling back to auto.", device_str)
-            return _auto_info()
+            return self.resolve_auto()
         return match
 
     def resolve_auto(self) -> DeviceInfo:
         """Collapse AUTO to a concrete device.
 
-        Priority: prefer Intel XPU family, then NVIDIA CUDA family. Within a family pick
-        the device with the highest total memory; on ties prefer the lowest index. If
-        no GPUs are present, fall back to CPU.
+        Prefer GPU, then NPU, then CPU. Within a class prefer devices with more
+        memory, then the lowest registry index.
         """
-        for family in (DeviceType.XPU, DeviceType.CUDA):
-            candidates = [d for d in self._devices if d.type == family]
+        for device_type in (DeviceType.GPU, DeviceType.NPU, DeviceType.CPU):
+            candidates = [device for device in self._devices if device.type == device_type]
             if candidates:
-                return max(candidates, key=lambda d: (d.memory or 0, -(d.index or 0)))
-        cpu = next((d for d in self._devices if d.type == DeviceType.CPU), None)
-        return cpu or _cpu_info()
+                return max(candidates, key=lambda device: (device.memory or 0, -(device.index or 0)))
+        raise RuntimeError("No runtime devices were discovered.")
+
+    def resolve_for_model(
+        self,
+        model_card: ModelCard,
+        device_str: str = "auto",
+        allowed_runtimes: tuple[Backend, ...] = (Backend.OPENVINO, Backend.TORCH),
+    ) -> ResolvedDevice:
+        """Resolve a device preference to a runtime supported by ``model_card``."""
+        invalid_preference = False
+        try:
+            kind, index = self.parse(device_str)
+        except ValueError:
+            kind, index = "auto", None
+            invalid_preference = True
+
+        preferred = None if kind == "auto" else self._find_device(kind, index)
+        if preferred is not None:
+            for runtime in allowed_runtimes:
+                runtime_id = preferred.runtime_id(runtime)
+                if runtime_id is not None and model_card.supports(runtime, preferred.type):
+                    return ResolvedDevice(
+                        device=preferred,
+                        runtime=runtime,
+                        runtime_id=runtime_id,
+                    )
+
+        fallback_used = invalid_preference or kind != "auto"
+        candidates = [
+            device for device in self._ordered_devices() if preferred is None or device != preferred
+        ]
+        for runtime in allowed_runtimes:
+            for device in candidates:
+                runtime_id = device.runtime_id(runtime)
+                if runtime_id is None or not model_card.supports(runtime, device.type):
+                    continue
+                if fallback_used:
+                    logger.warning(
+                        "Device %r is not supported by model %s; using %s on %s.",
+                        device_str,
+                        model_card.name,
+                        runtime.value,
+                        device.key,
+                    )
+                return ResolvedDevice(
+                    device=device,
+                    runtime=runtime,
+                    runtime_id=runtime_id,
+                    fallback_used=fallback_used,
+                )
+
+        raise RuntimeError(f"No available device can run model {model_card.name!r}.")
+
+    def _ordered_devices(self) -> list[DeviceInfo]:
+        type_priority = {DeviceType.GPU: 0, DeviceType.NPU: 1, DeviceType.CPU: 2}
+        return sorted(
+            self._devices,
+            key=lambda device: (
+                type_priority[device.type],
+                -(device.memory or 0),
+                device.index or 0,
+            ),
+        )

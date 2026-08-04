@@ -49,7 +49,7 @@ SAM3 performs zero-shot segmentation using text prompts (category names) or boun
 from instantlearn.models import SAM3
 from instantlearn.data import Sample
 
-model = SAM3(device="xpu")  # or "cuda", "cpu"
+model = SAM3()
 
 predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
@@ -99,7 +99,6 @@ from instantlearn.models.sam3.sam3 import CanvasConfig
 model = SAM3OpenVINO(
     variant=SAM3OVVariant.INT8_SYM,
     prompt_mode=Sam3PromptMode.CANVAS,
-    device="CPU",
 )
 
 # Fit: encode reference image bounding boxes
@@ -170,7 +169,7 @@ Matcher fits once with a reference mask (one-shot) and predicts on any number of
 from instantlearn.models import Matcher
 from instantlearn.data import Sample
 
-model = Matcher(device="xpu")
+model = Matcher()
 
 ref_sample = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
@@ -206,7 +205,7 @@ ref_mask, _, _ = predictor.forward(
 )
 
 # Fit and predict with the generated mask
-model = Matcher(device="xpu")
+model = Matcher()
 model.fit(Sample(image=ref_image, masks=ref_mask[0]))
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
 ```
@@ -220,7 +219,7 @@ predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341
 from instantlearn.models import GroundedSAM
 from instantlearn.data import Sample
 
-model = GroundedSAM(device="xpu")
+model = GroundedSAM()
 model.fit(Sample(categories=["elephant"]))
 
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
@@ -240,13 +239,12 @@ from instantlearn.utils.constants import SAMModelName
 
 # Use a lighter model for faster inference
 model = Matcher(
-    device="xpu",
     encoder_model="dinov3_small",      # Smaller, faster encoder
     sam=SAMModelName.SAM_HQ_TINY,        # Fast SAM HQ Tiny model
 )
 
 # Heavier model for best accuracy
-model = Matcher(device="xpu", encoder_model="dinov3_huge", sam=SAMModelName.SAM_HQ)
+model = Matcher(encoder_model="dinov3_huge", sam=SAMModelName.SAM_HQ)
 ```
 
 **Available encoder models:**

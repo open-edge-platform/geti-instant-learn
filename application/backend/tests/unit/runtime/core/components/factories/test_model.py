@@ -4,16 +4,23 @@
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
-from instantlearn.utils.constants import SAMModelName
+from instantlearn.device import DeviceInfo, DeviceType
+from instantlearn.utils.constants import Backend, SAMModelName
 
-from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import CompressionPreset, MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
+from runtime.services.device import ResolvedDevice
 
 
 def _cpu() -> DeviceInfo:
-    return DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
+    return DeviceInfo(
+        type=DeviceType.CPU,
+        name="CPU",
+        memory=None,
+        index=None,
+        runtime_ids={Backend.TORCH: "cpu", Backend.OPENVINO: "CPU"},
+    )
 
 
 class TestModelFactory:
@@ -31,8 +38,16 @@ class TestModelFactory:
     @pytest.fixture
     def mock_device_service(self):
         service = MagicMock()
-        service.resolve.return_value = _cpu()
-        service.resolve_auto.return_value = _cpu()
+
+        def resolve_for_model(*, allowed_runtimes, **_kwargs):
+            runtime = allowed_runtimes[0]
+            return ResolvedDevice(
+                device=_cpu(),
+                runtime=runtime,
+                runtime_id="CPU" if runtime == Backend.OPENVINO else "cpu",
+            )
+
+        service.resolve_for_model.side_effect = resolve_for_model
         return service
 
     @pytest.fixture
@@ -42,9 +57,37 @@ class TestModelFactory:
     @pytest.mark.parametrize(
         ("resolved_device", "expected_precision", "use_torch_handler"),
         [
-            (DeviceInfo(type=DeviceType.CUDA, name="NVIDIA", memory=1, index=0), "bf16", True),
-            (_cpu(), "bf16", True),
-            (DeviceInfo(type=DeviceType.XPU, name="Intel", memory=1, index=0), "fp32", False),
+            (
+                ResolvedDevice(
+                    DeviceInfo(
+                        type=DeviceType.GPU,
+                        name="NVIDIA",
+                        memory=1,
+                        index=0,
+                        runtime_ids={Backend.TORCH: "cuda:0"},
+                    ),
+                    Backend.TORCH,
+                    "cuda:0",
+                ),
+                "bf16",
+                True,
+            ),
+            (ResolvedDevice(_cpu(), Backend.TORCH, "cpu"), "bf16", True),
+            (
+                ResolvedDevice(
+                    DeviceInfo(
+                        type=DeviceType.GPU,
+                        name="Intel",
+                        memory=1,
+                        index=0,
+                        runtime_ids={Backend.TORCH: "xpu:0", Backend.OPENVINO: "GPU.0"},
+                    ),
+                    Backend.OPENVINO,
+                    "GPU.0",
+                ),
+                "fp32",
+                False,
+            ),
         ],
     )
     def test_factory_create_auto_uses_resolved_device_and_handler_branch(
@@ -80,7 +123,10 @@ class TestModelFactory:
             ) as mocks,
         ):
             mocks["get_settings"].return_value = mock_settings
-            mock_device_service.resolve.return_value = resolved_device
+            resolutions = [resolved_device]
+            if not use_torch_handler:
+                resolutions.append(ResolvedDevice(_cpu(), Backend.TORCH, "cpu"))
+            mock_device_service.resolve_for_model.side_effect = resolutions
             mock_matcher = mocks["Matcher"]
             mock_torch_handler = mocks["TorchModelHandler"]
             mock_openvino_handler = mocks["OpenVINOModelHandler"]
@@ -95,8 +141,9 @@ class TestModelFactory:
 
             result = model_factory.create(mock_reference_batch, config)
 
-            mock_device_service.resolve.assert_called_once_with("auto")
-            assert mock_matcher.call_args.kwargs["device"] == resolved_device.as_torch
+            assert mock_device_service.resolve_for_model.call_args_list[0].kwargs["device_str"] == "auto"
+            expected_model_device = resolved_device.device if use_torch_handler else _cpu()
+            assert mock_matcher.call_args.kwargs["device"] == expected_model_device
             assert mock_matcher.call_args.kwargs["precision"] == expected_precision
 
             if use_torch_handler:
@@ -109,7 +156,7 @@ class TestModelFactory:
                     model=mock_model_instance,
                     reference_batch=mock_reference_batch,
                     precision="fp32",
-                    ov_device=resolved_device.as_openvino,
+                    ov_device=resolved_device.runtime_id,
                     compression_preset=CompressionPreset.THROUGHPUT,
                 )
                 mock_torch_handler.assert_not_called()
@@ -146,7 +193,7 @@ class TestModelFactory:
                 num_background_points=3,
                 confidence_threshold=0.5,
                 precision="fp32",
-                device="cpu",
+                device=_cpu(),
                 use_mask_refinement=True,
                 similarity_threshold=None,
                 num_grid_cells=8,
@@ -197,7 +244,7 @@ class TestModelFactory:
                 point_selection_threshold=0.65,
                 confidence_threshold=0.42,
                 precision="bf16",
-                device="cpu",
+                device=_cpu(),
             )
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
 
@@ -243,7 +290,7 @@ class TestModelFactory:
                 softmatching_score_threshold=0.5,
                 softmatching_bidirectional=True,
                 precision="bf16",
-                device="cpu",
+                device=_cpu(),
             )
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
 
@@ -269,7 +316,7 @@ class TestModelFactory:
             result = model_factory.create(mock_reference_batch, None)
 
         assert isinstance(result, PassThroughModelHandler)
-        mock_device_service.resolve.assert_not_called()
+        mock_device_service.resolve_for_model.assert_not_called()
 
     def test_factory_returns_passthrough_when_both_none(self, model_factory):
         result = model_factory.create(None, None)
@@ -306,7 +353,7 @@ class TestModelFactory:
         assert isinstance(result, PassThroughModelHandler)
         mock_handler.assert_not_called()
         mock_matcher.assert_not_called()
-        mock_device_service.resolve.assert_not_called()
+        mock_device_service.resolve_for_model.assert_not_called()
 
     @pytest.mark.parametrize(
         "config_class,model_patch_name",

@@ -39,8 +39,8 @@ ref_image = "examples/assets/fss-1000/images/apple/1.jpg"
 ref_mask = "examples/assets/fss-1000/masks/apple/1.png"
 target_image = "examples/assets/fss-1000/images/apple/2.jpg"
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher (selects a compatible device automatically)
+model = Matcher()
 model.fit(Sample(image_path=ref_image, mask_paths=[ref_mask]))
 predictions = model.predict(Sample(image_path=target_image))
 ```

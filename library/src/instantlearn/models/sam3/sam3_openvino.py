@@ -32,6 +32,7 @@ from transformers import CLIPTokenizerFast
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
+from instantlearn.device import DeviceInfo
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import (
@@ -42,7 +43,6 @@ from instantlearn.models.torch_adapter import (
     prediction_categories_for_sample,
     samples_to_tensors,
 )
-from instantlearn.utils import device_to_openvino_device
 
 from .canvas_helpers import (
     build_canvas_multishot,
@@ -127,7 +127,7 @@ class SAM3OpenVINO(OpenVINOModel):
         >>> import numpy as np
 
         >>> # Load a local OpenVINO INT8_SYM export — canvas mode
-        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym", device="CPU")
+        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym")
         >>> ref = Sample(
         ...     image_path="examples/assets/coco/000000286874.jpg",
         ...     bboxes=np.array([[180, 105, 490, 370]]),
@@ -142,7 +142,6 @@ class SAM3OpenVINO(OpenVINOModel):
         >>> model = SAM3OpenVINO(
         ...     model_dir="./sam3-openvino/openvino-int8_sym",
         ...     prompt_mode=Sam3PromptMode.CLASSIC,
-        ...     device="CPU",
         ... )
         >>> model.fit(Sample(categories=[Category(0, "elephant")]))
         >>> results = model.predict(
@@ -150,14 +149,14 @@ class SAM3OpenVINO(OpenVINOModel):
         ... )
 
         >>> # Use a local model directory (no download)
-        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym", device="CPU")
+        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym")
     """
 
     def __init__(  # noqa: PLR0915
         self,
         model_dir: str | Path,
         model_id: str = SAM3_MODEL_ID,
-        device: str = "AUTO",
+        device: DeviceInfo | None = None,
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         prompt_mode: Sam3PromptMode = Sam3PromptMode.CANVAS,
@@ -175,8 +174,7 @@ class SAM3OpenVINO(OpenVINOModel):
             model_dir: Directory containing OpenVINO IR or ONNX sub-models.
             model_id: HuggingFace model ID or local path used as tokenizer fallback.
                 Default: SAM3_MODEL_ID.
-            device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``).
-                PyTorch-style names (``"cuda"``, ``"cpu"``) are also accepted.
+            device: Physical device, or ``None`` to select automatically.
             confidence_threshold: Minimum confidence score for predictions.
             resolution: Input image resolution (must match exported model).
             prompt_mode: ``Sam3PromptMode.CANVAS`` (default),
@@ -195,8 +193,7 @@ class SAM3OpenVINO(OpenVINOModel):
                 faster. ``None`` (default) uses ``model_dir / ".ov_cache"``.
                 Pass an empty string ``""`` to disable caching.
         """
-        ov_device = device_to_openvino_device(device)
-        super().__init__(model_dir=model_dir, device=ov_device)
+        super().__init__(model_dir=model_dir, device=device)
         self.ov_device = self.device
         self.model_id = model_id
         self.confidence_threshold = confidence_threshold

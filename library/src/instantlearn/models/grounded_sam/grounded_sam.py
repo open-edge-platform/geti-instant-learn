@@ -15,7 +15,7 @@ from instantlearn.components.postprocessing import default_postprocessor
 from instantlearn.components.postprocessing.base import apply_postprocessing
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.models.torch_adapter import batch_to_tensors, dict_to_prediction, CategoryRegistry
+from instantlearn.models.torch_adapter import CategoryRegistry, batch_to_tensors, dict_to_prediction
 from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils.constants import SAMModelName
 
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from instantlearn.components.postprocessing import PostProcessor
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.device import DeviceInfo
     from instantlearn.models.model_card import ModelCard
 
 
@@ -43,7 +44,7 @@ class GroundedSAM(TorchModel):
         compile_models: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the model.
@@ -55,7 +56,7 @@ class GroundedSAM(TorchModel):
             compile_models: Whether to compile the models.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
-            device: The device to use.
+            device: Physical device, or ``None`` to select automatically.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -69,12 +70,12 @@ class GroundedSAM(TorchModel):
         )
         self.sam_predictor = load_sam_model(
             sam,
-            device=device,
+            device=self.device,
             precision=precision,
             compile_models=compile_models,
         )
         self.prompt_generator: TextToBoxPromptGenerator = TextToBoxPromptGenerator(
-            device=device,
+            device=self.device,
             box_threshold=box_threshold,
             text_threshold=text_threshold,
             template=TextToBoxPromptGenerator.Template.specific_object,

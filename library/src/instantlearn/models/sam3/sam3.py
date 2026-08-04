@@ -22,6 +22,7 @@ from instantlearn.components.postprocessing import PostProcessor, apply_postproc
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
+from instantlearn.device import DeviceInfo
 from instantlearn.models.model_card import ModelCard
 from instantlearn.models.torch_adapter import (
     CategoryRegistry,
@@ -261,7 +262,7 @@ class SAM3(TorchModel):
 
     def __init__(
         self,
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         precision: str | None = None,
@@ -276,7 +277,7 @@ class SAM3(TorchModel):
         """Initialize the SAM3 model.
 
         Args:
-            device: The device to use ('cuda', 'xpu', or 'cpu').
+            device: Physical device, or ``None`` to select automatically.
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: Model precision (``'fp16'``, ``'bf16'``, or ``'fp32'``).
@@ -302,10 +303,11 @@ class SAM3(TorchModel):
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
+        super().__init__(device=device, precision=precision or "fp32", postprocessor=postprocessor)
         if precision is None:
-            device_type = torch.device(device).type
+            device_type = torch.device(self.device).type
             precision = "fp16" if device_type in {"cuda", "xpu"} else "fp32"
-        super().__init__(device=device, precision=precision, postprocessor=postprocessor)
+            self.precision = precision
 
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
@@ -330,14 +332,14 @@ class SAM3(TorchModel):
         self._canvas_text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
 
         # Preprocessors and postprocessor
-        self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
-        self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
+        self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(self.device)
+        self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(self.device)
         self.sam3_postprocessor = Sam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
             post_processing=post_processing,
-        ).to(device)
+        ).to(self.device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
         self.tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
@@ -347,7 +349,7 @@ class SAM3(TorchModel):
                 model_id,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
-            .to(device)
+            .to(self.device)
             .eval()
         )
 

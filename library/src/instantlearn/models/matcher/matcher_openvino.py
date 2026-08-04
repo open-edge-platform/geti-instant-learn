@@ -27,7 +27,6 @@ import numpy as np
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import CategoryRegistry, arrays_to_prediction
-from instantlearn.utils import device_to_openvino_device
 
 from ._card import _MATCHER_CARD
 
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
     from instantlearn.data.base.batch import Collatable
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.device import DeviceInfo
     from instantlearn.models.model_card import ModelCard
 
 logger = logging.getLogger(__name__)
@@ -53,19 +53,19 @@ class MatcherOpenVINO(OpenVINOModel):
         >>> import numpy as np
 
         >>> # 1. Fit references and export the baked IR with a torch Matcher.
-        >>> matcher = Matcher(device="cpu")
+        >>> matcher = Matcher()
         >>> matcher.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
         >>> ir_dir = matcher.to_openvino("./matcher-ov")
 
         >>> # 2. Load and run the baked IR (no fit needed).
-        >>> ov_model = MatcherOpenVINO(model_dir=ir_dir, device="CPU")
+        >>> ov_model = MatcherOpenVINO(model_dir=ir_dir)
         >>> predictions = ov_model.predict(Sample(image_path="target.jpg"))
     """
 
     def __init__(
         self,
         model_dir: str | Path,
-        device: str = "CPU",
+        device: DeviceInfo | None = None,
     ) -> None:
         """Load the Matcher IR from *model_dir*.
 
@@ -73,13 +73,12 @@ class MatcherOpenVINO(OpenVINOModel):
             model_dir: Directory containing ``model.xml`` / ``model.bin`` and
                 ``metadata.json`` (produced by ``Matcher.to_openvino``). May be a
                 local path or a remote URI (``file://``, ``hf://``, ``s3://``).
-            device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``). PyTorch-style
-                names (``"cuda"``, ``"cpu"``) are also accepted.
+            device: Physical device, or ``None`` to select automatically.
 
         Raises:
             FileNotFoundError: If the IR file or ``metadata.json`` are missing.
         """
-        super().__init__(model_dir=model_dir, device=device_to_openvino_device(device))
+        super().__init__(model_dir=model_dir, device=device)
 
         metadata_path = self.model_dir / "metadata.json"
         if not metadata_path.exists():

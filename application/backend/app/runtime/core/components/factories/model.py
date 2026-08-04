@@ -5,17 +5,18 @@ import logging
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.matcher import Matcher
+from instantlearn.models.model_card import ModelCard
 from instantlearn.models.per_dino import PerDino
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
+from instantlearn.utils.constants import Backend
 
-from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.models.torch_model import TorchModelHandler
-from runtime.services.device import DeviceService
+from runtime.services.device import DeviceService, ResolvedDevice
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -28,18 +29,27 @@ class ModelFactory:
     ) -> None:
         self._device_service = device_service
 
-    def _resolve_device(self, configured_device: str | None) -> DeviceInfo:
-        """Resolve a configured device string into a concrete :class:`DeviceInfo`."""
-        device_info = self._device_service.resolve(configured_device or "auto")
-        if device_info.type == DeviceType.AUTO:
-            device_info = self._device_service.resolve_auto()
-        logger.info(
-            "Accelerator selected: torch=%s ov=%s (configured=%r)",
-            device_info.as_torch,
-            device_info.as_openvino,
-            configured_device,
+    def _resolve_device(
+        self,
+        model_card: ModelCard,
+        configured_device: str | None,
+        allowed_runtimes: tuple[Backend, ...],
+    ) -> ResolvedDevice:
+        """Resolve a configured preference to a concrete model runtime route."""
+        resolved = self._device_service.resolve_for_model(
+            model_card=model_card,
+            device_str=configured_device or "auto",
+            allowed_runtimes=allowed_runtimes,
         )
-        return device_info
+        logger.info(
+            "Accelerator selected: runtime=%s device=%s id=%s (configured=%r, fallback=%s)",
+            resolved.runtime.value,
+            resolved.device.key,
+            resolved.runtime_id,
+            configured_device,
+            resolved.fallback_used,
+        )
+        return resolved
 
     def create(  # noqa: PLR0911
         self,
@@ -60,17 +70,21 @@ class ModelFactory:
             logger.info("No model config is provided, creating a passthrough model")
             return PassThroughModelHandler()
 
-        device_info = self._resolve_device(configured_device)
-        selected_device = device_info.as_torch
-
         match config:
             case MatcherConfig() as config:
                 logger.info("Initializing a Matcher instance")
+                allowed_runtimes = (
+                    (Backend.OPENVINO, Backend.TORCH) if settings.processor_openvino_enabled else (Backend.TORCH,)
+                )
+                resolved = self._resolve_device(Matcher.card(), configured_device, allowed_runtimes)
                 # if the model is converted to the OV format, the precision should be strictly fp32
                 # as a suggestion we can handle conversion at the higher level factory,
                 # as it knows if the model should be converted or not and can override the configuration
                 # of the model
-                precision = config.precision if not settings.processor_openvino_enabled else "fp32"
+                precision = config.precision if resolved.runtime == Backend.TORCH else "fp32"
+                model_device = resolved.device
+                if resolved.runtime == Backend.OPENVINO:
+                    model_device = self._resolve_device(Matcher.card(), "cpu", (Backend.TORCH,)).device
                 model = Matcher(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -81,21 +95,22 @@ class ModelFactory:
                     similarity_threshold=config.similarity_threshold,
                     num_grid_cells=config.num_grid_cells,
                     precision=precision,
-                    device=selected_device,
+                    device=model_device,
                 )
-                if settings.processor_openvino_enabled:
+                if resolved.runtime == Backend.OPENVINO:
                     logger.info("Using the OpenVINO backend for Matcher")
                     return OpenVINOModelHandler(
                         model=model,
                         reference_batch=reference_batch,
                         precision=precision,
-                        ov_device=device_info.as_openvino,
+                        ov_device=resolved.runtime_id,
                         compression_preset=config.preset,
                     )
                 logger.info("Using the Torch backend for Matcher")
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 logger.info("Initializing a PerDINO instance")
+                resolved = self._resolve_device(PerDino.card(), configured_device, (Backend.TORCH,))
                 model = PerDino(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -105,12 +120,13 @@ class ModelFactory:
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
                     precision=config.precision,
-                    device=selected_device,
+                    device=resolved.device,
                 )
                 logger.info("Using the Torch backend for PerDINO")
                 return TorchModelHandler(model, reference_batch)
             case SoftMatcherConfig() as config:
                 logger.info("Initializing a SoftMatcher instance")
+                resolved = self._resolve_device(SoftMatcher.card(), configured_device, (Backend.TORCH,))
                 model = SoftMatcher(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -123,19 +139,20 @@ class ModelFactory:
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     precision=config.precision,
-                    device=selected_device,
+                    device=resolved.device,
                 )
                 logger.info("Using the Torch backend for SoftMatcher")
                 return TorchModelHandler(model, reference_batch)
             case Sam3Config() as config:
                 logger.info("Initializing a SAM3 instance")
+                resolved = self._resolve_device(SAM3.card(), configured_device, (Backend.TORCH,))
                 has_bboxes = any(s.bboxes is not None for s in reference_batch.samples)
                 prompt_mode = Sam3PromptMode.CANVAS if has_bboxes else Sam3PromptMode.CLASSIC
                 model = SAM3(
                     confidence_threshold=config.confidence_threshold,
                     resolution=config.resolution,
                     precision=config.precision,
-                    device=selected_device,
+                    device=resolved.device,
                     prompt_mode=prompt_mode,
                 )
                 logger.info("Using the Torch backend for SAM3")

@@ -20,6 +20,7 @@ from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -86,7 +87,7 @@ class TestMatcherExportIntegration:
         # Initialize Matcher
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -147,7 +148,7 @@ class TestMatcherExportIntegration:
         # Initialize Matcher
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,

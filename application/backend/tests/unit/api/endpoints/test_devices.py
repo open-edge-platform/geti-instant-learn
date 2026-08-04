@@ -3,9 +3,10 @@
 
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from instantlearn.device import DeviceInfo, DeviceType
+from instantlearn.utils.constants import Backend
 
 from api.error_handler import custom_exception_handler
-from domain.services.schemas.device import DeviceInfo, DeviceType
 from runtime.services.device import DeviceService
 
 
@@ -22,34 +23,61 @@ def _create_client(devices: list[DeviceInfo]) -> TestClient:
 
 
 def test_get_available_devices_cpu_only():
-    cpu_device = DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
+    cpu_device = DeviceInfo(
+        type=DeviceType.CPU,
+        name="CPU",
+        memory=None,
+        index=None,
+        runtime_ids={Backend.TORCH: "cpu", Backend.OPENVINO: "CPU"},
+    )
     response = _create_client([cpu_device]).get("/api/v1/system/devices")
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == [{"type": "cpu", "name": "CPU", "memory": None, "index": None}]
-
-
-def test_get_available_devices_cuda_and_cpu():
-    cuda_device = DeviceInfo(type=DeviceType.CUDA, name="NVIDIA GPU 0", memory=25_000_000_000, index=0)
-    cpu_device = DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
-    response = _create_client([cuda_device, cpu_device]).get("/api/v1/system/devices")
-
-    assert response.status_code == status.HTTP_200_OK
     assert response.json() == [
-        {"type": "cuda", "name": "NVIDIA GPU 0", "memory": 25_000_000_000, "index": 0},
-        {"type": "cpu", "name": "CPU", "memory": None, "index": None},
+        {
+            "type": "cpu",
+            "name": "CPU",
+            "memory": None,
+            "index": None,
+            "key": "cpu",
+            "runtime_ids": {"torch": "cpu", "openvino": "CPU"},
+        }
     ]
 
 
-def test_get_available_devices_xpu_cuda_and_cpu():
-    xpu_device = DeviceInfo(type=DeviceType.XPU, name="Intel GPU 0", memory=16_000_000_000, index=0)
-    cuda_device = DeviceInfo(type=DeviceType.CUDA, name="NVIDIA GPU 0", memory=25_000_000_000, index=0)
-    cpu_device = DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
-    response = _create_client([xpu_device, cuda_device, cpu_device]).get("/api/v1/system/devices")
+def test_get_available_devices_exposes_runtime_ids():
+    gpu_device = DeviceInfo(
+        type=DeviceType.GPU,
+        name="Intel GPU 0",
+        memory=16_000_000_000,
+        index=0,
+        runtime_ids={Backend.TORCH: "xpu:0", Backend.OPENVINO: "GPU.0"},
+    )
+    npu_device = DeviceInfo(
+        type=DeviceType.NPU,
+        name="Intel NPU",
+        memory=None,
+        index=0,
+        runtime_ids={Backend.OPENVINO: "NPU"},
+    )
+    response = _create_client([gpu_device, npu_device]).get("/api/v1/system/devices")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [
-        {"type": "xpu", "name": "Intel GPU 0", "memory": 16_000_000_000, "index": 0},
-        {"type": "cuda", "name": "NVIDIA GPU 0", "memory": 25_000_000_000, "index": 0},
-        {"type": "cpu", "name": "CPU", "memory": None, "index": None},
+        {
+            "type": "gpu",
+            "name": "Intel GPU 0",
+            "memory": 16_000_000_000,
+            "index": 0,
+            "key": "gpu-0",
+            "runtime_ids": {"torch": "xpu:0", "openvino": "GPU.0"},
+        },
+        {
+            "type": "npu",
+            "name": "Intel NPU",
+            "memory": None,
+            "index": 0,
+            "key": "npu-0",
+            "runtime_ids": {"openvino": "NPU"},
+        },
     ]

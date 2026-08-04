@@ -7,7 +7,6 @@ These tests mock the underlying Sam3Model, tokenizer, and preprocessors
 to validate SAM3 logic without loading real weights.
 """
 
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -18,11 +17,11 @@ import torch
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
+from instantlearn.device import DeviceInfo
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.torch_adapter import CategoryRegistry
-from instantlearn.models.torch_base import ExportConfig
 from instantlearn.utils import Backend, PromptType, ShotMode
-from instantlearn.utils.constants import CompressionMode
+from tests import CPU_DEVICE, CUDA_DEVICE
 
 
 def _make_mock_model() -> MagicMock:
@@ -144,7 +143,7 @@ def _build_sam3(mock_deps: dict[str, Any], prompt_mode: Sam3PromptMode = Sam3Pro
         mock_ppre_cls.return_value = mock_deps["prompt_preprocessor"]
         mock_post_cls.return_value = mock_deps["postprocessor"]
 
-        return SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        return SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
 
 class TestSAM3Initialization:
@@ -165,12 +164,12 @@ class TestSAM3Initialization:
 
     @pytest.mark.parametrize(
         ("device", "expected_precision", "expected_dtype"),
-        [("cpu", "fp32", torch.float32), ("cuda", "fp16", torch.float16)],
+        [(CPU_DEVICE, "fp32", torch.float32), (CUDA_DEVICE, "fp16", torch.float16)],
     )
     def test_default_precision_matches_device(
         self,
         mock_sam3_deps: dict[str, Any],
-        device: str,
+        device: DeviceInfo,
         expected_precision: str,
         expected_dtype: torch.dtype,
     ) -> None:
@@ -221,7 +220,7 @@ class TestSAM3Initialization:
             mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
             mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
 
-            model = SAM3(device="cpu", precision="fp32", prompt_mode="visual_exemplar")
+            model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode="visual_exemplar")
 
         assert model.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR
 
@@ -240,7 +239,7 @@ class TestSAM3Initialization:
             mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
             mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
 
-            model = SAM3(device="cpu", precision="fp32")
+            model = SAM3(device=CPU_DEVICE, precision="fp32")
 
         assert model.prompt_mode == Sam3PromptMode.CLASSIC
 

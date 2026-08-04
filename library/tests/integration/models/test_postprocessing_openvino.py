@@ -28,6 +28,7 @@ from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -106,7 +107,7 @@ class TestPostProcessingOpenVINO:
 
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -185,7 +186,7 @@ class TestPostProcessingOpenVINO:
 
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -254,7 +255,7 @@ class TestPostProcessingOpenVINO:
         # Export WITHOUT post-processor
         matcher_no_pp = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -274,7 +275,7 @@ class TestPostProcessingOpenVINO:
         # Export WITH default post-processor
         matcher_with_pp = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -312,7 +313,7 @@ class TestPostProcessingOpenVINO:
 
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,

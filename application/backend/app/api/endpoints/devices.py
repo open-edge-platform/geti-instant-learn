@@ -20,5 +20,5 @@ from domain.services.schemas.device import DeviceInfo
 def get_available_devices(
     device_service: DeviceServiceDep,
 ) -> list[DeviceInfo]:
-    """List available runtime devices (e.g. CUDA, XPU, CPU)."""
-    return device_service.list_devices()
+    """List physical devices and their available runtime identifiers."""
+    return [DeviceInfo.from_library(device) for device in device_service.list_devices()]

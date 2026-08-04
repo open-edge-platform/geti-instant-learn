@@ -21,12 +21,6 @@ type DeviceItem = {
     label: string;
 };
 
-const hasIndex = (device: DeviceInfoType): device is DeviceInfoType & { index: number } =>
-    device.index !== null && device.index !== undefined;
-
-const getDeviceKey = (device: DeviceInfoType): string =>
-    device.type === 'cpu' || !hasIndex(device) ? device.type : `${device.type}-${device.index}`;
-
 const deviceLabel = (device: DeviceInfoType, all: DeviceInfoType[]): string => {
     let label = device.name;
     if (device.memory) {
@@ -53,7 +47,7 @@ export const InferenceDevice = () => {
 
     const items: DeviceItem[] = [
         { key: AUTO_KEY, label: 'Auto' },
-        ...devices.map((d) => ({ key: getDeviceKey(d), label: deviceLabel(d, devices) })),
+        ...devices.map((device) => ({ key: device.key, label: deviceLabel(device, devices) })),
     ];
 
     const handleSelectionChange = (key: Key | null) => {

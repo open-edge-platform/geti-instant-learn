@@ -16,9 +16,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import torch
-
-if TYPE_CHECKING:
-    from contextlib import nullcontext
 from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
@@ -38,6 +35,11 @@ from instantlearn.utils import precision_to_torch_dtype
 
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
 from .model import EfficientSam3Model
+
+if TYPE_CHECKING:
+    from contextlib import nullcontext
+
+    from instantlearn.device import DeviceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +97,7 @@ class EfficientSAM3(SAM3):
         self,
         backbone_type: str = "efficientvit",
         variant: str = "b2",
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         confidence_threshold: float = 0.4,
         resolution: int = 1008,
         precision: str = "fp32",
@@ -112,7 +114,7 @@ class EfficientSAM3(SAM3):
                 'repvit' (variants: m0_9, m1_1, m2_3),
                 'tinyvit' (variants: 5m, 11m, 21m).
             variant: Model size variant within the backbone family.
-            device: Target device ('cuda', 'xpu', or 'cpu').
+            device: Physical device, or ``None`` to select automatically.
             confidence_threshold: Score threshold for filtering predictions.
                 Default is 0.4, balancing precision and IoU across datasets.
             resolution: Input image resolution. Default: 1008.
@@ -141,7 +143,7 @@ class EfficientSAM3(SAM3):
         # because EfficientSAM3 uses different model, tokenizer, and defaults.
         if postprocessor is None:
             postprocessor = default_postprocessor()
-        super(SAM3, self).__init__(postprocessor=postprocessor)
+        super(SAM3, self).__init__(device=device, precision=precision, postprocessor=postprocessor)
 
         key = (backbone_type, variant)
         if key not in BACKBONE_CONFIG:
@@ -154,7 +156,6 @@ class EfficientSAM3(SAM3):
 
         self.backbone_type = backbone_type
         self.variant = variant
-        self.device = device
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
         self.precision = precision
@@ -171,14 +172,14 @@ class EfficientSAM3(SAM3):
         self.exemplar_category_ids: list[int] | None = None
 
         # Reuse SAM3 preprocessors (same image pipeline)
-        self.image_preprocessor = EfficientSam3Preprocessor(target_size=resolution).to(device)
-        self.prompt_preprocessor = EfficientSam3PromptPreprocessor(target_size=resolution).to(device)
+        self.image_preprocessor = EfficientSam3Preprocessor(target_size=resolution).to(self.device)
+        self.prompt_preprocessor = EfficientSam3PromptPreprocessor(target_size=resolution).to(self.device)
         self.sam3_postprocessor = EfficientSam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
             post_processing=post_processing,
-        ).to(device)
+        ).to(self.device)
 
         # Reuse SAM3 CLIP tokenizer (same BPE vocabulary)
         # Use pad_token_id=0 to match the original SimpleTokenizer's zero-padding
@@ -192,7 +193,7 @@ class EfficientSAM3(SAM3):
                 variant=variant,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
-            .to(device)
+            .to(self.device)
             .eval()
         )
 

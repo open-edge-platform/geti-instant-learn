@@ -53,8 +53,8 @@ ref_mask, _, _ = predictor.forward(
     multimask_output=False,
 )
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher (selects a compatible device automatically)
+model = Matcher()
 
 # Create reference sample with the generated mask
 ref_sample = Sample(
@@ -80,7 +80,7 @@ from instantlearn.models import GroundedSAM
 from instantlearn.data import Sample
 
 # Initialize GroundedSAM (no reference masks needed)
-model = GroundedSAM(device="xpu")
+model = GroundedSAM()
 
 # Create reference with category labels only
 ref_sample = Sample(categories=["elephant"])
@@ -107,7 +107,7 @@ from instantlearn.models.sam3 import SAM3OVVariant
 from instantlearn.data import Sample
 
 # Auto-downloads INT8_SYM model from HuggingFace (also supports FP16, INT4, FP32)
-model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
+model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM)
 
 # Text prompt — detect elephants
 predictions = model.predict([
@@ -126,7 +126,6 @@ import numpy as np
 model = SAM3OpenVINO(
     variant=SAM3OVVariant.INT8_SYM,
     prompt_mode=Sam3PromptMode.CANVAS,
-    device="CPU",
 )
 
 ref = Sample(

@@ -26,11 +26,11 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import gradio as gr
 import numpy as np
-import torch
 from PIL import Image as PILImage
 
 from instantlearn.components.postprocessing import (
@@ -49,9 +49,14 @@ from instantlearn.components.postprocessing import (
 )
 from instantlearn.data import Sample
 from instantlearn.data.base.prediction import Prediction
+from instantlearn.device import DeviceInfo, enumerate_system_devices
 from instantlearn.models import Matcher
 from instantlearn.models.torch_adapter import prediction_to_dict
+from instantlearn.utils.constants import Backend
 from instantlearn.visualizer import render_predictions, setup_colors
+
+if TYPE_CHECKING:
+    import torch
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -165,17 +170,18 @@ _state = _AppState()
 _VALID_DEVICES = frozenset({"auto", "cpu", "cuda", "xpu"})
 
 
-def _resolve_device(preference: str = "auto") -> str:
-    """Resolve a device preference to an actual PyTorch device string."""
+def _resolve_device(preference: str = "auto") -> DeviceInfo | None:
+    """Resolve a device preference to a physical device."""
     if preference not in _VALID_DEVICES:
         preference = "auto"
-    if preference != "auto":
-        return preference
-    if hasattr(torch, "xpu") and torch.xpu.is_available():
-        return "xpu"
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
+    if preference == "auto":
+        return None
+    return next(
+        device
+        for device in enumerate_system_devices()
+        if (runtime_id := device.runtime_id(Backend.TORCH))
+        and (runtime_id == preference or runtime_id.startswith(f"{preference}:"))
+    )
 
 
 def _instance_color_map(n: int) -> dict[int, list[int]]:
@@ -185,7 +191,6 @@ def _instance_color_map(n: int) -> dict[int, list[int]]:
         rgb = colorsys.hsv_to_rgb(i / max(n, 1), 0.9, 0.95)
         cmap[i] = [int(c * 255) for c in rgb]
     return cmap
-
 
 
 def _visualize(
@@ -385,7 +390,8 @@ def fit_model(ref_mask_data: dict | None, device: str) -> str:
     cv2.imwrite(str(mask_path), mask * 255)
 
     resolved = _resolve_device(device)
-    logger.info("Fitting Matcher on device=%s  image=%dx%d  mask_area=%d", resolved, w, h, int(mask.sum()))
+    device_label = resolved.key if resolved is not None else "auto"
+    logger.info("Fitting Matcher on device=%s  image=%dx%d  mask_area=%d", device_label, w, h, int(mask.sum()))
 
     model = Matcher(device=resolved)
     model.postprocessor = None  # to remove the default postprocessing (MaskIoMNMS + BoxIoMNMS)
@@ -398,7 +404,7 @@ def fit_model(ref_mask_data: dict | None, device: str) -> str:
     _state.target_image = None
     _state.raw_visualization = None
 
-    return f"✓ Model fitted -- {w}x{h}, mask: {int(mask.sum()):,} px, device: {resolved}"
+    return f"✓ Model fitted -- {w}x{h}, mask: {int(mask.sum()):,} px, device: {device_label}"
 
 
 def predict_target(

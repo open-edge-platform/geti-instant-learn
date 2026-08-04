@@ -27,8 +27,22 @@ const mockDevices = (devices: DeviceInfoType[]) => {
 describe('InferenceDevice', () => {
     it('renders Auto plus all available devices', async () => {
         mockDevices([
-            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
-            { type: 'cuda', name: 'NVIDIA GPU', memory: 16 * 1024 ** 3, index: 0 },
+            {
+                type: 'cpu',
+                name: 'Some CPU',
+                memory: null,
+                index: null,
+                key: 'cpu',
+                runtime_ids: { torch: 'cpu', openvino: 'CPU' },
+            },
+            {
+                type: 'gpu',
+                name: 'NVIDIA GPU',
+                memory: 16 * 1024 ** 3,
+                index: 0,
+                key: 'gpu-0',
+                runtime_ids: { torch: 'cuda:0' },
+            },
         ]);
 
         renderComponent();
@@ -44,9 +58,30 @@ describe('InferenceDevice', () => {
 
     it('appends [index] only when name+type collides', async () => {
         mockDevices([
-            { type: 'xpu', name: 'Intel Arc', memory: 8 * 1024 ** 3, index: 0 },
-            { type: 'xpu', name: 'Intel Arc', memory: 8 * 1024 ** 3, index: 1 },
-            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
+            {
+                type: 'gpu',
+                name: 'Intel Arc',
+                memory: 8 * 1024 ** 3,
+                index: 0,
+                key: 'gpu-0',
+                runtime_ids: { torch: 'xpu:0', openvino: 'GPU.0' },
+            },
+            {
+                type: 'gpu',
+                name: 'Intel Arc',
+                memory: 8 * 1024 ** 3,
+                index: 1,
+                key: 'gpu-1',
+                runtime_ids: { torch: 'xpu:1', openvino: 'GPU.1' },
+            },
+            {
+                type: 'cpu',
+                name: 'Some CPU',
+                memory: null,
+                index: null,
+                key: 'cpu',
+                runtime_ids: { torch: 'cpu', openvino: 'CPU' },
+            },
         ]);
 
         renderComponent();
@@ -62,8 +97,17 @@ describe('InferenceDevice', () => {
 
     it('issues a PATCH with the selected key', async () => {
         mockDevices([
-            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
-            { type: 'cuda', name: 'NVIDIA GPU', memory: null, index: 0 },
+            {
+                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+            },
+            {
+                type: 'gpu',
+                name: 'NVIDIA GPU',
+                memory: null,
+                index: 0,
+                key: 'gpu-0',
+                runtime_ids: { torch: 'cuda:0' },
+            },
         ]);
 
         let updatePayload: unknown = null;
@@ -74,7 +118,7 @@ describe('InferenceDevice', () => {
                     id: '1',
                     name: 'Project #1',
                     active: true,
-                    device: 'cuda-0',
+                    device: 'gpu-0',
                     prompt_mode: 'VISUAL',
                 });
             })
@@ -87,14 +131,23 @@ describe('InferenceDevice', () => {
         fireEvent.click(await screen.findByRole('option', { name: 'NVIDIA GPU' }));
 
         await waitFor(() => {
-            expect(updatePayload).toEqual({ device: 'cuda-0' });
+            expect(updatePayload).toEqual({ device: 'gpu-0' });
         });
     });
 
     it('flags the model as loading after a device change so the blocking dialog can appear', async () => {
         mockDevices([
-            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
-            { type: 'cuda', name: 'NVIDIA GPU', memory: null, index: 0 },
+            {
+                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+            },
+            {
+                type: 'gpu',
+                name: 'NVIDIA GPU',
+                memory: null,
+                index: 0,
+                key: 'gpu-0',
+                runtime_ids: { torch: 'cuda:0' },
+            },
         ]);
 
         let modelStatusCalls = 0;
@@ -104,7 +157,7 @@ describe('InferenceDevice', () => {
                     id: '1',
                     name: 'Project #1',
                     active: true,
-                    device: 'cuda-0',
+                    device: 'gpu-0',
                     prompt_mode: 'VISUAL',
                 })
             ),
@@ -135,8 +188,17 @@ describe('InferenceDevice', () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         mockDevices([
-            { type: 'cpu', name: 'Some CPU', memory: null, index: null },
-            { type: 'cuda', name: 'NVIDIA GPU', memory: null, index: 0 },
+            {
+                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+            },
+            {
+                type: 'gpu',
+                name: 'NVIDIA GPU',
+                memory: null,
+                index: 0,
+                key: 'gpu-0',
+                runtime_ids: { torch: 'cuda:0' },
+            },
         ]);
         server.use(
             http.put('/api/v1/projects/{project_id}', async () =>
@@ -144,7 +206,7 @@ describe('InferenceDevice', () => {
                     id: '1',
                     name: 'Project #1',
                     active: true,
-                    device: 'cuda-0',
+                    device: 'gpu-0',
                     prompt_mode: 'VISUAL',
                 })
             )

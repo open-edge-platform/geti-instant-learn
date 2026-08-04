@@ -13,9 +13,10 @@ import torch
 
 from instantlearn.data.base import Batch, Prediction
 from instantlearn.data.torch.lvis import LVISAnnotationMode
+from instantlearn.device import DeviceInfo, enumerate_system_devices
 from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
-from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
+from instantlearn.utils.constants import Backend, DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Instant Learn")
 
@@ -219,6 +220,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
     # Check if OpenVINO backend is requested
     msg = f"Constructing model: {model_name.value}"
     logger.info(msg)
+    device = _resolve_benchmark_device(args.device)
 
     match model_name:
         case ModelName.PER_DINO:
@@ -232,7 +234,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
             )
         case ModelName.MATCHER:
             return Matcher(
@@ -245,7 +247,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 num_grid_cells=args.num_grid_cells,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
             )
         case ModelName.SOFT_MATCHER:
             return SoftMatcher(
@@ -261,7 +263,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 softmatching_bidirectional=args.softmatching_bidirectional,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
             )
         case ModelName.GROUNDED_SAM:
             return GroundedSAM(
@@ -271,14 +273,14 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 text_threshold=args.text_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
             )
         case ModelName.SAM3_CLASSIC:
             return SAM3(
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
                 prompt_mode="classic",
             )
         case ModelName.SAM3_VISUAL:
@@ -286,15 +288,49 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                device=args.device,
+                device=device,
                 prompt_mode="visual_exemplar",
             )
         case ModelName.EFFICIENT_SAM3:
             return EfficientSAM3(
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
-                device=args.device,
+                device=device,
             )
         case _:
             msg = f"Algorithm {model_name.value} not implemented yet"
             raise NotImplementedError(msg)
+
+
+def _resolve_benchmark_device(value: str) -> DeviceInfo | None:
+    """Resolve a benchmark CLI device value to a physical device."""
+    normalized = value.lower()
+    if normalized == "auto":
+        return None
+
+    devices = enumerate_system_devices()
+    exact_match = next(
+        (
+            device
+            for device in devices
+            if device.runtime_id(Backend.TORCH) and device.runtime_id(Backend.TORCH).lower() == normalized
+        ),
+        None,
+    )
+    if exact_match is not None:
+        return exact_match
+
+    family_match = next(
+        (
+            device
+            for device in devices
+            if device.runtime_id(Backend.TORCH)
+            and device.runtime_id(Backend.TORCH).lower().startswith(f"{normalized}:")
+        ),
+        None,
+    )
+    if family_match is not None:
+        return family_match
+
+    msg = f"Torch device {value!r} is not available"
+    raise ValueError(msg)
