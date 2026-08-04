@@ -6,6 +6,7 @@
 from logging import getLogger
 
 import timm
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional
@@ -128,12 +129,22 @@ class TimmImageEncoder(nn.Module):
         """Encode images into patch embeddings.
 
         Args:
-            images(list[tv_tensors.Image]): A list of images.
+            images(list[tv_tensors.Image]): A list of images. Each element may be
+                a ``tv_tensors.Image`` (CHW torch tensor) **or** a numpy ndarray in
+                HWC layout — the latter is accepted so that ``Batch.images`` (which
+                always returns HWC numpy arrays) can be passed directly.
 
         Returns:
             torch.Tensor: patch-grid feature tensor of shape (batch_size, num_patches, embedding_dim).
         """
-        images = torch.stack([self.processor(image.to(self.device)) for image in images])
-        features = self.model.forward_features(images)  # (B, N, D)
+        processed = []
+        for image in images:
+            if isinstance(image, np.ndarray):
+                # HWC uint8/float numpy → CHW tv_tensors.Image
+                chw = np.ascontiguousarray(image.transpose(2, 0, 1))
+                image = tv_tensors.Image(torch.from_numpy(chw))
+            processed.append(self.processor(image.to(self.device)))
+        images_t = torch.stack(processed)
+        features = self.model.forward_features(images_t)  # (B, N, D)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)

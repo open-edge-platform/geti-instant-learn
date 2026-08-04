@@ -18,7 +18,7 @@ from torch.utils.data import Dataset as TorchDataset
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Category, Sample
-from instantlearn.data.torch.image import read_image
+from instantlearn.data.utils.image import read_image
 
 
 class Dataset(TorchDataset, ABC):
@@ -153,12 +153,19 @@ class Dataset(TorchDataset, ABC):
             msg = f"Index {index} out of range for dataset of length {len(self)}"
             raise IndexError(msg) from e
 
-        # Load image (once per sample!)
-        # Returns CHW tensor for model preprocessors (HuggingFace, SAM)
-        image = read_image(raw_sample["image_path"])  # torch.Tensor, (C, H, W)
+        # Load image (once per sample!) as HWC uint8 numpy array.
+        # Sample.image contract requires numpy HWC; torch conversion happens
+        # inside models via sample_to_tensors().
+        image = read_image(raw_sample["image_path"])  # np.ndarray, (H, W, C)
 
         # Load masks using dataset-specific implementation
-        masks = self._load_masks(raw_sample)  # (N, H, W) or None
+        masks_raw = self._load_masks(raw_sample)  # (N, H, W) or None
+        # _load_masks may return a torch.Tensor; convert to numpy so Sample
+        # stays backend-neutral.
+        if masks_raw is not None and isinstance(masks_raw, torch.Tensor):
+            masks = masks_raw.numpy()
+        else:
+            masks = masks_raw
 
         # Load bboxes if available
         bboxes = None
@@ -171,8 +178,8 @@ class Dataset(TorchDataset, ABC):
 
         # Create and return Sample
         return Sample(
-            image=image,  # torch.Tensor, (C, H, W)
-            masks=masks,  # (N, H, W) or None
+            image=image,  # np.ndarray, (H, W, C)
+            masks=masks,  # (N, H, W) numpy or None
             bboxes=bboxes,  # (N, 4) or None
             categories=[
                 Category(id=int(cid), label=str(label))
@@ -352,7 +359,7 @@ class Dataset(TorchDataset, ABC):
         return Batch.collate
 
     @abstractmethod
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | np.ndarray | None:
         """Load masks for a sample.
 
         This method should be implemented by subclasses to load masks in their
@@ -362,8 +369,10 @@ class Dataset(TorchDataset, ABC):
             raw_sample: Dictionary from DataFrame row containing sample metadata.
 
         Returns:
-            torch.Tensor with shape (N, H, W) where N is the number of instances,
-            and dtype torch.bool, or None if no masks are available.
+            Array-like of shape (N, H, W) where N is the number of instances, with
+            bool or uint8 dtype, or None if no masks are available. May be a
+            ``torch.Tensor`` or a numpy array — ``__getitem__`` converts tensors to
+            numpy automatically so that ``Sample.masks`` always holds numpy arrays.
         """
 
     @abstractmethod
