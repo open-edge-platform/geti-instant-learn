@@ -7,7 +7,7 @@ from threading import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
-import numpy as np
+from instantlearn.data.base.prediction import Prediction
 
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse, ReaderConfig
@@ -157,13 +157,11 @@ class StreamWriter(AbstractContextManager, ABC):
 
 
 class ModelHandler(ABC):
-    @abstractmethod
-    def initialise(self) -> None:
-        pass
+    """Lifecycle wrapper around a library model used by the :class:`Processor`."""
 
     @abstractmethod
-    def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
-        pass
+    def predict(self, inputs: list[InputData]) -> list[Prediction]:
+        """Run inference for a batch of frames, one ``Prediction`` per input."""
 
     def close(self) -> None:
         """Release underlying resources (e.g. models from GPU memory)."""

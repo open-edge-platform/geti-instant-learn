@@ -3,7 +3,7 @@
 
 import logging
 
-import numpy as np
+from instantlearn.data.base.prediction import Prediction
 
 from domain.services.schemas.processor import InputData
 from runtime.core.components.base import ModelHandler
@@ -12,9 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class PassThroughModelHandler(ModelHandler):
-    def initialise(self) -> None:
-        pass
+    """No-op handler that lets frames flow through the pipeline unannotated.
 
-    def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:  # noqa: ARG002
+    Used when inference is disabled, no model is configured, or the user has not
+    created any prompts yet, so the ``Processor`` can still forward frames.
+    """
+
+    def predict(self, inputs: list[InputData]) -> list[Prediction]:  # noqa: ARG002
         logger.debug("Using PassThroughModelHandler, returning empty results.")
         return []

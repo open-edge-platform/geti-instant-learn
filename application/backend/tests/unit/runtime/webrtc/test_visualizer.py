@@ -6,6 +6,7 @@ from uuid import UUID
 
 import numpy as np
 import pytest
+from instantlearn.data.base.prediction import Prediction
 
 from domain.services.schemas.label import (
     CategoryMappings,
@@ -21,6 +22,7 @@ from runtime.webrtc.visualizer import (
     InferenceVisualizer,
     ResolutionScaler,
     generate_deterministic_color,
+    masks_to_boxes,
 )
 
 
@@ -100,11 +102,43 @@ def _single_pixel_mask(h: int, w: int, y: int, x: int) -> np.ndarray:
     return mask
 
 
+def _prediction(
+    *,
+    masks: np.ndarray | None = None,
+    boxes: np.ndarray | None = None,
+    labels: np.ndarray | None = None,
+    scores: np.ndarray | None = None,
+    label_names: np.ndarray | None = None,
+) -> Prediction:
+    """Build a ``Prediction`` for visualization tests.
+
+    Fields a test does not care about default to empty arrays, which the
+    renderers treat as "not available" (no category, no caption).
+    """
+    if labels is None:
+        labels = np.array([], dtype=np.int32)
+    if label_names is None:
+        # Empty names keep captions off unless a test opts in explicitly.
+        label_names = np.array([""] * len(labels), dtype=object)
+    if scores is None:
+        scores = np.array([], dtype=np.float32)
+    if masks is None:
+        masks = np.zeros((0, 1, 1), dtype=np.uint8)
+    return Prediction(masks=masks, scores=scores, label_ids=labels, label_names=label_names, boxes=boxes)
+
+
 def _two_pixel_disjoint_masks(h: int, w: int) -> np.ndarray:
     masks = np.zeros((2, h, w), dtype=np.float32)
     masks[0, 2, 2] = 1.0
     masks[1, 5, 5] = 1.0
     return masks
+
+
+def _block_mask(h: int, w: int, start: int, stop: int) -> np.ndarray:
+    """Single mask covering the square ``[start:stop, start:stop]``."""
+    mask = np.zeros((1, h, w), dtype=np.float32)
+    mask[0, start:stop, start:stop] = 1.0
+    return mask
 
 
 def _make_vis_info(
@@ -130,7 +164,7 @@ def test_visualize_disabled_returns_original_frame(fxt_frame: np.ndarray) -> Non
     viz = InferenceVisualizer(enable_visualization=False)
     output = OutputData(
         frame=fxt_frame,
-        results=[{"pred_masks": _single_pixel_mask(8, 8, 3, 3), "pred_labels": np.array([0])}],
+        results=[_prediction(masks=_single_pixel_mask(8, 8, 3, 3), labels=np.array([0]))],
     )
 
     result = viz.visualize(output_data=output, visualization_info=None)
@@ -171,7 +205,7 @@ def test_visualize_resolves_color_per_mask(
 ) -> None:
     output = OutputData(
         frame=fxt_frame,
-        results=[{"pred_masks": _single_pixel_mask(8, 8, 4, 4), "pred_labels": labels}],
+        results=[_prediction(masks=_single_pixel_mask(8, 8, 4, 4), labels=labels)],
     )
     vis_info = _make_vis_info(category_id_to_label_id=category_id_to_label_id, label_colors=label_colors)
 
@@ -199,7 +233,7 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
         label_colors={label_a: (255, 0, 0), label_b: (0, 255, 0)},
     )
 
-    output = OutputData(frame=fxt_frame, results=[{"pred_masks": masks, "pred_labels": labels}])
+    output = OutputData(frame=fxt_frame, results=[_prediction(masks=masks, labels=labels)])
 
     result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
 
@@ -208,17 +242,18 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
 
 
 def test_visualize_masks_disabled_does_not_draw_masks(
-    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_frame: np.ndarray
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
 ) -> None:
     output = OutputData(
-        frame=fxt_frame,
-        results=[{"pred_masks": _single_pixel_mask(8, 8, 4, 4), "pred_labels": np.array([0])}],
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
 
-    # Frame should remain unchanged (all zeros) since masks are disabled and no boxes provided
-    assert tuple(result[4, 4].tolist()) == (0, 0, 0)
+    # The mask interior is never filled while mask visualization is off; only the
+    # box derived from that mask is drawn.
+    assert tuple(result[30, 30].tolist()) == (0, 0, 0)
 
 
 def test_visualize_draws_box_with_correct_color(
@@ -236,7 +271,7 @@ def test_visualize_draws_box_with_correct_color(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(boxes=boxes, labels=labels)],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
@@ -256,13 +291,14 @@ def test_visualize_draws_box_with_score_column(
         label_colors={label_id: (0, 255, 0)},
     )
 
-    # Box with score: [x1, y1, x2, y2, score]
-    boxes = np.array([[10, 10, 50, 50, 0.95]], dtype=np.float32)
+    # Boxes are xyxy only; the score lives in Prediction.scores
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
+    scores = np.array([0.95], dtype=np.float32)
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(boxes=boxes, labels=labels, scores=scores)],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
@@ -293,7 +329,7 @@ def test_visualize_draws_multiple_boxes_with_different_colors(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(boxes=boxes, labels=labels)],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
@@ -311,7 +347,7 @@ def test_visualize_box_without_labels_uses_fallback_color(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": None}],
+        results=[_prediction(boxes=boxes, labels=None)],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
@@ -330,7 +366,7 @@ def test_visualize_box_with_unmapped_category_uses_deterministic_color(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(boxes=boxes, labels=labels)],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
@@ -344,7 +380,7 @@ def test_visualize_empty_boxes_array_does_not_crash(
 ) -> None:
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": np.array([]).reshape(0, 4), "pred_labels": np.array([])}],
+        results=[_prediction(boxes=np.array([]).reshape(0, 4), labels=np.array([]))],
     )
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
@@ -367,7 +403,7 @@ def test_visualize_boxes_disabled_does_not_draw_boxes(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(boxes=boxes, labels=labels)],
     )
 
     result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
@@ -393,7 +429,7 @@ def test_visualize_both_masks_and_boxes(fxt_visualizer_both: InferenceVisualizer
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_masks": mask, "pred_boxes": boxes, "pred_labels": labels}],
+        results=[_prediction(masks=mask, boxes=boxes, labels=labels)],
     )
 
     result = fxt_visualizer_both.visualize(output_data=output, visualization_info=vis_info)
@@ -420,9 +456,9 @@ def test_box_renderer_draw(fxt_large_frame: np.ndarray) -> None:
 
     boxes = np.array([[20, 20, 40, 40]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
-    prediction: dict[str, np.ndarray] = {"pred_boxes": boxes, "pred_labels": labels}
+    prediction = _prediction(boxes=boxes, labels=labels)
 
-    result = renderer.draw(fxt_large_frame.copy(), prediction, labels)
+    result = renderer.draw(fxt_large_frame.copy(), prediction)
 
     # Check box edge is drawn
     assert tuple(result[20, 30].tolist()) == (0, 255, 0)
@@ -442,13 +478,105 @@ def test_visualize_prediction_with_only_boxes_no_masks(
 
     output = OutputData(
         frame=fxt_large_frame,
-        results=[{"pred_boxes": boxes, "pred_labels": labels}],  # No pred_masks key
+        results=[_prediction(boxes=boxes, labels=labels)],  # No masks
     )
 
     result = fxt_visualizer_both.visualize(output_data=output, visualization_info=vis_info)
 
     # Box should be drawn
     assert tuple(result[10, 20].tolist()) == (0, 0, 255)
+
+
+def test_visualize_derives_boxes_from_masks_when_model_omits_them(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    """Mask-only models (e.g. the OpenVINO Matcher family) still get box overlays."""
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],  # boxes=None
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # Box is drawn around the mask extent (rows/cols 20..39).
+    assert tuple(result[20, 30].tolist()) == (0, 255, 0)
+
+
+def test_visualize_prefers_model_boxes_over_derived_ones(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+    # The mask sits at 20..39 but the model reports a box far away from it.
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[
+            _prediction(
+                masks=_block_mask(100, 100, 20, 40),
+                boxes=np.array([[60, 60, 80, 80]], dtype=np.float32),
+                labels=np.array([0]),
+            )
+        ],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    assert tuple(result[60, 70].tolist()) == (0, 255, 0), "model-reported box must be drawn"
+    assert tuple(result[20, 30].tolist()) == (0, 0, 0), "mask-derived box must not be drawn"
+
+
+def test_visualize_boxes_disabled_skips_derivation(
+    fxt_visualizer: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    """Derivation is gated on the visualize_boxes setting, not on mask availability."""
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[_prediction(masks=_block_mask(100, 100, 20, 40), labels=np.array([0]))],
+    )
+
+    result = fxt_visualizer.visualize(output_data=output, visualization_info=None)
+
+    # Mask fill is applied, but no box outline is added just outside the mask.
+    assert tuple(result[19, 30].tolist()) == (0, 0, 0)
+
+
+class TestMasksToBoxes:
+    def test_returns_empty_for_none(self) -> None:
+        assert masks_to_boxes(None).shape == (0, 4)
+
+    def test_returns_empty_for_no_masks(self) -> None:
+        assert masks_to_boxes(np.zeros((0, 4, 4), dtype=bool)).shape == (0, 4)
+
+    def test_all_background_mask_yields_zero_box(self) -> None:
+        boxes = masks_to_boxes(np.zeros((1, 4, 4), dtype=bool))
+
+        # A zero box keeps indices aligned with scores and labels.
+        np.testing.assert_array_equal(boxes, np.zeros((1, 4), dtype=np.float32))
+
+    def test_derives_tight_box_per_instance(self) -> None:
+        masks = np.zeros((2, 6, 6), dtype=bool)
+        masks[0, 1:3, 2:5] = True
+        masks[1, 4:6, 0:2] = True
+
+        boxes = masks_to_boxes(masks)
+
+        np.testing.assert_array_equal(boxes, np.array([[2, 1, 5, 3], [0, 4, 2, 6]], dtype=np.float32))
+        assert boxes.dtype == np.float32
+
+    def test_thresholds_soft_masks(self) -> None:
+        masks = np.zeros((1, 4, 4), dtype=np.float32)
+        masks[0, 1, 1] = 0.4  # below threshold, ignored
+        masks[0, 2, 2] = 0.9
+
+        np.testing.assert_array_equal(masks_to_boxes(masks), np.array([[2, 2, 3, 3]], dtype=np.float32))
 
 
 # --- Label caption tests ---
@@ -466,9 +594,10 @@ def test_visualize_draws_label_caption_with_name_and_score(
         label_names={label_id: "Cat"},
     )
 
-    boxes = np.array([[20, 40, 80, 100, 0.95]], dtype=np.float32)
+    boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
-    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+    scores = np.array([0.95], dtype=np.float32)
+    output = OutputData(frame=frame, results=[_prediction(boxes=boxes, labels=labels, scores=scores)])
 
     result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
 
@@ -489,9 +618,10 @@ def test_visualize_draws_score_only_when_no_label_name(
         # no label_names -> object_name is None
     )
 
-    boxes = np.array([[20, 40, 80, 100, 0.88]], dtype=np.float32)
+    boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
-    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+    scores = np.array([0.88], dtype=np.float32)
+    output = OutputData(frame=frame, results=[_prediction(boxes=boxes, labels=labels, scores=scores)])
 
     result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
 
@@ -511,9 +641,10 @@ def test_visualize_no_caption_when_labels_disabled(
         label_names={label_id: "Dog"},
     )
 
-    boxes = np.array([[20, 30, 80, 80, 0.90]], dtype=np.float32)
+    boxes = np.array([[20, 30, 80, 80]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
-    output = OutputData(frame=fxt_large_frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+    scores = np.array([0.90], dtype=np.float32)
+    output = OutputData(frame=fxt_large_frame, results=[_prediction(boxes=boxes, labels=labels, scores=scores)])
 
     result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
 
@@ -529,10 +660,10 @@ def test_visualize_no_caption_for_box_without_score_or_name(
     frame = np.zeros((200, 200, 3), dtype=np.uint8)
     vis_info = _make_vis_info(category_id_to_label_id={}, label_colors={})
 
-    # Box with no score column (4 cols), unmapped category -> no name either
+    # No scores and an unmapped category -> neither name nor score to caption
     boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
     labels = np.array([99], dtype=np.int64)
-    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+    output = OutputData(frame=frame, results=[_prediction(boxes=boxes, labels=labels)])
 
     result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
 
@@ -553,10 +684,10 @@ def test_visualize_draws_label_name_only_without_score(
         label_names={label_id: "Bike"},
     )
 
-    # Box without score column (4 cols)
+    # No scores reported for this prediction
     boxes = np.array([[20, 40, 80, 100]], dtype=np.float32)
     labels = np.array([0], dtype=np.int64)
-    output = OutputData(frame=frame, results=[{"pred_boxes": boxes, "pred_labels": labels}])
+    output = OutputData(frame=frame, results=[_prediction(boxes=boxes, labels=labels)])
 
     result = fxt_visualizer_boxes_with_labels.visualize(output_data=output, visualization_info=vis_info)
 
@@ -565,7 +696,7 @@ def test_visualize_draws_label_name_only_without_score(
 
 
 class TestResolutionScaler:
-    def test_factor_at_reference_resolution_is_one(self) -> None:
+    def test_factor_is_one_at_1080p(self) -> None:
         scaler = ResolutionScaler()
         frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
         assert scaler.factor(frame) == pytest.approx(1.0, rel=1e-3)
@@ -623,9 +754,10 @@ class TestLabelCaptionCalibration:
             scaler=ResolutionScaler(),
         )
 
-        boxes = np.array([[100, 200, 400, 400, 0.9]], dtype=np.float32)
+        boxes = np.array([[100, 200, 400, 400]], dtype=np.float32)
         labels = np.array([0], dtype=np.int64)
-        out = renderer.draw(frame.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+        scores = np.array([0.9], dtype=np.float32)
+        out = renderer.draw(frame.copy(), _prediction(boxes=boxes, labels=labels, scores=scores))
 
         # The caption pill (background rect = text + padding + baseline) sits
         # above y=200. It is wider/taller than the bare glyph height; we only
@@ -652,15 +784,16 @@ class TestLabelCaptionCalibration:
             scaler=ResolutionScaler(),
         )
 
-        boxes = np.array([[100, 400, 600, 800, 0.9]], dtype=np.float32)
+        boxes = np.array([[100, 400, 600, 800]], dtype=np.float32)
         labels = np.array([0], dtype=np.int64)
+        scores = np.array([0.9], dtype=np.float32)
 
         frame_1080 = np.zeros((1080, 1920, 3), dtype=np.uint8)
-        out_1080 = renderer.draw(frame_1080.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+        out_1080 = renderer.draw(frame_1080.copy(), _prediction(boxes=boxes, labels=labels, scores=scores))
         h_1080 = self._measure_caption_height(out_1080, slice(100, 600), slice(0, 400))
 
         frame_4k = np.zeros((2160, 3840, 3), dtype=np.uint8)
-        out_4k = renderer.draw(frame_4k.copy(), {"pred_boxes": boxes, "pred_labels": labels}, labels)
+        out_4k = renderer.draw(frame_4k.copy(), _prediction(boxes=boxes, labels=labels, scores=scores))
         h_4k = self._measure_caption_height(out_4k, slice(100, 600), slice(0, 400))
 
         # 4K frame area is 4x 1080p, sqrt -> 2.0x scale factor.
