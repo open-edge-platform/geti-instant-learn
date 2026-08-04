@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import torch
 
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import DEFAULT_CATEGORY, Sample
 
@@ -282,7 +282,9 @@ class CategoryRegistry(Mapping):
         return f"CategoryRegistry({{{pairs}}})"
 
 
-def prediction_categories_for_sample(base_categories: CategoryRegistry, sample: Sample | TensorSample) -> CategoryRegistry:
+def prediction_categories_for_sample(
+    base_categories: CategoryRegistry, sample: Sample | TensorSample
+) -> CategoryRegistry:
     """Return category identity used to convert one sample's prediction.
 
     Fitted categories provide the base id->name map. Category metadata carried
@@ -344,24 +346,22 @@ def sample_to_tensors(sample: Sample, device: str = "cpu") -> TensorSample:
     )
 
 
-def samples_to_tensors(target: Sample | list[Sample] | Batch, device: str = "cpu") -> list[TensorSample]:
-    """Convert ``Sample`` / ``list[Sample]`` / ``Batch`` inputs to ``TensorSample``.
+def samples_to_tensors(target: Collatable, device: str = "cpu") -> list[TensorSample]:
+    """Convert any :data:`~instantlearn.data.base.batch.Collatable` input to ``TensorSample``.
 
-    This is the single numpy->torch entry point for model inputs. Single
-    samples, lists, and ``Batch`` objects are handled uniformly.
+    This is the single numpy->torch entry point for model inputs. Normalization
+    is delegated to :meth:`~instantlearn.data.base.batch.Batch.collate`, so
+    every input form the public signatures advertise is handled here — single
+    samples, lists, batches, and image paths.
 
     Args:
-        target: One or more samples, or a ``Batch``.
+        target: One or more samples, a ``Batch``, or image path(s).
         device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
 
     Returns:
         A list of ``TensorSample`` objects on *device*.
     """
-    if isinstance(target, Sample):
-        target = [target]
-    elif isinstance(target, Batch):
-        target = target.samples
-    return [sample_to_tensors(s, device) for s in target]
+    return [sample_to_tensors(sample, device) for sample in Batch.collate(target).samples]
 
 
 def batch_to_tensors(target: Sample | list[Sample] | Batch, device: str = "cpu") -> TensorBatch:

@@ -19,6 +19,8 @@ import torch
 
 if TYPE_CHECKING:
     from contextlib import nullcontext
+
+    from instantlearn.models.model_card import ModelCard
 from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
@@ -36,6 +38,7 @@ from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import precision_to_torch_dtype
 
+from ._card import _EFFICIENT_SAM3_CARD
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
 from .model import EfficientSam3Model
 
@@ -90,6 +93,15 @@ class EfficientSAM3(SAM3):
         >>> model_ve.fit(ref)
         >>> results = model_ve.predict(Sample(image=torch.zeros(3, 640, 480)))
     """
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for EfficientSAM3.
+
+        Overrides :meth:`SAM3.card` so the distilled model reports its own
+        name and family rather than the one it inherits from.
+        """
+        return _EFFICIENT_SAM3_CARD
 
     def __init__(
         self,
