@@ -282,9 +282,7 @@ class CategoryRegistry(Mapping):
         return f"CategoryRegistry({{{pairs}}})"
 
 
-def prediction_categories_for_sample(
-    base_categories: CategoryRegistry, sample: Sample | TensorSample
-) -> CategoryRegistry:
+def prediction_categories_for_sample(base_categories: CategoryRegistry, sample: Sample | TensorSample) -> CategoryRegistry:
     """Return category identity used to convert one sample's prediction.
 
     Fitted categories provide the base id->name map. Category metadata carried
