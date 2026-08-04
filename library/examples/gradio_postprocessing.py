@@ -198,22 +198,22 @@ def fit_model(editor_value: dict | None, device_choice: str) -> str:
     try:
         image, masks = extract_reference(editor_value)
     except ValueError as error:
-        return f"⚠️ {error}"
+        return f"Error: {error}"
 
     state.device = resolve_device(device_choice)
     state.model = Matcher(device=state.device)
     state.model.fit(Sample(image=image, masks=masks))
     state.raw_prediction = None
 
-    return f"✅ Fitted on {masks[0].sum()} px of reference mask, running on `{state.device}`."
+    return f"Fitted on {masks[0].sum()} px of reference mask, running on `{state.device}`."
 
 
 def predict(target_image: np.ndarray | None) -> tuple[np.ndarray | None, str]:
     """Run the fitted model on the target image."""
     if state.model is None:
-        return None, "⚠️ Fit the model first."
+        return None, "Fit the model first."
     if target_image is None:
-        return None, "⚠️ Upload a target image."
+        return None, "Upload a target image."
 
     image = np.asarray(target_image)[..., :3].astype(np.uint8)
     prediction = state.model.predict(Sample(image=image))[0]
@@ -227,7 +227,7 @@ def predict(target_image: np.ndarray | None) -> tuple[np.ndarray | None, str]:
 def apply_pipeline() -> tuple[np.ndarray | None, str]:
     """Apply the current pipeline to the last prediction."""
     if state.raw_prediction is None or state.target_image is None:
-        return None, "⚠️ Run a prediction first."
+        return None, "Run a prediction first."
 
     pipeline = build_pipeline(state.steps)
     processed = postprocess(state.raw_prediction, pipeline, state.device)

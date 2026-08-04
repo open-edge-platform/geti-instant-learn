@@ -5,13 +5,11 @@ The API is deliberately small: two containers in, one container out.
 
 ## Visual Prompting
 
-Traditional detection needs a model trained on thousands of labelled examples of
-the thing you care about. Visual prompting removes that step: you show the model
-one or a few examples — a mask, a box, a click, or just a word — and it finds
-similar objects in new images.
-
-That shifts the work from _training_ to _prompting_, so adding a new category is
-a runtime operation rather than a training run.
+Traditional detection needs a model trained on thousands of labelled examples
+of the thing you care about. Visual prompting removes that step: you show the
+model one or a few examples — a mask, a box, a click, or just a word — and it
+finds similar objects in new images, so adding a new category is a runtime
+operation rather than a training run.
 
 ## Reference and Target
 

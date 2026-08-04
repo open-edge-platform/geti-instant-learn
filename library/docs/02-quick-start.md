@@ -99,11 +99,8 @@ labels = predictions[0].label_names
 ### Zero-Shot Segmentation with SAM3 OpenVINO
 
 SAM3OpenVINO runs SAM3 from an exported OpenVINO IR. Export once with
-`SAM3.to_openvino()`, then load the IR from disk.
-
-SAM3 weights are licensed by Meta, so the library never ships or downloads
-pre-exported SAM3 IRs — you always convert locally from the torch model and
-reuse the result.
+`SAM3.to_openvino()`, then load the IR from disk. SAM3 weights are licensed
+by Meta, so IRs are always converted locally rather than downloaded.
 
 `prompt_mode` selects how prompts are supplied and **defaults to
 `CANVAS`**, which requires `fit()` before `predict()`. For plain text

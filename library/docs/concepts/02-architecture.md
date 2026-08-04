@@ -34,18 +34,25 @@ exists, so it has nothing to export and is not asked to implement it.
 Several models ship as a pair — `SAM3`/`SAM3OpenVINO`, `Matcher`/`MatcherOpenVINO`,
 `PerDino`/`PerDinoOpenVINO`, `SoftMatcher`/`SoftMatcherOpenVINO`.
 
-The pair describes one model with two runtimes, so the OpenVINO sibling
-delegates its capability card to the torch one:
+The pair describes one model with two runtimes, so both siblings return the
+same `ModelCard`. Each model package defines it once, in a dependency-free
+`_card.py`, and both classes import it:
 
 ```python
+# sam3/_card.py
+_SAM3_CARD = ModelCard(name="SAM3", family="sam3", ...)
+
+# sam3/sam3.py and sam3/sam3_openvino.py
 @classmethod
 def card(cls) -> ModelCard:
-    return SAM3.card()
+    return _SAM3_CARD
 ```
 
 `card()` describes what the model *can do*; `backend` reports what it is
 *currently running on*. Keeping those separate is why a card can be shared
-between siblings while `backend` still differs.
+between siblings while `backend` still differs. Importing the constant rather
+than delegating to the torch class also means the OpenVINO sibling never needs
+to import torch.
 
 Producing the OpenVINO sibling's input is a one-off, local step:
 
