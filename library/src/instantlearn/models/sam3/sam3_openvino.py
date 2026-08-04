@@ -44,6 +44,7 @@ from instantlearn.models.torch_adapter import (
 )
 from instantlearn.utils import device_to_openvino_device
 
+from ._card import _SAM3_CARD
 from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
@@ -57,11 +58,13 @@ from .constants import (
     GEOMETRY_ENCODER,
     GEOMETRY_ENCODER_EXEMPLAR,
     PROMPT_DECODER,
+    SAM3_MODEL_ID,
     TEXT_ENCODER,
     VISION_ENCODER,
+    CanvasConfig,
+    Sam3PromptMode,
 )
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
-from .sam3 import SAM3, SAM3_MODEL_ID, CanvasConfig, Sam3PromptMode
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +125,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
     Examples:
         >>> from instantlearn.models.sam3 import SAM3OpenVINO, Sam3PromptMode
-        >>> from instantlearn.models.sam3.sam3 import CanvasConfig
+        >>> from instantlearn.models.sam3.constants import CanvasConfig
         >>> from instantlearn.data.base.sample import Category, Sample
         >>> import numpy as np
 
@@ -281,7 +284,7 @@ class SAM3OpenVINO(OpenVINOModel):
     @classmethod
     def card(cls) -> ModelCard:
         """Return the static model card for SAM3 OpenVINO capabilities."""
-        return SAM3.card()
+        return _SAM3_CARD
 
     def _load_tokenizer(self, tokenizer_path: str | Path | None) -> CLIPTokenizerFast:
         """Load CLIP tokenizer from local path or HuggingFace.
