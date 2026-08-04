@@ -107,61 +107,60 @@ class SAM3(TorchModel):
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base import Batch
         >>> from instantlearn.data.base.sample import Category, Sample
-        >>> import torch
         >>> import numpy as np
 
         >>> # Classic mode (default)
         >>> sam3 = SAM3()
         >>> ref_sample = Sample(categories=[Category(0, "shoe"), Category(1, "person")])
         >>> sam3.fit(ref_sample)
-        >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with boxes
         >>> sam3_ve = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x1, y1, x2, y2] on reference
         ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_ve.fit(ref_sample)
-        >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_ve.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with points
         >>> sam3_pt = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[150, 150]]),  # [x, y] on reference
         ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_pt.fit(ref_sample)
-        >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_pt.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot: multiple point prompts for the same category (same image)
         >>> sam3_nshot = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[100, 100], [200, 300], [400, 500]]),  # 3 shots
         ...     categories=[Category(0, "shoe"), Category(0, "shoe"), Category(0, "shoe")],  # same category
         ... )
         >>> sam3_nshot.fit(ref_sample)  # encodes 3 points together
-        >>> results = sam3_nshot.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_nshot.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot across multiple reference images
         >>> sam3_cross = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> refs = [
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[100, 100]]),
         ...         categories=[Category(0, "shoe")],
         ...     ),
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[200, 200]]),
         ...         categories=[Category(0, "shoe")],  # same category, different image
         ...     ),
         ... ]
         >>> sam3_cross.fit(refs)  # features concatenated across images
-        >>> results = sam3_cross.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_cross.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Canvas mode — stitches ref + target into one image
         >>> from instantlearn.models.sam3.sam3 import CanvasConfig
@@ -170,12 +169,12 @@ class SAM3(TorchModel):
         ...     canvas_config=CanvasConfig(split_ratio=0.3, crop_padding=2.0),
         ... )
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),
         ...     categories=[Category(0, "shoe")],  # Optional, if omitted only the bounding box features are used.
         ... )
         >>> sam3_canvas.fit(ref_sample)
-        >>> results = sam3_canvas.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_canvas.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
     """
 
     def __init__(

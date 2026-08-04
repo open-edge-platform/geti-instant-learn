@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 
+from instantlearn.components.postprocessing import default_postprocessor
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.openvino_base import OpenVINOModel
@@ -67,6 +68,7 @@ class TestSAM3OpenVINOInit:
         """SAM3OpenVINO exposes the same model capabilities as SAM3."""
         assert SAM3OpenVINO.card() == SAM3.card()
 
+
 class TestSAM3OpenVINOPredict:
     """Prediction return contract tests."""
 
@@ -83,6 +85,7 @@ class TestSAM3OpenVINOPredict:
         model = object.__new__(SAM3OpenVINO)
         model.prompt_mode = prompt_mode
         model.categories = CategoryRegistry.from_metadata({0: "shoe"})
+        model.output_postprocessor = default_postprocessor()
 
         raw_prediction = {
             "pred_masks": torch.ones(1, 4, 4, dtype=torch.uint8),

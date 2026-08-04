@@ -29,6 +29,7 @@ import numpy as np
 import torch
 from transformers import CLIPTokenizerFast
 
+from instantlearn.components.postprocessing import apply_postprocessing, default_postprocessor
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
@@ -130,7 +131,7 @@ class SAM3OpenVINO(OpenVINOModel):
         >>> import numpy as np
 
         >>> # Load a local OpenVINO INT8_SYM export — canvas mode
-        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym", device="CPU")
+        >>> model = SAM3OpenVINO("./examples/sam3-openvino/openvino-int8_sym", device="CPU")
         >>> ref = Sample(
         ...     image_path="examples/assets/coco/000000286874.jpg",
         ...     bboxes=np.array([[180, 105, 490, 370]]),
@@ -143,7 +144,7 @@ class SAM3OpenVINO(OpenVINOModel):
 
         >>> # Text-only prompting (classic mode)
         >>> model = SAM3OpenVINO(
-        ...     model_dir="./sam3-openvino/openvino-int8_sym",
+        ...     model_dir="./examples/sam3-openvino/openvino-int8_sym",
         ...     prompt_mode=Sam3PromptMode.CLASSIC,
         ...     device="CPU",
         ... )
@@ -153,7 +154,7 @@ class SAM3OpenVINO(OpenVINOModel):
         ... )
 
         >>> # Use a local model directory (no download)
-        >>> model = SAM3OpenVINO("./sam3-openvino/openvino-int8_sym", device="CPU")
+        >>> model = SAM3OpenVINO("./examples/sam3-openvino/openvino-int8_sym", device="CPU")
     """
 
     def __init__(  # noqa: PLR0915
@@ -206,6 +207,7 @@ class SAM3OpenVINO(OpenVINOModel):
         self.resolution = resolution
         self.prompt_mode = prompt_mode
         self.drop_spatial_bias = drop_spatial_bias
+        self.output_postprocessor = default_postprocessor()
 
         # Category mapping from fit()
         self.categories: CategoryRegistry = CategoryRegistry()
@@ -675,9 +677,10 @@ class SAM3OpenVINO(OpenVINOModel):
             raw_predictions = self._predict_classic(target_batch)
 
         raw_predictions = self._ensure_prediction_scores(raw_predictions)
+        processed_predictions = apply_postprocessing(raw_predictions, self.output_postprocessor)
         return [
             dict_to_prediction(prediction, prediction_categories_for_sample(self.categories, sample))
-            for prediction, sample in zip(raw_predictions, target_batch, strict=True)
+            for prediction, sample in zip(processed_predictions, target_batch, strict=True)
         ]
 
     @staticmethod
