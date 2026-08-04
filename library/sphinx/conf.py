@@ -28,6 +28,10 @@ release = os.environ.get("VERSION", "1.0")
 
 extensions = [
     "sphinx.ext.autodoc",  # this is the plugin to generate api docs
+    # Translates the Google-style docstrings used across the codebase into RST.
+    # Without it every "Args:"/"Attributes:" block is parsed as a literal
+    # definition list, so any wrapped entry raises "Unexpected indentation".
+    "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",  # another part of this plugin
     "sphinx.ext.autosummary",  # Create neat summary tables
     "myst_parser",  # .md files parser - without it it won't accept .md files as a source

@@ -55,18 +55,20 @@ print(sample.category_labels)  # ['backpack']
 `n_shots` controls how many images per category become references. Split the dataset and run a model:
 
 ```python
-from instantlearn.data.base import Batch
 from instantlearn.models import Matcher
 
 references = dataset.get_reference_dataset()
 targets = dataset.get_target_dataset()
 
 model = Matcher(device="xpu")
-model.fit(Batch.collate([references[i] for i in range(len(references))]))
+model.fit([references[i] for i in range(len(references))])
 
-predictions = model.predict(Batch.collate([targets[0]]))
+predictions = model.predict(targets[0])
 print(predictions[0].masks.shape, predictions[0].label_names)
 ```
+
+`fit()` and `predict()` accept a single `Sample`, a `list[Sample]`, or a
+`Batch` — pass whichever is most convenient.
 
 If your directory names differ, override them instead of renaming files:
 

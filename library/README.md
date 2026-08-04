@@ -302,18 +302,13 @@ your_dataset/
 
 ```python
 from instantlearn.data.torch import FolderDataset
-from instantlearn.data.base import Batch
-
 dataset = FolderDataset(root="path/to/your_dataset", categories=["category1", "category2"], n_shots=2)
 
 ref_dataset = dataset.get_reference_dataset()
 target_dataset = dataset.get_target_dataset()
 
-reference_batch = Batch.collate([ref_dataset[i] for i in range(len(ref_dataset))])
-target_batch = Batch.collate([target_dataset[i] for i in range(len(target_dataset))])
-
-model.fit(reference_batch)
-predictions = model.predict(target_batch)
+model.fit([ref_dataset[i] for i in range(len(ref_dataset))])
+predictions = model.predict([target_dataset[i] for i in range(len(target_dataset))])
 ```
 
 > **Note:** Mask files should be binary images (0 = background, 255 = foreground) with the same filename stem as the corresponding image (e.g., `1.jpg` → `1.png`).
@@ -408,9 +403,9 @@ Approximate GPU memory requirements for different model configurations:
 | Algorithm | Description | Paper | Repository | Code |
 | --------- | ----------- | ----- | ---------- | ---- |
 | **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/instantlearn/models/matcher/matcher.py) |
-| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher.py) |
-| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino.py) |
-| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam.py) |
+| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher/soft_matcher.py) |
+| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino/per_dino.py) |
+| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam/grounded_sam.py) |
 | **SAM 3** | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) | [sam3.py](src/instantlearn/models/sam3/sam3.py) |
 
 </details>

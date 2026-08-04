@@ -98,12 +98,20 @@ labels = predictions[0].label_names
 
 ### Zero-Shot Segmentation with SAM3 OpenVINO
 
-SAM3OpenVINO provides text, box, point, canvas, and visual exemplar prompting
-using OpenVINO IR models — no PyTorch required at inference time. Export the IR
-once with `SAM3.to_openvino()`, then load it from disk.
+SAM3OpenVINO runs SAM3 from an exported OpenVINO IR. Export once with
+`SAM3.to_openvino()`, then load the IR from disk.
+
+SAM3 weights are licensed by Meta, so the library never ships or downloads
+pre-exported SAM3 IRs — you always convert locally from the torch model and
+reuse the result.
+
+`prompt_mode` selects how prompts are supplied and **defaults to
+`CANVAS`**, which requires `fit()` before `predict()`. For plain text
+prompting, pass `Sam3PromptMode.CLASSIC` explicitly:
 
 ```python
 from instantlearn.models import SAM3, SAM3OpenVINO
+from instantlearn.models.sam3 import Sam3PromptMode
 from instantlearn.models.torch_base import ExportConfig
 from instantlearn.utils.constants import CompressionMode
 from instantlearn.data import Category, Sample
@@ -114,7 +122,11 @@ SAM3(device="cpu").to_openvino(
     config=ExportConfig(compression=CompressionMode.INT8_SYM),
 )
 
-model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
+model = SAM3OpenVINO(
+    model_dir="./sam3-openvino/openvino-int8_sym",
+    prompt_mode=Sam3PromptMode.CLASSIC,   # text prompting; no fit() needed
+    device="CPU",
+)
 
 # Text prompt — detect elephants
 predictions = model.predict([
@@ -123,16 +135,18 @@ predictions = model.predict([
 ```
 
 <details>
-<summary><strong>Canvas mode — fit on a reference crop, predict on any image (default)</strong></summary>
+<summary><strong>Canvas mode — fit on a reference crop, predict on any image (the default)</strong></summary>
+
+Canvas mode stitches the reference and target into one image, so it needs a
+reference via `fit()` before predicting.
 
 ```python
 from instantlearn.models.sam3 import Sam3PromptMode
-from instantlearn.models.sam3.sam3 import CanvasConfig
 import numpy as np
 
 model = SAM3OpenVINO(
     model_dir="./sam3-openvino/openvino-int8_sym",
-    prompt_mode=Sam3PromptMode.CANVAS,
+    prompt_mode=Sam3PromptMode.CANVAS,   # the default
     device="CPU",
 )
 
@@ -185,6 +199,8 @@ instantlearn benchmark --model all --dataset_name all
 
 ## Next Steps
 
-- [Tutorials: Getting Started](tutorials/01-getting-started.md) — Step-by-step walkthrough
+- [Core Concepts](concepts/01-concepts.md) — `Sample`, `Prediction` and the model API
+- [Architecture](concepts/02-architecture.md) — Class hierarchy and data flow
 - [How-To: Custom Datasets](how-to-guides/01-custom-dataset.md) — Use your own images
 - [How-To: Benchmarking](how-to-guides/02-benchmarking.md) — Evaluate model performance
+- [How-To: Custom Models](how-to-guides/03-custom-models.md) — Implement your own model

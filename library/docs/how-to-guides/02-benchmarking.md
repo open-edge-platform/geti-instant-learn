@@ -89,7 +89,6 @@ Benchmarks are not deterministic across devices. Compare runs from the same devi
 Build a dataset and loop yourself when you want to inspect predictions rather than just scores:
 
 ```python
-from instantlearn.data.base import Batch
 from instantlearn.data.torch import PerSegDataset
 from instantlearn.models import PerDino
 
@@ -98,10 +97,10 @@ references = dataset.get_reference_dataset()
 targets = dataset.get_target_dataset()
 
 model = PerDino(device="xpu")
-model.fit(Batch.collate([references[0]]))
+model.fit(references[0])
 
 for idx in range(len(targets)):
-    prediction = model.predict(Batch.collate([targets[idx]]))[0]
+    prediction = model.predict(targets[idx])[0]
     print(prediction.masks.shape, prediction.label_names)
 ```
 
