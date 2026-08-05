@@ -210,9 +210,9 @@ ref_mask, _, _ = predictor.forward(
     point_labels=torch.tensor([[1]], device="xpu"),
 )
 
-# Fit and predict with the generated mask. Sample.image is numpy HWC.
+# Fit and predict with the generated mask. Sample.masks is numpy, so convert the SAM output.
 model = Matcher(device="xpu")
-model.fit(Sample(image=read_image(ref_path), masks=ref_mask[0]))
+model.fit(Sample(image=read_image(ref_path), masks=ref_mask[0].cpu().numpy()))
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
 ```
 

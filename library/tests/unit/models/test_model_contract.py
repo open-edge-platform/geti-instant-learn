@@ -88,10 +88,11 @@ class TestModelCards:
 class TestSamplesToTensorsAcceptsCollatable:
     """The torch entry point must accept everything ``Collatable`` allows.
 
-    The public ``predict()`` signatures are typed ``Collatable``, which includes
-    image paths. Those used to fail with ``AttributeError: 'str' object has no
-    attribute 'image'`` because the conversion only handled ``Sample`` and
-    ``Batch``.
+    ``samples_to_tensors()`` normalizes any ``Collatable`` input, including
+    image paths, even though the public ``predict()``/``fit()`` signatures are
+    typed ``Sample | list[Sample] | Batch``. Paths used to fail with
+    ``AttributeError: 'str' object has no attribute 'image'`` because the
+    conversion only handled ``Sample`` and ``Batch``.
     """
 
     @staticmethod

@@ -156,7 +156,7 @@ def postprocess(prediction: Prediction, pipeline: PostProcessor | None, device: 
 
     masks = torch.as_tensor(prediction.masks, device=device).bool()
     scores = torch.as_tensor(prediction.scores, device=device).float()
-    labels = torch.as_tensor(prediction.label_ids, device=device)
+    labels = torch.as_tensor(prediction.label_ids, device=device).long()
 
     new_masks, new_scores, new_labels = pipeline(masks, scores, labels)
 
@@ -164,7 +164,7 @@ def postprocess(prediction: Prediction, pipeline: PostProcessor | None, device: 
     if new_masks.shape[0] > 0:
         boxes = masks_to_boxes_traceable(new_masks).cpu().numpy()
 
-    label_ids = new_labels.cpu().numpy()
+    label_ids = new_labels.cpu().numpy().astype(np.int32)
     return Prediction(
         masks=new_masks.cpu().numpy(),
         scores=new_scores.cpu().numpy(),
