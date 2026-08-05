@@ -11,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from huggingface_hub.errors import GatedRepoError
 from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data.base import Batch
@@ -407,7 +406,7 @@ class TestModelIntegration:
             assert iou_value >= -1
 
 
-@pytest.mark.xfail(raises=GatedRepoError, reason="HF gated repo, no credentials in CI", strict=False)
+@pytest.mark.xfail(raises=OSError, reason="HF gated repo, no credentials in CI", strict=False)
 class TestSAM3Integration:
     """Integration tests for SAM3 model in classic and visual exemplar modes.
 
