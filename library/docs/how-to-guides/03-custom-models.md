@@ -20,6 +20,7 @@ with no runtime behaviour of its own.
 Four members, three of them abstract:
 
 ```python
+from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.model_card import ModelCard

@@ -69,15 +69,14 @@ class EfficientSAM3(SAM3):
         >>> from instantlearn.models import EfficientSAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base.sample import Category, Sample
-        >>> from instantlearn.data.base import Batch
-        >>> import torch
+        >>> import numpy as np
 
         >>> model = EfficientSAM3(backbone_type="efficientvit", variant="b2")
 
         >>> # Classic text prompting
         >>> ref = Sample(categories=[Category(0, "cat"), Category(1, "dog")])
         >>> model.fit(ref)
-        >>> results = model.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode
         >>> model_ve = EfficientSAM3(
@@ -86,12 +85,12 @@ class EfficientSAM3(SAM3):
         ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
         ... )
         >>> ref = Sample(
-        ...     image=torch.zeros(3, 640, 480),
+        ...     image=np.zeros((640, 480, 3), dtype=np.uint8),
         ...     bboxes=[[100, 100, 200, 200]],
         ...     categories=[Category(0, "cat")],
         ... )
         >>> model_ve.fit(ref)
-        >>> results = model_ve.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model_ve.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
     """
 
     @classmethod
