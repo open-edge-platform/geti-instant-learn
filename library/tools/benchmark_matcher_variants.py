@@ -133,7 +133,7 @@ def benchmark_variant(
 
         # --- 3. OpenVINO inference ---
         core = openvino.Core()
-        ov_model = core.read_model(str(ov_dir / "matcher.xml"))
+        ov_model = core.read_model(str(ov_dir / "model.xml"))
 
         # Prepare input (Sample.image is numpy HWC uint8 -> NCHW float32)
         input_data = np.ascontiguousarray(
