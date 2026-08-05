@@ -23,6 +23,7 @@ from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
+from instantlearn.utils.graph_export import export_inference_graph
 
 from .prompt_generators import BidirectionalPromptGenerator
 
@@ -59,7 +60,11 @@ class EncoderForwardFeaturesWrapper(nn.Module):
         x = x.float() / 255.0
         x = functional.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
         x = (x - imagenet_mean[None, :, None, None]) / imagenet_std[None, :, None, None]
-        features = self.encoder.forward_features(x)
+        # timm models expose forward_features(); HuggingFace models return last_hidden_state.
+        if hasattr(self.encoder, "forward_features"):
+            features = self.encoder.forward_features(x)
+        else:
+            features = self.encoder(pixel_values=x).last_hidden_state
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)
 
@@ -197,6 +202,7 @@ class Matcher(Model):
         postprocessor: PostProcessor | None = None,
         similarity_threshold: float | None = None,
         num_grid_cells: int = 8,
+        num_export_instances: int = 8,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -221,6 +227,10 @@ class Matcher(Model):
             num_grid_cells: Grid cells per dimension for spatial diversity filtering.
                 When > 0, foreground points are deduplicated per grid cell before top-k
                 selection, preventing point clustering on large objects. Default: 8.
+            num_export_instances: Maximum instances per category the **exported**
+                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass,
+                so latency scales linearly with this value. Only affects export; the
+                PyTorch path is unbounded. Default: 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
@@ -265,6 +275,8 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
+            num_export_instances=num_export_instances,
+            num_background_points=num_background_points,
         )
 
         # Reference features (set during fit)
@@ -390,44 +402,8 @@ class Matcher(Model):
 
         return masks > 0.5
 
-    @staticmethod
-    def _fix_onnx_output_names(onnx_path: Path, expected_names: list[str]) -> None:  # noqa: C901
-        """Ensure ONNX graph outputs have the expected names.
-
-        Registered buffers returned as outputs often get auto-generated names
-        (e.g. '39982') because the ONNX tracer treats them as graph constants.
-        Renames outputs in-place using the ONNX protobuf, also updating all
-        internal node references and initializers so the graph stays valid.
-        """
-        if not onnx_path.exists():
-            return
-
-        import onnx  # noqa: PLC0415
-
-        model = onnx.load(str(onnx_path))
-        rename_map: dict[str, str] = {}
-        for output, expected in zip(model.graph.output, expected_names, strict=False):
-            if output.name != expected:
-                rename_map[output.name] = expected
-        if not rename_map:
-            return
-        # Update node outputs that feed into graph outputs.
-        for node in model.graph.node:
-            for i, name in enumerate(node.output):
-                if name in rename_map:
-                    node.output[i] = rename_map[name]
-        # Update initializers (registered buffers appear here).
-        for initializer in model.graph.initializer:
-            if initializer.name in rename_map:
-                initializer.name = rename_map[initializer.name]
-        # Update the graph output names.
-        for output in model.graph.output:
-            if output.name in rename_map:
-                output.name = rename_map[output.name]
-        onnx.save(model, str(onnx_path))
-
     @torch.no_grad()
-    def export(  # noqa: C901, PLR0915
+    def export(
         self,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: str | Backend = Backend.ONNX,
@@ -443,10 +419,9 @@ class Matcher(Model):
                 Only applied when *backend* is ``OPENVINO``. Default: INT8_SYM.
 
         Returns:
-            Path to export directory.
+            Path to the exported model file.
 
         Raises:
-            ImportError: If OpenVINO is selected but not installed.
             RuntimeError: If fit() has not been called before predict().
             ValueError: If INT4 compression is requested for OpenVINO export.
         """
@@ -473,6 +448,8 @@ class Matcher(Model):
                 sam_predictor=fallback_predictor,
                 confidence_threshold=self.segmenter.confidence_threshold,
                 use_mask_refinement=self.segmenter.use_mask_refinement,
+                num_export_instances=self.segmenter.num_export_instances,
+                num_background_points=self.segmenter.num_background_points,
             )
 
         export_path = Path(export_dir)
@@ -519,97 +496,12 @@ class Matcher(Model):
             .float()
         )  # Force FP32 for stable CPU tracing
 
-        input_size = self.encoder.input_size
-        target_image = torch.randn(1, 3, input_size, input_size, device=export_device)
-        if backend == Backend.ONNX:
-            onnx_path = export_path / "matcher.onnx"
-            torch.onnx.export(
-                matcher,
-                args=(target_image,),
-                f=onnx_path,
-                input_names=["target_image"],
-                output_names=["masks", "scores", "labels"],
-                dynamic_axes={
-                    "target_image": {2: "height", 3: "width"},
-                    "masks": {0: "num_masks", 1: "height", 2: "width"},
-                    "scores": {0: "num_masks"},
-                    "labels": {0: "num_masks"},
-                },
-                dynamo=False,
-            )
-            self._fix_onnx_output_names(onnx_path, ["masks", "scores", "labels"])
-            return onnx_path
-
-        if backend == Backend.OPENVINO:
-            try:
-                import openvino  # noqa: PLC0415
-
-                # Export to ONNX first, then convert to OpenVINO.
-                # Direct PyTorch → OpenVINO conversion fails on many ops (aten::pad, aten::unbind, etc.)
-                # ONNX → OpenVINO conversion has much better support.
-                onnx_path = export_path / "matcher.onnx"
-                try:
-                    torch.onnx.export(
-                        matcher,
-                        args=(target_image,),
-                        f=onnx_path,
-                        input_names=["target_image"],
-                        output_names=["masks", "scores", "labels"],
-                        # Keep OpenVINO export graph static for stable GPU shape inference.
-                        # Dynamic axes here can lead to infer-time broadcast mismatches.
-                        dynamo=False,
-                    )
-                except RuntimeError as onnx_err:
-                    if "2GiB" in str(onnx_err) or "protobuf" in str(onnx_err):
-                        # Large models (e.g. SAM-HQ ViT-H ~2.6GB) exceed protobuf limit.
-                        # Re-export with string path so ONNX writes external data files.
-                        logger.info("Model exceeds ONNX 2GiB limit, re-exporting with external data")
-                        torch.onnx.export(
-                            matcher,
-                            args=(target_image,),
-                            f=str(onnx_path),
-                            input_names=["target_image"],
-                            output_names=["masks", "scores", "labels"],
-                            dynamo=False,
-                        )
-                    else:
-                        raise
-
-                # Prefer ONNX frontend path for better operator coverage.
-                # Fall back to direct conversion when ONNX export output is unavailable.
-                core = openvino.Core()
-                if onnx_path.exists():
-                    try:
-                        ov_model = core.read_model(str(onnx_path))
-                    except RuntimeError:
-                        ov_model = openvino.convert_model(matcher, example_input=target_image)
-                else:
-                    ov_model = openvino.convert_model(matcher, example_input=target_image)
-
-                # Fix output names: registered buffers returned as model outputs
-                # get auto-generated names (e.g. '39982') from the ONNX tracer.
-                expected_names = ["masks", "scores", "labels"]
-                for output, name in zip(ov_model.outputs, expected_names, strict=False):
-                    output.tensor.set_names({name})
-
-                # Reshape to static input for optimal GPU kernel compilation.
-                input_name = ov_model.inputs[0].get_any_name()
-                ov_model.reshape({input_name: [1, 3, input_size, input_size]})
-
-                # Apply weight compression if requested (INT8/INT4 via NNCF).
-                if compression not in {CompressionMode.FP32, CompressionMode.FP16}:
-                    from instantlearn.utils.compression import compress_model  # noqa: PLC0415
-
-                    ov_model = compress_model(ov_model, mode=compression)
-
-                openvino.save_model(
-                    ov_model,
-                    export_path / "matcher.xml",
-                    compress_to_fp16=compression == CompressionMode.FP16,
-                )
-                return export_path / "matcher.xml"
-            except ImportError as e:
-                msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
-                raise ImportError(msg) from e
-
-        return export_path
+        return export_inference_graph(
+            graph=matcher,
+            export_dir=export_path,
+            model_name="matcher",
+            input_size=self.encoder.input_size,
+            backend=backend,
+            compression=compression,
+            device=export_device,
+        )

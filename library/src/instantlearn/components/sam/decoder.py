@@ -68,6 +68,15 @@ class SamDecoder(nn.Module):
             this are downscaled (preserving aspect ratio) before SAM, then masks are
             upscaled back. SAM works internally at 1024x1024, so larger images just
             increase mask memory without improving quality. Default: 1024.
+        num_export_instances: Number of instance slots per category in the **export**
+            graph. Each slot runs one foreground point through the SAM decoder, so
+            this is the maximum number of instances the exported model can detect per
+            category. Decoder cost scales linearly with this value. Foreground points
+            are chosen by farthest-point sampling, which reaches the recall of the
+            full point budget at a fraction of the cost. Default: 8.
+        num_background_points: Number of background points the prompt generator emits
+            per category. Used to slice background points out of the padded prompt
+            tensor during export. Default: 2.
     """
 
     def __init__(
@@ -77,6 +86,8 @@ class SamDecoder(nn.Module):
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
         max_image_side: int = 1024,
+        num_export_instances: int = 8,
+        num_background_points: int = 2,
     ) -> None:
         """Initialize the traceable SAM decoder."""
         super().__init__()
@@ -85,6 +96,8 @@ class SamDecoder(nn.Module):
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
         self.max_image_side = max_image_side
+        self.num_export_instances = num_export_instances
+        self.num_background_points = num_background_points
         self.device = sam_predictor.device
 
     def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # noqa: PLR6301
@@ -148,6 +161,103 @@ class SamDecoder(nn.Module):
         original_points = torch.cat([fg_original, bg_original], dim=0)  # [num_fg + num_bg, 4]
 
         return point_coords, point_labels, original_points
+
+    @staticmethod
+    def _squared_distance_to(coords: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
+        """Squared euclidean distance from every point to the point at ``index``.
+
+        Args:
+            coords: Point coordinates ``[P, 2]``.
+            index: Single-element index tensor ``[1]``.
+
+        Returns:
+            Squared distances ``[P]``.
+        """
+        delta = coords - coords[index]
+        return (delta * delta).sum(dim=1)
+
+    def _build_export_prompts(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Build one prompt set per instance slot, fully traceable with static shapes.
+
+        Mirrors the PyTorch runtime path, which pairs *each* foreground point with all
+        background points so SAM segments one object per prompt set.  The export graph
+        cannot use boolean indexing to collect foreground points (the count is
+        data-dependent), so it selects a fixed ``num_export_instances`` of them with
+        farthest-point sampling instead.
+
+        Foreground points arrive sorted by score, which clusters them on whichever
+        object matched best.  Spreading the selection spatially reaches the recall of
+        the full point budget using far fewer decoder passes.
+
+        Args:
+            points: Padded prompt tensor ``[max_points, 4]`` with (x, y, score, label),
+                laid out as foreground (label 1), then background (label -1), then
+                zero padding (label 0).
+
+        Returns:
+            Tuple of:
+                point_coords: ``[K, 1 + num_background_points, 2]``
+                point_labels: ``[K, 1 + num_background_points]``
+                valid: ``[K]`` — 1.0 for slots backed by a real foreground point,
+                    0.0 for slots that ran out of points (their scores get zeroed).
+        """
+        device = points.device
+        k = self.num_export_instances
+        labels_col = points[:, 3]
+        coords = points[:, :2]
+
+        is_foreground = labels_col == 1
+        neg_inf = torch.full_like(labels_col, -1.0e9)
+
+        # Seed with the highest-scoring foreground point.
+        seed_scores = torch.where(is_foreground, points[:, 2], neg_inf)
+        first = torch.argmax(seed_scores).reshape(1)
+        selected = [first]
+        # A slot is valid only if it was backed by a *fresh* foreground point. Both
+        # non-foreground rows and already-selected rows are pinned to the sentinel,
+        # so testing the pre-selection score/distance distinguishes the two cases
+        # without any data-dependent control flow.
+        valid_flags = [(seed_scores[first] > -1.0e8).to(points.dtype)]
+
+        # Squared distance to the nearest already-selected point (monotonic in
+        # distance, so it gives identical selections while staying ONNX-exportable —
+        # torch.cdist has no usable ONNX symbolic here). Non-foreground slots are
+        # pinned below zero so they are never picked while real points remain.
+        distance = self._squared_distance_to(coords, first)
+        distance = torch.where(is_foreground, distance, neg_inf)
+        distance = distance.index_fill(0, first, -1.0e9)
+
+        for _ in range(k - 1):
+            nxt = torch.argmax(distance).reshape(1)
+            selected.append(nxt)
+            valid_flags.append((distance[nxt] > -1.0e8).to(points.dtype))
+            new_distance = self._squared_distance_to(coords, nxt)
+            distance = torch.minimum(distance, torch.where(is_foreground, new_distance, neg_inf))
+            distance = distance.index_fill(0, nxt, -1.0e9)
+
+        indices = torch.cat(selected, dim=0)  # [K]
+        foreground = coords[indices]  # [K, 2]
+        valid = torch.cat(valid_flags, dim=0)  # [K]
+
+        # Background points sit right after the foreground block. topk on the
+        # background indicator keeps the slice static-shaped and traceable.
+        num_background = self.num_background_points
+        background_rank = (labels_col == -1).to(points.dtype)
+        background_idx = torch.topk(background_rank, num_background).indices
+        background = coords[background_idx]  # [num_background, 2]
+
+        point_coords = torch.cat(
+            [foreground.unsqueeze(1), background.unsqueeze(0).expand(k, -1, -1)],
+            dim=1,
+        )  # [K, 1 + num_background, 2]
+        point_labels = torch.cat(
+            [
+                torch.ones(k, 1, device=device, dtype=torch.float32),
+                -torch.ones(k, num_background, device=device, dtype=torch.float32),
+            ],
+            dim=1,
+        )
+        return point_coords, point_labels, valid
 
     def _pad_outputs(
         self,
@@ -216,24 +326,32 @@ class SamDecoder(nn.Module):
         point_labels: torch.Tensor,
         similarity: torch.Tensor,
         original_size: tuple[int, int],
+        valid: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Export-safe prediction: no data-dependent control flow, no NMS.
 
-        All foreground points are merged into a single prompt set [1, max_points, 2].
-        SAM returns 3 candidate masks (multimask_output=True); we keep only the
-        best one by IoU score, producing exactly 1 mask per category.
+        Each row of ``point_coords`` is an independent prompt set (one foreground
+        point plus the background points), so SAM returns one mask per instance
+        slot.  This matches the semantics of the PyTorch runtime path
+        (:meth:`_predict_masks_for_category`); the only difference is that the number
+        of slots is fixed at trace time.
 
-        This means the export graph is **semantic-only** — it cannot represent
-        multiple instances of the same category.  The PyTorch runtime path
-        (`_predict_masks_for_category`) does not have this limitation.
+        SAM returns 3 candidate masks per prompt (``multimask_output=True``); the best
+        one by predicted IoU is kept.  Scoring uses similarity weighting, and slots
+        with no backing foreground point are zeroed so the downstream
+        :class:`~instantlearn.components.postprocessing.ScoreFilter` drops them.
+        Duplicate masks from points landing on the same object are collapsed by the
+        NMS stages of the post-processor.
 
-        Scoring uses similarity weighting; thresholding is deferred to
-        post-processing.
+        Args:
+            point_coords: Prompt coordinates ``[K, num_points, 2]``.
+            point_labels: Prompt labels ``[K, num_points]``.
+            similarity: Similarity map ``[feat_size, feat_size]``.
+            original_size: Image size (H, W) the masks are produced at.
+            valid: Optional ``[K]`` validity mask; invalid slots get a zero score.
 
-        TODO(export): Return all 3 SAM masks per category [C, 3, H, W] to allow
-        the host-side post-processor to recover up to 3 instances per class.
-        For more instances, individual foreground points would need separate SAM
-        calls (K x C passes), which is slower.
+        Returns:
+            Tuple of (masks ``[K, H, W]``, scores ``[K]``).
         """
         masks, iou_preds, _ = self.predictor.forward(
             point_coords=point_coords,
@@ -246,10 +364,11 @@ class SamDecoder(nn.Module):
 
         # Select best mask by IoU prediction (more robust than fixed index 0,
         # since GPU noise could reorder the 3 multimask outputs).
-        best_idx = iou_preds[:, :3].argmax(dim=1)  # [1]
-        masks = masks[torch.arange(masks.size(0), device=masks.device), best_idx]  # [1, H, W]
+        batch_idx = torch.arange(masks.size(0), device=masks.device)
+        best_idx = iou_preds[:, :3].argmax(dim=1)  # [K]
+        masks = masks[batch_idx, best_idx]  # [K, H, W]
         masks = (masks > 0).to(masks.dtype)
-        mask_weights = iou_preds[torch.arange(iou_preds.size(0), device=iou_preds.device), best_idx]  # [1]
+        mask_weights = iou_preds[batch_idx, best_idx]  # [K]
 
         # Similarity-based scoring
         sim_resized = self._resize_similarity(similarity, original_size)
@@ -257,6 +376,16 @@ class SamDecoder(nn.Module):
         mask_area = masks.sum(dim=(1, 2)) + 1e-6
         mask_scores = mask_sum / mask_area
         weighted_scores = mask_scores * mask_weights
+
+        if valid is not None:
+            weighted_scores *= valid.to(weighted_scores.dtype)
+
+        # Zero out low-confidence slots so ScoreFilter drops them downstream.
+        weighted_scores = torch.where(
+            weighted_scores > self.confidence_threshold,
+            weighted_scores,
+            torch.zeros_like(weighted_scores),
+        )
 
         return masks, weighted_scores
 
@@ -611,15 +740,19 @@ class SamDecoder(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Export-friendly forward for single image returning flat tensors.
 
-        Produces fixed-size output [C, H, W] — exactly 1 mask per category
-        (semantic segmentation).  Instance segmentation is not supported in the
-        export path because the ONNX graph requires static output shapes and
-        cannot represent a variable number of instances.
+        Produces ``K = num_export_instances`` mask slots per category, each decoded
+        from its own foreground point, giving true **instance** segmentation in the
+        exported graph.  Slots that ran out of foreground points, or that fall below
+        ``confidence_threshold``, carry a score of 0 and are removed by the
+        :class:`~instantlearn.components.postprocessing.ScoreFilter` stage of the
+        post-processor.  Duplicate slots landing on the same object are collapsed by
+        the NMS stages.
 
-        The host-side ``PostProcessor`` can recover limited instance information
-        via connected-component analysis on the per-category masks.
+        Output shape is static (``[C * K, H, W]``); the variable instance count is
+        expressed through the scores, matching the standard OpenVINO convention of a
+        fixed-size padded output filtered by score.
 
-        No data-dependent control flow, no NMS, no dynamic filtering.
+        No data-dependent control flow and no Python-level branching on tensor values.
 
         Args:
             image: Single input image [3, H, W]
@@ -629,33 +762,40 @@ class SamDecoder(nn.Module):
 
         Returns:
             Tuple of:
-                masks: [C, H, W] - float masks (1 per category)
-                scores: [C] - similarity-weighted confidence scores
-                labels: [C] - category IDs
+                masks: [C * K, H, W] - float masks, one per instance slot
+                scores: [C * K] - similarity-weighted confidence (0 = unused slot)
+                labels: [C * K] - category IDs, repeated per slot
         """
         h, w = image.size(1), image.size(2)
         orig_size = (h, w)
         self.predictor.set_image(image)
 
         num_categories = category_ids.shape[0]
-        device = image.device
+        k = self.num_export_instances
 
-        all_masks = torch.zeros(num_categories, h, w, device=device)
-        all_scores = torch.zeros(num_categories, device=device)
+        masks_per_category: list[torch.Tensor] = []
+        scores_per_category: list[torch.Tensor] = []
+        labels_per_category: list[torch.Tensor] = []
 
         for class_idx in range(num_categories):
             points = point_prompts[class_idx]
             similarity = similarities[class_idx]
 
-            point_coords, point_labels, _ = self._preprocess_points(points)
-            mask, score = self._predict_masks_for_category_export(
+            point_coords, point_labels, valid = self._build_export_prompts(points)
+            masks, scores = self._predict_masks_for_category_export(
                 point_coords,
                 point_labels,
                 similarity,
                 orig_size,
+                valid=valid,
             )
 
-            all_masks[class_idx] = mask[0]
-            all_scores[class_idx] = score[0]
+            masks_per_category.append(masks)
+            scores_per_category.append(scores)
+            labels_per_category.append(category_ids[class_idx].reshape(1).expand(k))
 
-        return all_masks, all_scores, category_ids
+        all_masks = torch.cat(masks_per_category, dim=0)
+        all_scores = torch.cat(scores_per_category, dim=0)
+        all_labels = torch.cat(labels_per_category, dim=0)
+
+        return all_masks, all_scores, all_labels

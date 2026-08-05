@@ -15,6 +15,7 @@ from instantlearn.components.postprocessing.nms import (
     MaskNMS,
     SoftNMS,
     _greedy_nms,  # noqa: PLC2701
+    _matrix_nms,  # noqa: PLC2701
     _pairwise_box_iom,  # noqa: PLC2701
     _pairwise_mask_iom,  # noqa: PLC2701
     _pairwise_mask_iou,  # noqa: PLC2701
@@ -128,8 +129,12 @@ class TestGreedyNMS:
         overlap = torch.tensor([[1.0, 0.9], [0.9, 1.0]])
         areas = torch.tensor([100.0, 5000.0])  # idx=0 is tiny (contained)
         keep = _greedy_nms(
-            scores, overlap, threshold=0.5,
-            areas=areas, score_margin=0.1, area_ratio=0.5,
+            scores,
+            overlap,
+            threshold=0.5,
+            areas=areas,
+            score_margin=0.1,
+            area_ratio=0.5,
         )
         # idx=0 (small, high score) should be swapped out; idx=1 (large) kept
         assert 1 in keep.tolist()
@@ -210,6 +215,7 @@ class TestBoxNMS:
 
 class TestMaskIoMNMS:
     """Tests for MaskIoMNMS post-processor."""
+
     def test_suppresses_contained_mask(self) -> None:
         """Small mask contained in a large one should be suppressed (IoM ≈ 1)."""
         m_large = _make_mask(20, 20, 0, 0, 20, 20)
@@ -322,3 +328,43 @@ class TestSoftNMS:
         soft_nms = SoftNMS()
         out_masks, _, _ = soft_nms(masks, scores, labels)
         assert out_masks.size(0) == 1
+
+
+class TestMatrixNMS:
+    """Tests for the exportable matrix NMS used by the ONNX/OpenVINO graph."""
+
+    def test_matches_greedy_nms(self) -> None:
+        """Cascaded matrix NMS reproduces greedy NMS on random overlap matrices."""
+        generator = torch.Generator().manual_seed(0)
+        for _ in range(100):
+            n = int(torch.randint(1, 25, (1,), generator=generator))
+            scores = torch.rand(n, generator=generator)
+            overlap = torch.rand(n, n, generator=generator)
+            overlap = ((overlap + overlap.T) / 2).clamp(0.0, 1.0)
+            overlap.fill_diagonal_(1.0)
+
+            greedy = set(_greedy_nms(scores, overlap, 0.5).tolist())
+            matrix = set(_matrix_nms(scores, overlap, 0.5).tolist())
+            assert greedy == matrix
+
+    def test_suppression_cascades(self) -> None:
+        """A suppressed mask must not suppress a lower-scored one.
+
+        Chain: A(0.9) overlaps B(0.8), B overlaps C(0.7), but A and C do not
+        overlap. Greedy keeps A and C; a single-pass matrix NMS would drop C.
+        """
+        scores = torch.tensor([0.9, 0.8, 0.7])
+        overlap = torch.tensor([[1.0, 0.9, 0.0], [0.9, 1.0, 0.9], [0.0, 0.9, 1.0]])
+        assert _matrix_nms(scores, overlap, 0.5).tolist() == [0, 2]
+
+    def test_output_independent_of_mask_count(self) -> None:
+        """Result must not depend on a baked-in mask count (static-trace safety)."""
+        for n in (2, 8, 12):
+            scores = torch.linspace(0.9, 0.1, n)
+            overlap = torch.eye(n)
+            assert _matrix_nms(scores, overlap, 0.5).numel() == n
+
+    def test_empty_input(self) -> None:
+        """Zero masks yields zero kept indices without erroring."""
+        kept = _matrix_nms(torch.zeros(0), torch.zeros(0, 0), 0.5)
+        assert kept.numel() == 0

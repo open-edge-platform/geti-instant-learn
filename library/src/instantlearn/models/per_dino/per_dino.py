@@ -3,7 +3,11 @@
 
 """PerDino model."""
 
+import logging
+from pathlib import Path
+
 import torch
+from torch import nn
 
 from instantlearn.components import CosineSimilarity, SamDecoder
 from instantlearn.components.encoders import ImageEncoder
@@ -16,9 +20,76 @@ from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
-from instantlearn.utils.constants import Backend, SAMModelName
+from instantlearn.models.matcher.matcher import EncoderForwardFeaturesWrapper
+from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
+from instantlearn.utils.graph_export import export_inference_graph
 
 from .prompt_generators import GridPromptGenerator
+
+logger = logging.getLogger(__name__)
+
+
+class PerDinoInferenceGraph(nn.Module):
+    """Traceable inference graph with frozen reference features for ONNX export.
+
+    Mirrors :meth:`PerDino.predict` for a single image, but keeps every step
+    traceable so the whole pipeline (encoder → similarity → prompts → SAM →
+    post-processing) becomes one self-contained ONNX/OpenVINO graph.
+    """
+
+    def __init__(
+        self,
+        encoder: nn.Module,
+        similarity_matcher: CosineSimilarity,
+        prompt_generator: GridPromptGenerator,
+        sam_decoder: SamDecoder,
+        ref_features: ReferenceFeatures,
+        postprocessor: PostProcessor | None = None,
+    ) -> None:
+        """Initialize the inference graph with frozen reference features."""
+        super().__init__()
+        self.encoder = encoder
+        self.similarity_matcher = similarity_matcher
+        self.prompt_generator = prompt_generator
+        self.sam_decoder = sam_decoder
+
+        # Register the post-processor as a submodule so its parameters are
+        # captured during tracing.
+        self.add_module("export_postprocessor", postprocessor)
+
+        self.register_buffer("masked_ref_embeddings", ref_features.masked_ref_embeddings)
+        self.register_buffer("category_ids", torch.tensor(ref_features.category_ids, device=ref_features.device))
+
+    def forward(self, target_image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Single image forward pass: target_image [1, 3, H, W] -> (masks, scores, labels)."""
+        target_embeddings = self.encoder(target_image)
+        feature_device = target_embeddings.device
+
+        # Align frozen reference tensors to the target device so tracing never
+        # produces a mixed-device matmul.
+        masked_ref_embeddings = self.masked_ref_embeddings.to(feature_device)
+        category_ids = self.category_ids.to(feature_device)
+
+        # scalar_tensor keeps the original size dynamic instead of baking in the
+        # trace-time value.
+        height = torch.scalar_tensor(target_image.shape[2], dtype=torch.long, device=feature_device)
+        width = torch.scalar_tensor(target_image.shape[3], dtype=torch.long, device=feature_device)
+        original_sizes = torch.stack([height, width], dim=0).unsqueeze(0)
+
+        similarities = self.similarity_matcher(masked_ref_embeddings, target_embeddings, category_ids)
+        point_prompts = self.prompt_generator(similarities, category_ids, original_sizes)
+
+        masks, scores, labels = self.sam_decoder.forward_export(
+            target_image[0],
+            category_ids,
+            point_prompts[0],
+            similarities[0],
+        )
+
+        if self.export_postprocessor is not None:
+            masks, scores, labels = self.export_postprocessor(masks, scores, labels)
+
+        return masks, scores, labels
 
 
 class PerDino(Model):
@@ -75,6 +146,7 @@ class PerDino(Model):
         compile_models: bool = False,
         device: str = "cuda",
         postprocessor: PostProcessor | None = None,
+        num_export_instances: int = 8,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -98,6 +170,9 @@ class PerDino(Model):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
+            num_export_instances: Maximum instances per category the **exported**
+                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
+                Only affects export; the PyTorch path is unbounded. Default: 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
@@ -137,6 +212,8 @@ class PerDino(Model):
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
+            num_export_instances=num_export_instances,
+            num_background_points=num_background_points,
         )
 
         self.ref_features: ReferenceFeatures | None = None
@@ -214,3 +291,82 @@ class PerDino(Model):
             similarities=similarities,
         )
         return self.apply_postprocessing(predictions)
+
+    @torch.no_grad()
+    def export(
+        self,
+        export_dir: str | Path = Path("./exports/per_dino"),
+        backend: str | Backend = Backend.ONNX,
+        compression: CompressionMode = CompressionMode.INT8_SYM,
+    ) -> Path:
+        """Export the model to ONNX or OpenVINO.
+
+        The exported graph detects at most ``num_export_instances`` objects per
+        category (see :meth:`__init__`), whereas the PyTorch path is unbounded.
+
+        Args:
+            export_dir: Directory to save exported models.
+            backend: Export backend (ONNX, OpenVINO).
+            compression: Weight compression mode for the exported OpenVINO model.
+                See :class:`~instantlearn.utils.constants.CompressionMode` for options.
+                Only applied when *backend* is ``OPENVINO``. Default: INT8_SYM.
+
+        Returns:
+            Path to the exported model file.
+
+        Raises:
+            RuntimeError: If fit() has not been called first.
+        """
+        if self.ref_features is None:
+            msg = "No reference features. Call fit() first."
+            raise RuntimeError(msg)
+
+        export_path = Path(export_dir)
+        export_path.mkdir(parents=True, exist_ok=True)
+
+        # SAM-HQ-Tiny has non-deterministic layers that make the exported graph
+        # unreliable, so OpenVINO exports fall back to SAM-HQ-base.
+        export_decoder = self.segmenter
+        if Backend(backend) == Backend.OPENVINO and self.sam_predictor.sam_model_name == SAMModelName.SAM_HQ_TINY:
+            logger.warning(
+                "SAM-HQ-Tiny is not supported for OpenVINO export. "
+                "Some of the layers are non-deterministic and so the exported model is not reliable for inference. "
+                "Falling back to SAM-HQ-base for the exported model. "
+                "SAM-HQ-base weights will be downloaded if not already cached.",
+            )
+            export_decoder = SamDecoder(
+                sam_predictor=load_sam_model(SAMModelName.SAM_HQ_BASE, device="cpu", precision="fp32"),
+                confidence_threshold=self.segmenter.confidence_threshold,
+                num_export_instances=self.segmenter.num_export_instances,
+                num_background_points=self.segmenter.num_background_points,
+            )
+
+        export_device = torch.device("cpu") if Backend(backend) == Backend.OPENVINO else self.ref_features.device
+        self.sam_predictor.sync_device(export_device, dtype=torch.float32)
+        self.segmenter.device = self.sam_predictor.device
+
+        graph = (
+            PerDinoInferenceGraph(
+                encoder=EncoderForwardFeaturesWrapper(
+                    self.encoder._model.model,  # noqa: SLF001
+                    ignore_token_length=self.encoder._model.ignore_token_length,  # noqa: SLF001
+                ),
+                similarity_matcher=self.similarity_matcher,
+                prompt_generator=self.prompt_generator,
+                sam_decoder=export_decoder,
+                ref_features=self.ref_features.to(export_device),
+                postprocessor=self.postprocessor,
+            )
+            .to(export_device)
+            .float()
+        )  # Force FP32 for stable CPU tracing
+
+        return export_inference_graph(
+            graph=graph,
+            export_dir=export_path,
+            model_name="per_dino",
+            input_size=self.encoder.input_size,
+            backend=backend,
+            compression=compression,
+            device=export_device,
+        )

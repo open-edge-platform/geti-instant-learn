@@ -371,3 +371,53 @@ class TestSamDecoderEmptyTensorHandling:
         prediction = result[0]
         # Empty masks should have correct spatial dimensions
         assert prediction["pred_masks"].shape[1:] == (320, 480)
+
+
+class TestSamDecoderExportPrompts:
+    """Test the export-path prompt builder that enables per-instance masks."""
+
+    @pytest.fixture
+    def sam_decoder(self) -> SamDecoder:
+        """Create a SamDecoder with a stub predictor (unused by these tests)."""
+        return SamDecoder(sam_predictor=MagicMock(), num_export_instances=4, num_background_points=2)
+
+    @staticmethod
+    def _points(foreground: list[tuple[float, float]], background: int = 2) -> torch.Tensor:
+        """Build a ``[N, 4]`` prompt tensor of ``(x, y, score, label)`` rows."""
+        rows = [[x, y, 0.9, 1.0] for x, y in foreground]
+        rows += [[0.0, 0.0, 0.5, -1.0]] * background
+        return torch.tensor(rows)
+
+    def test_builds_one_prompt_set_per_instance(self, sam_decoder: SamDecoder) -> None:
+        """Each slot gets its own foreground point plus the shared background points."""
+        points = self._points([(10.0, 10.0), (200.0, 200.0), (10.0, 200.0)])
+        coords, labels, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+
+        assert coords.shape == (4, 3, 2)
+        assert labels.shape == (4, 3)
+        assert valid.tolist() == [1.0, 1.0, 1.0, 0.0]
+        # Slot 0 is the foreground point, slots 1-2 are the shared background points.
+        assert labels[0].tolist() == [1.0, -1.0, -1.0]
+
+    def test_selects_spatially_diverse_points(self, sam_decoder: SamDecoder) -> None:
+        """Farthest-point sampling spreads prompts out instead of clustering them."""
+        # Three points clustered together, one far away with the lowest score.
+        points = torch.tensor(
+            [[10.0, 10.0, 0.9, 1.0], [11.0, 11.0, 0.8, 1.0], [12.0, 12.0, 0.7, 1.0], [400.0, 400.0, 0.6, 1.0]],
+        )
+        coords, _, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+
+        selected = coords[valid > 0][:, 0, :]
+        assert any(torch.allclose(p, torch.tensor([400.0, 400.0])) for p in selected)
+
+    def test_pads_when_fewer_points_than_slots(self, sam_decoder: SamDecoder) -> None:
+        """Unused slots are marked invalid so they can be dropped downstream."""
+        _, _, valid = sam_decoder._build_export_prompts(self._points([(10.0, 10.0)]))  # noqa: SLF001
+        assert valid.tolist() == [1.0, 0.0, 0.0, 0.0]
+
+    def test_truncates_when_more_points_than_slots(self, sam_decoder: SamDecoder) -> None:
+        """The number of slots is fixed, keeping the exported graph static."""
+        points = self._points([(float(i * 30), float(i * 30)) for i in range(10)])
+        coords, _, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+        assert coords.shape[0] == 4
+        assert valid.tolist() == [1.0] * 4

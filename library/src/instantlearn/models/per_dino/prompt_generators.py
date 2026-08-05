@@ -74,6 +74,66 @@ class GridPromptGenerator(nn.Module):
         self.num_foreground_points = num_foreground_points
         self.max_points = max_points
 
+    _SENTINEL = -1.0e9
+    """Score marking a slot that holds no real point (see :meth:`_get_foreground_points_export`)."""
+
+    def _get_foreground_points_export(self, similarity_map: torch.Tensor) -> torch.Tensor:
+        """Traceable equivalent of :meth:`_get_foreground_points` for ONNX export.
+
+        The eager implementation loops over ``torch.unique(cell_ids)``, whose length
+        is data-dependent. Under static tracing that loop unrolls to the trace-time
+        cell count and bakes the whole selection into the graph. This version instead
+        evaluates every grid cell densely: the cell count is a compile-time constant,
+        so a ``[num_cells, num_pixels]`` masked view lets one ``max`` pick the best
+        pixel per cell with no data-dependent control flow.
+
+        Unlike the eager path there is no "fall back to global argmax" branch. If no
+        pixel clears the threshold this returns no points, and the empty result
+        propagates to zero masks rather than inventing a low-similarity detection.
+
+        Args:
+            similarity_map: 2D similarity map ``[map_height, map_width]``.
+
+        Returns:
+            Points ``[N, 3]`` as ``[x, y, score]``, sorted by descending score, with
+            at most one point per grid cell.
+        """
+        map_h, map_w = similarity_map.shape
+        device = similarity_map.device
+        dtype = similarity_map.dtype
+        num_cells = self.num_grid_cells * self.num_grid_cells
+
+        scores = similarity_map.flatten()
+        flat_index = torch.arange(scores.shape[0], device=device)
+        y_coord = flat_index // map_w
+        x_coord = flat_index % map_w
+
+        cell_width = map_w / self.num_grid_cells
+        cell_height = map_h / self.num_grid_cells
+        x_cell = torch.clamp((x_coord / cell_width).floor().long(), 0, self.num_grid_cells - 1)
+        y_cell = torch.clamp((y_coord / cell_height).floor().long(), 0, self.num_grid_cells - 1)
+        cell_index = y_cell * self.num_grid_cells + x_cell  # [num_pixels]
+
+        sentinel = torch.full_like(scores, self._SENTINEL)
+        above_threshold = torch.where(similarity_map.flatten() > self.point_selection_threshold, scores, sentinel)
+
+        # [num_cells, num_pixels]: each row keeps only the pixels inside that cell.
+        cell_ids = torch.arange(num_cells, device=device).unsqueeze(1)
+        per_cell = torch.where(cell_index.unsqueeze(0) == cell_ids, above_threshold.unsqueeze(0), sentinel.unsqueeze(0))
+        best_score, best_pixel = per_cell.max(dim=1)  # [num_cells]
+
+        points = torch.stack(
+            [
+                (best_pixel % map_w).to(dtype),
+                (best_pixel // map_w).to(dtype),
+                best_score.to(dtype),
+            ],
+            dim=1,
+        )  # [num_cells, 3]
+
+        points = points[torch.argsort(points[:, 2], descending=True)]
+        return points[points[:, 2] > self._SENTINEL / 10]
+
     def _get_foreground_points(self, similarity_map: torch.Tensor) -> torch.Tensor:
         """Select foreground points based on the similarity mask and grid-based filtering.
 
@@ -86,6 +146,9 @@ class GridPromptGenerator(nn.Module):
             Foreground points coordinates and scores with shape (N, 3) where each row is [x, y, score],
             in the input similarity map's coordinate space.
         """
+        if torch.onnx.is_in_onnx_export():
+            return self._get_foreground_points_export(similarity_map)
+
         map_w, map_h = similarity_map.shape
 
         point_coords = torch.where(similarity_map > self.point_selection_threshold)  # (x_indices, y_indices)
@@ -213,6 +276,16 @@ class GridPromptGenerator(nn.Module):
         Returns:
             Filtered foreground points [M, 4] where M <= num_foreground_points
         """
+        if torch.onnx.is_in_onnx_export():
+            # Comparing N against the budget would bake the trace-time point count
+            # into the graph. Padding with sentinel-scored rows makes topk safe for
+            # any N; the padding is then stripped by score.
+            k = self.num_foreground_points
+            padding = torch.full((k, 4), self._SENTINEL, device=foreground_points.device, dtype=foreground_points.dtype)
+            padded = torch.cat([foreground_points, padding], dim=0)
+            selected = padded[torch.topk(padded[:, 2], k).indices]
+            return selected[selected[:, 2] > self._SENTINEL / 10]
+
         if foreground_points.shape[0] <= self.num_foreground_points:
             return foreground_points
 
@@ -220,7 +293,13 @@ class GridPromptGenerator(nn.Module):
         return foreground_points[top_indices]
 
     def _pad_points(self, points: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        """Pad points tensor to max_points size.
+        """Pad or truncate points tensor to exactly max_points size.
+
+        Reading ``points.shape[0]`` into a Python int would bake the trace-time
+        point count into the exported graph, so instead always concatenate
+        ``max_points`` zero rows and slice. That covers both padding
+        (N < max_points) and truncation (N >= max_points) with no data-dependent
+        control flow.
 
         Args:
             points: Points tensor [N, 4]
@@ -230,12 +309,9 @@ class GridPromptGenerator(nn.Module):
         Returns:
             Padded points tensor [max_points, 4]
         """
-        num_points = points.shape[0]
-        if num_points >= self.max_points:
-            return points[: self.max_points]
-
-        padding = torch.zeros(self.max_points - num_points, 4, device=device, dtype=dtype)
-        return torch.cat([points, padding], dim=0)
+        full_padding = torch.zeros(self.max_points, 4, device=device, dtype=dtype)
+        combined = torch.cat([points, full_padding], dim=0)  # [N + max_points, 4]
+        return combined[: self.max_points]  # [max_points, 4]
 
     def _process_single_category(
         self,
@@ -256,9 +332,11 @@ class GridPromptGenerator(nn.Module):
 
         # Get foreground points
         foreground_points = self._get_foreground_points(similarity_map)
-        if foreground_points.numel() > 0:
+        # During export the trace-time similarity map decides which branch is baked
+        # into the graph, so force the general path: it already handles N == 0.
+        if torch.onnx.is_in_onnx_export() or foreground_points.numel() > 0:
             foreground_points = self._convert_points_to_original_size(foreground_points, map_shape, original_size)
-            foreground_labels = torch.ones((foreground_points.shape[0], 1), device=device)
+            foreground_labels = torch.ones_like(foreground_points[:, :1])
             foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
             foreground_points = self._filter_foreground_points(foreground_points)
         else:
@@ -266,9 +344,9 @@ class GridPromptGenerator(nn.Module):
 
         # Get background points
         background_points = self._get_background_points(similarity_map)
-        if background_points.numel() > 0:
+        if torch.onnx.is_in_onnx_export() or background_points.numel() > 0:
             background_points = self._convert_points_to_original_size(background_points, map_shape, original_size)
-            background_labels = -torch.ones((background_points.shape[0], 1), device=device)
+            background_labels = -torch.ones_like(background_points[:, :1])
             background_points = torch.cat([background_points, background_labels], dim=1)
         else:
             background_points = torch.empty(0, 4, device=device)

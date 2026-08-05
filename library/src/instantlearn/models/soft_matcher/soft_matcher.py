@@ -86,6 +86,7 @@ class SoftMatcher(Matcher):
         compile_models: bool = False,
         device: str = "cuda",
         postprocessor: PostProcessor | None = None,
+        num_export_instances: int = 8,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -107,6 +108,9 @@ class SoftMatcher(Matcher):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
+            num_export_instances: Maximum instances per category the **exported**
+                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
+                Only affects export; the PyTorch path is unbounded. Default: 8.
         """
         super().__init__(
             sam=sam,
@@ -118,6 +122,7 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             device=device,
             postprocessor=postprocessor,
+            num_export_instances=num_export_instances,
         )
         self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,
