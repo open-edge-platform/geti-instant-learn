@@ -56,10 +56,11 @@ ref_mask, _, _ = predictor.forward(
 # Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
 
-# Create reference sample with the generated mask
+# Create reference sample with the generated mask. Sample.masks is numpy,
+# so convert the SAM output.
 ref_sample = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
-    masks=ref_mask[0],
+    masks=ref_mask[0].cpu().numpy(),
 )
 
 # Fit on reference

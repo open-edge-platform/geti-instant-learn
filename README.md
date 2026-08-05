@@ -71,15 +71,15 @@ You provide a list of categories you want to segment in any image.
 
 ```python
 from instantlearn.models import SAM3
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
 # Initialize SAM3 (device: "xpu", "cuda", or "cpu")
 model = SAM3(device="xpu")
 
 # SAM3 is zero-shot — no fit() required. Just provide categories per sample.
 predictions = model.predict([
-    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=["elephant"]),
-    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=["elephant"]),
+    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
+    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
