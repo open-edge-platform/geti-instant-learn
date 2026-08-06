@@ -10,7 +10,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from instantlearn.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Sample
+from instantlearn.data.torch import Dataset
 
 
 class TestLVISDataset:
@@ -59,7 +60,7 @@ class TestLVISDataset:
         dataset.df = mock_lvis_dataframe
         return dataset
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_sample_creation(
         self,
         mock_read_image: MagicMock,
@@ -76,13 +77,13 @@ class TestLVISDataset:
         sample = mock_lvis_dataset[0]
         assert isinstance(sample, Sample)
         assert len(sample.categories) == 2  # Multi-instance
-        assert len(sample.category_ids) == 2
+        assert len(sample.label_ids) == 2
         assert len(sample.is_reference) == 2
         assert len(sample.n_shot) == 2
         assert sample.masks is not None
         assert sample.masks.shape[0] == 2  # Two masks for first image
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_batch_creation(
         self,
         mock_read_image: MagicMock,
@@ -101,7 +102,7 @@ class TestLVISDataset:
 
         # Test batch properties with multi-instance data
         assert len(batch.categories) == 3
-        assert len(batch.category_ids) == 3
+        assert len(batch.label_ids) == 3
         assert len(batch.is_reference) == 3
 
         # Check that multi-instance structure is preserved
@@ -128,7 +129,7 @@ class TestLVISDataset:
         car_df = mock_lvis_dataset.get_reference_samples_df(category="car")
         assert len(car_df) == 1  # Only one image has "car" reference
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_sample_metadata(
         self,
         mock_read_image: MagicMock,
@@ -141,12 +142,12 @@ class TestLVISDataset:
         sample = mock_lvis_dataset[0]
 
         # Test metadata fields
-        assert sample.categories == ["person", "car"]
-        assert sample.category_ids.tolist() == [0, 1]
+        assert sample.category_labels == ["person", "car"]
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, False]
         assert sample.n_shot == [0, -1]
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_batch_properties(
         self,
         mock_read_image: MagicMock,
@@ -161,12 +162,12 @@ class TestLVISDataset:
         batch = Batch.collate(samples)
 
         # Test batch properties
-        assert batch.categories == [["person", "car"], ["dog"], ["person", "bike", "car"]]
-        assert [ids.tolist() for ids in batch.category_ids] == [[0, 1], [2], [0, 3, 1]]
+        assert batch.category_labels == [["person", "car"], ["dog"], ["person", "bike", "car"]]
+        assert batch.label_ids == [[0, 1], [2], [0, 3, 1]]
         assert batch.is_reference == [[True, False], [True], [False, False, False]]
         assert batch.n_shot == [[0, -1], [0], [-1, -1, -1]]
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_data_consistency(
         self,
         mock_read_image: MagicMock,
@@ -181,17 +182,17 @@ class TestLVISDataset:
             sample = mock_lvis_dataset[i]
 
             # All metadata lists should have the same length
-            assert len(sample.categories) == len(sample.category_ids)
+            assert len(sample.categories) == len(sample.label_ids)
             assert len(sample.categories) == len(sample.is_reference)
             assert len(sample.categories) == len(sample.n_shot)
 
-            # All values should be lists (except category_ids which can be numpy arrays)
+            # All values should be lists
             assert isinstance(sample.categories, list)
-            assert hasattr(sample.category_ids, "tolist")  # numpy array or list
+            assert isinstance(sample.label_ids, list)
             assert isinstance(sample.is_reference, list)
             assert isinstance(sample.n_shot, list)
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_batch_tensor_conversion(
         self,
         mock_read_image: MagicMock,
@@ -205,15 +206,15 @@ class TestLVISDataset:
         samples = [mock_lvis_dataset[i] for i in range(len(mock_lvis_dataset))]
         batch = Batch.collate(samples)
 
-        # Test tensor conversion - check that category_ids are properly converted
-        assert len(batch.category_ids) == 3  # One per image
+        # Check that label ids are properly grouped per image
+        assert len(batch.label_ids) == 3  # One per image
 
-        # Each tensor should have the correct number of instances
-        assert len(batch.category_ids[0]) == 2  # First image has 2 instances
-        assert len(batch.category_ids[1]) == 1  # Second image has 1 instance
-        assert len(batch.category_ids[2]) == 3  # Third image has 3 instances
+        # Each group should have the correct number of instances
+        assert len(batch.label_ids[0]) == 2  # First image has 2 instances
+        assert len(batch.label_ids[1]) == 1  # Second image has 1 instance
+        assert len(batch.label_ids[2]) == 3  # Third image has 3 instances
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_lvis_sample_loading(
         self,
         mock_read_image: MagicMock,

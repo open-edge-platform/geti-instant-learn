@@ -53,7 +53,7 @@ coverage.xml
 cover/
 
 # Sphinx documentation
-library/docs/**/_build/
+library/**/_build/
 
 # Autosummary generated rst files
 library/docs/**/_autosummary/
@@ -155,6 +155,15 @@ library/**/_autosummary/
 # Benchmark & example outputs
 benchmark_results/
 outputs/
+library/examples/output/
+
+# Model export artifacts (regenerable, and OpenVINO IR pairs run to gigabytes)
+*.onnx
+*.bin
+*.xml
+!application/ui/src-tauri/msix/AppxManifest.xml
+**/openvino-*/
+**/sam3-openvino/
 
 # autodownloaded datasets
 library/datasets/

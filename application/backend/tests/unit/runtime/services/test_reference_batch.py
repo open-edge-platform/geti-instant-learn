@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 
 from domain.db.models import PromptType
 from domain.errors import ServiceError
@@ -106,9 +106,9 @@ class TestVisualPromptToSample:
 
         assert result is not None
         assert isinstance(result, Sample)
-        assert np.array_equal(result.image.permute(1, 2, 0).numpy(), sample_frame)
+        assert np.array_equal(result.image, sample_frame)
         assert len(result.categories) == 1
-        assert result.categories[0] == "car"
+        assert result.category_labels == ["car"]
 
     def test_with_multiple_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -154,8 +154,8 @@ class TestVisualPromptToSample:
         assert result is not None
         assert isinstance(result, Sample)
         assert len(result.categories) == 2
-        assert "car" in result.categories
-        assert "person" in result.categories
+        assert "car" in result.category_labels
+        assert "person" in result.category_labels
 
     def test_raises_error_for_text_prompt(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -214,7 +214,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.categories == ["car"]
+        assert result.category_labels == ["car"]
 
     def test_use_label_names_false_omits_categories(self, sample_frame: np.ndarray) -> None:
         """When label_id_to_name is None, categories default to ["object"]."""
@@ -229,7 +229,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.categories == ["object"]
+        assert result.category_labels == ["object"]
 
     def test_use_label_names_false_with_multiple_labels_omits_categories(self, sample_frame: np.ndarray) -> None:
         """Categories default to ["object"] when label_id_to_name is None, even with multiple labels."""
@@ -269,7 +269,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.categories == ["object", "object"]
+        assert result.category_labels == ["object", "object"]
 
 
 def _make_single_polygon_prompt(
@@ -333,8 +333,9 @@ class TestReferenceBatchServiceBuild:
         collated_samples = mock_collate.call_args[0][0]
         assert len(collated_samples) == 1
         sample = collated_samples[0]
-        assert sample.categories == ["cat", "dog"]
-        assert list(sample.category_ids) == [0, 1]
+        assert sample.categories == [Category(id=0, label="cat"), Category(id=1, label="dog")]
+        assert sample.category_labels == ["cat", "dog"]
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, True]
         assert sample.image is None
 

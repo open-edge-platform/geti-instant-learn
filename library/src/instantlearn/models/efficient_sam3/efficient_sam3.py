@@ -33,6 +33,7 @@ from instantlearn.models.sam3.processing import (
     Sam3PromptPreprocessor as EfficientSam3PromptPreprocessor,
 )
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import precision_to_torch_dtype
 
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
@@ -64,14 +65,14 @@ class EfficientSAM3(SAM3):
     Examples:
         >>> from instantlearn.models import EfficientSAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
-        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> from instantlearn.data.base import Batch
         >>> import torch
 
         >>> model = EfficientSAM3(backbone_type="efficientvit", variant="b2")
 
         >>> # Classic text prompting
-        >>> ref = Sample(categories=["cat", "dog"], category_ids=[0, 1])
+        >>> ref = Sample(categories=[Category(0, "cat"), Category(1, "dog")])
         >>> model.fit(ref)
         >>> results = model.predict(Sample(image=torch.zeros(3, 640, 480)))
 
@@ -84,8 +85,7 @@ class EfficientSAM3(SAM3):
         >>> ref = Sample(
         ...     image=torch.zeros(3, 640, 480),
         ...     bboxes=[[100, 100, 200, 200]],
-        ...     category_ids=[0],
-        ...     categories=["cat"],
+        ...     categories=[Category(0, "cat")],
         ... )
         >>> model_ve.fit(ref)
         >>> results = model_ve.predict(Sample(image=torch.zeros(3, 640, 480)))
@@ -161,7 +161,7 @@ class EfficientSAM3(SAM3):
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
 
-        self.category_mapping: dict[str, int] | None = None
+        self.categories: CategoryRegistry = CategoryRegistry()
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None

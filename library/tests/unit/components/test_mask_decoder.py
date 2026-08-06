@@ -20,6 +20,7 @@ class TestSamDecoderValidation:
         """Create a mock SAM predictor."""
         predictor = MagicMock()
         predictor.device = torch.device("cpu")
+        predictor.dtype = torch.float32
 
         # Mock model with image encoder
         mock_model = MagicMock()
@@ -204,6 +205,7 @@ class TestSamDecoderEmptyTensorHandling:
         """Create a mock SAM predictor."""
         predictor = MagicMock()
         predictor.device = torch.device("cpu")
+        predictor.dtype = torch.float32
 
         mock_model = MagicMock()
         mock_model.image_encoder.img_size = 1024

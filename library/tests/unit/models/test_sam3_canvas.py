@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 import torch
 
-from instantlearn.models.sam3.sam3 import CanvasConfig, SAM3
+from instantlearn.models.sam3.canvas_helpers import category_registry_from_canvas_references
+from instantlearn.models.sam3.sam3 import SAM3, CanvasConfig
 
 
 class TestCanvasConfigDefaults:
@@ -64,6 +65,32 @@ class TestEfficientSam3CanvasGuard:
 
         with pytest.raises(ValueError, match="Canvas mode is not supported"):
             EfficientSAM3(prompt_mode="canvas")
+
+
+class TestCanvasCategoryRegistry:
+    """Canvas category metadata."""
+
+    def test_visual_only_multi_category_labels_are_unique(self) -> None:
+        """Visual-only canvas categories use unique metadata labels."""
+        refs_by_category = {
+            0: {"images": [], "bboxes": [], "text": "visual"},
+            1: {"images": [], "bboxes": [], "text": "visual"},
+        }
+
+        registry = category_registry_from_canvas_references(refs_by_category)
+
+        assert registry.id_to_name == {0: "visual_0", 1: "visual_1"}
+
+    def test_text_category_labels_are_preserved(self) -> None:
+        """Text canvas category labels are kept as provided."""
+        refs_by_category = {
+            0: {"images": [], "bboxes": [], "text": "SUV"},
+            1: {"images": [], "bboxes": [], "text": "Motorcycle"},
+        }
+
+        registry = category_registry_from_canvas_references(refs_by_category)
+
+        assert registry.id_to_name == {0: "SUV", 1: "Motorcycle"}
 
 
 class TestBuildCanvasVerticalGeometry:

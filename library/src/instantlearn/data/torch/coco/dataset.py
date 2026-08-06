@@ -17,8 +17,8 @@ import torch
 from pycocotools import mask as mask_utils
 from pycocotools.coco import COCO
 
-from instantlearn.data.base import Dataset
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.torch.base import Dataset
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 
 
 class COCODataset(Dataset):

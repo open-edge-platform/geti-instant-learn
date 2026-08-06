@@ -13,7 +13,6 @@ def use_timm_for_dinov3_models(monkeypatch: pytest.MonkeyPatch) -> None:
     Production constructors still default to Hugging Face. This fixture keeps
     the temporary integration-test workaround local to this test package.
     """
-
     original_load_image_encoder = encoder_base.load_image_encoder
 
     def _load_image_encoder(*args: object, **kwargs: object):

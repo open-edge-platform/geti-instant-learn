@@ -11,16 +11,15 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data.base import Batch
-from instantlearn.data.base.sample import Sample
-from instantlearn.data.folder import FolderDataset
+from instantlearn.data.base.sample import Category, Sample
+from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
-from instantlearn.models.sam3 import SAM3, SAM3_APPLICATION_MODEL_ID
+from instantlearn.models.sam3 import SAM3
 from instantlearn.models.sam3.sam3 import Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 from instantlearn.utils.benchmark import convert_masks_to_one_hot_tensor
@@ -166,10 +165,11 @@ class TestModelIntegration:
         assert predictions is not None
         assert len(predictions) == len(target_batch)
 
-        # Check that masks have correct shape
+        # Check that masks have correct shape.
+        # predictions is list[Prediction]; images are HWC numpy (shape H, W, C).
         for prediction, image in zip(predictions, target_batch.images, strict=False):
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
+            assert isinstance(prediction.masks, np.ndarray)
+            assert prediction.masks.shape[-2:] == image.shape[:2]
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", N_SHOT_SUPPORTED_MODELS)
@@ -240,12 +240,12 @@ class TestModelIntegration:
             # Both should produce valid results
             assert isinstance(predictions_1shot, list)
             assert isinstance(predictions_2shot, list)
-            assert len(predictions_1shot[0]["pred_masks"]) > 0
-            assert len(predictions_2shot[0]["pred_masks"]) > 0
+            assert len(predictions_1shot[0].masks) > 0
+            assert len(predictions_2shot[0].masks) > 0
         else:
             # If not enough samples, just verify 1-shot works
             assert isinstance(predictions_1shot, list)
-            assert len(predictions_1shot[0]["pred_masks"]) > 0
+            assert len(predictions_1shot[0].masks) > 0
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     def test_grounded_sam_no_n_shots(
@@ -271,10 +271,10 @@ class TestModelIntegration:
 
         model = GroundedSAM(sam=sam_model, device="cpu", precision="fp32")
 
-        # GroundedSAM's fit() only creates category mapping
+        # GroundedSAM's fit() only creates the category registry
         model.fit(reference_batch)
-        assert hasattr(model, "category_mapping")
-        assert isinstance(model.category_mapping, dict)
+        assert hasattr(model, "categories")
+        assert isinstance(model.categories.name_to_id, dict)
 
         # predict should work with just category mapping
         predictions = model.predict(target_batch)
@@ -406,6 +406,7 @@ class TestModelIntegration:
             assert iou_value >= -1
 
 
+@pytest.mark.xfail(raises=OSError, reason="HF gated repo, no credentials in CI", strict=False)
 class TestSAM3Integration:
     """Integration tests for SAM3 model in classic and visual exemplar modes.
 
@@ -420,7 +421,7 @@ class TestSAM3Integration:
         Args:
             prompt_mode: The SAM3 prompt mode to test.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
 
         assert model is not None
         assert model.prompt_mode == prompt_mode
@@ -446,19 +447,18 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             # Visual exemplar needs bboxes on reference images
             ref_samples = []
             for sample in reference_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -472,8 +472,8 @@ class TestSAM3Integration:
         assert isinstance(predictions, list)
         assert len(predictions) == len(target_batch)
         for prediction, image in zip(predictions, target_batch.images, strict=False):
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
+            assert isinstance(prediction.masks, np.ndarray)
+            assert prediction.masks.shape[-2:] == image.shape[:2]
 
     @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
     def test_sam3_input_validation(
@@ -489,18 +489,17 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
             for sample in reference_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)
@@ -528,13 +527,11 @@ class TestSAM3Integration:
             device="cpu",
             precision="fp32",
             prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
-            model_id=SAM3_APPLICATION_MODEL_ID,
         )
 
         ref_sample = Sample(
-            image=torch.zeros((3, 256, 256)),
-            categories=["object"],
-            category_ids=[0],
+            image=np.zeros((256, 256, 3), dtype=np.uint8),
+            categories=[Category(id=0, label="object")],
         )
 
         with pytest.raises(ValueError, match="bboxes or points"):
@@ -552,7 +549,7 @@ class TestSAM3Integration:
             prompt_mode: The SAM3 prompt mode to test.
             dataset: The dataset to use for testing.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id=SAM3_APPLICATION_MODEL_ID)
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
 
         categories = dataset.categories
         if not categories:
@@ -564,13 +561,12 @@ class TestSAM3Integration:
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
             for sample in ref_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
-                        categories=sample.categories[:1],
-                        category_ids=np.array([sample.category_ids[0]]),
+                        categories=[Category(id=int(sample.label_ids[0]), label=sample.category_labels[0])],
                     ),
                 )
             ref_input = Batch.collate(ref_samples)

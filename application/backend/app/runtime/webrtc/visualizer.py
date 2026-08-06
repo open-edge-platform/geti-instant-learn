@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
 import cv2
@@ -14,6 +14,9 @@ from domain.services.schemas.label import RGBColor, VisualizationInfo, Visualiza
 from domain.services.schemas.processor import OutputData
 from settings import get_settings
 
+if TYPE_CHECKING:
+    from instantlearn.data.base.prediction import Prediction
+
 logger = logging.getLogger(__name__)
 
 _FALLBACK_ID = UUID(int=0)
@@ -22,6 +25,9 @@ DEFAULT_FALLBACK_COLOR: tuple[int, int, int] = (128, 128, 128)
 _REFERENCE_AREA: int = 1920 * 1080
 _MIN_SCALE: float = 0.6
 _MAX_SCALE: float = 2.0
+
+# Soft masks are probabilities; anything above this counts as foreground.
+_MASK_THRESHOLD: float = 0.5
 
 
 class ResolutionScaler:
@@ -57,10 +63,16 @@ class CategoryResolver:
             if visualization_info.text_categories is not None:
                 self._text_categories = visualization_info.text_categories
 
-    def resolve(self, category_id: int | None) -> VisualizationLabel:
-        """Return visualization label for a predicted category."""
+    def resolve(self, category_id: int | None, label_name: str | None = None) -> VisualizationLabel:
+        """Return visualization label for a predicted category.
+
+        Args:
+            category_id: Predicted integer category id, or ``None`` when unknown.
+            label_name: Category name reported by the model, used as the caption
+                fallback for text prompts that have no label mapping.
+        """
         if category_id is None:
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR))
+            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*DEFAULT_FALLBACK_COLOR), object_name=label_name)
 
         # Check text category mapping first (text prompt mode)
         text_name = self._text_categories.get(category_id)
@@ -74,12 +86,20 @@ class CategoryResolver:
         label_id = self._category_id_to_label_id.get(category_id)
         if label_id is None:
             logger.warning("No label mapping found for category_id=%d", category_id)
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
+            return VisualizationLabel(
+                id=_FALLBACK_ID,
+                color=RGBColor(*generate_deterministic_color(category_id)),
+                object_name=label_name,
+            )
 
         info = self._label_id_to_vis.get(label_id)
         if info is None:
             logger.warning("No color found for label_id=%s (category_id=%d)", label_id, category_id)
-            return VisualizationLabel(id=_FALLBACK_ID, color=RGBColor(*generate_deterministic_color(category_id)))
+            return VisualizationLabel(
+                id=_FALLBACK_ID,
+                color=RGBColor(*generate_deterministic_color(category_id)),
+                object_name=label_name,
+            )
 
         logger.debug("Category %d -> label %s -> color %s", category_id, label_id, info.color)
         return info
@@ -91,16 +111,19 @@ class CategoryResolver:
             return None
         return int(labels[index])
 
+    @staticmethod
+    def extract_label_name(prediction: Prediction, index: int) -> str | None:
+        """Return the model-reported category name at *index*, when available."""
+        names = prediction.label_names
+        if names is None or index >= len(names):
+            return None
+        return str(names[index])
+
 
 class OverlayRenderer(Protocol):
     """Strategy interface for rendering a specific overlay type onto a frame."""
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray: ...
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray: ...
 
 
 class MaskRenderer:
@@ -114,26 +137,21 @@ class MaskRenderer:
         self._resolver = resolver
         self._scaler = scaler
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray:
-        masks = prediction.get("pred_masks")
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray:
+        masks = prediction.masks
         if masks is None or masks.size == 0:
             return frame
 
-        labels_np = labels if labels is not None and labels.size > 0 else None
+        labels = prediction.label_ids if prediction.label_ids is not None and prediction.label_ids.size > 0 else None
         overlay = frame.copy()
         scale = self._scaler.factor(frame)
 
         for mask_idx, mask in enumerate(masks):
-            category_id = self._resolver.extract_category_id(labels_np, mask_idx)
-            info = self._resolver.resolve(category_id)
+            category_id = self._resolver.extract_category_id(labels, mask_idx)
+            info = self._resolver.resolve(category_id, self._resolver.extract_label_name(prediction, mask_idx))
             color = info.color.to_tuple()
 
-            mask_bool = mask > 0.5
+            mask_bool = mask > _MASK_THRESHOLD
             overlay = self._apply_overlay(overlay, mask_bool, color)
             overlay = self._draw_contours(overlay, mask_bool, color, scale)
 
@@ -169,7 +187,11 @@ def _font_scale_for_pixel_height(target_height_px: float) -> float:
 
 
 class BoxRenderer:
-    """Render bounding boxes with optional label captions onto a frame."""
+    """Render bounding boxes with optional label captions onto a frame.
+
+    Boxes reported by the model are used as-is.
+    When a model emits masks only, the boxes are derived from those masks.
+    """
 
     def __init__(
         self,
@@ -185,22 +207,20 @@ class BoxRenderer:
         self._resolver = resolver
         self._scaler = scaler
 
-    def draw(
-        self,
-        frame: np.ndarray,
-        prediction: dict[str, np.ndarray],
-        labels: np.ndarray | None,
-    ) -> np.ndarray:
-        boxes = prediction.get("pred_boxes")
+    def draw(self, frame: np.ndarray, prediction: Prediction) -> np.ndarray:
+        boxes = prediction.boxes
         if boxes is None or boxes.size == 0:
+            boxes = masks_to_boxes(prediction.masks)
+        if boxes.size == 0:
             return frame
 
-        labels_np = labels if labels is not None and labels.size > 0 else None
+        labels = prediction.label_ids if prediction.label_ids is not None and prediction.label_ids.size > 0 else None
+        scores = prediction.scores
         scale = self._scaler.factor(frame)
 
         for box_idx, box in enumerate(boxes):
-            category_id = self._resolver.extract_category_id(labels_np, box_idx)
-            info = self._resolver.resolve(category_id)
+            category_id = self._resolver.extract_category_id(labels, box_idx)
+            info = self._resolver.resolve(category_id, self._resolver.extract_label_name(prediction, box_idx))
             color = info.color.to_tuple()
 
             x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
@@ -208,7 +228,7 @@ class BoxRenderer:
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, box_thick)
 
             if self._visualize_labels:
-                score = float(box[4]) if len(box) > 4 else None
+                score = float(scores[box_idx]) if scores is not None and box_idx < len(scores) else None
                 self._draw_caption(frame, x1, y1, info.object_name, score, color, scale)
 
         return frame
@@ -306,9 +326,8 @@ class InferenceVisualizer:
 
         logger.debug("Visualizing %d predictions", len(output_data.results))
         for prediction in output_data.results:
-            labels = prediction.get("pred_labels")
             for renderer in renderers:
-                annotated = renderer.draw(annotated, prediction, labels)
+                annotated = renderer.draw(annotated, prediction)
 
         return annotated
 
@@ -319,3 +338,30 @@ def generate_deterministic_color(index: int) -> tuple[int, int, int]:
     hsv_color = np.array([[[hue, 255, 255]]], dtype=np.uint8)
     rgb_color = cv2.cvtColor(hsv_color, cv2.COLOR_HSV2RGB)[0, 0]
     return int(rgb_color[0]), int(rgb_color[1]), int(rgb_color[2])
+
+
+def masks_to_boxes(masks: np.ndarray | None) -> np.ndarray:
+    """Derive one tight bounding box per instance mask.
+
+    Used only for visualization, when a model reports masks but no boxes.
+
+    Args:
+        masks: Instance masks of shape ``(N, H, W)``, boolean or float
+            probabilities. ``None`` and empty arrays are accepted.
+
+    Returns:
+        Boxes of shape ``(N, 4)`` float32 in ``xyxy`` format with exclusive
+        lower-right corners, matching the mask pixel extent. An all-background
+        mask yields an all-zero box so that box indices stay aligned with mask,
+        score, and label indices.
+    """
+    if masks is None or masks.size == 0:
+        return np.zeros((0, 4), dtype=np.float32)
+
+    boxes = np.zeros((len(masks), 4), dtype=np.float32)
+    for idx, mask in enumerate(masks):
+        rows, cols = np.nonzero(mask > _MASK_THRESHOLD)
+        if cols.size == 0:
+            continue  # keep the zero box: dropping it would misalign the indices
+        boxes[idx] = (cols.min(), rows.min(), cols.max() + 1, rows.max() + 1)
+    return boxes

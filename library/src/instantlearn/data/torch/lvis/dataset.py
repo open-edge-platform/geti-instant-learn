@@ -17,7 +17,7 @@ import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
 
-from instantlearn.data.base import Dataset
+from instantlearn.data.torch.base import Dataset
 
 
 class LVISAnnotationMode(str, Enum):

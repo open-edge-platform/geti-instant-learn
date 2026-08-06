@@ -11,8 +11,8 @@ from pathlib import Path
 import polars as pl
 import torch
 
-from instantlearn.data.base import Batch
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.base import Batch, Prediction
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
@@ -118,8 +118,34 @@ def _save_results(all_results: list[pl.DataFrame], output_path: Path) -> None:
     logger.info(msg)
 
 
+def prediction_to_tensors(prediction: Prediction, device: str = "cpu") -> dict[str, torch.Tensor]:
+    """Convert a numpy ``Prediction`` to torch tensors for metric computation.
+
+    Use it where torchmetrics or other torch consumers need
+    tensor inputs.
+
+    Args:
+        prediction: The numpy prediction to convert.
+        device: Target device string, e.g. ``"cpu"`` or ``"cuda"``.
+
+    Returns:
+        A dict with keys ``"masks"``, ``"scores"``, ``"label_ids"``, and
+        optionally ``"boxes"`` and ``"points"``.
+    """
+    out: dict[str, torch.Tensor] = {
+        "masks": torch.from_numpy(prediction.masks).to(device),
+        "scores": torch.from_numpy(prediction.scores).to(device),
+        "label_ids": torch.from_numpy(prediction.label_ids).to(device),
+    }
+    if prediction.boxes is not None:
+        out["boxes"] = torch.from_numpy(prediction.boxes).to(device)
+    if prediction.points is not None:
+        out["points"] = torch.from_numpy(prediction.points).to(device)
+    return out
+
+
 def convert_masks_to_one_hot_tensor(
-    predictions: list[dict[str, torch.Tensor | None]],
+    predictions: list[dict[str, torch.Tensor | None]] | list[Prediction],
     ground_truths: Batch,
     num_classes: int,
     category_id_to_index: dict[int, int],
@@ -152,21 +178,30 @@ def convert_masks_to_one_hot_tensor(
         gt_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
 
         # Process ground truth masks
-        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.category_ids, strict=True):
+        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.label_ids, strict=True):
             if cat_id in category_id_to_index:
                 class_idx = category_id_to_index[cat_id]
-                # Apply logical OR to handle multiple instances of same class
-                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)  # noqa: PLR6104
+                # Apply logical OR to handle multiple instances of same class.
+                # gt_mask may be a numpy array (from the backend-neutral Sample),
+                # so convert to a boolean tensor first before moving to device.
+                gt_mask_t = torch.as_tensor(gt_mask).to(device=device, dtype=torch.bool)
+                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask_t  # noqa: PLR6104
 
         # Process prediction masks
-        pred_masks = prediction["pred_masks"]
-        pred_labels = prediction["pred_labels"]
+        # Temporary dict/Prediction shim: TODO remove the dict branch once every model returns Prediction.
+        if isinstance(prediction, dict):
+            pred_masks = prediction["pred_masks"]
+            pred_labels = prediction["pred_labels"]
+        else:
+            pred_masks = torch.as_tensor(prediction.masks)
+            pred_labels = torch.as_tensor(prediction.label_ids)
         for pred_mask, pred_label in zip(pred_masks, pred_labels, strict=True):
             pred_label_id = pred_label.item()
             if pred_label_id in category_id_to_index:
                 class_idx = category_id_to_index[pred_label_id]
                 # Apply logical OR to handle multiple instances of same class
-                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask.to(device)  # noqa: PLR6104
+                pred_mask_t = pred_mask.to(device=device, dtype=torch.bool)
+                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask_t  # noqa: PLR6104
 
         batch_pred_tensors.append(pred_tensor.unsqueeze(0))
         batch_gt_tensors.append(gt_tensor.unsqueeze(0))
