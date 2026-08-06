@@ -175,6 +175,7 @@ class Batch:
 
         Args:
             samples: Input to collate. Accepted types:
+
                 - ``Sample``: wrapped in a single-element batch.
                 - ``list[Sample]``: used directly.
                 - ``Batch``: returned unchanged.

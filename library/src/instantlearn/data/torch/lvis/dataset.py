@@ -12,8 +12,8 @@ from collections.abc import Sequence
 from enum import Enum
 from pathlib import Path
 
+import numpy as np
 import polars as pl
-import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
 
@@ -98,7 +98,7 @@ class LVISDataset(Dataset):
         self.df = self._load_dataframe()
 
     @staticmethod
-    def _decode_single(segmentation: list, h: int, w: int) -> torch.Tensor:
+    def _decode_single(segmentation: list, h: int, w: int) -> np.ndarray:
         if isinstance(segmentation, dict):  # RLE format
             mask = mask_utils.decode(segmentation)  # (H, W)
         elif isinstance(segmentation, list):  # Polygon format
@@ -110,12 +110,10 @@ class LVISDataset(Dataset):
             raise TypeError(msg)
 
         # Handle potential 3D masks from polygon conversion
-        mask = torch.from_numpy(mask)
-        if mask.ndim > 2:
-            mask = torch.max(mask, dim=-1).values
-        return mask.bool()
+        mask = mask.max(axis=-1) if mask.ndim > 2 else mask
+        return mask.astype(bool)
 
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
         """Decode and merge masks from COCO RLE format into semantic masks.
 
         Since the DataFrame is exploded (one row per image-category combination),
@@ -125,8 +123,8 @@ class LVISDataset(Dataset):
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            torch.Tensor with shape (1, H, W) where 1 represents the single category
-            in this row, and dtype torch.bool, or None if no segmentations are available.
+            Numpy array with shape (1, H, W) where 1 represents the single category
+            in this row, and dtype bool, or None if no segmentations are available.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:
@@ -137,14 +135,14 @@ class LVISDataset(Dataset):
 
         if self.annotation_mode == LVISAnnotationMode.SEMANTIC:
             # Merge all instance masks into one semantic mask per category
-            category_mask = torch.zeros((h, w), dtype=torch.bool)
+            category_mask = np.zeros((h, w), dtype=bool)
             for segmentation in segmentations:
                 mask = self._decode_single(segmentation, h, w)
                 category_mask = category_mask | mask  # noqa: PLR6104
-            return category_mask.unsqueeze(0)  # (1, H, W)
+            return category_mask[None, ...]  # (1, H, W)
 
         # INSTANCE mode: keep individual masks
-        category_masks = torch.zeros((len(segmentations), h, w), dtype=torch.bool)
+        category_masks = np.zeros((len(segmentations), h, w), dtype=bool)
         for idx, segmentation in enumerate(segmentations):
             category_masks[idx] = self._decode_single(segmentation, h, w)
         return category_masks  # (num_instances, H, W)
@@ -193,7 +191,11 @@ def make_lvis_dataframe(
     if categories is not None:
         all_cats = lvis_api.load_cats(lvis_api.get_cat_ids())
         category_name_to_id = {cat["name"]: cat["id"] for cat in all_cats}
-        valid_category_ids = [category_name_to_id[cat] for cat in categories if cat in category_name_to_id]
+        missing = sorted(set(categories) - set(category_name_to_id))
+        if missing:
+            msg = f"Requested categories not found in LVIS annotations: {missing}"
+            raise ValueError(msg)
+        valid_category_ids = [category_name_to_id[cat] for cat in categories]
     else:
         valid_category_ids = None
 

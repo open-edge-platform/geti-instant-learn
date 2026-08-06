@@ -155,7 +155,7 @@ class DinoTextEncoder(nn.Module):
             The text embedding tensor with shape (embedding_dim, num_classes).
 
         Examples:
-            >>> from instantlearn.models.foundation.dinotxt import DinoTextEncoder
+            >>> from instantlearn.models.dinotxt import DinoTextEncoder
             >>> encoder = DinoTextEncoder(device="cpu")
             >>> category_mapping = {0: "cat", 1: "dog"}
             >>> text_embedding = encoder.encode_text(category_mapping)

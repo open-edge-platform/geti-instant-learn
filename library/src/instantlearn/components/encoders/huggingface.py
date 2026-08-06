@@ -44,7 +44,7 @@ class HuggingFaceImageEncoder(nn.Module):
         >>> encoder = HuggingFaceImageEncoder(model_id="dinov2_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
-        torch.Size([1369, 1024])
+        torch.Size([1, 1369, 1024])
     """
 
     def __init__(

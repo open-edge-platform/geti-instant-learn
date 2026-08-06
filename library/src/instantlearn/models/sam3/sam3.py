@@ -42,6 +42,7 @@ from .canvas_helpers import (
     extract_target_predictions,
     group_references_by_category,
     merge_cross_category,
+    reference_bboxes,
 )
 from .constants import (
     GEOMETRY_ENCODER,
@@ -86,6 +87,9 @@ class SAM3(TorchModel):
     directly during inference using:
     - Text prompts (category names) provided via ``fit()`` or per-sample ``categories``, OR
     - Visual prompts (bounding boxes) provided in the ``bboxes`` field of each sample
+
+    Masks are also accepted as visual prompts: when a sample carries ``masks``
+    but no ``bboxes``, each mask's tight bounding box is used as the box prompt.
 
     At least one of these prompt types must be provided for each sample during inference.
 
@@ -910,15 +914,15 @@ class SAM3(TorchModel):
             region.
 
         Args:
-            reference_batch: Batch of reference samples with images and bboxes/points.
+            reference_batch: Batch of reference samples with images and bboxes/masks/points.
 
         Raises:
-            ValueError: If no reference samples contain bboxes or points.
+            ValueError: If no reference samples contain bboxes, masks or points.
         """
         encoded_by_category, category_text_map = self._encode_batch_prompts(reference_batch)
 
         if not encoded_by_category:
-            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes, masks or points."
             raise ValueError(msg)
 
         geometry_features, geometry_masks, category_ids, text_prompts = self._aggregate_category_features(
@@ -980,14 +984,14 @@ class SAM3(TorchModel):
         """Encode one sample's box/point prompts into per-category geometry features.
 
         Args:
-            sample: Reference sample with image and bboxes/points.
+            sample: Reference sample with image and bboxes/masks/points.
             encoded_by_category: Accumulator mapping cat_id to encoded features.
             category_text_map: Accumulator mapping cat_id to text name.
 
         Raises:
             ValueError: If the sample has prompts but no image.
         """
-        bboxes = sample.bboxes
+        bboxes = reference_bboxes(sample)
         points = sample.points
         has_bboxes = self._has_values(bboxes)
         has_points = self._has_values(points)
