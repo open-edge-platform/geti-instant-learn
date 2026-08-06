@@ -52,7 +52,7 @@ ARG SAMPLE_DATASET_DIR="/instant_learn/defaults/templates/datasets"
 ENV SAMPLE_DATASET_DIR=${SAMPLE_DATASET_DIR}
 ENV PATH="/instant_learn/app/backend/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
-ENV IR_CACHE_DIR=/instant_learn/data/ir-cache
+ENV IR_CACHE_DIR=${DB_DATA_DIR}/ir-cache
 
 ARG UID=10001
 ENV UID=${UID}
