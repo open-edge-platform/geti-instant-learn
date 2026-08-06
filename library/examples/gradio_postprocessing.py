@@ -83,6 +83,10 @@ state = AppState()
 
 def resolve_device(preference: str) -> str:
     """Pick a runtime device, falling back to CPU when the choice is unavailable."""
+    if preference == "cuda" and not torch.cuda.is_available():
+        return "cpu"
+    if preference == "xpu" and not (hasattr(torch, "xpu") and torch.xpu.is_available()):
+        return "cpu"
     if preference != "auto":
         return preference
     if torch.cuda.is_available():

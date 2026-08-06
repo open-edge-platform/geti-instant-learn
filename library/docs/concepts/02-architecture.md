@@ -51,8 +51,9 @@ def card(cls) -> ModelCard:
 `card()` describes what the model *can do*; `backend` reports what it is
 *currently running on*. Keeping those separate is why a card can be shared
 between siblings while `backend` still differs. Importing the constant rather
-than delegating to the torch class also means the OpenVINO sibling never needs
-to import torch.
+than delegating to the torch class also avoids a hard import-time dependency
+on the torch model — though `SAM3OpenVINO` still uses torch itself for
+pre/post-processing.
 
 Producing the OpenVINO sibling's input is a one-off, local step:
 
@@ -61,8 +62,8 @@ SAM3(device="cpu").to_openvino(export_path="./sam3-openvino")
 ```
 
 Some models bake the reference into the exported graph, so they require `fit()`
-before `to_openvino()`. `Matcher` and `PerDino` work this way — their exported
-IR has the reference features frozen in as constants.
+before `to_openvino()`. `Matcher`, `SoftMatcher` and `PerDino` work this way —
+their exported IR has the reference features frozen in as constants.
 
 ## ModelCard
 

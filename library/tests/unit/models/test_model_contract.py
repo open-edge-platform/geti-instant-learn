@@ -30,7 +30,7 @@ from instantlearn.models import (
 )
 from instantlearn.models.torch_adapter import samples_to_tensors
 
-_IMAGE_PATH = "examples/assets/coco/000000286874.jpg"
+_IMAGE_PATH = Path(__file__).parents[3] / "examples" / "assets" / "coco" / "000000286874.jpg"
 
 # Every model that ships a card, paired with the family it should report.
 _MODELS_AND_FAMILIES = [
@@ -113,18 +113,18 @@ class TestSamplesToTensorsAcceptsCollatable:
 
     def test_accepts_image_path_string(self) -> None:
         """A path string is loaded rather than iterated character by character."""
-        tensor_samples = samples_to_tensors(_IMAGE_PATH)
+        tensor_samples = samples_to_tensors(str(_IMAGE_PATH))
 
         assert len(tensor_samples) == 1
         assert tensor_samples[0].image is not None
 
     def test_accepts_path_object(self) -> None:
         """``pathlib.Path`` works the same as a string path."""
-        assert len(samples_to_tensors(Path(_IMAGE_PATH))) == 1
+        assert len(samples_to_tensors(_IMAGE_PATH)) == 1
 
     def test_accepts_list_of_paths(self) -> None:
         """Each path in a list becomes its own sample."""
-        tensor_samples = samples_to_tensors([_IMAGE_PATH, _IMAGE_PATH])
+        tensor_samples = samples_to_tensors([str(_IMAGE_PATH), str(_IMAGE_PATH)])
 
         assert len(tensor_samples) == 2
         assert all(sample.image is not None for sample in tensor_samples)
