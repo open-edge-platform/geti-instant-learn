@@ -98,7 +98,12 @@ describe('InferenceDevice', () => {
     it('issues a PATCH with the selected key', async () => {
         mockDevices([
             {
-                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+                type: 'cpu',
+                name: 'Some CPU',
+                memory: null,
+                index: null,
+                key: 'cpu',
+                runtime_ids: { torch: 'cpu' },
             },
             {
                 type: 'gpu',
@@ -138,7 +143,12 @@ describe('InferenceDevice', () => {
     it('flags the model as loading after a device change so the blocking dialog can appear', async () => {
         mockDevices([
             {
-                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+                type: 'cpu',
+                name: 'Some CPU',
+                memory: null,
+                index: null,
+                key: 'cpu',
+                runtime_ids: { torch: 'cpu' },
             },
             {
                 type: 'gpu',
@@ -189,7 +199,12 @@ describe('InferenceDevice', () => {
 
         mockDevices([
             {
-                type: 'cpu', name: 'Some CPU', memory: null, index: null, key: 'cpu', runtime_ids: { torch: 'cpu' },
+                type: 'cpu',
+                name: 'Some CPU',
+                memory: null,
+                index: null,
+                key: 'cpu',
+                runtime_ids: { torch: 'cpu' },
             },
             {
                 type: 'gpu',

@@ -148,9 +148,7 @@ class DeviceService:
                     )
 
         fallback_used = invalid_preference or kind != "auto"
-        candidates = [
-            device for device in self._ordered_devices() if preferred is None or device != preferred
-        ]
+        candidates = [device for device in self._ordered_devices() if preferred is None or device != preferred]
         for runtime in allowed_runtimes:
             for device in candidates:
                 runtime_id = device.runtime_id(runtime)

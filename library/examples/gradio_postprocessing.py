@@ -177,10 +177,13 @@ def _resolve_device(preference: str = "auto") -> DeviceInfo | None:
     if preference == "auto":
         return None
     return next(
-        device
-        for device in enumerate_system_devices()
-        if (runtime_id := device.runtime_id(Backend.TORCH))
-        and (runtime_id == preference or runtime_id.startswith(f"{preference}:"))
+        (
+            device
+            for device in enumerate_system_devices()
+            if (runtime_id := device.runtime_id(Backend.TORCH))
+            and (runtime_id == preference or runtime_id.startswith(f"{preference}:"))
+        ),
+        None,
     )
 
 

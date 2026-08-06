@@ -381,6 +381,7 @@ class ModelFactory:
             del exporter
             empty_accelerator_cache()
 
+
 def _model_card(config: ModelConfig) -> ModelCard | None:
     """Return the capability descriptor for a supported model config."""
     match config:
@@ -394,6 +395,7 @@ def _model_card(config: ModelConfig) -> ModelCard | None:
             return SAM3.card()
         case _:
             return None
+
 
 def _slugify(value: str) -> str:
     """Return a filesystem-safe version of *value*."""
