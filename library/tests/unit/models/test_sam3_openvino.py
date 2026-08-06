@@ -3,6 +3,7 @@
 
 """Unit tests for the SAM3OpenVINO public model contract."""
 
+import ast
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -10,10 +11,11 @@ import numpy as np
 import pytest
 import torch
 
+from instantlearn.components.postprocessing import default_postprocessor
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.openvino_base import OpenVINOModel
-from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode
+from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode, sam3_openvino
 from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import Backend
 from tests import CPU_DEVICE
@@ -88,6 +90,7 @@ class TestSAM3OpenVINOPredict:
         model = object.__new__(SAM3OpenVINO)
         model.prompt_mode = prompt_mode
         model.categories = CategoryRegistry.from_metadata({0: "shoe"})
+        model.output_postprocessor = default_postprocessor()
 
         raw_prediction = {
             "pred_masks": torch.ones(1, 4, 4, dtype=torch.uint8),
@@ -113,3 +116,31 @@ class TestSAM3OpenVINOPredict:
         np.testing.assert_array_equal(prediction.label_names, np.array(["shoe"], dtype=object))
         tensor_samples = mock_predict.call_args.args[0]
         assert tensor_samples[0].image.shape == (3, 4, 4)
+
+
+def test_openvino_backend_does_not_depend_on_the_torch_model_module() -> None:
+    """The OpenVINO backend must not import the torch SAM3 model definition.
+
+    Loading a pre-exported IR should never require the torch model definition
+    that produced it. This pins the module-level decoupling: everything
+    ``sam3_openvino`` needs from the SAM3 model lives in dependency-free
+    modules (``constants``, ``_card``).
+    """
+    source = Path(sam3_openvino.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    imported_from_torch_model_module = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[-1] == "sam3"
+    ]
+
+    assert not imported_from_torch_model_module, (
+        "sam3_openvino must not import from the torch-backed sam3 module; "
+        "move any shared symbol into sam3/constants.py instead"
+    )
+
+
+def test_openvino_card_matches_the_torch_card() -> None:
+    """Decoupling the card must not change what the card reports."""
+    assert SAM3OpenVINO.card() == SAM3.card()

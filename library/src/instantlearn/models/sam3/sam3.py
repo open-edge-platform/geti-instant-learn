@@ -7,11 +7,8 @@ import logging
 import shutil
 from collections import defaultdict
 from contextlib import nullcontext
-from dataclasses import dataclass
-from enum import Enum
 from itertools import zip_longest
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import torch
@@ -52,8 +49,11 @@ from .constants import (
     GEOMETRY_ENCODER_EXEMPLAR,
     MODEL_NAMES,
     PROMPT_DECODER,
+    SAM3_MODEL_ID,
     TEXT_ENCODER,
     VISION_ENCODER,
+    CanvasConfig,
+    Sam3PromptMode,
 )
 from .model import Sam3Model
 from .post_processing import PostProcessingConfig
@@ -61,8 +61,6 @@ from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreproces
 
 logger = logging.getLogger(__name__)
 
-
-SAM3_MODEL_ID = "facebook/sam3.1"
 
 _TOKENIZER_FILES = [
     "tokenizer.json",
@@ -76,85 +74,6 @@ _BOX_COLUMN_DIM = 1
 _BOX_COORDINATE_COLUMNS = 4
 _BOX_SCORE_COLUMN = _BOX_COORDINATE_COLUMNS
 _BOX_COLUMNS_WITH_SCORE = _BOX_COORDINATE_COLUMNS + 1
-
-
-@dataclass
-class CanvasConfig:
-    """Configuration for SAM3 canvas mode.
-
-    Canvas mode stitches reference and target images into a single canvas,
-    runs detection, and extracts predictions from the target region.
-
-    Args:
-        split_ratio: Fraction of the canvas allocated to the reference strip.
-            Lower values give more space to the target image. Must be in
-            (0, 1). Default: 0.3.
-        crop_padding: Padding factor around the reference bounding box when
-            cropping. A factor of 2.0 means the crop region is 2x the bbox
-            size. Must be positive. Default: 2.0.
-        cache_text: Cache text embeddings across canvas forward passes to
-            avoid redundant CLIP encoding. Default: True.
-        share_vision: Vision sharing strategy for multi-category canvas mode.
-            - ``"auto"``: Groups same-category refs together with gaps between
-              categories (equivalent to ``"grouped"``).
-            - ``"grouped"``: Same-category refs packed side-by-side, gaps only
-              between category groups.
-            - ``"spaced"``: Each ref in its own slot with gaps between all refs.
-            - ``False``: Sequential per-category canvases (no sharing).
-
-    Examples:
-        Use defaults:
-
-        >>> config = CanvasConfig()
-
-        Tune split ratio for small reference objects:
-
-        >>> config = CanvasConfig(split_ratio=0.25, crop_padding=3.0)
-    """
-
-    split_ratio: float = 0.3
-    crop_padding: float = 2.0
-    cache_text: bool = True
-    share_vision: Literal["auto", "grouped", "spaced"] | bool = "auto"
-
-    def __post_init__(self) -> None:
-        """Validate canvas configuration values.
-
-        Raises:
-            ValueError: If a configuration value is outside its supported range.
-        """
-        if not 0 < self.split_ratio < 1:
-            msg = f"split_ratio must be in (0, 1), got {self.split_ratio}"
-            raise ValueError(msg)
-        if self.crop_padding <= 0:
-            msg = f"crop_padding must be positive, got {self.crop_padding}"
-            raise ValueError(msg)
-        if not isinstance(self.share_vision, bool) and self.share_vision not in {
-            "auto",
-            "grouped",
-            "spaced",
-        }:
-            msg = f'share_vision must be a bool or one of {{"auto", "grouped", "spaced"}}, got {self.share_vision!r}'
-            raise ValueError(msg)
-
-
-class Sam3PromptMode(str, Enum):
-    """Prompt mode for SAM3 inference.
-
-    Attributes:
-        CLASSIC: Original SAM3 behavior. Text/box prompts are provided per target
-            image. Boxes are encoded against the target image's own features.
-        VISUAL_EXEMPLAR: Cross-image visual query detection. Box prompts on a
-            reference image are encoded during fit() and reused for all target
-            images. Enables "draw box on image A → detect similar on images B, C, D".
-        CANVAS: FSS-SAM3 unified canvas approach. Stitches reference and target
-            images into a single canvas, runs CLASSIC mode with the reference bbox
-            mapped to canvas coordinates. Best visual-only performance.
-    """
-
-    CLASSIC = "classic"
-    VISUAL_EXEMPLAR = "visual_exemplar"
-    CANVAS = "canvas"
 
 
 class SAM3(TorchModel):
@@ -189,61 +108,60 @@ class SAM3(TorchModel):
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base import Batch
         >>> from instantlearn.data.base.sample import Category, Sample
-        >>> import torch
         >>> import numpy as np
 
         >>> # Classic mode (default)
         >>> sam3 = SAM3()
         >>> ref_sample = Sample(categories=[Category(0, "shoe"), Category(1, "person")])
         >>> sam3.fit(ref_sample)
-        >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with boxes
         >>> sam3_ve = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x1, y1, x2, y2] on reference
         ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_ve.fit(ref_sample)
-        >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_ve.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with points
         >>> sam3_pt = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[150, 150]]),  # [x, y] on reference
         ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_pt.fit(ref_sample)
-        >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_pt.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot: multiple point prompts for the same category (same image)
         >>> sam3_nshot = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[100, 100], [200, 300], [400, 500]]),  # 3 shots
         ...     categories=[Category(0, "shoe"), Category(0, "shoe"), Category(0, "shoe")],  # same category
         ... )
         >>> sam3_nshot.fit(ref_sample)  # encodes 3 points together
-        >>> results = sam3_nshot.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_nshot.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot across multiple reference images
         >>> sam3_cross = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> refs = [
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[100, 100]]),
         ...         categories=[Category(0, "shoe")],
         ...     ),
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[200, 200]]),
         ...         categories=[Category(0, "shoe")],  # same category, different image
         ...     ),
         ... ]
         >>> sam3_cross.fit(refs)  # features concatenated across images
-        >>> results = sam3_cross.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_cross.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Canvas mode — stitches ref + target into one image
         >>> from instantlearn.models.sam3.sam3 import CanvasConfig
@@ -252,12 +170,12 @@ class SAM3(TorchModel):
         ...     canvas_config=CanvasConfig(split_ratio=0.3, crop_padding=2.0),
         ... )
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),
         ...     categories=[Category(0, "shoe")],  # Optional, if omitted only the bounding box features are used.
         ... )
         >>> sam3_canvas.fit(ref_sample)
-        >>> results = sam3_canvas.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_canvas.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
     """
 
     def __init__(
@@ -1670,7 +1588,7 @@ class SAM3(TorchModel):
                         y2 * sy + tgt_canvas_h,
                     ],
                     dtype=np.float32,
-                )
+                ),
             )
 
         canvas = torch.zeros(channels, canvas_h, canvas_w, dtype=tgt_resized.dtype)

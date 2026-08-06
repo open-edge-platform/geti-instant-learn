@@ -119,8 +119,7 @@ predictions = model.predict([
 <summary><strong>Canvas mode — fit on a reference crop, predict on any image (default)</strong></summary>
 
 ```python
-from instantlearn.models.sam3 import Sam3PromptMode
-from instantlearn.models.sam3.sam3 import CanvasConfig
+from instantlearn.models.sam3 import CanvasConfig, Sam3PromptMode
 import numpy as np
 
 model = SAM3OpenVINO(

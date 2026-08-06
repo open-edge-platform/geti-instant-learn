@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-parameters:
     name: Prepare build parameters
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 10
@@ -114,7 +114,7 @@ jobs:
     permissions:
       contents: read
     if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'markdown')
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Harden the runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -145,7 +145,7 @@ jobs:
   success:
     name: Status checks
     needs: [ build-parameters, library, backend, ui, distrib, markdown, documentation ]
-    runs-on: ${{ github.repository_owner == 'open-edge-platform' && 'overflow' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:
       CHECKS: ${{ join(needs.*.result, ' ') }}

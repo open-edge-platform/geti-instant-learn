@@ -2,12 +2,24 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from instantlearn.data.base.prediction import Prediction
 
 from domain.dispatcher import ComponentType
 from domain.services.schemas.processor import ErrorData, OutputData
 from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.writers import mqtt_writer
 from runtime.core.components.writers.mqtt_writer import MqttWriter
+
+
+def make_prediction() -> Prediction:
+    """Single-instance prediction with a 1x1 mask, used as an MQTT payload."""
+    return Prediction(
+        masks=np.ones((1, 1, 1), dtype=np.uint8),
+        scores=np.array([0.5], dtype=np.float32),
+        label_ids=np.array([3], dtype=np.int32),
+        label_names=np.array(["cat"], dtype=object),
+        boxes=np.array([[0, 0, 1, 1]], dtype=np.float32),
+    )
 
 
 @pytest.fixture
@@ -27,10 +39,13 @@ class TestMqttWriter:
         writer._connected = True
         writer.connect = MagicMock()
 
-        writer.write(OutputData(frame=np.full((1), 1), results=[{"box": np.full((1), 1)}]))
+        writer.write(OutputData(frame=np.full((1), 1), results=[make_prediction()]))
 
         writer.connect.assert_not_called()
-        client.publish.assert_called_once_with("topic/1", '[{"box": [1]}]')
+        client.publish.assert_called_once_with(
+            "topic/1",
+            '[{"masks": [[[1]]], "scores": [0.5], "label_ids": [3], "label_names": ["cat"], "boxes": [[0.0, 0.0, 1.0, 1.0]]}]',
+        )
         assert writer._connected is True
 
     def test_connect_is_noop_when_already_connected(self, mocked_writer):

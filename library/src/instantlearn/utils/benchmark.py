@@ -182,8 +182,11 @@ def convert_masks_to_one_hot_tensor(
         for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.label_ids, strict=True):
             if cat_id in category_id_to_index:
                 class_idx = category_id_to_index[cat_id]
-                # Apply logical OR to handle multiple instances of same class
-                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)  # noqa: PLR6104
+                # Apply logical OR to handle multiple instances of same class.
+                # gt_mask may be a numpy array (from the backend-neutral Sample),
+                # so convert to a boolean tensor first before moving to device.
+                gt_mask_t = torch.as_tensor(gt_mask).to(device=device, dtype=torch.bool)
+                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask_t  # noqa: PLR6104
 
         # Process prediction masks
         # Temporary dict/Prediction shim: TODO remove the dict branch once every model returns Prediction.
@@ -198,7 +201,8 @@ def convert_masks_to_one_hot_tensor(
             if pred_label_id in category_id_to_index:
                 class_idx = category_id_to_index[pred_label_id]
                 # Apply logical OR to handle multiple instances of same class
-                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask.to(device)  # noqa: PLR6104
+                pred_mask_t = pred_mask.to(device=device, dtype=torch.bool)
+                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask_t  # noqa: PLR6104
 
         batch_pred_tensors.append(pred_tensor.unsqueeze(0))
         batch_gt_tensors.append(gt_tensor.unsqueeze(0))
@@ -303,7 +307,11 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
 
 
 def _resolve_benchmark_device(value: str) -> DeviceInfo | None:
-    """Resolve a benchmark CLI device value to a physical device."""
+    """Resolve a benchmark CLI device value to a physical device.
+
+    Raises:
+        ValueError: If no available Torch device matches the requested value.
+    """
     normalized = value.lower()
     if normalized == "auto":
         return None

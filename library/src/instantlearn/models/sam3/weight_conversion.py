@@ -88,13 +88,17 @@ SAM3_PT_TO_HF_KEY_MAPPING: dict[str, str] = {
     # Vision encoder
     r"^backbone\.vision_backbone\.trunk\.": r"vision_encoder.backbone.",
     r"vision_encoder\.backbone\.pos_embed": r"vision_encoder.backbone.embeddings.position_embeddings",
-    r"vision_encoder\.backbone\.patch_embed\.proj\.": r"vision_encoder.backbone.embeddings.patch_embeddings.projection.",
+    r"vision_encoder\.backbone\.patch_embed\.proj\.": (
+        r"vision_encoder.backbone.embeddings.patch_embeddings.projection."
+    ),
     r"vision_encoder\.backbone\.ln_pre\.": r"vision_encoder.backbone.layer_norm.",
     r"vision_encoder\.backbone\.blocks\.(\d+)\.norm1\.": r"vision_encoder.backbone.layers.\1.layer_norm1.",
     r"vision_encoder\.backbone\.blocks\.(\d+)\.norm2\.": r"vision_encoder.backbone.layers.\1.layer_norm2.",
     r"vision_encoder\.backbone\.blocks\.(\d+)\.attn\.qkv\.": r"vision_encoder.backbone.layers.\1.attention.qkv.",
     r"vision_encoder\.backbone\.blocks\.(\d+)\.attn\.proj\.": r"vision_encoder.backbone.layers.\1.attention.o_proj.",
-    r"vision_encoder\.backbone\.blocks\.(\d+)\.attn\.freqs_cis": r"vision_encoder.backbone.layers.\1.rotary_emb.rope_embeddings",
+    r"vision_encoder\.backbone\.blocks\.(\d+)\.attn\.freqs_cis": (
+        r"vision_encoder.backbone.layers.\1.rotary_emb.rope_embeddings"
+    ),
     r"vision_encoder\.backbone\.blocks\.(\d+)\.mlp\.fc1\.": r"vision_encoder.backbone.layers.\1.mlp.fc1.",
     r"vision_encoder\.backbone\.blocks\.(\d+)\.mlp\.fc2\.": r"vision_encoder.backbone.layers.\1.mlp.fc2.",
     # FPN
@@ -115,7 +119,9 @@ SAM3_PT_TO_HF_KEY_MAPPING: dict[str, str] = {
     r"text_encoder\.transformer\.resblocks\.(\d+)\.ln_1\.": r"text_encoder.text_model.encoder.layers.\1.layer_norm1.",
     r"text_encoder\.transformer\.resblocks\.(\d+)\.ln_2\.": r"text_encoder.text_model.encoder.layers.\1.layer_norm2.",
     r"text_encoder\.transformer\.resblocks\.(\d+)\.mlp\.c_fc\.": r"text_encoder.text_model.encoder.layers.\1.mlp.fc1.",
-    r"text_encoder\.transformer\.resblocks\.(\d+)\.mlp\.c_proj\.": r"text_encoder.text_model.encoder.layers.\1.mlp.fc2.",
+    r"text_encoder\.transformer\.resblocks\.(\d+)\.mlp\.c_proj\.": (
+        r"text_encoder.text_model.encoder.layers.\1.mlp.fc2."
+    ),
     r"^backbone\.language_backbone\.resizer\.": r"text_projection.",
 }
 # fmt: on

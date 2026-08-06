@@ -108,8 +108,7 @@ class MatcherOpenVINO(OpenVINOModel):
         """Not supported: references are baked into the IR at export time.
 
         Raises:
-            NotImplementedError: Always. Fit the torch ``Matcher`` and re-export
-                with :meth:`~instantlearn.models.matcher.matcher.Matcher.to_openvino`
+            NotImplementedError: Always. Fit and re-export the torch ``Matcher``
                 to change the references.
         """
         msg = (
@@ -150,7 +149,11 @@ class MatcherOpenVINO(OpenVINOModel):
 
     @staticmethod
     def _to_hwc_uint8(sample: Sample) -> np.ndarray:
-        """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
+        """Return an ``(H, W, 3)`` numpy image from a ``Sample``.
+
+        Raises:
+            ValueError: If the sample has no image.
+        """
         image = sample.image
         if image is None:
             msg = "MatcherOpenVINO.predict() requires each sample to have an image."

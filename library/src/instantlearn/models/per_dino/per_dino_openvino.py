@@ -107,8 +107,7 @@ class PerDinoOpenVINO(OpenVINOModel):
         """Not supported: references are baked into the IR at export time.
 
         Raises:
-            NotImplementedError: Always. Fit the torch ``PerDino`` and re-export
-                with :meth:`~instantlearn.models.per_dino.per_dino.PerDino.to_openvino`
+            NotImplementedError: Always. Fit and re-export the torch ``PerDino``
                 to change the references.
         """
         msg = (
@@ -149,7 +148,11 @@ class PerDinoOpenVINO(OpenVINOModel):
 
     @staticmethod
     def _to_hwc_uint8(sample: Sample) -> np.ndarray:
-        """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
+        """Return an ``(H, W, 3)`` numpy image from a ``Sample``.
+
+        Raises:
+            ValueError: If the sample has no image.
+        """
         image = sample.image
         if image is None:
             msg = "PerDinoOpenVINO.predict() requires each sample to have an image."

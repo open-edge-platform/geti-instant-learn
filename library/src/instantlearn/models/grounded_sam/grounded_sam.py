@@ -121,7 +121,7 @@ class GroundedSAM(TorchModel):
         """
         target_batch = Batch.collate(target)
         # Prefer categories from fit(); fall back to per-target-sample categories.
-        categories = self.categories if self.categories else CategoryRegistry.from_samples(target_batch)
+        categories = self.categories or CategoryRegistry.from_samples(target_batch)
         if not categories:
             msg = "GroundedSAM requires categories from fit() or target samples."
             raise ValueError(msg)
@@ -162,4 +162,3 @@ class GroundedSAM(TorchModel):
         del export_path, config
         msg = "GroundedSAM does not support OpenVINO export because no GroundedSAMOpenVINO implementation exists."
         raise NotImplementedError(msg)
-

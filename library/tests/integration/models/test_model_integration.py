@@ -11,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data.base import Batch
@@ -167,10 +166,11 @@ class TestModelIntegration:
         assert predictions is not None
         assert len(predictions) == len(target_batch)
 
-        # Check that masks have correct shape
+        # Check that masks have correct shape.
+        # predictions is list[Prediction]; images are HWC numpy (shape H, W, C).
         for prediction, image in zip(predictions, target_batch.images, strict=False):
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
+            assert isinstance(prediction.masks, np.ndarray)
+            assert prediction.masks.shape[-2:] == image.shape[:2]
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", N_SHOT_SUPPORTED_MODELS)
@@ -241,12 +241,12 @@ class TestModelIntegration:
             # Both should produce valid results
             assert isinstance(predictions_1shot, list)
             assert isinstance(predictions_2shot, list)
-            assert len(predictions_1shot[0]["pred_masks"]) > 0
-            assert len(predictions_2shot[0]["pred_masks"]) > 0
+            assert len(predictions_1shot[0].masks) > 0
+            assert len(predictions_2shot[0].masks) > 0
         else:
             # If not enough samples, just verify 1-shot works
             assert isinstance(predictions_1shot, list)
-            assert len(predictions_1shot[0]["pred_masks"]) > 0
+            assert len(predictions_1shot[0].masks) > 0
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     def test_grounded_sam_no_n_shots(
@@ -407,6 +407,7 @@ class TestModelIntegration:
             assert iou_value >= -1
 
 
+@pytest.mark.xfail(raises=OSError, reason="HF gated repo, no credentials in CI", strict=False)
 class TestSAM3Integration:
     """Integration tests for SAM3 model in classic and visual exemplar modes.
 
@@ -453,7 +454,7 @@ class TestSAM3Integration:
             # Visual exemplar needs bboxes on reference images
             ref_samples = []
             for sample in reference_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
@@ -472,8 +473,8 @@ class TestSAM3Integration:
         assert isinstance(predictions, list)
         assert len(predictions) == len(target_batch)
         for prediction, image in zip(predictions, target_batch.images, strict=False):
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
+            assert isinstance(prediction.masks, np.ndarray)
+            assert prediction.masks.shape[-2:] == image.shape[:2]
 
     @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
     def test_sam3_input_validation(
@@ -494,7 +495,7 @@ class TestSAM3Integration:
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
             for sample in reference_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
@@ -561,7 +562,7 @@ class TestSAM3Integration:
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
             for sample in ref_batch.samples:
-                h, w = sample.image.shape[-2:]
+                h, w = sample.image.shape[:2]
                 ref_samples.append(
                     Sample(
                         image=sample.image,
