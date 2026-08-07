@@ -59,7 +59,8 @@ class ReferenceBatchService:
         models_metadata = self._supported_model_repo.get_by_model_type(model_type)
         supported_prompt_types = set(models_metadata.supported_prompt_types) if models_metadata else set()
         needs_bboxes = SupportedPromptType.VISUAL_BOUNDING_BOX in supported_prompt_types
-        use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
+        sam3_without_hybrid_mode = model_type == ModelType.SAM3 and not get_settings().sam3_hybrid_mode
+        use_label_names = not sam3_without_hybrid_mode
         return self._build_visual_batch(
             project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
         )
@@ -115,8 +116,10 @@ class ReferenceBatchService:
         Args:
             project_id: Project to build the batch for.
             output_bboxes: Produce bboxes instead of masks.
-            use_label_names: Pass real label names to samples; when False, ``"visual"``
-                placeholder is used instead.
+            use_label_names: Pass real label names to samples; when ``False``, the
+                ``"visual"`` sentinel is used instead so that SAM3 canvas helpers
+                recognise it as "no real category name" and do not forward it to
+                the text encoder.
 
         Returns:
             (Batch, category_id → label_id mapping) or None if no valid samples.
@@ -261,7 +264,7 @@ class ReferenceBatchService:
                 continue
 
             category_id = label_to_category_id[label_id]
-            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else "object"
+            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else "visual"
 
             if output_bboxes:
                 for polygon in polygons:
