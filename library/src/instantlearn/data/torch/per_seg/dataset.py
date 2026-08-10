@@ -7,11 +7,11 @@ from collections.abc import Sequence
 from logging import getLogger
 from pathlib import Path
 
+import numpy as np
 import polars as pl
-import torch
 
 from instantlearn.data.torch.base import Dataset
-from instantlearn.data.torch.image import read_mask
+from instantlearn.data.utils.image import read_mask
 
 # File extensions
 IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif")
@@ -36,7 +36,7 @@ class PerSegDataset(Dataset):
 
     Example:
         >>> from pathlib import Path
-        >>> from instantlearn.data.datasets import PerSegDataset
+        >>> from instantlearn.data.torch import PerSegDataset
 
         >>> dataset = PerSegDataset(
         ...     root=Path("./datasets/PerSeg"),
@@ -70,15 +70,15 @@ class PerSegDataset(Dataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
         """Load single mask from file path.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            torch.Tensor with shape (1, H, W) for single-instance PerSeg mask,
-            and dtype torch.bool, or None if no mask path is available.
+            Numpy array with shape (1, H, W) for single-instance PerSeg mask,
+            and dtype bool, or None if no mask path is available.
         """
         mask_paths = raw_sample.get("mask_paths")
         if not mask_paths or mask_paths[0] is None:
@@ -87,7 +87,7 @@ class PerSegDataset(Dataset):
         # Load single mask for PerSeg
         mask = read_mask(mask_paths[0])  # (H, W)
         # Add instance dimension: (1, H, W) for consistency
-        return mask[None, ...].to(torch.bool)
+        return mask[None, ...].astype(bool)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load PerSeg samples into Polars DataFrame."""

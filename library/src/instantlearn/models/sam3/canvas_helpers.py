@@ -17,10 +17,31 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torchvision.ops import nms as torchvision_nms
 
+from instantlearn.components.sam.decoder import masks_to_boxes_traceable
 from instantlearn.models.torch_adapter import CategoryRegistry
 
 if TYPE_CHECKING:
     from instantlearn.models.torch_adapter import TensorSample
+
+
+def reference_bboxes(sample: TensorSample) -> torch.Tensor | None:
+    """Return the sample's box prompts, deriving them from masks if needed.
+
+    SAM3 prompts on boxes, so a mask is accepted as a box prompt by taking its
+    tight bounding box. Explicit ``bboxes`` win when both are present.
+
+    Args:
+        sample: Reference sample carrying ``bboxes`` and/or ``masks``.
+
+    Returns:
+        Boxes of shape ``(N, 4)`` in xyxy format, or ``None`` if the sample
+        carries neither box nor mask prompts.
+    """
+    if sample.bboxes is not None and len(sample.bboxes) > 0:
+        return sample.bboxes
+    if sample.masks is not None and len(sample.masks) > 0:
+        return masks_to_boxes_traceable(sample.masks.bool())
+    return None
 
 
 def group_references_by_category(
@@ -28,23 +49,25 @@ def group_references_by_category(
 ) -> dict[int, dict]:
     """Group reference samples by category id for canvas mode.
 
-    Samples without bounding boxes are silently skipped.
+    Box prompts are taken from ``bboxes``, falling back to the tight bounding
+    box of ``masks``. Samples carrying neither are silently skipped.
 
     Args:
-        samples: Reference samples with images, bboxes, categories.
+        samples: Reference samples with images, bboxes or masks, categories.
 
     Returns:
         ``{cat_id: {"images": [Tensor], "bboxes": [ndarray], "text": str}}``
 
     Raises:
-        ValueError: If no sample contains bboxes.
+        ValueError: If no sample contains box or mask prompts.
     """
     refs_by_category: dict[int, dict] = {}
 
     for sample in samples:
-        if sample.bboxes is None or len(sample.bboxes) == 0:
+        bboxes = reference_bboxes(sample)
+        if bboxes is None:
             continue
-        bbox_value = sample.bboxes[0][:4]
+        bbox_value = bboxes[0][:4]
         if isinstance(bbox_value, torch.Tensor):
             bbox_value = bbox_value.detach().cpu().numpy()
         bbox = np.asarray(bbox_value, dtype=np.float32)
@@ -64,7 +87,7 @@ def group_references_by_category(
             refs_by_category[cat_id]["text"] = cat_text
 
     if not refs_by_category:
-        msg = "CANVAS mode requires at least one reference sample with bboxes."
+        msg = "CANVAS mode requires at least one reference sample with bboxes or masks."
         raise ValueError(msg)
 
     return refs_by_category

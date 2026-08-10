@@ -16,7 +16,7 @@ from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode, sam3_openvino
-from instantlearn.models.torch_adapter import CategoryRegistry
+from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample
 from instantlearn.utils import Backend
 
 
@@ -67,6 +67,42 @@ class TestSAM3OpenVINOInit:
     def test_card_delegates_to_sam3(self) -> None:
         """SAM3OpenVINO exposes the same model capabilities as SAM3."""
         assert SAM3OpenVINO.card() == SAM3.card()
+
+
+class TestSAM3OpenVINOMaskPrompts:
+    """The card advertises PromptType.MASK, so masks must reach the encoder."""
+
+    @staticmethod
+    def _encode(sample: TensorSample) -> bool:
+        """Return whether the sample's prompts survived to the vision encoder."""
+
+        class _ReachedError(Exception):
+            pass
+
+        def _sentinel(*_args: object, **_kwargs: object) -> None:
+            raise _ReachedError
+
+        model = SAM3OpenVINO.__new__(SAM3OpenVINO)
+        model.image_preprocessor = _sentinel
+        try:
+            model._encode_sample_prompts(sample, {}, {})  # noqa: SLF001
+        except _ReachedError:
+            return True
+        return False
+
+    def test_mask_only_sample_is_encoded(self) -> None:
+        """A sample carrying only masks is encoded via its tight bounding box."""
+        masks = torch.zeros(1, 32, 32, dtype=torch.bool)
+        masks[0, 8:20, 4:16] = True
+        sample = TensorSample(image=torch.zeros(3, 32, 32), masks=masks, label_ids=torch.tensor([0]))
+
+        assert self._encode(sample)
+
+    def test_sample_without_prompts_is_skipped(self) -> None:
+        """A sample with no visual prompts short-circuits before encoding."""
+        sample = TensorSample(image=torch.zeros(3, 32, 32), label_ids=torch.tensor([0]))
+
+        assert not self._encode(sample)
 
 
 class TestSAM3OpenVINOPredict:

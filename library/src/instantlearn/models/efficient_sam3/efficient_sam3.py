@@ -19,6 +19,8 @@ import torch
 
 if TYPE_CHECKING:
     from contextlib import nullcontext
+
+    from instantlearn.models.model_card import ModelCard
 from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
@@ -36,6 +38,7 @@ from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import precision_to_torch_dtype
 
+from ._card import _EFFICIENT_SAM3_CARD
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
 from .model import EfficientSam3Model
 
@@ -66,15 +69,14 @@ class EfficientSAM3(SAM3):
         >>> from instantlearn.models import EfficientSAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base.sample import Category, Sample
-        >>> from instantlearn.data.base import Batch
-        >>> import torch
+        >>> import numpy as np
 
         >>> model = EfficientSAM3(backbone_type="efficientvit", variant="b2")
 
         >>> # Classic text prompting
         >>> ref = Sample(categories=[Category(0, "cat"), Category(1, "dog")])
         >>> model.fit(ref)
-        >>> results = model.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode
         >>> model_ve = EfficientSAM3(
@@ -83,13 +85,22 @@ class EfficientSAM3(SAM3):
         ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
         ... )
         >>> ref = Sample(
-        ...     image=torch.zeros(3, 640, 480),
+        ...     image=np.zeros((640, 480, 3), dtype=np.uint8),
         ...     bboxes=[[100, 100, 200, 200]],
         ...     categories=[Category(0, "cat")],
         ... )
         >>> model_ve.fit(ref)
-        >>> results = model_ve.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model_ve.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
     """
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for EfficientSAM3.
+
+        Overrides :meth:`SAM3.card` so the distilled model reports its own
+        name and family rather than the one it inherits from.
+        """
+        return _EFFICIENT_SAM3_CARD
 
     def __init__(
         self,
