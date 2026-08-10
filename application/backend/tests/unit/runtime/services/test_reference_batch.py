@@ -217,7 +217,7 @@ class TestVisualPromptToSample:
         assert result.category_labels == ["car"]
 
     def test_use_label_names_false_omits_categories(self, sample_frame: np.ndarray) -> None:
-        """When label_id_to_name is None, categories default to ["object"]."""
+        """When label_id_to_name is None, categories fall back to the "visual" sentinel."""
         label_id = uuid.uuid4()
         prompt_db, _ = _make_single_polygon_prompt(label_id)
         label_info = _make_label_info({label_id: None})
@@ -229,10 +229,10 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.category_labels == ["object"]
+        assert result.category_labels == ["visual"]
 
     def test_use_label_names_false_with_multiple_labels_omits_categories(self, sample_frame: np.ndarray) -> None:
-        """Categories default to ["object"] when label_id_to_name is None, even with multiple labels."""
+        """Categories fall back to "visual" sentinel when label_id_to_name is None, even with multiple labels."""
         label_id_1 = uuid.uuid4()
         label_id_2 = uuid.uuid4()
         prompt_id = uuid.uuid4()
@@ -269,7 +269,7 @@ class TestVisualPromptToSample:
             output_bboxes=True,
         )
 
-        assert result.category_labels == ["object", "object"]
+        assert result.category_labels == ["visual", "visual"]
 
 
 def _make_single_polygon_prompt(
@@ -568,8 +568,8 @@ class TestReferenceBatchServiceBuild:
         assert call_kwargs["label_info"].label_id_to_name == {label_id: "car"}
         assert call_kwargs["output_bboxes"] is True
 
-    def test_build_matcher_does_not_use_label_names(self, service, frame_repository):
-        """Non-bbox models (Matcher) omit category names since use_label_names = needs_bboxes AND hybrid."""
+    def test_build_matcher_uses_label_names(self, service, frame_repository):
+        """Non-bbox models (Matcher) always use real label names."""
         cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)
 
         fake_sample = MagicMock(name="Sample")
@@ -613,10 +613,69 @@ class TestReferenceBatchServiceBuild:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0}, category_id_to_label_id={0: str(label_id)}
             )
-            label_svc_cls.return_value.get_labels_by_ids.return_value = []
+            label_svc_cls.return_value.get_labels_by_ids.return_value = [
+                SimpleNamespace(id=label_id, name="clementine")
+            ]
 
             service.build(cfg)
 
         call_kwargs = mock_to_sample.call_args.kwargs
         assert call_kwargs["output_bboxes"] is False
-        assert call_kwargs["label_info"].label_id_to_name is None
+        assert call_kwargs["label_info"].label_id_to_name == {label_id: "clementine"}
+
+    def test_matcher_multi_category_no_object_collision(self, service, frame_repository):
+        from instantlearn.models.torch_adapter import CategoryRegistry
+
+        cfg = PipelineConfig(project_id=uuid.uuid4(), processor=MatcherConfig(), prompt_mode=PromptType.VISUAL)
+
+        label_ids = [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
+        label_names = ["clementine", "potato", "kiwi"]
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        frame_repository.read_frame.return_value = frame_bgr
+
+        prompt_id = uuid.uuid4()
+        # Single prompt with one annotation per label (one polygon each)
+        annotations = [
+            SimpleNamespace(
+                id=uuid.uuid4(),
+                config=PolygonAnnotation(
+                    points=[Point(x=5, y=5), Point(x=20, y=5), Point(x=20, y=20), Point(x=5, y=20)]
+                ).model_dump(),
+                label_id=lid,
+                prompt_id=prompt_id,
+            )
+            for lid in label_ids
+        ]
+        prompt_db = SimpleNamespace(
+            id=prompt_id,
+            type=PromptType.VISUAL,
+            text=None,
+            frame_id=uuid.uuid4(),
+            project_id=cfg.project_id,
+            annotations=annotations,
+        )
+
+        sorted_ids = sorted(label_ids, key=str)
+        label_to_cat = {lid: idx for idx, lid in enumerate(sorted_ids)}
+
+        fake_labels = [SimpleNamespace(id=lid, name=name) for lid, name in zip(label_ids, label_names)]
+
+        with (
+            patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
+            patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
+            patch("runtime.services.reference_batch.cv2.cvtColor", return_value=frame_bgr),
+        ):
+            prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
+            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
+                label_to_category_id=label_to_cat,
+                category_id_to_label_id={v: str(k) for k, v in label_to_cat.items()},
+            )
+            label_svc_cls.return_value.get_labels_by_ids.return_value = fake_labels
+
+            result = service.build(cfg)
+
+        assert result is not None
+        batch, _ = result
+        registry = CategoryRegistry.from_samples(batch)
+        assert set(registry.name_to_id.keys()) == {"clementine", "potato", "kiwi"}
