@@ -47,13 +47,13 @@ SAM3 performs zero-shot segmentation using text prompts (category names) or boun
 
 ```python
 from instantlearn.models import SAM3
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
 model = SAM3()
 
 predictions = model.predict([
-    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
-    Sample(image_path="examples/assets/coco/000000173279.jpg", categories=["elephant"]),
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
+    Sample(image_path="examples/assets/coco/000000173279.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
@@ -72,8 +72,7 @@ import numpy as np
 target = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
     bboxes=np.array([[180, 105, 490, 370]]),
-    categories=["elephant"],
-    category_ids=[0],
+    categories=[Category(0, "elephant")],
 )
 predictions = model.predict(target)
 
@@ -81,8 +80,7 @@ predictions = model.predict(target)
 target = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
     points=np.array([[335, 240]]),
-    categories=["elephant"],
-    category_ids=[0],
+    categories=[Category(0, "elephant")],
 )
 predictions = model.predict(target)
 ```
@@ -97,7 +95,7 @@ from instantlearn.models.sam3 import Sam3PromptMode
 from instantlearn.models.sam3.sam3 import CanvasConfig
 
 model = SAM3OpenVINO(
-    variant=SAM3OVVariant.INT8_SYM,
+    model_dir="./sam3-openvino/openvino-int8_sym",
     prompt_mode=Sam3PromptMode.CANVAS,
 )
 
@@ -105,8 +103,7 @@ model = SAM3OpenVINO(
 ref = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
     bboxes=np.array([[180, 105, 490, 370]]),
-    categories=["elephant"],
-    category_ids=[0],
+    categories=[Category(0, "elephant")],
 )
 model.fit(ref)
 
@@ -123,37 +120,45 @@ predictions = model.predict([
 <summary><strong>SAM3 OpenVINO: Optimized Inference</strong></summary>
 
 `SAM3OpenVINO` runs SAM3 on OpenVINO IR models for faster CPU/GPU inference without PyTorch at runtime.
-Pre-exported models are auto-downloaded from [HuggingFace](https://huggingface.co/rajeshgangireddy/SAM3_OpenVINO).
+Export the IR yourself with `SAM3.to_openvino()` — it converts Torch → ONNX → OpenVINO IR and applies the
+requested weight compression. The export is a one-off step; afterwards `SAM3OpenVINO` loads straight from disk.
 
-| Variant | Enum | Method | Recommended Use |
-| ------- | ---- | ------ | --------------- |
-| **FP16** | `SAM3OVVariant.FP16` | Baseline | Best GPU performance (Arc/Xe) |
-| **INT8 SYM** | `SAM3OVVariant.INT8_SYM` | W8A16 weight-only | 1.6x CPU speedup, ~50% smaller, no accuracy loss |
-| **INT8 PTQ** | `SAM3OVVariant.INT8_PTQ` | W8A8 `nncf.quantize` | 2.1x CPU speedup (VNNI), best CPU variant |
-| ONNX | `SAM3OVVariant.ONNX` | Original exports | Cross-framework compatibility |
-| FP32 | `SAM3OVVariant.FP32` | Baseline | Debugging (no benefit over FP16) |
-| INT8 ASYM | `SAM3OVVariant.INT8_ASYM` | W8A16 weight-only | Similar to INT8 SYM |
-| INT4 SYM | `SAM3OVVariant.INT4_SYM` | W4A16 weight-only | Maximum compression, some accuracy loss |
-| INT4 ASYM | `SAM3OVVariant.INT4_ASYM` | W4A16 weight-only | Similar to INT4 SYM |
+```python
+from instantlearn.models import SAM3
+from instantlearn.models.torch_base import ExportConfig
+from instantlearn.utils.constants import CompressionMode
 
-**Device support:** `"CPU"`, `"GPU"` (Intel iGPU/dGPU), or `"AUTO"`.
-PyTorch-style names (`"xpu"`, `"cuda"`) are mapped to the OpenVINO `"GPU"` device automatically.
+# One-off: convert SAM3 to OpenVINO IR
+export_dir = SAM3().to_openvino(
+    export_path="./sam3-openvino",
+    config=ExportConfig(compression=CompressionMode.INT8_SYM),
+)
+```
+
+| Compression | `CompressionMode` | Method | Recommended Use |
+| ----------- | ----------------- | ------ | --------------- |
+| **FP16** | `FP16` | Baseline IR precision | Best GPU performance (Arc/Xe) |
+| **INT8 SYM** | `INT8_SYM` | W8A16 weight-only | 1.6x CPU speedup, ~50% smaller, no accuracy loss |
+| INT8 ASYM | `INT8_ASYM` | W8A16 weight-only | Similar to INT8 SYM |
+| INT4 SYM | `INT4_SYM` | W4A16 weight-only | Maximum compression, some accuracy loss |
+| INT4 ASYM | `INT4_ASYM` | W4A16 weight-only | Similar to INT4 SYM |
+| FP32 | `FP32` | Baseline | Debugging (no benefit over FP16) |
+
+The model selects a compatible OpenVINO device automatically. Pass a discovered
+`DeviceInfo` to select a specific physical device.
 
 ```python
 from instantlearn.models import SAM3OpenVINO
-from instantlearn.models.sam3 import SAM3OVVariant
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
-model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
+model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym")
 
 predictions = model.predict([
-    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
-See [examples/sam3_openvino_example.py](examples/sam3_openvino_example.py) for all 7 example scenarios
-and [examples/sam3_openvino_variant_comparison.ipynb](examples/sam3_openvino_variant_comparison.ipynb) for
-a side-by-side quality and latency comparison across model variants.
+See [examples/sam3_openvino.ipynb](examples/sam3_openvino.ipynb) for the full export-and-run walkthrough.
 
 </details>
 
@@ -190,23 +195,23 @@ predictions = model.predict([
 ```python
 import torch
 from instantlearn.components.sam import SAMPredictor
-from instantlearn.data.torch import read_image
+from instantlearn.data.utils.image import read_image
 
-ref_image = read_image("examples/assets/coco/000000286874.jpg")
+ref_path = "examples/assets/coco/000000286874.jpg"
 
 # Initialize SAM predictor (auto-downloads weights)
 # Available models: "SAM-HQ-tiny", "SAM-HQ-base", "SAM-HQ-large", "SAM-HQ", "SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"
 predictor = SAMPredictor("SAM-HQ-tiny", device="xpu")
 
-predictor.set_image(ref_image)
+predictor.set_image(ref_path)
 ref_mask, _, _ = predictor.forward(
     point_coords=torch.tensor([[[280, 237]]], device="xpu"),
     point_labels=torch.tensor([[1]], device="xpu"),
 )
 
-# Fit and predict with the generated mask
+# Fit and predict with the generated mask. Sample.masks is numpy, so convert the SAM output.
 model = Matcher()
-model.fit(Sample(image=ref_image, masks=ref_mask[0]))
+model.fit(Sample(image=read_image(ref_path), masks=ref_mask[0].cpu().numpy()))
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
 ```
 
@@ -217,15 +222,15 @@ predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341
 
 ```python
 from instantlearn.models import GroundedSAM
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
 model = GroundedSAM()
-model.fit(Sample(categories=["elephant"]))
+model.fit(Sample(categories=[Category(0, "elephant")]))
 
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
-masks = predictions[0]["pred_masks"]
-boxes = predictions[0]["pred_boxes"]
-labels = predictions[0]["pred_labels"]
+masks = predictions[0].masks
+boxes = predictions[0].boxes
+labels = predictions[0].label_names
 ```
 
 </details>
@@ -295,18 +300,13 @@ your_dataset/
 
 ```python
 from instantlearn.data.torch import FolderDataset
-from instantlearn.data.base import Batch
-
 dataset = FolderDataset(root="path/to/your_dataset", categories=["category1", "category2"], n_shots=2)
 
 ref_dataset = dataset.get_reference_dataset()
 target_dataset = dataset.get_target_dataset()
 
-reference_batch = Batch.collate([ref_dataset[i] for i in range(len(ref_dataset))])
-target_batch = Batch.collate([target_dataset[i] for i in range(len(target_dataset))])
-
-model.fit(reference_batch)
-predictions = model.predict(target_batch)
+model.fit([ref_dataset[i] for i in range(len(ref_dataset))])
+predictions = model.predict([target_dataset[i] for i in range(len(target_dataset))])
 ```
 
 > **Note:** Mask files should be binary images (0 = background, 255 = foreground) with the same filename stem as the corresponding image (e.g., `1.jpg` → `1.png`).
@@ -401,9 +401,9 @@ Approximate GPU memory requirements for different model configurations:
 | Algorithm | Description | Paper | Repository | Code |
 | --------- | ----------- | ----- | ---------- | ---- |
 | **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/instantlearn/models/matcher/matcher.py) |
-| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher.py) |
-| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino.py) |
-| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam.py) |
+| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher/soft_matcher.py) |
+| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino/per_dino.py) |
+| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam/grounded_sam.py) |
 | **SAM 3** | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) | [sam3.py](src/instantlearn/models/sam3/sam3.py) |
 
 </details>

@@ -72,8 +72,9 @@ predictions = model.predict(Sample(image_path=target_image))
 ## Next Steps
 
 - [Quick Start Guide](02-quick-start.md) — Installation and first inference
-- [Concepts](concepts/01-concepts.md) — Core concepts and architecture
-- [Tutorials](tutorials/01-getting-started.md) — Step-by-step guides
+- [Core Concepts](concepts/01-concepts.md) — `Sample`, `Prediction` and the model API
+- [Architecture](concepts/02-architecture.md) — Class hierarchy and data flow
+- [Custom Models](how-to-guides/03-custom-models.md) — Implement your own model
 
 ## Acknowledgements
 

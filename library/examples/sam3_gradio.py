@@ -17,7 +17,7 @@ Supports two inference modes:
 Usage:
     python sam3_gradio.py
     python sam3_gradio.py -r ref.jpg -i target.jpg
-    python sam3_gradio.py --device cpu --threshold 0.3
+    python sam3_gradio.py --device cuda --threshold 0.3
     python sam3_gradio.py --share  # public URL via Gradio
 """
 
@@ -39,7 +39,7 @@ from instantlearn.visualizer import render_predictions
 parser = argparse.ArgumentParser(description="Web UI for SAM3 detection (InstantLearn)")
 parser.add_argument("-i", "--image_path", default=None, type=str, help="Default target image path")
 parser.add_argument("-r", "--ref_image_path", default=None, type=str, help="Default reference image path")
-parser.add_argument("-d", "--device", default="cuda", type=str, help="Device (default: cuda)")
+parser.add_argument("-d", "--device", default="cpu", type=str, help="Device (default: cpu)")
 parser.add_argument("-t", "--threshold", default=0.3, type=float, help="Detection threshold (default: 0.3)")
 parser.add_argument("--precision", default="fp32", choices=["fp32", "bf16"], help="Model precision")
 parser.add_argument("--host", default="0.0.0.0", type=str, help="Host (default: 0.0.0.0)")

@@ -99,6 +99,7 @@ class ImageEncoder(nn.Module):
 
     Examples:
         >>> from instantlearn.components.encoders import ImageEncoder
+        >>> from instantlearn.utils.constants import Backend
         >>> import torch
         >>>
         >>> # Create encoder with TIMM backend
