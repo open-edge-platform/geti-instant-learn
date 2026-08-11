@@ -660,13 +660,11 @@ class TestReferenceBatchServiceBuild:
         label_to_cat = {lid: idx for idx, lid in enumerate(sorted_ids)}
 
         fake_labels = [SimpleNamespace(id=lid, name=name) for lid, name in zip(label_ids, label_names)]
-        fake_settings = SimpleNamespace(sam3_hybrid_mode=False)
 
         with (
             patch("runtime.services.reference_batch.PromptRepository") as prompt_repo_cls,
             patch("runtime.services.reference_batch.LabelService") as label_svc_cls,
             patch("runtime.services.reference_batch.cv2.cvtColor", return_value=frame_bgr),
-            patch("runtime.services.reference_batch.get_settings", return_value=fake_settings),
         ):
             prompt_repo_cls.return_value.list_by_project_and_type.return_value = [prompt_db]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
