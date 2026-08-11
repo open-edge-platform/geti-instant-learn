@@ -177,7 +177,16 @@ const test = testBase.extend<Fixtures>({
                 return response(200).json({ status: 'ready' });
             }),
             http.get('/api/v1/system/devices', ({ response }) => {
-                return response(200).json([{ type: 'cpu', name: 'CPU', memory: null, index: null }]);
+                return response(200).json([
+                    {
+                        type: 'cpu',
+                        name: 'CPU',
+                        memory: null,
+                        index: null,
+                        key: 'cpu',
+                        runtime_ids: { torch: 'cpu', openvino: 'CPU' },
+                    },
+                ]);
             }),
             ...handlers,
         ],

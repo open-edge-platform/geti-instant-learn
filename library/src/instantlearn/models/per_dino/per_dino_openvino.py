@@ -27,7 +27,6 @@ import numpy as np
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.torch_adapter import CategoryRegistry, arrays_to_prediction
-from instantlearn.utils import device_to_openvino_device
 
 from ._card import _PERDINO_CARD
 
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
     from instantlearn.data.base.batch import Collatable
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.device import DeviceInfo
     from instantlearn.models.model_card import ModelCard
 
 logger = logging.getLogger(__name__)
@@ -52,19 +52,19 @@ class PerDinoOpenVINO(OpenVINOModel):
         >>> from instantlearn.data.base.sample import Sample
 
         >>> # 1. Fit references and export the baked IR with a torch PerDino.
-        >>> perdino = PerDino(device="cpu")
+        >>> perdino = PerDino()
         >>> perdino.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
         >>> ir_dir = perdino.to_openvino("./perdino-ov")
 
         >>> # 2. Load and run the baked IR (no fit needed).
-        >>> ov_model = PerDinoOpenVINO(model_dir=ir_dir, device="CPU")
+        >>> ov_model = PerDinoOpenVINO(model_dir=ir_dir)
         >>> predictions = ov_model.predict(Sample(image_path="target.jpg"))
     """
 
     def __init__(
         self,
         model_dir: str | Path,
-        device: str = "CPU",
+        device: DeviceInfo | None = None,
     ) -> None:
         """Load the PerDino IR from *model_dir*.
 
@@ -72,13 +72,12 @@ class PerDinoOpenVINO(OpenVINOModel):
             model_dir: Directory containing ``model.xml`` / ``model.bin`` and
                 ``metadata.json`` (produced by ``PerDino.to_openvino``). May be a
                 local path or a remote URI (``file://``, ``hf://``, ``s3://``).
-            device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``). PyTorch-style
-                names (``"cuda"``, ``"cpu"``) are also accepted.
+            device: Physical device, or ``None`` to select automatically.
 
         Raises:
             FileNotFoundError: If the IR file or ``metadata.json`` are missing.
         """
-        super().__init__(model_dir=model_dir, device=device_to_openvino_device(device))
+        super().__init__(model_dir=model_dir, device=device)
 
         metadata_path = self.model_dir / "metadata.json"
         if not metadata_path.exists():
@@ -108,8 +107,7 @@ class PerDinoOpenVINO(OpenVINOModel):
         """Not supported: references are baked into the IR at export time.
 
         Raises:
-            NotImplementedError: Always. Fit the torch ``PerDino`` and re-export
-                with :meth:`~instantlearn.models.per_dino.per_dino.PerDino.to_openvino`
+            NotImplementedError: Always. Fit and re-export the torch ``PerDino``
                 to change the references.
         """
         msg = (
@@ -150,7 +148,11 @@ class PerDinoOpenVINO(OpenVINOModel):
 
     @staticmethod
     def _to_hwc_uint8(sample: Sample) -> np.ndarray:
-        """Return an ``(H, W, 3)`` numpy image from a ``Sample`` (numpy HWC per contract)."""
+        """Return an ``(H, W, 3)`` numpy image from a ``Sample``.
+
+        Raises:
+            ValueError: If the sample has no image.
+        """
         image = sample.image
         if image is None:
             msg = "PerDinoOpenVINO.predict() requires each sample to have an image."

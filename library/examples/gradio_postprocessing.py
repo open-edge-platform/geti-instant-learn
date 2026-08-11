@@ -42,7 +42,9 @@ from instantlearn.components.postprocessing import (
 from instantlearn.components.sam.decoder import masks_to_boxes_traceable
 from instantlearn.data import Sample
 from instantlearn.data.base.prediction import Prediction
+from instantlearn.device import DeviceInfo, DeviceType, get_supported_devices
 from instantlearn.models import Matcher
+from instantlearn.utils.constants import Backend
 from instantlearn.visualizer import render_predictions, setup_colors
 
 logging.basicConfig(level=logging.INFO)
@@ -81,19 +83,24 @@ class AppState:
 state = AppState()
 
 
-def resolve_device(preference: str) -> str:
-    """Pick a runtime device, falling back to CPU when the choice is unavailable."""
-    if preference == "cuda" and not torch.cuda.is_available():
-        return "cpu"
-    if preference == "xpu" and not (hasattr(torch, "xpu") and torch.xpu.is_available()):
-        return "cpu"
-    if preference != "auto":
-        return preference
-    if torch.cuda.is_available():
-        return "cuda"
-    if hasattr(torch, "xpu") and torch.xpu.is_available():
-        return "xpu"
-    return "cpu"
+def resolve_device(preference: str) -> DeviceInfo | None:
+    """Resolve a UI preference to a physical device, or use automatic selection."""
+    if preference == "auto":
+        return None
+
+    devices = get_supported_devices()
+    match = next(
+        (
+            device
+            for device in devices
+            if (runtime_id := device.runtime_id(Backend.TORCH))
+            and (runtime_id == preference or runtime_id.startswith(f"{preference}:"))
+        ),
+        None,
+    )
+    if match is not None:
+        return match
+    return next((device for device in devices if device.type == DeviceType.CPU), None)
 
 
 def extract_reference(editor_value: dict | None) -> tuple[np.ndarray, np.ndarray]:
@@ -204,8 +211,8 @@ def fit_model(editor_value: dict | None, device_choice: str) -> str:
     except ValueError as error:
         return f"Error: {error}"
 
-    state.device = resolve_device(device_choice)
-    state.model = Matcher(device=state.device)
+    state.model = Matcher(device=resolve_device(device_choice))
+    state.device = state.model.device
     state.model.fit(Sample(image=image, masks=masks))
     state.raw_prediction = None
 

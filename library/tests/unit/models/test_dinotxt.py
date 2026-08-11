@@ -14,6 +14,7 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.dinotxt import DinoTxtZeroShotClassification
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def model_instance(mock_dino_encoder: MagicMock) -> DinoTxtZeroShotClassificatio
     with patch("instantlearn.models.dinotxt.dinotxt.DinoTextEncoder") as mock_encoder_class:
         mock_encoder_class.return_value = mock_dino_encoder
         return DinoTxtZeroShotClassification(
-            device="cpu",  # Use CPU for testing
+            device=CPU_DEVICE,
             image_size=(224, 224),  # Smaller size for faster testing
             precision="bf16",
         )
@@ -104,7 +105,7 @@ class TestDinoTxtZeroShotClassification:
         pipeline = DinoTxtZeroShotClassification(
             prompt_templates=custom_templates,
             precision="fp16",
-            device="cpu",
+            device=CPU_DEVICE,
             image_size=(512, 512),
         )
         pytest.assume(pipeline.prompt_templates == custom_templates)

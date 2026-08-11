@@ -49,7 +49,7 @@ SAM3 performs zero-shot segmentation using text prompts (category names) or boun
 from instantlearn.models import SAM3
 from instantlearn.data import Category, Sample
 
-model = SAM3(device="xpu")  # or "cuda", "cpu"
+model = SAM3()
 
 predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
@@ -97,7 +97,6 @@ from instantlearn.models.sam3.sam3 import CanvasConfig
 model = SAM3OpenVINO(
     model_dir="./sam3-openvino/openvino-int8_sym",
     prompt_mode=Sam3PromptMode.CANVAS,
-    device="CPU",
 )
 
 # Fit: encode reference image bounding boxes
@@ -130,7 +129,7 @@ from instantlearn.models.torch_base import ExportConfig
 from instantlearn.utils.constants import CompressionMode
 
 # One-off: convert SAM3 to OpenVINO IR
-export_dir = SAM3(device="cpu").to_openvino(
+export_dir = SAM3().to_openvino(
     export_path="./sam3-openvino",
     config=ExportConfig(compression=CompressionMode.INT8_SYM),
 )
@@ -145,19 +144,26 @@ export_dir = SAM3(device="cpu").to_openvino(
 | INT4 ASYM | `INT4_ASYM` | W4A16 weight-only | Similar to INT4 SYM |
 | FP32 | `FP32` | Baseline | Debugging (no benefit over FP16) |
 
-**Device support:** `"CPU"`, `"GPU"` (Intel iGPU/dGPU), or `"AUTO"`.
-PyTorch-style names (`"xpu"`, `"cuda"`) are mapped to the OpenVINO `"GPU"` device automatically.
+The model selects a compatible OpenVINO device automatically. Pass a discovered
+`DeviceInfo` to select a specific physical device.
 
 ```python
+from instantlearn.device import get_supported_device
 from instantlearn.models import SAM3OpenVINO
 from instantlearn.data import Category, Sample
 
-model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym", device="CPU")
+model = SAM3OpenVINO(
+    model_dir="./sam3-openvino/openvino-int8_sym",
+    device=get_supported_device("gpu-0"),
+)
 
 predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
+
+See [Manual Device Selection](docs/02-quick-start.md#manual-device-selection) for
+the available key format and automatic-selection behavior.
 
 See [examples/sam3_openvino.ipynb](examples/sam3_openvino.ipynb) for the full export-and-run walkthrough.
 
@@ -175,7 +181,7 @@ Matcher fits once with a reference mask (one-shot) and predicts on any number of
 from instantlearn.models import Matcher
 from instantlearn.data import Sample
 
-model = Matcher(device="xpu")
+model = Matcher()
 
 ref_sample = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
@@ -211,7 +217,7 @@ ref_mask, _, _ = predictor.forward(
 )
 
 # Fit and predict with the generated mask. Sample.masks is numpy, so convert the SAM output.
-model = Matcher(device="xpu")
+model = Matcher()
 model.fit(Sample(image=read_image(ref_path), masks=ref_mask[0].cpu().numpy()))
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
 ```
@@ -225,7 +231,7 @@ predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341
 from instantlearn.models import GroundedSAM
 from instantlearn.data import Category, Sample
 
-model = GroundedSAM(device="xpu")
+model = GroundedSAM()
 model.fit(Sample(categories=[Category(0, "elephant")]))
 
 predictions = model.predict(Sample(image_path="examples/assets/coco/000000390341.jpg"))
@@ -245,13 +251,12 @@ from instantlearn.utils.constants import SAMModelName
 
 # Use a lighter model for faster inference
 model = Matcher(
-    device="xpu",
     encoder_model="dinov3_small",      # Smaller, faster encoder
     sam=SAMModelName.SAM_HQ_TINY,        # Fast SAM HQ Tiny model
 )
 
 # Heavier model for best accuracy
-model = Matcher(device="xpu", encoder_model="dinov3_huge", sam=SAMModelName.SAM_HQ)
+model = Matcher(encoder_model="dinov3_huge", sam=SAMModelName.SAM_HQ)
 ```
 
 **Available encoder models:**

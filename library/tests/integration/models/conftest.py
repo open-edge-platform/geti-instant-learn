@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared fixtures for model integration tests."""
 
 import pytest
@@ -15,7 +18,7 @@ def use_timm_for_dinov3_models(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     original_load_image_encoder = encoder_base.load_image_encoder
 
-    def _load_image_encoder(*args: object, **kwargs: object):
+    def _load_image_encoder(*args: object, **kwargs: object) -> object:
         model_id = kwargs.get("model_id")
         if model_id is None and args:
             model_id = args[0]

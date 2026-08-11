@@ -5,10 +5,10 @@ from pathlib import Path
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
+from instantlearn.device import DeviceInfo, DeviceType, ResolvedDevice
 from instantlearn.models.sam3.sam3 import MODEL_NAMES as SAM3_MODEL_NAMES
-from instantlearn.utils.constants import CompressionMode, SAMModelName
+from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 
-from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import (
     CompressionPreset,
     MatcherConfig,
@@ -24,12 +24,47 @@ FACTORY_MODULE = "runtime.core.components.factories.model"
 
 
 def _cpu() -> DeviceInfo:
-    return DeviceInfo(type=DeviceType.CPU, name="CPU", memory=None, index=None)
+    return DeviceInfo(
+        type=DeviceType.CPU,
+        name="CPU",
+        runtime_ids={Backend.TORCH: "cpu", Backend.OPENVINO: "CPU"},
+    )
 
 
 def _cuda() -> DeviceInfo:
-    """A device whose backend is torch: CPU/XPU/NPU are all served by OpenVINO."""
-    return DeviceInfo(type=DeviceType.CUDA, name="NVIDIA", memory=25_000_000_000, index=0)
+    """Return an NVIDIA GPU available only through Torch."""
+    return DeviceInfo(
+        type=DeviceType.GPU,
+        name="NVIDIA",
+        memory=25_000_000_000,
+        index=0,
+        runtime_ids={Backend.TORCH: "cuda:0"},
+    )
+
+
+def _intel_gpu() -> DeviceInfo:
+    return DeviceInfo(
+        type=DeviceType.GPU,
+        name="Intel",
+        memory=16_000_000_000,
+        index=0,
+        runtime_ids={Backend.TORCH: "xpu:0", Backend.OPENVINO: "GPU.0"},
+    )
+
+
+def _npu() -> DeviceInfo:
+    return DeviceInfo(
+        type=DeviceType.NPU,
+        name="Intel NPU",
+        index=0,
+        runtime_ids={Backend.OPENVINO: "NPU"},
+    )
+
+
+def _resolved(device: DeviceInfo, runtime: Backend) -> ResolvedDevice:
+    runtime_id = device.runtime_id(runtime)
+    assert runtime_id is not None
+    return ResolvedDevice(device=device, runtime=runtime, runtime_id=runtime_id)
 
 
 def _write_sam3_ir(ir_dir: Path, *, complete: bool = True) -> Path:
@@ -81,16 +116,16 @@ class TestModelFactory:
     def mock_device_service(self):
         """Resolves to CPU, i.e. the OpenVINO backend."""
         service = MagicMock()
-        service.resolve.return_value = _cpu()
-        service.resolve_auto.return_value = _cpu()
+        service.resolve_preference.return_value = _cpu()
+        service.list_devices.return_value = [_cpu()]
         return service
 
     @pytest.fixture
     def torch_device_service(self):
-        """Resolves to CUDA, i.e. the torch backend."""
+        """Resolve the configured NVIDIA GPU through Torch."""
         service = MagicMock()
-        service.resolve.return_value = _cuda()
-        service.resolve_auto.return_value = _cuda()
+        service.resolve_preference.return_value = _cuda()
+        service.list_devices.return_value = [_cuda()]
         return service
 
     @pytest.fixture
@@ -117,7 +152,7 @@ class TestModelFactory:
             result = model_factory.create(mock_reference_batch, None)
 
         assert isinstance(result, PassThroughModelHandler)
-        mock_device_service.resolve.assert_not_called()
+        mock_device_service.resolve_preference.assert_not_called()
 
     def test_factory_returns_passthrough_when_both_none(self, model_factory):
         assert isinstance(model_factory.create(None, None), PassThroughModelHandler)
@@ -134,20 +169,17 @@ class TestModelFactory:
 
         assert isinstance(result, PassThroughModelHandler)
         mocks["Matcher"].assert_not_called()
-        mock_device_service.resolve.assert_not_called()
+        mock_device_service.resolve_preference.assert_not_called()
 
     # --- device resolution and backend routing ---
 
     @pytest.mark.parametrize(
-        ("resolved_device", "expects_openvino", "expected_precision", "expected_torch_device"),
+        ("resolved_device", "expects_openvino", "expected_precision"),
         [
-            # CPU, XPU and NPU are served by OpenVINO, which always traces in fp32...
-            (_cpu(), True, "fp32", "cpu"),
-            (DeviceInfo(type=DeviceType.XPU, name="Intel", memory=1, index=0), True, "fp32", "xpu:0"),
-            # ...and an NPU has no torch backend, so the torch side falls back to the CPU.
-            (DeviceInfo(type=DeviceType.NPU, name="Intel NPU", memory=None, index=None), True, "fp32", "cpu"),
-            # CUDA keeps the torch backend and the configured precision.
-            (_cuda(), False, "bf16", "cuda:0"),
+            (_resolved(_cpu(), Backend.OPENVINO), True, "fp32"),
+            (_resolved(_intel_gpu(), Backend.OPENVINO), True, "fp32"),
+            (_resolved(_npu(), Backend.OPENVINO), True, "fp32"),
+            (_resolved(_cuda(), Backend.TORCH), False, "bf16"),
         ],
     )
     def test_factory_routes_backend_by_device(
@@ -159,10 +191,13 @@ class TestModelFactory:
         resolved_device,
         expects_openvino,
         expected_precision,
-        expected_torch_device,
     ):
         config = MatcherConfig(precision="bf16", sam_model=SAMModelName.SAM_HQ_TINY, encoder_model="dinov3_small")
-        mock_device_service.resolve.return_value = resolved_device
+        resolutions = [resolved_device.device]
+        if expects_openvino:
+            resolutions.append(_cpu())
+        mock_device_service.resolve_preference.side_effect = resolutions
+        mock_device_service.list_devices.return_value = [_cpu(), _cuda(), _intel_gpu(), _npu()]
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, Matcher=DEFAULT, MatcherOpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -172,8 +207,9 @@ class TestModelFactory:
 
             assert mocks["MatcherOpenVINO"].called is expects_openvino
 
-        mock_device_service.resolve.assert_called_once_with("auto")
-        assert mocks["Matcher"].call_args.kwargs["device"] == expected_torch_device
+        assert mock_device_service.resolve_preference.call_args_list[0].args[0] == "auto"
+        expected_model_device = _cpu() if expects_openvino else resolved_device.device
+        assert mocks["Matcher"].call_args.kwargs["device"] == expected_model_device
         assert mocks["Matcher"].call_args.kwargs["precision"] == expected_precision
         assert isinstance(result, InferenceModelHandler)
 
@@ -201,7 +237,7 @@ class TestModelFactory:
             num_background_points=3,
             confidence_threshold=0.5,
             precision="fp32",
-            device="cuda:0",
+            device=_cuda(),
             use_mask_refinement=True,
             similarity_threshold=None,
             num_grid_cells=8,
@@ -235,7 +271,7 @@ class TestModelFactory:
             point_selection_threshold=0.65,
             confidence_threshold=0.42,
             precision="bf16",
-            device="cuda:0",
+            device=_cuda(),
         )
         mocks["PerDino"].return_value.fit.assert_called_once_with(mock_reference_batch)
         assert isinstance(result, InferenceModelHandler)
@@ -271,7 +307,7 @@ class TestModelFactory:
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
             precision="bf16",
-            device="cuda:0",
+            device=_cuda(),
         )
         mocks["SoftMatcher"].return_value.fit.assert_called_once_with(mock_reference_batch)
 
@@ -326,7 +362,7 @@ class TestModelFactory:
             # ...and the OpenVINO sibling loads the resulting IR directory.
             mocks[ov_name].assert_called_once_with(
                 model_dir=torch_model.to_openvino.return_value,
-                device="CPU",
+                device=_cpu(),
             )
             assert isinstance(result, InferenceModelHandler)
             assert result._model is mocks[ov_name].return_value
@@ -363,7 +399,7 @@ class TestModelFactory:
             torch_model_factory.create(mock_reference_batch, config)
 
         assert mocks["SAM3"].call_args.kwargs["prompt_mode"] == mocks["Sam3PromptMode"].CLASSIC
-        assert mocks["SAM3"].call_args.kwargs["device"] == "cuda:0"
+        assert mocks["SAM3"].call_args.kwargs["device"] == _cuda()
         mocks["SAM3"].return_value.fit.assert_called_once_with(mock_reference_batch)
 
     def test_factory_creates_sam3_torch_in_canvas_mode_with_bboxes(self, mock_settings, torch_model_factory):
@@ -402,9 +438,8 @@ class TestModelFactory:
     def test_factory_exports_sam3_on_cpu(self, mock_reference_batch, mock_settings, model_factory, mock_device_service):
         config = Sam3Config(resolution=1008)
         # Inference targets an XPU, so the export device must differ from the inference device.
-        mock_device_service.resolve.return_value = DeviceInfo(
-            type=DeviceType.XPU, name="Intel", memory=16_000_000_000, index=0
-        )
+        mock_device_service.resolve_preference.side_effect = [_intel_gpu(), _cpu()]
+        mock_device_service.list_devices.return_value = [_cpu(), _intel_gpu()]
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -413,8 +448,8 @@ class TestModelFactory:
             model_factory.create(mock_reference_batch, config)
 
         # Tracing runs on CPU regardless of the accelerator chosen for inference.
-        assert mocks["SAM3"].call_args.kwargs["device"] == "cpu"
-        assert mocks["SAM3OpenVINO"].call_args.kwargs["device"] == "GPU.0"
+        assert mocks["SAM3"].call_args.kwargs["device"] == _cpu()
+        assert mocks["SAM3OpenVINO"].call_args.kwargs["device"] == _intel_gpu()
 
     def test_factory_removes_staging_directory_after_export(self, mock_reference_batch, mock_settings, model_factory):
         config = Sam3Config(resolution=1008)

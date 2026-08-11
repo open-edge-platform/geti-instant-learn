@@ -24,6 +24,7 @@ dependencies = [
     "matplotlib==3.10.8",
     "numpy~=2.2.6",
     "opencv-python~=4.13.0",
+    "pydantic>=2.0,<3",
     "rich==14.0.0",
     "requests==2.33.0",
     "pycocotools==2.0.11",

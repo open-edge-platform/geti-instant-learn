@@ -21,6 +21,7 @@ from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
+from instantlearn.device import DeviceInfo
 from instantlearn.models._export_utils import (
     _INT4_MODES,
     IR_STEM,
@@ -169,7 +170,7 @@ class PerDino(TorchModel):
         confidence_threshold: float | None = 0.42,
         precision: str = "bf16",
         compile_models: bool = False,
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the PerDino model.
@@ -190,7 +191,7 @@ class PerDino(TorchModel):
                 stricter filtering, fewer masks.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
-            device: Device for inference.
+            device: Physical device, or ``None`` to select automatically.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -200,7 +201,7 @@ class PerDino(TorchModel):
         super().__init__(device=device, precision=precision, postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
-            device=device,
+            device=self.device,
             precision=precision,
             compile_models=compile_models,
         )
@@ -208,7 +209,7 @@ class PerDino(TorchModel):
         self.encoder = ImageEncoder(
             model_id=encoder_model,
             backend=Backend.HUGGINGFACE,
-            device=device,
+            device=self.device,
             precision=precision,
             compile_models=compile_models,
         )
@@ -216,7 +217,7 @@ class PerDino(TorchModel):
         self.masked_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
-            device=device,
+            device=self.device,
         )
 
         self.similarity_matcher = CosineSimilarity(feature_size=self.encoder.feature_size)

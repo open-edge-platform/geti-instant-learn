@@ -18,6 +18,7 @@ from instantlearn.models.openvino_base import OpenVINOModel
 from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode, sam3_openvino
 from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample
 from instantlearn.utils import Backend
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -54,7 +55,11 @@ class TestSAM3OpenVINOInit:
             patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
             patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained") as mock_tokenizer,
         ):
-            model = SAM3OpenVINO(model_dir=openvino_model_dir, device="cpu", prompt_mode=Sam3PromptMode.CLASSIC)
+            model = SAM3OpenVINO(
+                model_dir=openvino_model_dir,
+                device=CPU_DEVICE,
+                prompt_mode=Sam3PromptMode.CLASSIC,
+            )
 
         assert isinstance(model, OpenVINOModel)
         assert model.backend == Backend.OPENVINO

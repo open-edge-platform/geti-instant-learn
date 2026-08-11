@@ -23,6 +23,7 @@ from instantlearn.data.torch.image import read_image
 from instantlearn.models.per_dino import PerDino, PerDinoOpenVINO
 from instantlearn.models.soft_matcher import SoftMatcher, SoftMatcherOpenVINO
 from instantlearn.utils.constants import SAMModelName
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -64,7 +65,7 @@ def test_export_openvino_and_sibling_inference(
 
     model = model_cls(
         sam=SAMModelName.SAM_HQ_TINY,
-        device="cpu",
+        device=CPU_DEVICE,
         precision="fp32",
         encoder_model="dinov3_small",
     )
@@ -77,7 +78,7 @@ def test_export_openvino_and_sibling_inference(
     assert (export_dir / "model.bin").exists()
     assert (export_dir / "metadata.json").exists()
 
-    ov_model = ov_cls(model_dir=export_dir, device="CPU")
+    ov_model = ov_cls(model_dir=export_dir, device=CPU_DEVICE)
     predictions = ov_model.predict([target_sample])
 
     assert isinstance(predictions, list)

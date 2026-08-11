@@ -40,12 +40,12 @@ class SoftMatcherOpenVINO(MatcherOpenVINO):
         >>> from instantlearn.data.base.sample import Sample
 
         >>> # 1. Fit references and export the baked IR with a torch SoftMatcher.
-        >>> soft_matcher = SoftMatcher(device="cpu")
+        >>> soft_matcher = SoftMatcher()
         >>> soft_matcher.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
         >>> ir_dir = soft_matcher.to_openvino("./softmatcher-ov")
 
         >>> # 2. Load and run the baked IR (no fit needed).
-        >>> ov_model = SoftMatcherOpenVINO(model_dir=ir_dir, device="CPU")
+        >>> ov_model = SoftMatcherOpenVINO(model_dir=ir_dir)
         >>> predictions = ov_model.predict(Sample(image_path="target.jpg"))
     """
 

@@ -3,8 +3,9 @@
 
 """Static capability descriptor for the GroundedSAM model family."""
 
-from instantlearn.models.model_card import ModelCard
-from instantlearn.utils.constants import PromptType, ShotMode
+from instantlearn.device import DeviceType
+from instantlearn.models.model_card import ModelCard, RuntimeCapability
+from instantlearn.utils.constants import Backend, PromptType, ShotMode
 
 _GROUNDED_SAM_CARD = ModelCard(
     name="GroundedSAM",
@@ -13,4 +14,5 @@ _GROUNDED_SAM_CARD = ModelCard(
     prompt_types=frozenset({PromptType.TEXT}),
     shot_modes=frozenset({ShotMode.ZERO_SHOT}),
     exportable_to=frozenset(),
+    supported_runtimes=frozenset({RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU, DeviceType.GPU}))}),
 )

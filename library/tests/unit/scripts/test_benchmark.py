@@ -12,6 +12,8 @@ import torch
 
 from instantlearn.scripts.benchmark import load_dataset_by_name, perform_benchmark_experiment, predict_on_dataset
 from instantlearn.utils.args import get_arguments
+from instantlearn.utils.benchmark import _resolve_benchmark_device
+from tests import CPU_DEVICE, CUDA_DEVICE
 
 
 class TestBenchmarkCLI:
@@ -99,6 +101,27 @@ class TestBenchmarkDatasetHandling:
 
 class TestBenchmarkModelHandling:
     """Test model handling in benchmark script."""
+
+    def test_resolve_benchmark_device_auto(self) -> None:
+        """Auto delegates device selection to the model constructor."""
+        assert _resolve_benchmark_device("auto") is None
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [("cpu", CPU_DEVICE), ("cuda", CUDA_DEVICE), ("cuda:0", CUDA_DEVICE)],
+    )
+    def test_resolve_benchmark_device(self, value: str, expected: object) -> None:
+        """Runtime IDs and family aliases resolve to discovered devices."""
+        with patch("instantlearn.utils.benchmark.get_supported_devices", return_value=[CPU_DEVICE, CUDA_DEVICE]):
+            assert _resolve_benchmark_device(value) is expected
+
+    def test_resolve_benchmark_device_rejects_unavailable_device(self) -> None:
+        """Unavailable runtime IDs fail before model construction."""
+        with (
+            patch("instantlearn.utils.benchmark.get_supported_devices", return_value=[CPU_DEVICE]),
+            pytest.raises(ValueError, match="not available"),
+        ):
+            _resolve_benchmark_device("cuda")
 
     def test_predict_on_dataset_single_model(self) -> None:
         """Test running prediction on dataset with single model."""

@@ -14,6 +14,7 @@ import pytest
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.matcher import MatcherOpenVINO
 from instantlearn.utils.constants import Backend
+from tests import CPU_DEVICE
 
 INPUT_SIZE = 28
 PATCH_SIZE = 14
@@ -50,7 +51,7 @@ def mock_model(tmp_path: Path) -> Iterator[MatcherOpenVINO]:
     _write_dummy_ir(tmp_path)
     with patch("openvino.Core") as mock_core:
         mock_core.return_value.compile_model.return_value = MagicMock()
-        yield MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
+        yield MatcherOpenVINO(model_dir=str(tmp_path), device=CPU_DEVICE)
 
 
 class TestMatcherOpenVINO:
@@ -82,7 +83,7 @@ class TestMatcherOpenVINO:
         """Missing metadata.json raises FileNotFoundError."""
         _write_dummy_ir(tmp_path, with_metadata=False)
         with patch("openvino.Core"), pytest.raises(FileNotFoundError):
-            MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
+            MatcherOpenVINO(model_dir=str(tmp_path), device=CPU_DEVICE)
 
     def test_missing_ir_raises(self, tmp_path: Path) -> None:
         """Missing model.xml raises FileNotFoundError."""
@@ -90,5 +91,5 @@ class TestMatcherOpenVINO:
             json.dumps({"input_size": INPUT_SIZE, "patch_size": PATCH_SIZE, "categories": {}}),
         )
         with patch("openvino.Core"), pytest.raises(FileNotFoundError):
-            MatcherOpenVINO(model_dir=str(tmp_path), device="CPU")
+            MatcherOpenVINO(model_dir=str(tmp_path), device=CPU_DEVICE)
 

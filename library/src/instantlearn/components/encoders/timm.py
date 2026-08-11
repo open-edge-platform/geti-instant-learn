@@ -5,8 +5,8 @@
 
 from logging import getLogger
 
-import timm
 import numpy as np
+import timm
 import torch
 from torch import nn
 from torch.nn import functional
@@ -62,7 +62,7 @@ class TimmImageEncoder(nn.Module):
         Raises:
             ValueError: If the model ID is invalid.
         """
-        from instantlearn.utils.optimization import optimize_model
+        from instantlearn.utils.optimization import optimize_model  # noqa: PLC0415
 
         super().__init__()
 
@@ -139,11 +139,12 @@ class TimmImageEncoder(nn.Module):
         """
         processed = []
         for image in images:
+            processed_image = image
             if isinstance(image, np.ndarray):
                 # HWC uint8/float numpy → CHW tv_tensors.Image
                 chw = np.ascontiguousarray(image.transpose(2, 0, 1))
-                image = tv_tensors.Image(torch.from_numpy(chw))
-            processed.append(self.processor(image.to(self.device)))
+                processed_image = tv_tensors.Image(torch.from_numpy(chw))
+            processed.append(self.processor(processed_image.to(self.device)))
         images_t = torch.stack(processed)
         features = self.model.forward_features(images_t)  # (B, N, D)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens

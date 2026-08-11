@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from instantlearn.components.postprocessing import PostProcessor
     from instantlearn.data.base.prediction import Prediction
     from instantlearn.data.base.sample import Sample
+    from instantlearn.device import DeviceInfo
     from instantlearn.models.model_card import ModelCard
 
 
@@ -36,7 +37,7 @@ class DinoTxtZeroShotClassification(TorchModel):
         >>> from instantlearn.models import DinoTxtZeroShotClassification
         >>> from instantlearn.data.base.sample import Category, Sample
         >>> import numpy as np
-        >>> model = DinoTxtZeroShotClassification(device="cpu")
+        >>> model = DinoTxtZeroShotClassification()
         >>> sample = Sample(
         ...     image=np.zeros((512, 512, 3), dtype=np.uint8),
         ...     categories=[Category(0, "cat"), Category(1, "dog")],
@@ -50,7 +51,7 @@ class DinoTxtZeroShotClassification(TorchModel):
         self,
         prompt_templates: list[str] = IMAGENET_TEMPLATES,
         precision: str = "bf16",
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         image_size: tuple[int, int] | None = (512, 512),
         backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
         weights_location: str | Path | None = None,
@@ -61,7 +62,7 @@ class DinoTxtZeroShotClassification(TorchModel):
         Args:
             prompt_templates: Text templates for zero-shot classification.
             precision: Weight precision (``"fp32"``, ``"fp16"``, ``"bf16"``).
-            device: Torch device string.
+            device: Physical device, or ``None`` to select automatically.
             image_size: Input image size.
             backbone_size: DINOv3 backbone variant (only ``LARGE`` supported).
             weights_location: Path to pre-downloaded DINOv3 weights directory,
@@ -76,7 +77,7 @@ class DinoTxtZeroShotClassification(TorchModel):
         )
         self.torch_precision = precision_to_torch_dtype(precision)
         self.dino_encoder = DinoTextEncoder(
-            device=device,
+            device=self.device,
             image_size=image_size,
             precision=self.torch_precision,
             backbone_size=backbone_size,

@@ -641,7 +641,7 @@ class DetrDecoder(nn.Module):
         self.position_encoding = SinePositionEmbedding(num_pos_feats=hidden_size // 2, normalize=False)
 
     @compile_compatible_method_lru_cache(maxsize=1)
-    def _get_coords(
+    def _get_coords(  # noqa: PLR6301
         self,
         height: int,
         width: int,
