@@ -127,7 +127,13 @@ class TestMaskedFeatureExtractor:
         pytest.assume(ref_features.flatten_ref_masks.shape == (num_categories, total_patches * 2))
 
     def test_forward_empty_mask(self) -> None:
-        """Test MaskedFeatureExtractor with empty mask."""
+        """Test MaskedFeatureExtractor with empty mask.
+
+        When a mask covers zero encoder patch cells, a zero-filled [1, embed_dim]
+        embedding is returned instead of [0, embed_dim] so that torch.stack
+        across categories always succeeds (regression guard for the multi-category
+        stack crash).
+        """
         extractor = MaskedFeatureExtractor(
             input_size=224,
             patch_size=14,
@@ -147,10 +153,57 @@ class TestMaskedFeatureExtractor:
         ref_features = extractor(embeddings, masks, category_ids)
 
         pytest.assume(ref_features.category_ids == [1])
-        # Empty mask should produce empty masked embeddings but still have ref embeddings
-        pytest.assume(ref_features.masked_ref_embeddings[0].shape == (0, embedding_dim))
+        # Empty mask: zero vector [1, embed_dim] so torch.stack works across categories
+        pytest.assume(ref_features.masked_ref_embeddings[0].shape == (1, embedding_dim))
         pytest.assume(ref_features.flatten_ref_masks[0].sum() == 0)
         pytest.assume(ref_features.ref_embeddings[0].shape == (total_patches, embedding_dim))
+
+    def test_forward_multi_category_one_empty_mask(self) -> None:
+        """Regression test: stack must not crash when one category has a zero-coverage mask.
+
+        Reproduces the exact failure from the bug report:
+          RuntimeError: stack expects each tensor to be equal size,
+          but got [1, 384] at entry 0 and [0, 384] at entry 1
+
+        Scenario: portrait image, 'cat' polygon (large, survives patch pooling) and
+        'led' polygon (tiny, 1x1 pixel — zero coverage after downsampling to patch grid).
+        """
+        extractor = MaskedFeatureExtractor(
+            input_size=224,
+            patch_size=14,
+            device="cpu",
+        )
+
+        batch_size = 1
+        patches_per_dim = 16
+        total_patches = patches_per_dim * patches_per_dim
+        embedding_dim = 768
+        num_masks = 2
+        mask_height, mask_width = 224, 224
+
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        # Category 1 ("cat"): large polygon — survives patch-grid downsampling
+        masks[0, 0, 50:150, 50:150] = True
+        # Category 2 ("led"): single pixel — covers zero patch cells → triggers the bug
+        masks[0, 1, 10, 10] = True
+
+        category_ids = torch.tensor([[1, 2]], dtype=torch.long)
+
+        # Must not raise RuntimeError
+        ref_features = extractor(embeddings, masks, category_ids)
+
+        num_categories = 2
+        pytest.assume(ref_features.category_ids == [1, 2])
+        # Both entries must be shape [1, embed_dim] so the stacked tensor is [2, 1, embed_dim]
+        pytest.assume(ref_features.masked_ref_embeddings.shape == (num_categories, 1, embedding_dim))
+        pytest.assume(ref_features.ref_embeddings.shape[0] == num_categories)
+        pytest.assume(ref_features.flatten_ref_masks.shape[0] == num_categories)
+        # Cat category has foreground patches; LED category has none
+        pytest.assume(ref_features.flatten_ref_masks[0].sum() > 0)
+        pytest.assume(ref_features.flatten_ref_masks[1].sum() == 0)
+        # LED embedding is a zero vector (graceful degradation)
+        pytest.assume(ref_features.masked_ref_embeddings[1].abs().sum() == 0)
 
     def test_forward_feature_extraction_correctness(self) -> None:
         """Test that embeddings are correctly extracted from masked regions."""

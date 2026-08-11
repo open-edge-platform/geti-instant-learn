@@ -3,11 +3,14 @@
 
 """Masked Feature Extractor module."""
 
+import logging
 from collections import defaultdict
 
 import torch
 from torch import nn
 from torchvision import transforms
+
+logger = logging.getLogger(__name__)
 
 from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
 from instantlearn.data.torch.transforms import ToTensor
@@ -135,10 +138,23 @@ class MaskedFeatureExtractor(nn.Module):
                 averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
             else:
                 # No mask pixels overlapped any encoder patches (mask too small
-                # or misaligned at patch-grid resolution). Return an empty tensor
-                # so the shape reflects zero masked embeddings.
+                # or misaligned at patch-grid resolution). Return a zero vector
+                # shaped [1, embed_dim] so that torch.stack across categories
+                # succeeds regardless of which categories have coverage.
+                # The zero embedding produces near-zero similarity scores during
+                # matching, so this category will generate no detections —
+                # a graceful degradation rather than a crash.
+                logger.warning(
+                    "Category id=%d: annotation mask covers zero encoder patch cells "
+                    "after downsampling to the %dx%d patch grid. "
+                    "The polygon may be too small relative to the image size. "
+                    "A zero embedding will be used; this category will not be detected.",
+                    cat_id,
+                    int(self.input_size // self.patch_size),
+                    int(self.input_size // self.patch_size),
+                )
                 averaged_embed = torch.zeros(
-                    0,
+                    1,
                     cat_masked_embeds.shape[-1],
                     device=cat_masked_embeds.device,
                     dtype=cat_masked_embeds.dtype,

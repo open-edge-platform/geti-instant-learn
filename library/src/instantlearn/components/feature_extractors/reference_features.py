@@ -19,7 +19,9 @@ class ReferenceFeatures:
         ref_embeddings: Reference patch embeddings per category.
             Shape: [C, num_patches_total, embed_dim] where num_patches_total = num_refs * num_patches
         masked_ref_embeddings: Averaged masked reference embeddings per category.
-            Shape: [C, embed_dim]
+            Shape: [C, 1, embed_dim]. Categories whose annotation mask covers zero
+            encoder patch cells (polygon too small relative to patch grid) receive a
+            zero-filled [1, embed_dim] row and will produce no detections at inference.
         flatten_ref_masks: Flattened reference masks per category.
             Shape: [C, num_patches_total]
         category_ids: Mapping from index to actual class ID.
