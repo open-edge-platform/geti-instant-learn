@@ -10,10 +10,10 @@ import torch
 from torch import nn
 from torchvision import transforms
 
-logger = logging.getLogger(__name__)
-
 from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
 from instantlearn.data.torch.transforms import ToTensor
+
+logger = logging.getLogger(__name__)
 
 
 class MaskedFeatureExtractor(nn.Module):

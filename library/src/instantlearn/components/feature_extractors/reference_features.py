@@ -30,7 +30,7 @@ class ReferenceFeatures:
     Example:
         For 2-shot learning with 2 categories (cat=5, dog=3):
         - ref_embeddings.shape = [2, 2048, 1024]  # 2 categories, 2*1024 patches
-        - masked_ref_embeddings.shape = [2, 1024]
+        - masked_ref_embeddings.shape = [2, 1, 1024]  # 2 categories, 1 averaged embedding each
         - flatten_ref_masks.shape = [2, 2048]
         - category_ids = [5, 3]  # index 0 -> class 5, index 1 -> class 3
     """
