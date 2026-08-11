@@ -151,7 +151,7 @@ class TestSAM3Initialization:
     """Test SAM3 initialization for both prompt modes."""
 
     def test_card_advertises_all_prompt_capabilities(self) -> None:
-        """Test SAM3 card exposes text, spatial, and visual-exemplar prompts."""
+        """Test SAM3 card exposes text, spatial, and mask prompts."""
         card = SAM3.card()
 
         assert card.prompt_types == frozenset({
@@ -391,8 +391,24 @@ class TestSAM3VisualExemplar:
         assert model.exemplar_geometry_features is not None
         assert model.exemplar_category_ids is not None
 
+    def test_fit_with_masks(self, mock_sam3_deps: dict[str, Any]) -> None:
+        """Test fit() in visual mode with mask prompts."""
+        model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
+
+        masks = np.zeros((1, 224, 224), dtype=bool)
+        masks[0, 50:150, 60:160] = True
+        ref = Sample(
+            image=_zero_hwc_image(224, 224),
+            masks=masks,
+            categories=[Category(id=0, label="shoe")],
+        )
+        model.fit(ref)
+
+        assert model.exemplar_geometry_features is not None
+        assert model.exemplar_category_ids is not None
+
     def test_fit_raises_without_prompts(self, mock_sam3_deps: dict[str, Any]) -> None:
-        """Test fit() raises ValueError without bboxes or points."""
+        """Test fit() raises ValueError without bboxes, masks or points."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
@@ -400,7 +416,7 @@ class TestSAM3VisualExemplar:
             categories=[Category(id=0, label="shoe")],
         )
 
-        with pytest.raises(ValueError, match="bboxes or points"):
+        with pytest.raises(ValueError, match="bboxes, masks or points"):
             model.fit(ref)
 
     def test_fit_raises_without_image(self, mock_sam3_deps: dict[str, Any]) -> None:

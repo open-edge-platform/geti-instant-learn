@@ -54,6 +54,7 @@ from .canvas_helpers import (
     extract_target_predictions,
     group_references_by_category,
     merge_cross_category,
+    reference_bboxes,
 )
 from .constants import (
     GEOMETRY_ENCODER,
@@ -289,19 +290,28 @@ class SAM3OpenVINO(OpenVINOModel):
         return _SAM3_CARD
 
     def _load_tokenizer(self, tokenizer_path: str | Path | None) -> CLIPTokenizerFast:
-        """Load CLIP tokenizer from local path or HuggingFace.
+        """Load the CLIP tokenizer from a local path.
 
         Args:
-            tokenizer_path: Explicit path/repo, or ``None`` for auto-detection.
+            tokenizer_path: Explicit path, or ``None`` to look in the model dir.
 
         Returns:
             Loaded ``CLIPTokenizerFast`` instance.
+
+        Raises:
+            FileNotFoundError: If no local tokenizer is found.
         """
         if tokenizer_path is not None:
             return CLIPTokenizerFast.from_pretrained(str(tokenizer_path))
         if (self.model_dir / "tokenizer.json").exists():
             return CLIPTokenizerFast.from_pretrained(str(self.model_dir))
-        return CLIPTokenizerFast.from_pretrained(self.model_id)
+        msg = (
+            f"No tokenizer files found in {self.model_dir}. SAM3 OpenVINO models must be "
+            "exported locally (see SAM3.to_openvino()), which saves the tokenizer alongside "
+            "the IR. Refusing to download from HuggingFace to stay torch-free and avoid "
+            "redistributing licensed SAM3 assets."
+        )
+        raise FileNotFoundError(msg)
 
     def _ensure_geometry_exemplar_loaded(self) -> None:
         """Lazy-load the geometry-encoder-exemplar model on first use."""
@@ -511,7 +521,7 @@ class SAM3OpenVINO(OpenVINOModel):
             reference_batch: Batch of reference samples with images and prompts.
 
         Raises:
-            ValueError: If no reference samples contain bboxes or points.
+            ValueError: If no reference samples contain bboxes, masks or points.
         """
         encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
         category_text_map: dict[int, str] = {}
@@ -520,7 +530,7 @@ class SAM3OpenVINO(OpenVINOModel):
             self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
 
         if not encoded_by_category:
-            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes, masks or points."
             raise ValueError(msg)
 
         # Aggregate per-category features
@@ -587,14 +597,14 @@ class SAM3OpenVINO(OpenVINOModel):
         because point encoding transfers better across images.
 
         Args:
-            sample: Reference sample with image and bboxes/points.
+            sample: Reference sample with image and bboxes/masks/points.
             encoded_by_category: Accumulator mapping cat_id to encoded features.
             category_text_map: Accumulator mapping cat_id to text name.
 
         Raises:
             ValueError: If the sample has prompts but no image.
         """
-        bboxes = sample.bboxes
+        bboxes = reference_bboxes(sample)
         points = sample.points
         has_bboxes = self._has_values(bboxes)
         has_points = self._has_values(points)

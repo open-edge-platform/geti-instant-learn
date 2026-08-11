@@ -7,8 +7,13 @@ import numpy as np
 import pytest
 import torch
 
-from instantlearn.models.sam3.canvas_helpers import category_registry_from_canvas_references
+from instantlearn.models.sam3.canvas_helpers import (
+    category_registry_from_canvas_references,
+    group_references_by_category,
+    reference_bboxes,
+)
 from instantlearn.models.sam3.sam3 import SAM3, CanvasConfig
+from instantlearn.models.torch_adapter import TensorSample
 
 
 class TestCanvasConfigDefaults:
@@ -91,6 +96,52 @@ class TestCanvasCategoryRegistry:
         registry = category_registry_from_canvas_references(refs_by_category)
 
         assert registry.id_to_name == {0: "SUV", 1: "Motorcycle"}
+
+
+class TestReferenceBboxes:
+    """Box prompts resolved from bboxes or masks."""
+
+    @staticmethod
+    def _sample(**kwargs: object) -> TensorSample:
+        return TensorSample(image=torch.zeros(3, 40, 40), label_ids=torch.tensor([0]), **kwargs)
+
+    def test_mask_is_converted_to_its_tight_bbox(self) -> None:
+        """A mask prompt yields the tight xyxy box around its set pixels."""
+        masks = torch.zeros(1, 40, 40, dtype=torch.bool)
+        masks[0, 10:20, 5:15] = True
+
+        boxes = reference_bboxes(self._sample(masks=masks))
+
+        assert boxes.tolist() == [[5.0, 10.0, 14.0, 19.0]]
+
+    def test_explicit_bboxes_take_precedence_over_masks(self) -> None:
+        """Explicit boxes win when a sample carries both prompts."""
+        masks = torch.zeros(1, 40, 40, dtype=torch.bool)
+        masks[0, 10:20, 5:15] = True
+        bboxes = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
+
+        boxes = reference_bboxes(self._sample(masks=masks, bboxes=bboxes))
+
+        assert boxes.tolist() == [[1.0, 2.0, 3.0, 4.0]]
+
+    def test_returns_none_without_box_or_mask_prompts(self) -> None:
+        """Samples carrying neither prompt type resolve to no boxes."""
+        assert reference_bboxes(self._sample()) is None
+
+    def test_mask_only_sample_is_grouped_for_canvas(self) -> None:
+        """Canvas grouping accepts a mask-only reference sample."""
+        masks = torch.zeros(1, 40, 40, dtype=torch.bool)
+        masks[0, 10:20, 5:15] = True
+        sample = self._sample(masks=masks, category_labels=["cat"])
+
+        grouped = group_references_by_category([sample])
+
+        assert grouped[0]["bboxes"][0].tolist() == [5.0, 10.0, 14.0, 19.0]
+
+    def test_samples_without_prompts_are_rejected(self) -> None:
+        """Grouping fails when no sample carries box or mask prompts."""
+        with pytest.raises(ValueError, match="bboxes or masks"):
+            group_references_by_category([self._sample()])
 
 
 class TestBuildCanvasVerticalGeometry:

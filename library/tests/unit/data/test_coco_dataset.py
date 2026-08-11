@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import polars as pl
 import pytest
-import torch
 from pycocotools import mask as mask_utils
 
 from instantlearn.data.base import Batch, Sample
@@ -143,8 +142,8 @@ class TestCOCODatasetMaskDecoding:
         """Polygon segmentation decodes to a binary mask."""
         polygon = [[10, 10, 90, 10, 90, 90, 10, 90]]
         mask = COCODataset._decode_single(polygon, h=100, w=100)  # noqa: SLF001
-        assert isinstance(mask, torch.Tensor)
-        assert mask.dtype == torch.bool
+        assert isinstance(mask, np.ndarray)
+        assert mask.dtype == bool
         assert mask.shape == (100, 100)
         assert mask.any()
 
@@ -154,8 +153,8 @@ class TestCOCODatasetMaskDecoding:
         rle = mask_utils.frPyObjects([[10, 10, 90, 10, 90, 90, 10, 90]], 100, 100)
         merged_rle = mask_utils.merge(rle)
         mask = COCODataset._decode_single(merged_rle, h=100, w=100)  # noqa: SLF001
-        assert isinstance(mask, torch.Tensor)
-        assert mask.dtype == torch.bool
+        assert isinstance(mask, np.ndarray)
+        assert mask.dtype == bool
         assert mask.shape == (100, 100)
         assert mask.any()
 
