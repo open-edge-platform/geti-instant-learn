@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from torch import nn
 
-from instantlearn.device import resolve_device_for_runtime
+from instantlearn.device import resolve_device_for_model
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, CompressionMode
 
@@ -80,11 +80,13 @@ class TorchModel(nn.Module, Model):
             postprocessor: Optional post-processor.
         """
         super().__init__()
-        self.device_info, self.device = resolve_device_for_runtime(
+        resolved_device = resolve_device_for_model(
+            model_card=type(self).card(),
             device=device,
-            runtime=Backend.TORCH,
-            supported_device_types=type(self).card().supported_device_types(Backend.TORCH),
+            allowed_runtimes=(Backend.TORCH,),
         )
+        self.device_info = resolved_device.device
+        self.device = resolved_device.runtime_id
         self.precision = precision
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor

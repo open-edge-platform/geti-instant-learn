@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.device import DeviceInfo
+from instantlearn.device import DeviceInfo, ResolvedDevice, resolve_device_for_model
 from instantlearn.models import (
     SAM3,
     Matcher,
@@ -42,7 +42,7 @@ from domain.services.schemas.processor import (
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.inference_model import InferenceModelHandler, empty_accelerator_cache
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
-from runtime.services.device import DeviceService, ResolvedDevice
+from runtime.services.device import DeviceService
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -70,11 +70,30 @@ class ModelFactory:
         allowed_runtimes: tuple[Backend, ...] = (Backend.OPENVINO, Backend.TORCH),
     ) -> ResolvedDevice:
         """Resolve a configured preference to a concrete model runtime route."""
-        resolved = self._device_service.resolve_for_model(
+        device_str = configured_device or "auto"
+        preferred_device = self._device_service.resolve_preference(device_str)
+        resolved = resolve_device_for_model(
             model_card=model_card,
-            device_str=configured_device or "auto",
+            device=preferred_device,
+            devices=self._device_service.list_devices(),
             allowed_runtimes=allowed_runtimes,
+            allow_fallback=True,
         )
+        if device_str != "auto" and preferred_device is None:
+            resolved = ResolvedDevice(
+                device=resolved.device,
+                runtime=resolved.runtime,
+                runtime_id=resolved.runtime_id,
+                fallback_used=True,
+            )
+        elif resolved.fallback_used:
+            logger.warning(
+                "Device %r is not supported by model %s; using %s on %s.",
+                device_str,
+                model_card.name,
+                resolved.runtime.value,
+                resolved.device.key,
+            )
         logger.info(
             "Accelerator selected: runtime=%s device=%s id=%s (configured=%r, fallback=%s)",
             resolved.runtime.value,
@@ -114,7 +133,7 @@ class ModelFactory:
 
         model_card = _model_card(config)
         if model_card is None:
-            logger.info("Model config didn't match any known type, falling back to pass-through processing")
+            logger.error("Model config didn't match any known type, falling back to pass-through processing")
             return PassThroughModelHandler()
 
         resolved_device = self._resolve_device(model_card, configured_device)
@@ -137,7 +156,12 @@ class ModelFactory:
         model_card: ModelCard,
         resolved_device: ResolvedDevice,
     ) -> Model | None:
-        """Construct and fit a model, converting it to OpenVINO when enabled."""
+        """Construct and fit a model, converting it to OpenVINO when enabled.
+
+        OpenVINO routes build and export the temporary Torch model on CPU because
+        the selected OpenVINO target may not support Torch. The device-agnostic IR
+        is then compiled and used for inference on the selected target device.
+        """
         use_openvino = resolved_device.runtime == Backend.OPENVINO
         if isinstance(config, Sam3Config):
             return self._create_sam3(
@@ -146,9 +170,15 @@ class ModelFactory:
                 resolved_device=resolved_device,
             )
 
-        selected_device = resolved_device.device
+        torch_device = resolved_device.device
         if use_openvino:
-            selected_device = self._resolve_device(model_card, "cpu", (Backend.TORCH,)).device
+            # The final OpenVINO target may not support Torch. Build and export the
+            # temporary Torch model on CPU, then compile the IR on the selected target.
+            torch_device = self._resolve_device(
+                model_card,
+                "cpu",
+                allowed_runtimes=(Backend.TORCH,),
+            ).device
         # If the model is converted to the OV format the precision must be fp32:
         # the graph is traced in full precision and compressed afterwards.
         precision = _OPENVINO_PRECISION if use_openvino else config.precision
@@ -167,7 +197,7 @@ class ModelFactory:
                     similarity_threshold=config.similarity_threshold,
                     num_grid_cells=config.num_grid_cells,
                     precision=precision,
-                    device=selected_device,
+                    device=torch_device,
                 )
             case PerDinoConfig() as config:
                 logger.info("Initializing a PerDINO instance")
@@ -181,7 +211,7 @@ class ModelFactory:
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
                     precision=precision,
-                    device=selected_device,
+                    device=torch_device,
                 )
             case SoftMatcherConfig() as config:
                 logger.info("Initializing a SoftMatcher instance")
@@ -198,7 +228,7 @@ class ModelFactory:
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     precision=precision,
-                    device=selected_device,
+                    device=torch_device,
                 )
             case _:
                 return None

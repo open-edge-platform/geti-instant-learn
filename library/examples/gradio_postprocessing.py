@@ -42,7 +42,7 @@ from instantlearn.components.postprocessing import (
 from instantlearn.components.sam.decoder import masks_to_boxes_traceable
 from instantlearn.data import Sample
 from instantlearn.data.base.prediction import Prediction
-from instantlearn.device import DeviceInfo, DeviceType, enumerate_system_devices
+from instantlearn.device import DeviceInfo, DeviceType, get_supported_devices
 from instantlearn.models import Matcher
 from instantlearn.utils.constants import Backend
 from instantlearn.visualizer import render_predictions, setup_colors
@@ -88,7 +88,7 @@ def resolve_device(preference: str) -> DeviceInfo | None:
     if preference == "auto":
         return None
 
-    devices = enumerate_system_devices()
+    devices = get_supported_devices()
     match = next(
         (
             device

@@ -112,13 +112,13 @@ class TestBenchmarkModelHandling:
     )
     def test_resolve_benchmark_device(self, value: str, expected: object) -> None:
         """Runtime IDs and family aliases resolve to discovered devices."""
-        with patch("instantlearn.utils.benchmark.enumerate_system_devices", return_value=[CPU_DEVICE, CUDA_DEVICE]):
+        with patch("instantlearn.utils.benchmark.get_supported_devices", return_value=[CPU_DEVICE, CUDA_DEVICE]):
             assert _resolve_benchmark_device(value) is expected
 
     def test_resolve_benchmark_device_rejects_unavailable_device(self) -> None:
         """Unavailable runtime IDs fail before model construction."""
         with (
-            patch("instantlearn.utils.benchmark.enumerate_system_devices", return_value=[CPU_DEVICE]),
+            patch("instantlearn.utils.benchmark.get_supported_devices", return_value=[CPU_DEVICE]),
             pytest.raises(ValueError, match="not available"),
         ):
             _resolve_benchmark_device("cuda")

@@ -29,7 +29,7 @@ import numpy as np
 
 from instantlearn.data.base.sample import Category, Sample
 from instantlearn.data.utils.image import read_image
-from instantlearn.device import enumerate_system_devices
+from instantlearn.device import get_supported_devices
 from instantlearn.models.sam3 import SAM3, Sam3PromptMode
 from instantlearn.utils.constants import Backend
 from instantlearn.visualizer import render_predictions
@@ -54,7 +54,7 @@ print("\nLoading SAM3 model...", flush=True)
 device = next(
     (
         device
-        for device in enumerate_system_devices()
+        for device in get_supported_devices()
         if (runtime_id := device.runtime_id(Backend.TORCH))
         and (runtime_id == args.device or runtime_id.startswith(f"{args.device}:"))
     ),

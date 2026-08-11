@@ -10,9 +10,11 @@ from typing import ClassVar
 import pytest
 
 from instantlearn.device.device import (
+    DeviceInfo,
     DeviceType,
     discover_openvino_devices,
     discover_torch_devices,
+    get_supported_device,
     merge_device_observations,
 )
 from instantlearn.utils.constants import Backend
@@ -87,3 +89,21 @@ def test_discovery_does_not_merge_different_gpus_with_same_runtime_index(
     devices = merge_device_observations([*discover_torch_devices(), *discover_openvino_devices()])
 
     assert len([device for device in devices if device.type == DeviceType.GPU]) == 2
+
+
+def test_get_supported_device_returns_device_matching_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The public key selects one device from the discovered device list."""
+    cpu = DeviceInfo(type=DeviceType.CPU, name="CPU")
+    gpu = DeviceInfo(type=DeviceType.GPU, name="GPU", index=0)
+    monkeypatch.setattr("instantlearn.device.device.get_supported_devices", lambda: [gpu, cpu])
+
+    assert get_supported_device("gpu-0") is gpu
+
+
+def test_get_supported_device_lists_available_keys_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unavailable key reports the keys discovered on the current system."""
+    cpu = DeviceInfo(type=DeviceType.CPU, name="CPU")
+    monkeypatch.setattr("instantlearn.device.device.get_supported_devices", lambda: [cpu])
+
+    with pytest.raises(ValueError, match=r"Device 'gpu-0' is not available. Available devices: cpu"):
+        get_supported_device("gpu-0")

@@ -1,23 +1,18 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from instantlearn.device import DeviceInfo as LibraryDeviceInfo
-from instantlearn.device import DeviceType
+from instantlearn.device import DeviceInfo, DeviceType
 from instantlearn.utils.constants import Backend
 
-from domain.services.schemas.device import DeviceInfo
 
-
-def test_from_library_preserves_physical_device_and_runtime_ids() -> None:
-    library_device = LibraryDeviceInfo(
+def test_device_info_preserves_physical_device_and_runtime_ids() -> None:
+    device = DeviceInfo(
         type=DeviceType.GPU,
         name="Intel Graphics",
         memory=8_000_000_000,
         index=1,
         runtime_ids={Backend.TORCH: "xpu:1", Backend.OPENVINO: "GPU.1"},
     )
-
-    device = DeviceInfo.from_library(library_device)
 
     assert device.type == DeviceType.GPU
     assert device.name == "Intel Graphics"
@@ -28,12 +23,10 @@ def test_from_library_preserves_physical_device_and_runtime_ids() -> None:
 
 
 def test_model_dump_serializes_runtime_ids_for_api() -> None:
-    device = DeviceInfo.from_library(
-        LibraryDeviceInfo(
-            type=DeviceType.CPU,
-            name="CPU",
-            runtime_ids={Backend.TORCH: "cpu", Backend.OPENVINO: "CPU"},
-        ),
+    device = DeviceInfo(
+        type=DeviceType.CPU,
+        name="CPU",
+        runtime_ids={Backend.TORCH: "cpu", Backend.OPENVINO: "CPU"},
     )
 
     assert device.model_dump(mode="json") == {
@@ -44,3 +37,15 @@ def test_model_dump_serializes_runtime_ids_for_api() -> None:
         "key": "cpu",
         "runtime_ids": {"torch": "cpu", "openvino": "CPU"},
     }
+
+
+def test_model_dump_excludes_internal_identity() -> None:
+    device = DeviceInfo(
+        type=DeviceType.GPU,
+        name="GPU",
+        index=0,
+        runtime_ids={Backend.OPENVINO: "GPU.0"},
+        identity="internal-uuid",
+    )
+
+    assert "identity" not in device.model_dump(mode="json")

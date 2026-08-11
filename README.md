@@ -127,6 +127,10 @@ for pred in predictions:
     masks = pred.masks  # Predicted segmentation masks
 ```
 
+Models select a compatible device automatically. See
+[Manual Device Selection](library/docs/02-quick-start.md#manual-device-selection)
+to select a specific physical device.
+
 > For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
 
 ### Geti Instant Learn Application

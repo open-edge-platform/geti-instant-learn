@@ -74,6 +74,25 @@ predictions = model.predict(target_sample)
 masks = predictions[0].masks  # Predicted segmentation masks
 ```
 
+### Manual Device Selection
+
+Models select a compatible device automatically when `device` is omitted. To
+use a specific physical device, discover the devices available on the system and
+select one by its public `key`:
+
+```python
+from instantlearn.device import get_supported_device
+from instantlearn.models import Matcher
+
+model = Matcher(
+    device=get_supported_device("gpu-0"),  # Choose a key available on your system
+)
+```
+
+Device keys use the physical device type and index, for example `cpu`, `gpu-0`,
+or `npu-0`. Runtime-specific identifiers such as `xpu:0` and `GPU.0` are managed
+internally and should not be passed to model constructors.
+
 ### Text-Based Prompting with GroundedSAM
 
 ```python

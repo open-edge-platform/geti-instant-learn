@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from instantlearn.utils.constants import Backend
 
@@ -24,20 +25,36 @@ class DeviceType(StrEnum):
     NPU = "npu"
 
 
-@dataclass(frozen=True)
-class DeviceInfo:
+class DeviceInfo(BaseModel):
     """A physical device and the exact identifiers used by each runtime."""
 
-    type: DeviceType
-    name: str
-    memory: int | None = None
-    index: int | None = None
-    runtime_ids: dict[Backend, str] = field(default_factory=dict)
-    identity: str | None = field(default=None, repr=False)
+    model_config = ConfigDict(frozen=True)
 
+    type: DeviceType = Field(description="Physical device type: CPU, GPU, or NPU.")
+    name: str = Field(description="Human-readable device name reported by a runtime.")
+    memory: int | None = Field(
+        default=None,
+        description="Total device memory in bytes, or null when unavailable.",
+    )
+    index: int | None = Field(
+        default=None,
+        description="Zero-based index among devices of the same type, or null for CPU.",
+    )
+    runtime_ids: dict[Backend, str] = Field(
+        default_factory=dict,
+        description="Exact device identifier used by each supported runtime.",
+    )
+    identity: str | None = Field(
+        default=None,
+        description="Internal hardware UUID or PCI identifier used to merge runtime observations.",
+        exclude=True,
+        repr=False,
+    )
+
+    @computed_field(description="Stable public selection key, such as 'cpu', 'gpu-0', or 'npu-0'.")
     @property
     def key(self) -> str:
-        """Return the stable selection key exposed to application callers."""
+        """Build a stable selection key from the physical device type and assigned index."""
         if self.type == DeviceType.CPU:
             return DeviceType.CPU.value
         if self.index is None:
@@ -45,21 +62,12 @@ class DeviceInfo:
         return f"{self.type.value}-{self.index}"
 
     def runtime_id(self, runtime: Backend) -> str | None:
-        """Return this device's identifier for ``runtime``, if available."""
+        """Look up the exact identifier for ``runtime`` in this device's runtime mapping."""
         return self.runtime_ids.get(runtime)
 
 
-@dataclass(frozen=True)
-class _DeviceObservation:
-    type: DeviceType
-    name: str
-    memory: int | None
-    runtime: Backend
-    runtime_id: str
-    identity: str | None = None
-
-
 def _normalize_identity(value: Any) -> str | None:  # noqa: ANN401
+    """Normalize a hardware identifier to lowercase text without hyphens."""
     if value is None:
         return None
     if isinstance(value, bytes):
@@ -69,10 +77,12 @@ def _normalize_identity(value: Any) -> str | None:  # noqa: ANN401
 
 
 def _normalize_name(value: str) -> str:
+    """Normalize a device name to lowercase alphanumeric tokens for fallback matching."""
     return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
 
 
 def _torch_identity(properties: Any) -> str | None:  # noqa: ANN401
+    """Read and normalize the first available UUID or PCI bus ID from Torch properties."""
     for attribute in ("uuid", "pci_bus_id"):
         identity = _normalize_identity(getattr(properties, attribute, None))
         if identity:
@@ -84,38 +94,37 @@ def _discover_torch_family(
     torch_api: Any,  # noqa: ANN401
     device_type: DeviceType,
     prefix: str,
-) -> list[_DeviceObservation]:
+) -> list[DeviceInfo]:
+    """Enumerate one Torch accelerator API and build runtime-specific device observations."""
     if not torch_api.is_available():
         return []
 
-    observations: list[_DeviceObservation] = []
+    observations: list[DeviceInfo] = []
     for index in range(torch_api.device_count()):
         properties = torch_api.get_device_properties(index)
         observations.append(
-            _DeviceObservation(
+            DeviceInfo(
                 type=device_type,
                 name=torch_api.get_device_name(index),
                 memory=getattr(properties, "total_memory", None),
-                runtime=Backend.TORCH,
-                runtime_id=f"{prefix}:{index}",
+                runtime_ids={Backend.TORCH: f"{prefix}:{index}"},
                 identity=_torch_identity(properties),
             ),
         )
     return observations
 
 
-def discover_torch_devices() -> list[_DeviceObservation]:
-    """Discover devices addressable by PyTorch."""
+def discover_torch_devices() -> list[DeviceInfo]:
+    """Discover CPU and available XPU or CUDA devices through PyTorch APIs."""
     try:
         import torch  # noqa: PLC0415
 
         observations = [
-            _DeviceObservation(
+            DeviceInfo(
                 type=DeviceType.CPU,
                 name="CPU",
                 memory=None,
-                runtime=Backend.TORCH,
-                runtime_id="cpu",
+                runtime_ids={Backend.TORCH: "cpu"},
                 identity="cpu",
             ),
         ]
@@ -132,19 +141,20 @@ def discover_torch_devices() -> list[_DeviceObservation]:
 
 
 def _openvino_property(core: Any, device_id: str, property_name: str) -> Any | None:  # noqa: ANN401
+    """Read an OpenVINO property, returning ``None`` when the runtime cannot provide it."""
     try:
         return core.get_property(device_id, property_name)
     except (AttributeError, RuntimeError):
         return None
 
 
-def discover_openvino_devices() -> list[_DeviceObservation]:
-    """Discover devices addressable by OpenVINO."""
+def discover_openvino_devices() -> list[DeviceInfo]:
+    """Discover CPU, GPU, and NPU devices from OpenVINO's available-device registry."""
     try:
         import openvino as ov  # noqa: PLC0415
 
         core = ov.Core()
-        observations: list[_DeviceObservation] = []
+        observations: list[DeviceInfo] = []
         for runtime_id in core.available_devices:
             device_name = runtime_id.split(".", 1)[0].upper()
             try:
@@ -160,12 +170,11 @@ def discover_openvino_devices() -> list[_DeviceObservation]:
                 else _normalize_identity(_openvino_property(core, runtime_id, "DEVICE_UUID"))
             )
             observations.append(
-                _DeviceObservation(
+                DeviceInfo(
                     type=device_type,
                     name=str(full_name),
                     memory=None,
-                    runtime=Backend.OPENVINO,
-                    runtime_id=runtime_id,
+                    runtime_ids={Backend.OPENVINO: runtime_id},
                     identity=identity,
                 ),
             )
@@ -175,48 +184,31 @@ def discover_openvino_devices() -> list[_DeviceObservation]:
     return observations
 
 
-def _same_physical_device(left: _DeviceObservation, right: _DeviceObservation) -> bool:
+def _same_physical_device(left: DeviceInfo, right: DeviceInfo) -> bool:
+    """Match observations by type and identity, falling back to names across runtimes."""
     if left.type != right.type:
         return False
     if left.identity and right.identity:
         return left.identity == right.identity
-    if left.runtime == right.runtime:
+    if left.runtime_ids.keys() & right.runtime_ids.keys():
         return False
     return left.type != DeviceType.CPU and _normalize_name(left.name) == _normalize_name(right.name)
 
 
-def merge_device_observations(observations: list[_DeviceObservation]) -> list[DeviceInfo]:
-    """Merge runtime observations that identify the same physical device."""
+def merge_device_observations(observations: list[DeviceInfo]) -> list[DeviceInfo]:
+    """Merge matching runtime observations, then sort and index each physical device type."""
     merged: list[DeviceInfo] = []
     for observation in observations:
         match_index = next(
             (
                 index
                 for index, device in enumerate(merged)
-                if _same_physical_device(
-                    _DeviceObservation(
-                        type=device.type,
-                        name=device.name,
-                        memory=device.memory,
-                        runtime=next(iter(device.runtime_ids)),
-                        runtime_id=next(iter(device.runtime_ids.values())),
-                        identity=device.identity,
-                    ),
-                    observation,
-                )
+                if _same_physical_device(device, observation)
             ),
             None,
         )
         if match_index is None:
-            merged.append(
-                DeviceInfo(
-                    type=observation.type,
-                    name=observation.name,
-                    memory=observation.memory,
-                    runtime_ids={observation.runtime: observation.runtime_id},
-                    identity=observation.identity,
-                ),
-            )
+            merged.append(observation)
             continue
 
         current = merged[match_index]
@@ -224,7 +216,7 @@ def merge_device_observations(observations: list[_DeviceObservation]) -> list[De
             type=current.type,
             name=current.name if current.name != current.type.value.upper() else observation.name,
             memory=current.memory or observation.memory,
-            runtime_ids={**current.runtime_ids, observation.runtime: observation.runtime_id},
+            runtime_ids={**current.runtime_ids, **observation.runtime_ids},
             identity=current.identity or observation.identity,
         )
 
@@ -252,7 +244,29 @@ def merge_device_observations(observations: list[_DeviceObservation]) -> list[De
     return indexed
 
 
-def enumerate_system_devices() -> list[DeviceInfo]:
-    """Enumerate physical devices available through supported runtimes."""
+def get_supported_devices() -> list[DeviceInfo]:
+    """Collect Torch and OpenVINO observations and merge them into physical devices."""
     observations = [*discover_torch_devices(), *discover_openvino_devices()]
     return merge_device_observations(observations)
+
+
+def get_supported_device(key: str) -> DeviceInfo:
+    """Find an available physical device by its public selection key.
+
+    Args:
+        key: Public device key, such as ``cpu``, ``gpu-0``, or ``npu-0``.
+
+    Returns:
+        The discovered physical device matching ``key``.
+
+    Raises:
+        ValueError: If no available device matches ``key``.
+    """
+    devices = get_supported_devices()
+    match = next((device for device in devices if device.key == key), None)
+    if match is not None:
+        return match
+
+    available_keys = ", ".join(device.key for device in devices) or "none"
+    msg = f"Device {key!r} is not available. Available devices: {available_keys}."
+    raise ValueError(msg)

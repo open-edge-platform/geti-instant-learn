@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
-from instantlearn.device import DeviceInfo, DeviceType
+from instantlearn.device import DeviceInfo, DeviceType, ResolvedDevice
 from instantlearn.models.sam3.sam3 import MODEL_NAMES as SAM3_MODEL_NAMES
 from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 
@@ -19,7 +19,6 @@ from domain.services.schemas.processor import (
 from runtime.core.components.factories.model import _IR_COMPLETE_MARKER, ModelFactory, _sam3_ir_complete
 from runtime.core.components.models.inference_model import InferenceModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
-from runtime.services.device import ResolvedDevice
 
 FACTORY_MODULE = "runtime.core.components.factories.model"
 
@@ -117,19 +116,16 @@ class TestModelFactory:
     def mock_device_service(self):
         """Resolves to CPU, i.e. the OpenVINO backend."""
         service = MagicMock()
-
-        def resolve_for_model(*, allowed_runtimes, **_kwargs):
-            runtime = allowed_runtimes[0]
-            return _resolved(_cpu(), runtime)
-
-        service.resolve_for_model.side_effect = resolve_for_model
+        service.resolve_preference.return_value = _cpu()
+        service.list_devices.return_value = [_cpu()]
         return service
 
     @pytest.fixture
     def torch_device_service(self):
         """Resolve the configured NVIDIA GPU through Torch."""
         service = MagicMock()
-        service.resolve_for_model.return_value = _resolved(_cuda(), Backend.TORCH)
+        service.resolve_preference.return_value = _cuda()
+        service.list_devices.return_value = [_cuda()]
         return service
 
     @pytest.fixture
@@ -156,7 +152,7 @@ class TestModelFactory:
             result = model_factory.create(mock_reference_batch, None)
 
         assert isinstance(result, PassThroughModelHandler)
-        mock_device_service.resolve_for_model.assert_not_called()
+        mock_device_service.resolve_preference.assert_not_called()
 
     def test_factory_returns_passthrough_when_both_none(self, model_factory):
         assert isinstance(model_factory.create(None, None), PassThroughModelHandler)
@@ -173,7 +169,7 @@ class TestModelFactory:
 
         assert isinstance(result, PassThroughModelHandler)
         mocks["Matcher"].assert_not_called()
-        mock_device_service.resolve_for_model.assert_not_called()
+        mock_device_service.resolve_preference.assert_not_called()
 
     # --- device resolution and backend routing ---
 
@@ -197,10 +193,11 @@ class TestModelFactory:
         expected_precision,
     ):
         config = MatcherConfig(precision="bf16", sam_model=SAMModelName.SAM_HQ_TINY, encoder_model="dinov3_small")
-        resolutions = [resolved_device]
+        resolutions = [resolved_device.device]
         if expects_openvino:
-            resolutions.append(_resolved(_cpu(), Backend.TORCH))
-        mock_device_service.resolve_for_model.side_effect = resolutions
+            resolutions.append(_cpu())
+        mock_device_service.resolve_preference.side_effect = resolutions
+        mock_device_service.list_devices.return_value = [_cpu(), _cuda(), _intel_gpu(), _npu()]
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, Matcher=DEFAULT, MatcherOpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -210,7 +207,7 @@ class TestModelFactory:
 
             assert mocks["MatcherOpenVINO"].called is expects_openvino
 
-        assert mock_device_service.resolve_for_model.call_args_list[0].kwargs["device_str"] == "auto"
+        assert mock_device_service.resolve_preference.call_args_list[0].args[0] == "auto"
         expected_model_device = _cpu() if expects_openvino else resolved_device.device
         assert mocks["Matcher"].call_args.kwargs["device"] == expected_model_device
         assert mocks["Matcher"].call_args.kwargs["precision"] == expected_precision
@@ -441,10 +438,8 @@ class TestModelFactory:
     def test_factory_exports_sam3_on_cpu(self, mock_reference_batch, mock_settings, model_factory, mock_device_service):
         config = Sam3Config(resolution=1008)
         # Inference targets an XPU, so the export device must differ from the inference device.
-        mock_device_service.resolve_for_model.side_effect = [
-            _resolved(_intel_gpu(), Backend.OPENVINO),
-            _resolved(_cpu(), Backend.TORCH),
-        ]
+        mock_device_service.resolve_preference.side_effect = [_intel_gpu(), _cpu()]
+        mock_device_service.list_devices.return_value = [_cpu(), _intel_gpu()]
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, SAM3=DEFAULT, SAM3OpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings

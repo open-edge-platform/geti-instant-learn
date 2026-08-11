@@ -45,6 +45,10 @@ model.fit(Sample(image_path=ref_image, mask_paths=[ref_mask]))
 predictions = model.predict(Sample(image_path=target_image))
 ```
 
+Models select a compatible device automatically. See
+[Manual Device Selection](02-quick-start.md#manual-device-selection) to select a
+specific physical device.
+
 ## Supported Models
 
 ### Visual Prompting Algorithms

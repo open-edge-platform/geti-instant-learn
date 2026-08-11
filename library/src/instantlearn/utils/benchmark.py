@@ -13,7 +13,7 @@ import torch
 
 from instantlearn.data.base import Batch, Prediction
 from instantlearn.data.torch.lvis import LVISAnnotationMode
-from instantlearn.device import DeviceInfo, enumerate_system_devices
+from instantlearn.device import DeviceInfo, get_supported_devices
 from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import Backend, DatasetName, ModelName, SAMModelName
@@ -316,7 +316,7 @@ def _resolve_benchmark_device(value: str) -> DeviceInfo | None:
     if normalized == "auto":
         return None
 
-    devices = enumerate_system_devices()
+    devices = get_supported_devices()
     exact_match = next(
         (
             device

@@ -96,7 +96,7 @@ def test_torch_base_auto_selects_supported_device() -> None:
     cpu = _device(DeviceType.CPU, "CPU", {Backend.TORCH: "cpu"})
     gpu = _device(DeviceType.GPU, "GPU", {Backend.TORCH: "xpu:0"}, index=0)
 
-    with patch("instantlearn.device.resolver.enumerate_system_devices", return_value=[cpu, gpu]):
+    with patch("instantlearn.device.resolver.get_supported_devices", return_value=[cpu, gpu]):
         model = _TorchTestModel()
 
     assert model.device_info is gpu
@@ -120,7 +120,7 @@ def test_openvino_base_auto_selects_supported_device(tmp_path: Path) -> None:
     npu = _device(DeviceType.NPU, "NPU", {Backend.OPENVINO: "NPU"}, index=0)
 
     with (
-        patch("instantlearn.device.resolver.enumerate_system_devices", return_value=[cpu, npu]),
+        patch("instantlearn.device.resolver.get_supported_devices", return_value=[cpu, npu]),
         patch("instantlearn.models.openvino_base.ov.Core"),
     ):
         model = _OpenVINOTestModel(model_dir=tmp_path)

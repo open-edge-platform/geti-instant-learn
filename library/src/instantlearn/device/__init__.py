@@ -3,7 +3,14 @@
 
 """Cross-runtime device discovery."""
 
-from .device import DeviceInfo, DeviceType, enumerate_system_devices
-from .resolver import resolve_device_for_runtime
+from .device import DeviceInfo, DeviceType, get_supported_device, get_supported_devices
+from .resolver import ResolvedDevice, resolve_device_for_model
 
-__all__ = ["DeviceInfo", "DeviceType", "enumerate_system_devices", "resolve_device_for_runtime"]
+__all__ = [
+    "DeviceInfo",
+    "DeviceType",
+    "ResolvedDevice",
+    "get_supported_device",
+    "get_supported_devices",
+    "resolve_device_for_model",
+]

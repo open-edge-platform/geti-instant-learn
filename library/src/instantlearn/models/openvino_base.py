@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import openvino as ov
 
-from instantlearn.device import resolve_device_for_runtime
+from instantlearn.device import resolve_device_for_model
 from instantlearn.models.base import Model
 from instantlearn.models.model_loader import resolve_model_dir
 from instantlearn.utils.constants import Backend
@@ -63,11 +63,13 @@ class OpenVINOModel(Model):
         """
         super().__init__()
         self.model_dir = resolve_model_dir(model_dir)
-        self.device_info, self.device = resolve_device_for_runtime(
+        resolved_device = resolve_device_for_model(
+            model_card=type(self).card(),
             device=device,
-            runtime=Backend.OPENVINO,
-            supported_device_types=type(self).card().supported_device_types(Backend.OPENVINO),
+            allowed_runtimes=(Backend.OPENVINO,),
         )
+        self.device_info = resolved_device.device
+        self.device = resolved_device.runtime_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self._core: ov.Core = ov.Core()

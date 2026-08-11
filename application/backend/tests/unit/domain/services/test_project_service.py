@@ -247,11 +247,11 @@ def test_update_project_device_success(service, repo_mock, session_mock):
     repo_mock.get_by_id.return_value = existing
     repo_mock.update.return_value = existing
 
-    data = ProjectUpdateSchema(device="cuda")
+    data = ProjectUpdateSchema(device="gpu")
     updated = service.update_project(pid, data)
 
-    assert updated.device == "cuda"
-    assert existing.device == "cuda"
+    assert updated.device == "gpu"
+    assert existing.device == "gpu"
     session_mock.commit.assert_called_once()
     repo_mock.update.assert_called_once()
 
@@ -259,15 +259,15 @@ def test_update_project_device_success(service, repo_mock, session_mock):
 def test_update_project_empty_update_does_not_reset_device(service, repo_mock, session_mock):
     pid = uuid.uuid4()
     existing = make_project(project_id=pid, name="old")
-    existing.device = "xpu"
+    existing.device = "gpu"
     repo_mock.get_by_id.return_value = existing
     repo_mock.update.return_value = existing
 
     data = ProjectUpdateSchema()
     updated = service.update_project(pid, data)
 
-    assert updated.device == "xpu"
-    assert existing.device == "xpu"
+    assert updated.device == "gpu"
+    assert existing.device == "gpu"
     session_mock.commit.assert_called_once()
     repo_mock.update.assert_called_once()
 
@@ -283,7 +283,7 @@ def test_update_device_on_active_project_emits_processor_change_event(
     active_processor = MagicMock(id=uuid.uuid4())
     processor_repo_mock.get_active_in_project.return_value = active_processor
 
-    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+    service.update_project(pid, ProjectUpdateSchema(device="gpu"))
 
     processor_repo_mock.get_active_in_project.assert_called_once_with(pid)
     # Expect exactly one event: ComponentConfigChangeEvent for processor
@@ -303,7 +303,7 @@ def test_update_device_on_inactive_project_does_not_emit_processor_event(
     repo_mock.get_by_id.return_value = project
     repo_mock.update.return_value = project
 
-    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+    service.update_project(pid, ProjectUpdateSchema(device="gpu"))
 
     processor_repo_mock.get_active_in_project.assert_not_called()
     dispatcher_mock.dispatch.assert_not_called()
@@ -318,7 +318,7 @@ def test_update_device_with_activation_does_not_emit_processor_event(
     repo_mock.get_active.return_value = None
     repo_mock.update.return_value = project
 
-    service.update_project(pid, ProjectUpdateSchema(device="cuda", active=True))
+    service.update_project(pid, ProjectUpdateSchema(device="gpu", active=True))
 
     processor_repo_mock.get_active_in_project.assert_not_called()
     # Only the activation event should be dispatched
@@ -349,7 +349,7 @@ def test_update_device_on_active_project_no_active_processor(service, repo_mock,
 
     processor_repo_mock.get_active_in_project.return_value = None
 
-    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+    service.update_project(pid, ProjectUpdateSchema(device="gpu"))
 
     processor_repo_mock.get_active_in_project.assert_called_once_with(pid)
     dispatcher_mock.dispatch.assert_not_called()
@@ -787,9 +787,9 @@ def test_create_project_rejects_unavailable_device(session_mock, dispatcher_mock
     repo_mock.get_active.return_value = None
 
     with pytest.raises(ValueError, match="not available"):
-        svc.create_project(ProjectCreateSchema(name="x", device="cuda-9"))
+        svc.create_project(ProjectCreateSchema(name="x", device="gpu-9"))
 
-    device_service_mock.validate.assert_called_once_with("cuda-9")
+    device_service_mock.validate.assert_called_once_with("gpu-9")
     repo_mock.add.assert_not_called()
 
 
@@ -810,7 +810,7 @@ def test_update_project_rejects_unavailable_device(
     repo_mock.get_by_id.return_value = existing
 
     with pytest.raises(ValueError, match="not available"):
-        svc.update_project(pid, ProjectUpdateSchema(device="cuda-9"))
+        svc.update_project(pid, ProjectUpdateSchema(device="gpu-9"))
 
-    device_service_mock.validate.assert_called_once_with("cuda-9")
+    device_service_mock.validate.assert_called_once_with("gpu-9")
     repo_mock.update.assert_not_called()

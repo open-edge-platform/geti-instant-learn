@@ -1,11 +1,21 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime-specific model device selection."""
+"""Model-aware runtime and device selection."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from instantlearn.utils.constants import Backend
 
-from .device import DeviceInfo, DeviceType, enumerate_system_devices
+from .device import DeviceInfo, DeviceType, get_supported_devices
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from instantlearn.models.model_card import ModelCard
 
 _TYPE_PRIORITY = {
     DeviceType.CPU: 0,
@@ -14,20 +24,14 @@ _TYPE_PRIORITY = {
 }
 
 
-def _validate_device(
-    device: DeviceInfo,
-    runtime: Backend,
-    supported_device_types: frozenset[DeviceType],
-) -> tuple[DeviceInfo, str]:
-    if device.type not in supported_device_types:
-        msg = f"Runtime {runtime.value!r} does not support device type {device.type.value!r} for this model."
-        raise ValueError(msg)
+@dataclass(frozen=True)
+class ResolvedDevice:
+    """Concrete runtime route selected for a model."""
 
-    runtime_id = device.runtime_id(runtime)
-    if runtime_id is None:
-        msg = f"Device {device.key!r} is not available through runtime {runtime.value!r}."
-        raise ValueError(msg)
-    return device, runtime_id
+    device: DeviceInfo
+    runtime: Backend
+    runtime_id: str
+    fallback_used: bool = False
 
 
 def _device_priority(device: DeviceInfo) -> tuple[int, int, int]:
@@ -38,39 +42,79 @@ def _device_priority(device: DeviceInfo) -> tuple[int, int, int]:
     )
 
 
-def resolve_device_for_runtime(
+def _resolve_route(
+    model_card: ModelCard,
+    device: DeviceInfo,
+    allowed_runtimes: tuple[Backend, ...],
+    *,
+    fallback_used: bool = False,
+) -> ResolvedDevice | None:
+    for runtime in allowed_runtimes:
+        runtime_id = device.runtime_id(runtime)
+        if runtime_id is not None and model_card.supports(runtime, device.type):
+            return ResolvedDevice(
+                device=device,
+                runtime=runtime,
+                runtime_id=runtime_id,
+                fallback_used=fallback_used,
+            )
+    return None
+
+
+def resolve_device_for_model(
+    model_card: ModelCard,
     device: DeviceInfo | None,
-    runtime: Backend,
-    supported_device_types: frozenset[DeviceType],
-) -> tuple[DeviceInfo, str]:
-    """Resolve an explicit or automatic model device for one runtime.
+    *,
+    devices: Sequence[DeviceInfo] | None = None,
+    allowed_runtimes: tuple[Backend, ...] = (Backend.OPENVINO, Backend.TORCH),
+    allow_fallback: bool = False,
+) -> ResolvedDevice:
+    """Resolve a physical device and runtime supported by a model.
 
     Args:
-        device: Explicit physical device, or ``None`` to select automatically.
-        runtime: Runtime used by the model implementation.
-        supported_device_types: Physical device types accepted by the model.
+        model_card: Capabilities used to validate runtime and device support.
+        device: Preferred physical device, or ``None`` to select automatically.
+        devices: Available devices. Discovers the local system when omitted.
+        allowed_runtimes: Runtime priority, from highest to lowest.
+        allow_fallback: Select another device when the preferred one is incompatible.
 
     Returns:
-        The selected physical device and its exact runtime identifier.
+        The selected physical device, runtime, and exact runtime identifier.
 
     Raises:
         TypeError: If ``device`` is neither ``DeviceInfo`` nor ``None``.
-        RuntimeError: If automatic selection finds no compatible device.
+        ValueError: If an explicit device is incompatible and fallback is disabled.
+        RuntimeError: If no available device can run the model.
     """
     if device is not None and not isinstance(device, DeviceInfo):
         msg = "device must be a DeviceInfo instance or None"
         raise TypeError(msg)
+
     if device is not None:
-        return _validate_device(device, runtime, supported_device_types)
+        route = _resolve_route(model_card, device, allowed_runtimes)
+        if route is not None:
+            return route
+        if not allow_fallback:
+            runtime_names = ", ".join(runtime.value for runtime in allowed_runtimes)
+            msg = f"Device {device.key!r} cannot run model {model_card.name!r} through: {runtime_names}."
+            raise ValueError(msg)
 
-    candidates = [
-        candidate
-        for candidate in enumerate_system_devices()
-        if candidate.type in supported_device_types and candidate.runtime_id(runtime) is not None
-    ]
-    if not candidates:
-        msg = f"No available device supports runtime {runtime.value!r} for this model."
-        raise RuntimeError(msg)
+    available_devices = list(devices) if devices is not None else get_supported_devices()
+    candidates = sorted(
+        (candidate for candidate in available_devices if candidate != device),
+        key=_device_priority,
+        reverse=True,
+    )
+    for runtime in allowed_runtimes:
+        for candidate in candidates:
+            route = _resolve_route(
+                model_card,
+                candidate,
+                (runtime,),
+                fallback_used=device is not None,
+            )
+            if route is not None:
+                return route
 
-    selected = max(candidates, key=_device_priority)
-    return _validate_device(selected, runtime, supported_device_types)
+    msg = f"No available device can run model {model_card.name!r}."
+    raise RuntimeError(msg)

@@ -148,15 +148,22 @@ The model selects a compatible OpenVINO device automatically. Pass a discovered
 `DeviceInfo` to select a specific physical device.
 
 ```python
+from instantlearn.device import get_supported_device
 from instantlearn.models import SAM3OpenVINO
 from instantlearn.data import Category, Sample
 
-model = SAM3OpenVINO(model_dir="./sam3-openvino/openvino-int8_sym")
+model = SAM3OpenVINO(
+    model_dir="./sam3-openvino/openvino-int8_sym",
+    device=get_supported_device("gpu-0"),
+)
 
 predictions = model.predict([
     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
+
+See [Manual Device Selection](docs/02-quick-start.md#manual-device-selection) for
+the available key format and automatic-selection behavior.
 
 See [examples/sam3_openvino.ipynb](examples/sam3_openvino.ipynb) for the full export-and-run walkthrough.
 

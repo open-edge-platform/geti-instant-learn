@@ -61,6 +61,12 @@ Producing the OpenVINO sibling's input is a one-off, local step:
 SAM3().to_openvino(export_path="./sam3-openvino")
 ```
 
+The device used to trace and export the Torch model is independent of the device
+that later runs the OpenVINO model. The exported IR is device-agnostic; the
+target CPU, GPU, or NPU is selected when the OpenVINO sibling is constructed and
+compiled. Applications can therefore export on CPU for stable tracing and still
+run inference on a selected accelerator.
+
 Some models bake the reference into the exported graph, so they require `fit()`
 before `to_openvino()`. `Matcher`, `SoftMatcher` and `PerDino` work this way —
 their exported IR has the reference features frozen in as constants.

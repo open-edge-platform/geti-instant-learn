@@ -1,11 +1,12 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for runtime-specific model device resolution."""
+"""Tests for model-aware runtime and device resolution."""
 
 import pytest
 
-from instantlearn.device import DeviceInfo, DeviceType, resolve_device_for_runtime
+from instantlearn.device import DeviceInfo, DeviceType, resolve_device_for_model
+from instantlearn.models.model_card import ModelCard, RuntimeCapability
 from instantlearn.utils.constants import Backend
 
 
@@ -25,6 +26,18 @@ def _device(
     )
 
 
+def _card(*capabilities: RuntimeCapability) -> ModelCard:
+    return ModelCard(
+        name="Test model",
+        family="test",
+        description="test",
+        prompt_types=frozenset(),
+        shot_modes=frozenset(),
+        exportable_to=frozenset(),
+        supported_runtimes=frozenset(capabilities),
+    )
+
+
 def test_resolve_explicit_device_returns_exact_runtime_id() -> None:
     """An explicit compatible device keeps its authoritative runtime ID."""
     device = _device(
@@ -34,36 +47,44 @@ def test_resolve_explicit_device_returns_exact_runtime_id() -> None:
         {Backend.TORCH: "xpu:0", Backend.OPENVINO: "GPU.0"},
     )
 
-    selected, runtime_id = resolve_device_for_runtime(
+    card = _card(RuntimeCapability(Backend.OPENVINO, frozenset({DeviceType.GPU})))
+
+    resolved = resolve_device_for_model(
+        card,
         device,
-        Backend.OPENVINO,
-        frozenset({DeviceType.GPU}),
+        allowed_runtimes=(Backend.OPENVINO,),
     )
 
-    assert selected is device
-    assert runtime_id == "GPU.0"
+    assert resolved.device is device
+    assert resolved.runtime == Backend.OPENVINO
+    assert resolved.runtime_id == "GPU.0"
+    assert resolved.fallback_used is False
 
 
 def test_resolve_explicit_device_rejects_unsupported_type() -> None:
     """An explicit device must use a physical type supported by the model."""
     device = _device(DeviceType.NPU, "Intel NPU", 0, {Backend.OPENVINO: "NPU"})
+    card = _card(RuntimeCapability(Backend.OPENVINO, frozenset({DeviceType.CPU})))
 
-    with pytest.raises(ValueError, match="does not support device type"):
-        resolve_device_for_runtime(device, Backend.OPENVINO, frozenset({DeviceType.CPU}))
+    with pytest.raises(ValueError, match="cannot run model"):
+        resolve_device_for_model(card, device, allowed_runtimes=(Backend.OPENVINO,))
 
 
 def test_resolve_explicit_device_rejects_missing_runtime() -> None:
     """An explicit device must be addressable by the requested runtime."""
     device = _device(DeviceType.GPU, "NVIDIA", 0, {Backend.TORCH: "cuda:0"})
+    card = _card(RuntimeCapability(Backend.OPENVINO, frozenset({DeviceType.GPU})))
 
-    with pytest.raises(ValueError, match="is not available through runtime"):
-        resolve_device_for_runtime(device, Backend.OPENVINO, frozenset({DeviceType.GPU}))
+    with pytest.raises(ValueError, match="cannot run model"):
+        resolve_device_for_model(card, device, allowed_runtimes=(Backend.OPENVINO,))
 
 
 def test_resolve_device_rejects_string() -> None:
     """Legacy runtime strings are not part of the strict constructor contract."""
+    card = _card(RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU})))
+
     with pytest.raises(TypeError, match="DeviceInfo instance or None"):
-        resolve_device_for_runtime("cpu", Backend.TORCH, frozenset({DeviceType.CPU}))  # type: ignore[arg-type]
+        resolve_device_for_model(card, "cpu")  # type: ignore[arg-type]
 
 
 def test_resolve_none_selects_best_compatible_device(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,22 +95,60 @@ def test_resolve_none_selects_best_compatible_device(monkeypatch: pytest.MonkeyP
         _device(DeviceType.GPU, "GPU 0", 0, {Backend.TORCH: "cuda:0"}, memory=16_000),
         _device(DeviceType.NPU, "NPU", 0, {Backend.OPENVINO: "NPU"}),
     ]
-    monkeypatch.setattr("instantlearn.device.resolver.enumerate_system_devices", lambda: devices)
+    monkeypatch.setattr("instantlearn.device.resolver.get_supported_devices", lambda: devices)
+    card = _card(RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU, DeviceType.GPU})))
 
-    selected, runtime_id = resolve_device_for_runtime(
+    resolved = resolve_device_for_model(
+        card,
         None,
-        Backend.TORCH,
-        frozenset({DeviceType.CPU, DeviceType.GPU}),
+        allowed_runtimes=(Backend.TORCH,),
     )
 
-    assert selected.name == "GPU 0"
-    assert runtime_id == "cuda:0"
+    assert resolved.device.name == "GPU 0"
+    assert resolved.runtime_id == "cuda:0"
 
 
 def test_resolve_none_raises_when_no_compatible_device(monkeypatch: pytest.MonkeyPatch) -> None:
     """Auto-selection fails clearly when the runtime has no compatible device."""
     devices = [_device(DeviceType.NPU, "NPU", 0, {Backend.OPENVINO: "NPU"})]
-    monkeypatch.setattr("instantlearn.device.resolver.enumerate_system_devices", lambda: devices)
+    monkeypatch.setattr("instantlearn.device.resolver.get_supported_devices", lambda: devices)
+    card = _card(RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU, DeviceType.GPU})))
 
-    with pytest.raises(RuntimeError, match="No available device supports runtime 'torch'"):
-        resolve_device_for_runtime(None, Backend.TORCH, frozenset({DeviceType.CPU, DeviceType.GPU}))
+    with pytest.raises(RuntimeError, match="No available device can run model"):
+        resolve_device_for_model(card, None, allowed_runtimes=(Backend.TORCH,))
+
+
+def test_resolve_prefers_runtime_order_before_device_priority() -> None:
+    """Runtime priority is applied before physical device priority."""
+    devices = [
+        _device(DeviceType.CPU, "CPU", None, {Backend.OPENVINO: "CPU"}),
+        _device(DeviceType.GPU, "GPU", 0, {Backend.TORCH: "cuda:0"}),
+    ]
+    card = _card(
+        RuntimeCapability(Backend.OPENVINO, frozenset({DeviceType.CPU})),
+        RuntimeCapability(Backend.TORCH, frozenset({DeviceType.GPU})),
+    )
+
+    resolved = resolve_device_for_model(card, None, devices=devices)
+
+    assert resolved.device.type == DeviceType.CPU
+    assert resolved.runtime == Backend.OPENVINO
+
+
+def test_resolve_falls_back_from_incompatible_preference() -> None:
+    """Fallback mode selects another compatible route and reports the fallback."""
+    preferred = _device(DeviceType.NPU, "NPU", 0, {Backend.OPENVINO: "NPU"})
+    cpu = _device(DeviceType.CPU, "CPU", None, {Backend.TORCH: "cpu"})
+    card = _card(RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU})))
+
+    resolved = resolve_device_for_model(
+        card,
+        preferred,
+        devices=[preferred, cpu],
+        allowed_runtimes=(Backend.TORCH,),
+        allow_fallback=True,
+    )
+
+    assert resolved.device is cpu
+    assert resolved.runtime_id == "cpu"
+    assert resolved.fallback_used is True
