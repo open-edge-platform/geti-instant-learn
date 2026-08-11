@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from instantlearn.data.base.batch import Batch
+from instantlearn.device import DeviceInfo, ResolvedDevice, resolve_device_for_model
 from instantlearn.models import (
     SAM3,
     Matcher,
@@ -25,12 +26,12 @@ from instantlearn.models import (
     SoftMatcherOpenVINO,
     TorchModel,
 )
+from instantlearn.models.model_card import ModelCard
 from instantlearn.models.sam3.sam3 import MODEL_NAMES as SAM3_MODEL_NAMES
 from instantlearn.models.sam3.sam3 import SAM3_MODEL_ID
 from instantlearn.models.torch_base import ExportConfig
-from instantlearn.utils.constants import CompressionMode
+from instantlearn.utils.constants import Backend, CompressionMode
 
-from domain.services.schemas.device import DeviceInfo, DeviceType
 from domain.services.schemas.processor import (
     MatcherConfig,
     ModelConfig,
@@ -62,18 +63,46 @@ class ModelFactory:
     def __init__(self, device_service: DeviceService) -> None:
         self._device_service = device_service
 
-    def _resolve_device(self, configured_device: str | None) -> DeviceInfo:
-        """Resolve a configured device string into a concrete :class:`DeviceInfo`."""
-        device_info = self._device_service.resolve(configured_device or "auto")
-        if device_info.type == DeviceType.AUTO:
-            device_info = self._device_service.resolve_auto()
-        logger.info(
-            "Accelerator selected: device=%s backend=%s (configured=%r)",
-            device_info.as_key,
-            "openvino" if device_info.uses_openvino else "torch",
-            configured_device,
+    def _resolve_device(
+        self,
+        model_card: ModelCard,
+        configured_device: str | None,
+        allowed_runtimes: tuple[Backend, ...] = (Backend.OPENVINO, Backend.TORCH),
+    ) -> ResolvedDevice:
+        """Resolve a configured preference to a concrete model runtime route."""
+        device_str = configured_device or "auto"
+        preferred_device = self._device_service.resolve_preference(device_str)
+        resolved = resolve_device_for_model(
+            model_card=model_card,
+            device=preferred_device,
+            devices=self._device_service.list_devices(),
+            allowed_runtimes=allowed_runtimes,
+            allow_fallback=True,
         )
-        return device_info
+        if device_str != "auto" and preferred_device is None:
+            resolved = ResolvedDevice(
+                device=resolved.device,
+                runtime=resolved.runtime,
+                runtime_id=resolved.runtime_id,
+                fallback_used=True,
+            )
+        elif resolved.fallback_used:
+            logger.warning(
+                "Device %r is not supported by model %s; using %s on %s.",
+                device_str,
+                model_card.name,
+                resolved.runtime.value,
+                resolved.device.key,
+            )
+        logger.info(
+            "Accelerator selected: runtime=%s device=%s id=%s (configured=%r, fallback=%s)",
+            resolved.runtime.value,
+            resolved.device.key,
+            resolved.runtime_id,
+            configured_device,
+            resolved.fallback_used,
+        )
+        return resolved
 
     def create(
         self, reference_batch: Batch | None, config: ModelConfig | None, configured_device: str | None = None
@@ -102,12 +131,17 @@ class ModelFactory:
             logger.info("No model config is provided, creating a passthrough model")
             return PassThroughModelHandler()
 
-        device_info = self._resolve_device(configured_device)
+        model_card = _model_card(config)
+        if model_card is None:
+            logger.error("Model config didn't match any known type, falling back to pass-through processing")
+            return PassThroughModelHandler()
+
+        resolved_device = self._resolve_device(model_card, configured_device)
         model = self._create_model(
             config=config,
             reference_batch=reference_batch,
-            device_info=device_info,
-            use_openvino=device_info.uses_openvino,
+            model_card=model_card,
+            resolved_device=resolved_device,
         )
         if model is None:
             logger.info("Model config didn't match any known type, falling back to a pass through processing")
@@ -119,12 +153,32 @@ class ModelFactory:
         self,
         config: ModelConfig,
         reference_batch: Batch,
-        device_info: DeviceInfo,
-        *,
-        use_openvino: bool,
+        model_card: ModelCard,
+        resolved_device: ResolvedDevice,
     ) -> Model | None:
-        """Construct and fit a model, converting it to OpenVINO when enabled."""
-        selected_device = _torch_device(device_info)
+        """Construct and fit a model, converting it to OpenVINO when enabled.
+
+        OpenVINO routes build and export the temporary Torch model on CPU because
+        the selected OpenVINO target may not support Torch. The device-agnostic IR
+        is then compiled and used for inference on the selected target device.
+        """
+        use_openvino = resolved_device.runtime == Backend.OPENVINO
+        if isinstance(config, Sam3Config):
+            return self._create_sam3(
+                config=config,
+                reference_batch=reference_batch,
+                resolved_device=resolved_device,
+            )
+
+        torch_device = resolved_device.device
+        if use_openvino:
+            # The final OpenVINO target may not support Torch. Build and export the
+            # temporary Torch model on CPU, then compile the IR on the selected target.
+            torch_device = self._resolve_device(
+                model_card,
+                "cpu",
+                allowed_runtimes=(Backend.TORCH,),
+            ).device
         # If the model is converted to the OV format the precision must be fp32:
         # the graph is traced in full precision and compressed afterwards.
         precision = _OPENVINO_PRECISION if use_openvino else config.precision
@@ -143,7 +197,7 @@ class ModelFactory:
                     similarity_threshold=config.similarity_threshold,
                     num_grid_cells=config.num_grid_cells,
                     precision=precision,
-                    device=selected_device,
+                    device=torch_device,
                 )
             case PerDinoConfig() as config:
                 logger.info("Initializing a PerDINO instance")
@@ -157,7 +211,7 @@ class ModelFactory:
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
                     precision=precision,
-                    device=selected_device,
+                    device=torch_device,
                 )
             case SoftMatcherConfig() as config:
                 logger.info("Initializing a SoftMatcher instance")
@@ -174,14 +228,7 @@ class ModelFactory:
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     precision=precision,
-                    device=selected_device,
-                )
-            case Sam3Config() as config:
-                return self._create_sam3(
-                    config=config,
-                    reference_batch=reference_batch,
-                    device_info=device_info,
-                    use_openvino=use_openvino,
+                    device=torch_device,
                 )
             case _:
                 return None
@@ -191,7 +238,7 @@ class ModelFactory:
                 model=model,
                 ov_cls=ov_cls,
                 reference_batch=reference_batch,
-                ov_device=device_info.as_openvino,
+                target_device=resolved_device.device,
                 compression=config.compression_mode,
             )
             del model  # release the torch graph as soon as the IR is compiled
@@ -207,7 +254,7 @@ class ModelFactory:
         model: TorchModel,
         ov_cls: type[OpenVINOModel],
         reference_batch: Batch,
-        ov_device: str,
+        target_device: DeviceInfo,
         compression: CompressionMode,
     ) -> Model:
         """Fit, export to OpenVINO IR, and load the matching OpenVINO sibling.
@@ -221,7 +268,7 @@ class ModelFactory:
             model: Unfitted torch model.
             ov_cls: OpenVINO sibling class that loads the exported IR.
             reference_batch: Reference prompts to bake into the graph.
-            ov_device: OpenVINO device string, e.g. ``"CPU"`` or ``"GPU.0"``.
+            target_device: Physical device that will compile and run the OpenVINO model.
             compression: Weight compression mode for the exported IR.
 
         Returns:
@@ -237,28 +284,31 @@ class ModelFactory:
         with tempfile.TemporaryDirectory(prefix="instantlearn-ir-") as tmp_dir:
             logger.info("Exporting %s to OpenVINO IR (compression=%s)", type(model).__name__, compression.value)
             ir_dir = model.to_openvino(tmp_dir, ExportConfig(compression=compression))
-            logger.info("Loading %s from %s on %s", ov_cls.__name__, ir_dir, ov_device)
-            return ov_cls(model_dir=ir_dir, device=ov_device)
+            logger.info("Loading %s from %s on %s", ov_cls.__name__, ir_dir, target_device.key)
+            return ov_cls(model_dir=ir_dir, device=target_device)
 
     def _create_sam3(
         self,
         config: Sam3Config,
         reference_batch: Batch,
-        device_info: DeviceInfo,
-        *,
-        use_openvino: bool,
+        resolved_device: ResolvedDevice,
     ) -> Model:
         """Build a SAM3 model, reusing a cached OpenVINO IR when available."""
         logger.info("Initializing a SAM3 instance")
         has_bboxes = any(s.bboxes is not None for s in reference_batch.samples)
         prompt_mode = Sam3PromptMode.CANVAS if has_bboxes else Sam3PromptMode.CLASSIC
 
-        if use_openvino:
+        if resolved_device.runtime == Backend.OPENVINO:
             logger.info("Using the OpenVINO backend for SAM3")
-            ir_dir = self._resolve_sam3_ir(config=config, compression=config.compression_mode)
+            export_device = self._resolve_device(SAM3.card(), "cpu", (Backend.TORCH,)).device
+            ir_dir = self._resolve_sam3_ir(
+                config=config,
+                compression=config.compression_mode,
+                export_device=export_device,
+            )
             model: Model = SAM3OpenVINO(
                 model_dir=ir_dir,
-                device=device_info.as_openvino,
+                device=resolved_device.device,
                 confidence_threshold=config.confidence_threshold,
                 resolution=config.resolution,
                 prompt_mode=prompt_mode,
@@ -269,7 +319,7 @@ class ModelFactory:
                 confidence_threshold=config.confidence_threshold,
                 resolution=config.resolution,
                 precision=config.precision,
-                device=_torch_device(device_info),
+                device=resolved_device.device,
                 prompt_mode=prompt_mode,
             )
 
@@ -277,7 +327,11 @@ class ModelFactory:
         return model
 
     @staticmethod
-    def _resolve_sam3_ir(config: Sam3Config, compression: CompressionMode) -> Path:
+    def _resolve_sam3_ir(
+        config: Sam3Config,
+        compression: CompressionMode,
+        export_device: DeviceInfo,
+    ) -> Path:
         """Return a SAM3 OpenVINO IR directory, exporting it only on a cache miss.
 
         Unlike the matcher family, the SAM3 export contains no reference data:
@@ -296,6 +350,7 @@ class ModelFactory:
         Args:
             config: SAM3 configuration providing the input resolution.
             compression: Weight compression mode for the exported IR.
+            export_device: Torch-compatible physical device used for export.
 
         Returns:
             Path to a complete SAM3 OpenVINO IR directory.
@@ -319,7 +374,10 @@ class ModelFactory:
         staging_root = Path(tempfile.mkdtemp(prefix=f"{export_root.name}-{compression.value}-", dir=cache_root))
         try:
             exported_dir = ModelFactory._export_sam3_ir(
-                config=config, compression=compression, export_root=staging_root
+                config=config,
+                compression=compression,
+                export_root=staging_root,
+                export_device=export_device,
             )
             _mark_sam3_ir_complete(exported_dir)
             _publish_ir_dir(exported_dir, ir_dir)
@@ -332,12 +390,17 @@ class ModelFactory:
         return ir_dir
 
     @staticmethod
-    def _export_sam3_ir(config: Sam3Config, compression: CompressionMode, export_root: Path) -> Path:
+    def _export_sam3_ir(
+        config: Sam3Config,
+        compression: CompressionMode,
+        export_root: Path,
+        export_device: DeviceInfo,
+    ) -> Path:
         """Export a throwaway torch SAM3 to OpenVINO IR under *export_root*."""
         exporter = SAM3(
             # This instance only exports, it never predicts: CPU keeps tracing stable
             # and leaves accelerator memory free for the compiled OpenVINO model.
-            device="cpu",
+            device=export_device,
             precision=_OPENVINO_PRECISION,
             resolution=config.resolution,
             model_id=SAM3_MODEL_ID,
@@ -349,16 +412,19 @@ class ModelFactory:
             empty_accelerator_cache()
 
 
-def _torch_device(device_info: DeviceInfo) -> str:
-    """Return the torch device string to build and fit the model on.
-
-    Fitting runs on the accelerator whenever torch can reach it. An NPU has no torch
-    backend, so its torch-side work (fitting, then tracing during the export) falls back
-    to the CPU; only the compiled OpenVINO model then runs on the NPU itself.
-    """
-    if device_info.type == DeviceType.NPU:
-        return "cpu"
-    return device_info.as_torch
+def _model_card(config: ModelConfig) -> ModelCard | None:
+    """Return the capability descriptor for a supported model config."""
+    match config:
+        case MatcherConfig():
+            return Matcher.card()
+        case PerDinoConfig():
+            return PerDino.card()
+        case SoftMatcherConfig():
+            return SoftMatcher.card()
+        case Sam3Config():
+            return SAM3.card()
+        case _:
+            return None
 
 
 def _slugify(value: str) -> str:

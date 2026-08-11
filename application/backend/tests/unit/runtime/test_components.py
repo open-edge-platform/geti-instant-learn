@@ -12,7 +12,7 @@ from runtime.components import DefaultComponentFactory
 
 def test_create_processor_passes_pipeline_device_to_model_factory():
     project_id = uuid4()
-    cfg = PipelineConfig(project_id=project_id, device="xpu", reader=None, processor=None, writer=None)
+    cfg = PipelineConfig(project_id=project_id, device="gpu", reader=None, processor=None, writer=None)
     reference_batch = Mock(name="reference_batch")
 
     factory = DefaultComponentFactory(device_service=Mock(name="device_service"))
@@ -35,7 +35,7 @@ def test_create_processor_passes_pipeline_device_to_model_factory():
         factory._model_factory.create.assert_called_once_with(
             reference_batch=reference_batch,
             config=None,
-            configured_device="xpu",
+            configured_device="gpu",
         )
         processor_cls.assert_called_once_with(
             model_handler=model_handler,

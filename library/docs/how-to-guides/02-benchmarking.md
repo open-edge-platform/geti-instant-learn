@@ -96,7 +96,7 @@ dataset = PerSegDataset(root="/data/prompt/PerSeg", categories=["backpack"], n_s
 references = dataset.get_reference_dataset()
 targets = dataset.get_target_dataset()
 
-model = PerDino(device="xpu")
+model = PerDino()
 model.fit(references[0])
 
 for idx in range(len(targets)):

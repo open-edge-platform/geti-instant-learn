@@ -14,12 +14,14 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 import pytest
+import torch
 
 from instantlearn.data.base import Batch
 from instantlearn.data.torch.folder import FolderDataset
 from instantlearn.data.torch.image import read_image
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -86,7 +88,7 @@ class TestMatcherExportIntegration:
         # Initialize Matcher
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -113,15 +115,17 @@ class TestMatcherExportIntegration:
         input_data = target_image.numpy()[None, ...].astype(np.float32)
 
         # The ONNX model is exported with a static spatial size (the encoder's
-        # input_size, e.g. 512×512).  Resize the input if it doesn't match.
+        # input_size, e.g. 512x512). Resize the input if it doesn't match.
         expected_shape = session.get_inputs()[0].shape  # [1, 3, H, W]
         expected_h, expected_w = int(expected_shape[2]), int(expected_shape[3])
         if input_data.shape[2] != expected_h or input_data.shape[3] != expected_w:
-            import torch
-            import torch.nn.functional as F
-
             tensor = torch.from_numpy(input_data)
-            tensor = F.interpolate(tensor, size=(expected_h, expected_w), mode="bilinear", align_corners=False)
+            tensor = torch.nn.functional.interpolate(
+                tensor,
+                size=(expected_h, expected_w),
+                mode="bilinear",
+                align_corners=False,
+            )
             input_data = tensor.numpy()
 
         outputs = session.run(output_names, {input_name: input_data})
@@ -154,13 +158,12 @@ class TestMatcherExportIntegration:
             target_image_path: Path to target image.
             tmp_path: Temporary directory for export.
         """
-        pytest.importorskip("openvino")
-        import openvino
+        openvino = pytest.importorskip("openvino")
 
         # Initialize Matcher
         matcher = Matcher(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
             use_mask_refinement=False,
@@ -188,11 +191,12 @@ class TestMatcherExportIntegration:
         expected_shape = compiled_model.input(0).shape
         input_data = target_image.numpy()[None, ...].astype(np.float32)
         if input_data.shape != tuple(expected_shape):
-            import torch
-            import torch.nn.functional as F
-
             tensor = torch.from_numpy(input_data)
-            tensor = F.interpolate(tensor, size=(expected_shape[2], expected_shape[3]), mode="bilinear")
+            tensor = torch.nn.functional.interpolate(
+                tensor,
+                size=(expected_shape[2], expected_shape[3]),
+                mode="bilinear",
+            )
             input_data = tensor.numpy()
 
         outputs = compiled_model(input_data)

@@ -9,17 +9,19 @@ installed.
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import TYPE_CHECKING, Any
 
 import openvino as ov
 
+from instantlearn.device import resolve_device_for_model
 from instantlearn.models.base import Model
 from instantlearn.models.model_loader import resolve_model_dir
 from instantlearn.utils.constants import Backend
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from instantlearn.device import DeviceInfo
 
 
 class OpenVINOModel(Model):
@@ -37,6 +39,7 @@ class OpenVINOModel(Model):
 
     Attributes:
         model_dir: Local directory containing the ``.xml`` / ``.bin`` files.
+        device_info: Selected physical device and its runtime identifiers.
         device: OpenVINO device hint (e.g. ``"AUTO"``, ``"CPU"``, ``"GPU"``).
         preprocessor: Optional numpy-based preprocessor applied before inference.
         postprocessor: Optional post-processor applied after inference.
@@ -45,7 +48,7 @@ class OpenVINOModel(Model):
     def __init__(
         self,
         model_dir: str | Path,
-        device: str = "AUTO",
+        device: DeviceInfo | None = None,
         preprocessor: Any = None,  # noqa: ANN401
         postprocessor: Any = None,  # noqa: ANN401
     ) -> None:
@@ -54,14 +57,19 @@ class OpenVINOModel(Model):
         Args:
             model_dir: Path or URI to the directory containing the ``.xml`` /
                 ``.bin`` files. Supports ``file://``, ``hf://``, and ``s3://``.
-            device: OpenVINO device hint, e.g. ``"AUTO"``, ``"CPU"``,
-                ``"GPU"``.
+            device: Physical device to use, or ``None`` to select a compatible device.
             preprocessor: Optional numpy-based preprocessor.
             postprocessor: Optional post-processor.
         """
         super().__init__()
         self.model_dir = resolve_model_dir(model_dir)
-        self.device = device
+        resolved_device = resolve_device_for_model(
+            model_card=type(self).card(),
+            device=device,
+            allowed_runtimes=(Backend.OPENVINO,),
+        )
+        self.device_info = resolved_device.device
+        self.device = resolved_device.runtime_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self._core: ov.Core = ov.Core()

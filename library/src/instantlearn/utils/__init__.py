@@ -7,7 +7,6 @@ from .constants import Backend, CompressionMode, PromptType, ShotMode
 from .errors import ModelNotFittedError
 from .similarity_resize import resize_similarity_maps
 from .utils import (
-    device_to_openvino_device,
     download_file,
     precision_to_torch_dtype,
     setup_logger,
@@ -19,7 +18,6 @@ __all__ = [
     "ModelNotFittedError",
     "PromptType",
     "ShotMode",
-    "device_to_openvino_device",
     "download_file",
     "precision_to_torch_dtype",
     "resize_similarity_maps",

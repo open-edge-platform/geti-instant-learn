@@ -162,10 +162,7 @@ class Dataset(TorchDataset, ABC):
         masks_raw = self._load_masks(raw_sample)  # (N, H, W) or None
         # _load_masks may return a torch.Tensor; convert to numpy so Sample
         # stays backend-neutral.
-        if masks_raw is not None and isinstance(masks_raw, torch.Tensor):
-            masks = masks_raw.numpy()
-        else:
-            masks = masks_raw
+        masks = masks_raw.numpy() if masks_raw is not None and isinstance(masks_raw, torch.Tensor) else masks_raw
 
         # Load bboxes if available
         bboxes = None
@@ -294,7 +291,7 @@ class Dataset(TorchDataset, ABC):
 
         # Create new dataset with filtered DataFrame
         new_dataset = copy.deepcopy(self)
-        new_dataset._df = reference_df
+        new_dataset._df = reference_df  # noqa: SLF001
         return new_dataset
 
     def get_target_dataset(self, category: str | None = None) -> "Dataset":
@@ -303,7 +300,7 @@ class Dataset(TorchDataset, ABC):
 
         # Create new dataset with filtered DataFrame
         new_dataset = copy.deepcopy(self)
-        new_dataset._df = target_df
+        new_dataset._df = target_df  # noqa: SLF001
         return new_dataset
 
     def subsample(self, indices: Sequence[int], inplace: bool = False) -> "Dataset":
@@ -327,7 +324,7 @@ class Dataset(TorchDataset, ABC):
         subset_df = self.df[list(indices)]
 
         dataset = self if inplace else copy.deepcopy(self)
-        dataset._df = subset_df
+        dataset._df = subset_df  # noqa: SLF001
         return dataset
 
     def __add__(self, other_dataset: "Dataset") -> "Dataset":

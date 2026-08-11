@@ -3,7 +3,8 @@
 
 """Static capability descriptor for the EfficientSAM3 model."""
 
-from instantlearn.models.model_card import ModelCard
+from instantlearn.device import DeviceType
+from instantlearn.models.model_card import ModelCard, RuntimeCapability
 from instantlearn.utils.constants import Backend, PromptType, ShotMode
 
 # EfficientSAM3 subclasses SAM3 but is a distinct model: distilled lightweight
@@ -16,4 +17,7 @@ _EFFICIENT_SAM3_CARD = ModelCard(
     prompt_types=frozenset({PromptType.TEXT, PromptType.MASK, PromptType.BOUNDING_BOX, PromptType.POINT}),
     shot_modes=frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT}),
     exportable_to=frozenset({Backend.OPENVINO, Backend.ONNX}),
+    supported_runtimes=frozenset(
+        {RuntimeCapability(Backend.TORCH, frozenset({DeviceType.CPU, DeviceType.GPU}))},
+    ),
 )

@@ -107,6 +107,11 @@ just device=xpu application/dev
 | `stun-server` | `""` | External STUN server URL |
 | `coturn-port` | `443` | Port for local TURN server |
 
+> **OpenVINO model preparation:** The first model initialization can take longer
+> and use CPU while the application exports a temporary Torch model. The final
+> OpenVINO IR is compiled and inference runs on the device selected in the UI;
+> this CPU activity is not an inference fallback.
+>
 > **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
 
 </details>

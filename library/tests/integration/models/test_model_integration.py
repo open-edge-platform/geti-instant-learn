@@ -24,6 +24,7 @@ from instantlearn.models.sam3.sam3 import Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 from instantlearn.utils.benchmark import convert_masks_to_one_hot_tensor
 from instantlearn.utils.constants import ModelName, SAMModelName
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -114,9 +115,9 @@ class TestModelIntegration:
 
         # Initialize model with minimal parameters
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32", encoder_model="dinov3_small")
 
         assert model is not None
         assert hasattr(model, "fit")
@@ -150,9 +151,9 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32", encoder_model="dinov3_small")
 
         # Test fit method
         model.fit(reference_batch)
@@ -210,7 +211,7 @@ class TestModelIntegration:
 
         model_1shot = model_class(
             sam=sam_model,
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             encoder_model="dinov3_small",
         )
@@ -230,7 +231,7 @@ class TestModelIntegration:
 
             model_2shot = model_class(
                 sam=sam_model,
-                device="cpu",
+                device=CPU_DEVICE,
                 precision="fp32",
                 encoder_model="dinov3_small",
             )
@@ -269,7 +270,7 @@ class TestModelIntegration:
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
-        model = GroundedSAM(sam=sam_model, device="cpu", precision="fp32")
+        model = GroundedSAM(sam=sam_model, device=CPU_DEVICE, precision="fp32")
 
         # GroundedSAM's fit() only creates the category registry
         model.fit(reference_batch)
@@ -307,9 +308,9 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32", encoder_model="dinov3_small")
 
         # Validate that reference batch has required fields
         assert len(reference_batch) > 0
@@ -362,9 +363,9 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device=CPU_DEVICE, precision="fp32", encoder_model="dinov3_small")
 
         # Get reference and target samples for first category
         categories = dataset.categories
@@ -421,7 +422,7 @@ class TestSAM3Integration:
         Args:
             prompt_mode: The SAM3 prompt mode to test.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
         assert model is not None
         assert model.prompt_mode == prompt_mode
@@ -447,7 +448,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             # Visual exemplar needs bboxes on reference images
@@ -489,7 +490,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
@@ -524,7 +525,7 @@ class TestSAM3Integration:
     def test_sam3_visual_requires_prompts(self) -> None:
         """Test that visual exemplar mode raises when no bboxes/points are provided."""
         model = SAM3(
-            device="cpu",
+            device=CPU_DEVICE,
             precision="fp32",
             prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
         )
@@ -549,7 +550,7 @@ class TestSAM3Integration:
             prompt_mode: The SAM3 prompt mode to test.
             dataset: The dataset to use for testing.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
         categories = dataset.categories
         if not categories:

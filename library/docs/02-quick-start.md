@@ -53,8 +53,8 @@ ref_mask, _, _ = predictor.forward(
     multimask_output=False,
 )
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher (selects a compatible device automatically)
+model = Matcher()
 
 # Create reference sample with the generated mask. Sample.masks is numpy,
 # so convert the SAM output.
@@ -74,6 +74,25 @@ predictions = model.predict(target_sample)
 masks = predictions[0].masks  # Predicted segmentation masks
 ```
 
+### Manual Device Selection
+
+Models select a compatible device automatically when `device` is omitted. To
+use a specific physical device, discover the devices available on the system and
+select one by its public `key`:
+
+```python
+from instantlearn.device import get_supported_device
+from instantlearn.models import Matcher
+
+model = Matcher(
+    device=get_supported_device("gpu-0"),  # Choose a key available on your system
+)
+```
+
+Device keys use the physical device type and index, for example `cpu`, `gpu-0`,
+or `npu-0`. Runtime-specific identifiers such as `xpu:0` and `GPU.0` are managed
+internally and should not be passed to model constructors.
+
 ### Text-Based Prompting with GroundedSAM
 
 ```python
@@ -81,7 +100,7 @@ from instantlearn.models import GroundedSAM
 from instantlearn.data import Category, Sample
 
 # Initialize GroundedSAM (no reference masks needed)
-model = GroundedSAM(device="xpu")
+model = GroundedSAM()
 
 # Create reference with category labels only
 ref_sample = Sample(categories=[Category(0, "elephant")])
@@ -115,7 +134,7 @@ from instantlearn.utils.constants import CompressionMode
 from instantlearn.data import Category, Sample
 
 # One-off export: Torch -> ONNX -> OpenVINO IR (also supports FP16, INT4, FP32)
-SAM3(device="cpu").to_openvino(
+SAM3().to_openvino(
     export_path="./sam3-openvino",
     config=ExportConfig(compression=CompressionMode.INT8_SYM),
 )
@@ -123,7 +142,6 @@ SAM3(device="cpu").to_openvino(
 model = SAM3OpenVINO(
     model_dir="./sam3-openvino/openvino-int8_sym",
     prompt_mode=Sam3PromptMode.CLASSIC,   # text prompting; no fit() needed
-    device="CPU",
 )
 
 # Text prompt — detect elephants
@@ -145,7 +163,6 @@ import numpy as np
 model = SAM3OpenVINO(
     model_dir="./sam3-openvino/openvino-int8_sym",
     prompt_mode=Sam3PromptMode.CANVAS,   # the default
-    device="CPU",
 )
 
 ref = Sample(

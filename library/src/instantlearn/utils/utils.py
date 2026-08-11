@@ -116,28 +116,6 @@ def precision_to_openvino_type(precision: str) -> ov.Type:
     return precision_map[precision_lower]
 
 
-def device_to_openvino_device(device: str) -> str:
-    """Map PyTorch device names to OpenVINO device names.
-
-    Args:
-        device: Device name in PyTorch style ("cuda", "cpu") or OpenVINO style ("GPU", "CPU", "AUTO")
-
-    Returns:
-        Device name in OpenVINO style ("CPU", "GPU", "AUTO")
-    """
-    if not device:
-        return "CPU"
-    device_upper = device.upper()
-    # Map PyTorch-style names to OpenVINO names
-    if device_upper in {"CUDA", "XPU"}:
-        return "GPU"
-    # OpenVINO names pass through unchanged
-    if device_upper in {"CPU", "GPU", "AUTO"}:
-        return device_upper
-    # Default fallback
-    return "CPU"
-
-
 def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> None:
     """Download a file from a URL to a target path.
 

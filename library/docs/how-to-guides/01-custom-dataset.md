@@ -60,7 +60,7 @@ from instantlearn.models import Matcher
 references = dataset.get_reference_dataset()
 targets = dataset.get_target_dataset()
 
-model = Matcher(device="xpu")
+model = Matcher()
 model.fit([references[i] for i in range(len(references))])
 
 predictions = model.predict(targets[0])

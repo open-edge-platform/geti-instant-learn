@@ -17,6 +17,7 @@ from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
+from tests import CPU_DEVICE
 
 
 def _empty_prediction() -> Prediction:
@@ -69,7 +70,7 @@ class TestPerDino:
         mock_load_sam.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = PerDino(device="cpu")
+        model = PerDino(device=CPU_DEVICE)
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
@@ -96,7 +97,7 @@ class TestPerDino:
         mock_load_sam.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = PerDino(device="cpu")
+        model = PerDino(device=CPU_DEVICE)
         model.fit = MagicMock(return_value=None)
         model.predict = MagicMock(return_value=[_empty_prediction()])
 
@@ -134,7 +135,7 @@ class TestMatcher:
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = Matcher(device="cpu")
+        model = Matcher(device=CPU_DEVICE)
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
@@ -160,7 +161,7 @@ class TestMatcher:
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = Matcher(device="cpu")
+        model = Matcher(device=CPU_DEVICE)
         model.fit = MagicMock(return_value=None)
         model.predict = MagicMock(return_value=[_empty_prediction()])
 
@@ -198,7 +199,7 @@ class TestSoftMatcher:
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = SoftMatcher(device="cpu")
+        model = SoftMatcher(device=CPU_DEVICE)
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
@@ -224,7 +225,7 @@ class TestSoftMatcher:
         mock_sam_predictor.return_value = mock_components["sam_predictor"]
         mock_image_encoder.return_value = mock_components["encoder"]
 
-        model = SoftMatcher(device="cpu")
+        model = SoftMatcher(device=CPU_DEVICE)
         model.fit = MagicMock(return_value=None)
         model.predict = MagicMock(return_value=[_empty_prediction()])
 
@@ -245,7 +246,7 @@ class TestGroundedSAM:
         mock_load_sam.return_value = MagicMock()
         mock_grounding.return_value = (MagicMock(), MagicMock())
 
-        model = GroundedSAM(device="cpu")
+        model = GroundedSAM(device=CPU_DEVICE)
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "prompt_generator")
@@ -258,7 +259,7 @@ class TestGroundedSAM:
         """predict() converts segmenter dicts to Prediction using target categories."""
         mock_load_sam.return_value = MagicMock()
         mock_grounding.return_value = (MagicMock(), MagicMock())
-        model = GroundedSAM(device="cpu")
+        model = GroundedSAM(device=CPU_DEVICE)
         model.postprocessor = None
         model.prompt_generator = MagicMock(
             spec=torch.nn.Module,
@@ -291,7 +292,7 @@ class TestGroundedSAM:
         """predict() raises when neither fit() nor the target provide categories."""
         mock_load_sam.return_value = MagicMock()
         mock_grounding.return_value = (MagicMock(), MagicMock())
-        model = GroundedSAM(device="cpu")
+        model = GroundedSAM(device=CPU_DEVICE)
         sample = Sample(image=np.zeros((4, 4, 3), dtype=np.uint8), categories=[])
 
         with pytest.raises(ValueError, match="requires categories"):
@@ -303,7 +304,7 @@ class TestGroundedSAM:
         """predict() raises when a target sample has no image."""
         mock_load_sam.return_value = MagicMock()
         mock_grounding.return_value = (MagicMock(), MagicMock())
-        model = GroundedSAM(device="cpu")
+        model = GroundedSAM(device=CPU_DEVICE)
         sample = Sample(image=None, categories=[Category(7, "cat")])
 
         with pytest.raises(ValueError, match="each sample to contain an image"):
