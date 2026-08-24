@@ -111,7 +111,7 @@ class PerDinoConfig(BaseModelConfig):
 
 class MatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = Field(default=5, gt=0, le=300)
+    num_foreground_points: int = Field(default=40, gt=0, le=300)
     num_background_points: int = Field(default=3, ge=0, le=10)
     # Optimal threshold varies by encoder: ~0.50 for dinov3_large, ~0.75 for dinov3_small.
     # Using 0.75 as a safe universal default that minimizes cross-class false positives.

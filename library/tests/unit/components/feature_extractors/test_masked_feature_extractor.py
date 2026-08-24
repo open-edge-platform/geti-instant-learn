@@ -537,3 +537,42 @@ class TestMaskedFeatureExtractor:
         pytest.assume(fg.sum() > 0)
         pytest.assume(torch.equal(fg > 0.5, fg.bool()))
 
+
+class TestMaskedFeatureExtractorInvariant:
+    """Fail-fast invariant guarding the multi-category ``torch.stack`` contract."""
+
+    def test_forward_raises_on_zero_row_masked_embedding(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A ``[0, embed_dim]`` masked embedding must raise a category-named ValueError.
+
+        Reproduces the class of regression behind the production crash
+        ``stack expects each tensor to be equal size, but got [1, 384] and [0, 384]``:
+        an older extractor build emitted an empty-mean ``[0, D]`` row for zero-coverage
+        categories. The invariant makes that fail loudly at the source (naming the
+        category) instead of deep inside ``torch.stack``.
+        """
+        extractor = MaskedFeatureExtractor(input_size=224, patch_size=14, device="cpu")
+
+        batch_size = 1
+        total_patches = 16 * 16
+        embedding_dim = 384
+        mask_height, mask_width = 224, 224
+
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+        masks = torch.zeros(batch_size, 2, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:150, 50:150] = True  # category 1: real coverage -> [1, D]
+        # category 2: zero coverage -> normally falls back to a zero-filled [1, D] row.
+        category_ids = torch.tensor([[1, 2]], dtype=torch.long)
+
+        # Simulate the pre-fix regression: force the zero-coverage fallback to emit a
+        # degenerate [0, embed_dim] row (the empty-mean shape) and assert the guard trips.
+        real_zeros = torch.zeros
+
+        def fake_zeros(*args: object, **kwargs: object) -> torch.Tensor:
+            if args and args[0] == 1:
+                return real_zeros(0, *args[1:], **kwargs)  # type: ignore[arg-type]
+            return real_zeros(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(torch, "zeros", fake_zeros)
+
+        with pytest.raises(ValueError, match=r"id=2.*\[1, embed_dim\]"):
+            extractor(embeddings, masks, category_ids)

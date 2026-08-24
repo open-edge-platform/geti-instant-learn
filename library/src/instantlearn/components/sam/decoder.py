@@ -310,6 +310,19 @@ class SamDecoder(nn.Module):
                 original_size,
             )
 
+        # Zero-coverage guard: when a reference annotation mask covers zero encoder
+        # patch cells after downsampling (polygon too small relative to the image),
+        # MaskedFeatureExtractor returns a zero masked_ref_embedding and an all-zero
+        # flatten_ref_mask.  BidirectionalPromptGenerator then finds no foreground
+        # matches, so _preprocess_points returns point_coords with 0 rows.
+        # Passing a 0-row prompt tensor to SAM causes an immediate crash; return
+        # empty outputs instead so the category silently produces no detections.
+        if point_coords.shape[0] == 0:
+            return (
+                torch.empty(0, *original_size, device=point_coords.device, dtype=point_coords.dtype),
+                torch.empty(0, device=point_coords.device, dtype=point_coords.dtype),
+            )
+
         # Initial prediction
         # masks: [num_fg, 1, H, W], iou_preds: [num_fg, 1]
         masks, iou_preds, low_res_logits = self.predictor.forward(
