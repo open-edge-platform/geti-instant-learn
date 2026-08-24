@@ -10,7 +10,6 @@ from instantlearn.models.sam3.sam3 import MODEL_NAMES as SAM3_MODEL_NAMES
 from instantlearn.utils.constants import Backend, CompressionMode, SAMModelName
 
 from domain.services.schemas.processor import (
-    CompressionPreset,
     MatcherConfig,
     PerDinoConfig,
     Sam3Config,
@@ -368,16 +367,22 @@ class TestModelFactory:
             assert result._model is mocks[ov_name].return_value
 
     @pytest.mark.parametrize(
-        ("preset", "expected_compression"),
+        "compression",
         [
-            (CompressionPreset.THROUGHPUT, CompressionMode.INT8_SYM),
-            (CompressionPreset.ACCURACY, CompressionMode.FP16),
+            CompressionMode.FP32,
+            CompressionMode.FP16,
+            CompressionMode.INT8_SYM,
+            CompressionMode.INT8_ASYM,
+            CompressionMode.INT4_SYM,
+            CompressionMode.INT4_ASYM,
         ],
     )
-    def test_factory_passes_preset_compression_to_export(
-        self, mock_reference_batch, mock_settings, model_factory, preset, expected_compression
+    def test_factory_passes_compression_to_export(
+        self, mock_reference_batch, mock_settings, model_factory, compression
     ):
-        config = MatcherConfig(sam_model=SAMModelName.SAM_HQ_TINY, encoder_model="dinov3_small", preset=preset)
+        config = MatcherConfig(
+            sam_model=SAMModelName.SAM_HQ_TINY, encoder_model="dinov3_small", ov_compression=compression
+        )
 
         with patch.multiple(FACTORY_MODULE, get_settings=DEFAULT, Matcher=DEFAULT, MatcherOpenVINO=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
@@ -385,7 +390,7 @@ class TestModelFactory:
             model_factory.create(mock_reference_batch, config)
 
             export_config = mocks["Matcher"].return_value.to_openvino.call_args[0][1]
-            assert export_config.compression == expected_compression
+            assert export_config.compression == compression
 
     # --- SAM3 ---
 

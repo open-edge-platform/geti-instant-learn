@@ -239,7 +239,7 @@ class ModelFactory:
                 ov_cls=ov_cls,
                 reference_batch=reference_batch,
                 target_device=resolved_device.device,
-                compression=config.compression_mode,
+                compression=config.ov_compression,
             )
             del model  # release the torch graph as soon as the IR is compiled
             empty_accelerator_cache()
@@ -303,7 +303,7 @@ class ModelFactory:
             export_device = self._resolve_device(SAM3.card(), "cpu", (Backend.TORCH,)).device
             ir_dir = self._resolve_sam3_ir(
                 config=config,
-                compression=config.compression_mode,
+                compression=config.ov_compression,
                 export_device=export_device,
             )
             model: Model = SAM3OpenVINO(
