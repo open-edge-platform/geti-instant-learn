@@ -5,8 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { MatcherModel, ModelType, PerDINOModel, Sam3Model, SoftMatcherModel } from '@/api';
-import type { CompressionMode } from '@/api';
+import { MatcherModel, ModelType, PerDINOModel, Sam3Model, SoftMatcherModel, type CompressionMode } from '@/api';
 import { Button, ButtonGroup, Content, Dialog, Divider, Flex, Form, Heading, Item, Picker, Switch } from '@geti/ui';
 
 import { useUpdateModel } from '../../api/use-update-model';
@@ -71,18 +70,31 @@ const PRECISIONS: { label: string; value: Precision }[] = [
     { label: 'BF16', value: 'bf16' },
 ];
 
-// All OpenVINO weight-compression modes exposed by the backend `CompressionMode` enum.
-// Kept as a runtime array (TS unions have no runtime form) and validated against the
-// generated type via `satisfies`; labels are derived programmatically so new modes need
-// no hand-maintained mapping.
-const COMPRESSION_MODES = [
-    'fp32',
-    'fp16',
-    'int8_sym',
-    'int8_asym',
-    'int4_sym',
-    'int4_asym',
-] as const satisfies readonly CompressionMode[];
+// Runtime source of the OpenVINO weight-compression modes offered in the UI. TS unions have
+// no runtime form, so the modes are listed as the keys of this map. Typing it as
+// `Record<CompressionMode, true>` makes the compiler enforce that the list stays exhaustive
+// *and* valid: omitting a mode the backend enum defines — or adding an unknown one — fails
+// `tsc`. (The backend exposes no metadata endpoint listing these, so a guarded local list is
+// the pragmatic source of truth.)
+const COMPRESSION_MODE_SET = {
+    fp32: true,
+    fp16: true,
+    int8_sym: true,
+    int8_asym: true,
+    int4_sym: true,
+    int4_asym: true,
+} satisfies Record<CompressionMode, true>;
+
+const COMPRESSION_MODES = Object.keys(COMPRESSION_MODE_SET) as CompressionMode[];
+
+// Known symmetry suffixes get a friendly expansion; anything unexpected falls back to a
+// title-cased suffix so a future enum variant is never silently mislabeled as "Asymmetric".
+const VARIANT_LABELS: Record<string, string> = {
+    sym: 'Symmetric',
+    asym: 'Asymmetric',
+};
+
+const titleCase = (value: string): string => (value ? value[0].toUpperCase() + value.slice(1) : value);
 
 const formatCompressionLabel = (mode: CompressionMode): string => {
     const [base, variant] = mode.split('_');
@@ -90,7 +102,7 @@ const formatCompressionLabel = (mode: CompressionMode): string => {
     if (!variant) {
         return baseLabel;
     }
-    return `${baseLabel} ${variant === 'sym' ? 'Symmetric' : 'Asymmetric'}`;
+    return `${baseLabel} ${VARIANT_LABELS[variant] ?? titleCase(variant)}`;
 };
 
 const COMPRESSION_OPTIONS: { label: string; value: CompressionMode }[] = COMPRESSION_MODES.map((value) => ({
