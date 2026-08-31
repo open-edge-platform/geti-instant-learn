@@ -64,8 +64,8 @@ class ModelConfigurationDialogPage {
         await this.changeSelection('Precision', value);
     }
 
-    async changeCompressionPreset(value: string) {
-        await this.changeSelection('Compression preset', value);
+    async changeCompression(value: string) {
+        await this.changeSelection('OpenVINO compression', value);
     }
 
     async configureModel() {
@@ -105,7 +105,7 @@ describe('ModelConfigurationDialog', () => {
                 use_mask_refinement: true,
                 precision: 'bf16',
                 num_grid_cells: 8,
-                preset: 'throughput',
+                ov_compression: 'int8_sym',
             },
         });
 
@@ -141,9 +141,9 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
 
-        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
+        await modelConfigurationDialogPage.changeCompression('INT4 Symmetric');
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
-        await modelConfigurationDialogPage.changeCompressionPreset('Throughput');
+        await modelConfigurationDialogPage.changeCompression('INT8 Symmetric');
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
@@ -198,7 +198,7 @@ describe('ModelConfigurationDialog', () => {
         expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('submits preset value in matcher config', async () => {
+    it('submits ov_compression value in matcher config', async () => {
         let body: ModelUpdateType;
         server.use(
             http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request }) => {
@@ -219,21 +219,21 @@ describe('ModelConfigurationDialog', () => {
                 similarity_threshold: null,
                 num_grid_cells: 8,
                 precision: 'bf16',
-                preset: 'throughput',
+                ov_compression: 'int8_sym',
             },
         });
 
         const mockOnClose = vi.fn();
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
 
-        await modelConfigurationDialogPage.changeCompressionPreset('Accuracy');
+        await modelConfigurationDialogPage.changeCompression('FP16');
         await modelConfigurationDialogPage.configureModel();
 
         await waitFor(() => {
             expect(body.config).toEqual(
                 expect.objectContaining({
                     model_type: 'matcher',
-                    preset: 'accuracy',
+                    ov_compression: 'fp16',
                 })
             );
         });
@@ -241,7 +241,7 @@ describe('ModelConfigurationDialog', () => {
         expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('compression preset dropdown is visible for matcher model', () => {
+    it('OpenVINO compression dropdown is visible for matcher model', () => {
         const model = getMockedModel({
             config: {
                 model_type: 'matcher',
@@ -254,13 +254,43 @@ describe('ModelConfigurationDialog', () => {
                 similarity_threshold: null,
                 num_grid_cells: 8,
                 precision: 'bf16',
-                preset: 'throughput',
+                ov_compression: 'int8_sym',
             },
         });
 
         renderModelConfigurationDialog({ model });
 
-        expect(screen.getByRole('button', { name: /Compression preset/i })).toBeVisible();
+        expect(screen.getByRole('button', { name: /OpenVINO compression/i })).toBeVisible();
+    });
+
+    it('OpenVINO compression dropdown is visible for perdino model', () => {
+        renderModelConfigurationDialog({ model: getMockedModel() });
+
+        expect(screen.getByRole('button', { name: /OpenVINO compression/i })).toBeVisible();
+    });
+
+    it('OpenVINO compression dropdown is visible for soft matcher model', () => {
+        const model = getMockedModel({
+            config: {
+                model_type: 'soft_matcher',
+                sam_model: 'SAM-HQ-tiny',
+                encoder_model: 'dinov3_small',
+                num_foreground_points: 40,
+                num_background_points: 2,
+                confidence_threshold: 0.42,
+                use_sampling: false,
+                use_spatial_sampling: false,
+                approximate_matching: false,
+                softmatching_score_threshold: 0.4,
+                softmatching_bidirectional: false,
+                precision: 'bf16',
+                ov_compression: 'int8_sym',
+            },
+        });
+
+        renderModelConfigurationDialog({ model });
+
+        expect(screen.getByRole('button', { name: /OpenVINO compression/i })).toBeVisible();
     });
 
     it('closes the dialog', async () => {
@@ -281,6 +311,7 @@ describe('ModelConfigurationDialog', () => {
             expect(screen.getByRole('textbox', { name: 'Confidence threshold' })).toBeVisible();
             expect(screen.getByRole('textbox', { name: 'Resolution' })).toBeVisible();
             expect(screen.getByRole('button', { name: /Precision/ })).toBeVisible();
+            expect(screen.getByRole('button', { name: /OpenVINO compression/i })).toBeVisible();
 
             // SAM3 should NOT show encoder/decoder model pickers or foreground/background points
             expect(screen.queryByRole('button', { name: /Encoder model/ })).not.toBeInTheDocument();
@@ -343,6 +374,7 @@ describe('ModelConfigurationDialog', () => {
                     confidence_threshold: 0.7,
                     resolution: 512,
                     precision: 'bf16',
+                    ov_compression: 'int8_sym',
                 });
             });
 

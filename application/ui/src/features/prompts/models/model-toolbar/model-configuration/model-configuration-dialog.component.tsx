@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { MatcherModel, ModelType, PerDINOModel, Sam3Model, SoftMatcherModel } from '@/api';
+import { MatcherModel, ModelType, PerDINOModel, Sam3Model, SoftMatcherModel, type CompressionMode } from '@/api';
 import { Button, ButtonGroup, Content, Dialog, Divider, Flex, Form, Heading, Item, Picker, Switch } from '@geti/ui';
 
 import { useUpdateModel } from '../../api/use-update-model';
@@ -70,12 +70,47 @@ const PRECISIONS: { label: string; value: Precision }[] = [
     { label: 'BF16', value: 'bf16' },
 ];
 
-type CompressionPreset = MatcherModel['config']['preset'];
+// Runtime source of the OpenVINO weight-compression modes offered in the UI. TS unions have
+// no runtime form, so the modes are listed as the keys of this map. Typing it as
+// `Record<CompressionMode, true>` makes the compiler enforce that the list stays exhaustive
+// *and* valid: omitting a mode the backend enum defines — or adding an unknown one — fails
+// `tsc`. (The backend exposes no metadata endpoint listing these, so a guarded local list is
+// the pragmatic source of truth.)
+const COMPRESSION_MODE_SET = {
+    fp32: true,
+    fp16: true,
+    int8_sym: true,
+    int8_asym: true,
+    int4_sym: true,
+    int4_asym: true,
+} satisfies Record<CompressionMode, true>;
 
-const COMPRESSION_PRESETS: { label: string; value: CompressionPreset }[] = [
-    { label: 'Throughput', value: 'throughput' },
-    { label: 'Accuracy', value: 'accuracy' },
-];
+const COMPRESSION_MODES = Object.keys(COMPRESSION_MODE_SET) as CompressionMode[];
+
+// Known symmetry suffixes get a friendly expansion; anything unexpected falls back to a
+// title-cased suffix so a future enum variant is never silently mislabeled as "Asymmetric".
+const VARIANT_LABELS: Record<string, string> = {
+    sym: 'Symmetric',
+    asym: 'Asymmetric',
+};
+
+const titleCase = (value: string): string => (value ? value[0].toUpperCase() + value.slice(1) : value);
+
+const formatCompressionLabel = (mode: CompressionMode): string => {
+    const [base, variant] = mode.split('_');
+    const baseLabel = base.toUpperCase();
+    if (!variant) {
+        return baseLabel;
+    }
+    return `${baseLabel} ${VARIANT_LABELS[variant] ?? titleCase(variant)}`;
+};
+
+const COMPRESSION_OPTIONS: { label: string; value: CompressionMode }[] = COMPRESSION_MODES.map((value) => ({
+    value,
+    label: formatCompressionLabel(value),
+}));
+
+const OV_COMPRESSION_LABEL = 'OpenVINO compression';
 
 interface SelectionProps<T extends string> {
     value: T;
@@ -112,7 +147,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
     const [detectSmallObjects, setDetectSmallObjects] = useState<boolean>(
         model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined
     );
-    const [preset, setPreset] = useState<CompressionPreset>(model.config.preset ?? 'throughput');
+    const [ovCompression, setOvCompression] = useState<CompressionMode>(model.config.ov_compression);
 
     const updateModelMutation = useUpdateModel();
 
@@ -126,7 +161,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
         useMaskRefinement === model.config.use_mask_refinement &&
         detectSmallObjects ===
             (model.config.similarity_threshold !== null && model.config.similarity_threshold !== undefined) &&
-        preset === (model.config.preset ?? 'throughput');
+        ovCompression === model.config.ov_compression;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -148,7 +183,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                     similarity_threshold: detectSmallObjects ? 0.65 : null,
                     num_grid_cells: detectSmallObjects ? 8 : model.config.num_grid_cells,
                     precision,
-                    preset,
+                    ov_compression: ovCompression,
                 },
             },
             onClose
@@ -198,10 +233,10 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
                 <Selection
-                    label={'Compression preset'}
-                    value={preset}
-                    onChange={setPreset}
-                    items={COMPRESSION_PRESETS}
+                    label={OV_COMPRESSION_LABEL}
+                    value={ovCompression}
+                    onChange={setOvCompression}
+                    items={COMPRESSION_OPTIONS}
                 />
                 <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
                     <Switch isEmphasized isSelected={detectSmallObjects} onChange={setDetectSmallObjects}>
@@ -251,6 +286,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
     const [pointSelectionThreshold, setPointSelectionThreshold] = useState<number>(
         model.config.point_selection_threshold
     );
+    const [ovCompression, setOvCompression] = useState<CompressionMode>(model.config.ov_compression);
 
     const updateModelMutation = useUpdateModel();
 
@@ -262,7 +298,8 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
         pointSelectionThreshold === model.config.point_selection_threshold &&
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
-        precision === model.config.precision;
+        precision === model.config.precision &&
+        ovCompression === model.config.ov_compression;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -283,6 +320,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
                     precision,
+                    ov_compression: ovCompression,
                 },
             },
             onClose
@@ -347,6 +385,12 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     value={pointSelectionThreshold}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Selection
+                    label={OV_COMPRESSION_LABEL}
+                    value={ovCompression}
+                    onChange={setOvCompression}
+                    items={COMPRESSION_OPTIONS}
+                />
                 <ButtonGroup align={'end'}>
                     <Button variant={'secondary'} onPress={onClose}>
                         Cancel
@@ -390,6 +434,7 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
     const [softMatchingBidirectional, setSoftMatchingBidirectional] = useState<boolean>(
         model.config.softmatching_bidirectional
     );
+    const [ovCompression, setOvCompression] = useState<CompressionMode>(model.config.ov_compression);
 
     const updateModelMutation = useUpdateModel();
 
@@ -404,7 +449,8 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
         useSpatialSampling === model.config.use_spatial_sampling &&
         approximateMatching === model.config.approximate_matching &&
         softMatchingScoreThreshold === model.config.softmatching_score_threshold &&
-        softMatchingBidirectional === model.config.softmatching_bidirectional;
+        softMatchingBidirectional === model.config.softmatching_bidirectional &&
+        ovCompression === model.config.ov_compression;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -428,6 +474,7 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                     use_sampling: useSampling,
                     use_spatial_sampling: useSpatialSampling,
                     precision,
+                    ov_compression: ovCompression,
                 },
             },
             onClose
@@ -484,6 +531,12 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                     value={softMatchingScoreThreshold}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Selection
+                    label={OV_COMPRESSION_LABEL}
+                    value={ovCompression}
+                    onChange={setOvCompression}
+                    items={COMPRESSION_OPTIONS}
+                />
                 <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
                     <Switch isEmphasized isSelected={softMatchingBidirectional} onChange={setSoftMatchingBidirectional}>
                         Bidirectional soft matching
@@ -525,13 +578,15 @@ const Sam3Configuration = ({ model, onClose }: Sam3ConfigurationProps) => {
     const [confidenceThreshold, setConfidenceThreshold] = useState<number>(model.config.confidence_threshold);
     const [resolution, setResolution] = useState<number>(model.config.resolution);
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
+    const [ovCompression, setOvCompression] = useState<CompressionMode>(model.config.ov_compression);
 
     const updateModelMutation = useUpdateModel();
 
     const isConfigureButtonDisabled =
         confidenceThreshold === model.config.confidence_threshold &&
         resolution === model.config.resolution &&
-        precision === model.config.precision;
+        precision === model.config.precision &&
+        ovCompression === model.config.ov_compression;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -547,6 +602,7 @@ const Sam3Configuration = ({ model, onClose }: Sam3ConfigurationProps) => {
                     confidence_threshold: confidenceThreshold,
                     resolution,
                     precision,
+                    ov_compression: ovCompression,
                 },
             },
             onClose
@@ -573,6 +629,12 @@ const Sam3Configuration = ({ model, onClose }: Sam3ConfigurationProps) => {
                     value={resolution}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Selection
+                    label={OV_COMPRESSION_LABEL}
+                    value={ovCompression}
+                    onChange={setOvCompression}
+                    items={COMPRESSION_OPTIONS}
+                />
                 <ButtonGroup align={'end'}>
                     <Button variant={'secondary'} onPress={onClose}>
                         Cancel

@@ -32,40 +32,20 @@ ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
 )
 
 
-class CompressionPreset(StrEnum):
-    THROUGHPUT = "throughput"
-    ACCURACY = "accuracy"
+class BaseModelConfig(BaseModel):
+    """Base configuration class with common validators for all model types.
 
-    def to_compression_mode(self) -> CompressionMode:
-        return _PRESET_TO_MODE[self]
-
-
-_PRESET_TO_MODE: dict[CompressionPreset, CompressionMode] = {
-    CompressionPreset.THROUGHPUT: CompressionMode.INT8_SYM,
-    CompressionPreset.ACCURACY: CompressionMode.FP16,
-}
-
-
-class CompressibleConfig(BaseModel):
-    """Base for model configs that can be exported to OpenVINO IR.
-
-    Every model type must answer which weight compression its export uses, because the
-    mode is baked into the exported IR (and, for SAM3, into the IR cache directory name).
-    Models that expose no user-facing preset inherit the throughput default.
+    Every model is exportable to OpenVINO IR, so the weight compression mode is a
+    user-selectable field validated automatically against :class:`CompressionMode`.
     """
-
-    @property
-    def compression_mode(self) -> CompressionMode:
-        """Weight compression mode applied when exporting this model to OpenVINO IR."""
-        return _PRESET_TO_MODE[CompressionPreset.THROUGHPUT]
-
-
-class BaseModelConfig(CompressibleConfig):
-    """Base configuration class with common validators for all model types."""
 
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
+    ov_compression: CompressionMode = Field(
+        default=CompressionMode.INT8_SYM,
+        description="OpenVINO weight compression mode applied when exporting this model to OpenVINO IR.",
+    )
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -104,6 +84,7 @@ class PerDinoConfig(BaseModelConfig):
                 "point_selection_threshold": 0.65,
                 "confidence_threshold": 0.42,
                 "precision": "bf16",
+                "ov_compression": "int8_sym",
             }
         }
     }
@@ -119,15 +100,6 @@ class MatcherConfig(BaseModelConfig):
     use_mask_refinement: bool = Field(default=False)
     similarity_threshold: float | None = Field(default=None, gt=0.0, lt=1.0)
     num_grid_cells: int = Field(default=8, ge=0, le=100)
-    preset: CompressionPreset = Field(
-        default=CompressionPreset.THROUGHPUT,
-        description="Weight compression preset: 'throughput' (smaller/faster) or 'accuracy' (higher fidelity).",
-    )
-
-    @property
-    def compression_mode(self) -> CompressionMode:
-        """Matcher is the only model exposing a user-selectable compression preset."""
-        return self.preset.to_compression_mode()
 
     model_config = {
         "json_schema_extra": {
@@ -142,7 +114,7 @@ class MatcherConfig(BaseModelConfig):
                 "use_mask_refinement": False,
                 "similarity_threshold": None,
                 "num_grid_cells": 8,
-                "preset": "throughput",
+                "ov_compression": "int8_sym",
             }
         }
     }
@@ -174,12 +146,13 @@ class SoftMatcherConfig(BaseModelConfig):
                 "softmatching_score_threshold": 0.4,
                 "softmatching_bidirectional": False,
                 "precision": "bf16",
+                "ov_compression": "int8_sym",
             }
         }
     }
 
 
-class Sam3Config(CompressibleConfig):
+class Sam3Config(BaseModel):
     """
     Configuration for SAM3 visual or text-prompted segmentation model.
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
@@ -189,6 +162,10 @@ class Sam3Config(CompressibleConfig):
     confidence_threshold: float = Field(default=0.5, gt=0.0, lt=1.0)
     resolution: int = Field(default=1008, gt=0)
     precision: str = Field(default="fp32", description="Model precision ('bf16' or 'fp32')")
+    ov_compression: CompressionMode = Field(
+        default=CompressionMode.INT8_SYM,
+        description="OpenVINO weight compression mode applied when exporting this model to OpenVINO IR.",
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -197,6 +174,7 @@ class Sam3Config(CompressibleConfig):
                 "confidence_threshold": 0.5,
                 "resolution": 1008,
                 "precision": "fp32",
+                "ov_compression": "int8_sym",
             }
         }
     }
