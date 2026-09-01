@@ -26,13 +26,19 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.efficient_sam3.efficient_sam3 import EfficientSAM3
 from instantlearn.models.sam3.model import GeometryEncoder, Sam3Model
 from instantlearn.models.sam3.processing import Sam3PromptPreprocessor
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
+from tests import CPU_DEVICE
 
 # Sam3PromptMode
+
+
+def _zero_hwc_image(height: int = 100, width: int = 100) -> np.ndarray:
+    return np.zeros((height, width, 3), dtype=np.uint8)
 
 
 class TestSam3PromptMode:
@@ -149,7 +155,7 @@ class TestSAM3Init:
     @patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast.from_pretrained")
     def test_default_classic_mode(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """SAM3 defaults to CLASSIC prompt mode."""
-        sam3 = SAM3(device="cpu")
+        sam3 = SAM3(device=CPU_DEVICE)
         assert sam3.prompt_mode == Sam3PromptMode.CLASSIC
         assert sam3.drop_spatial_bias is False
         assert sam3.exemplar_geometry_features is None
@@ -158,7 +164,7 @@ class TestSAM3Init:
     @patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast.from_pretrained")
     def test_visual_exemplar_mode(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """SAM3 can be initialized in VISUAL_EXEMPLAR mode."""
-        sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar", drop_spatial_bias=True)
+        sam3 = SAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar", drop_spatial_bias=True)
         assert sam3.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR
         assert sam3.drop_spatial_bias is True
 
@@ -167,34 +173,34 @@ class TestSAM3Init:
     def test_invalid_prompt_mode_raises(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """Invalid prompt_mode string raises ValueError."""
         with pytest.raises(ValueError, match="nonexistent"):
-            SAM3(device="cpu", prompt_mode="nonexistent")
+            SAM3(device=CPU_DEVICE, prompt_mode="nonexistent")
 
 
-# SAM3 class — _build_category_mapping
+# SAM3 class — category registry
 class TestBuildCategoryMapping:
-    """Tests for SAM3._build_category_mapping static method."""
+    """Tests for CategoryRegistry.from_samples name->id mapping."""
 
     def test_single_sample(self) -> None:
         """Single sample with two categories."""
-        batch = Batch.collate(Sample(categories=["cat", "dog"], category_ids=[0, 1]))
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        batch = Batch.collate(Sample(categories=[Category(id=0, label="cat"), Category(id=1, label="dog")]))
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {"cat": 0, "dog": 1}
 
     def test_multiple_samples_dedup(self) -> None:
         """Multiple samples deduplicate categories."""
         samples = [
-            Sample(categories=["cat"], category_ids=[0]),
-            Sample(categories=["cat", "dog"], category_ids=[0, 1]),
+            Sample(categories=[Category(id=0, label="cat")]),
+            Sample(categories=[Category(id=0, label="cat"), Category(id=1, label="dog")]),
         ]
         batch = Batch.collate(samples)
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {"cat": 0, "dog": 1}
 
     def test_empty_categories(self) -> None:
         """Empty categories produce empty mapping."""
-        sample = Sample(categories=[], category_ids=[])
+        sample = Sample(categories=[])
         batch = Batch.collate(sample)
-        mapping = SAM3._build_category_mapping(batch)  # noqa: SLF001
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
         assert mapping == {}
 
 
@@ -238,9 +244,9 @@ class TestSAM3ExemplarErrors:
     @patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast.from_pretrained")
     def test_predict_without_fit_raises(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
-        sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar")
+        sam3 = SAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             sam3.predict(target)
 
@@ -248,9 +254,9 @@ class TestSAM3ExemplarErrors:
     @patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast.from_pretrained")
     def test_fit_no_bboxes_raises(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """fit() in VISUAL_EXEMPLAR mode with no bboxes/points raises ValueError."""
-        sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar")
+        sam3 = SAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar")
 
-        ref = Sample(categories=["cat"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="cat")])
         with pytest.raises(ValueError, match="VISUAL_EXEMPLAR mode requires at least one"):
             sam3.fit(ref)
 
@@ -258,12 +264,11 @@ class TestSAM3ExemplarErrors:
     @patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast.from_pretrained")
     def test_fit_exemplar_no_image_raises(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """fit() in VISUAL_EXEMPLAR mode with bboxes but no image raises ValueError."""
-        sam3 = SAM3(device="cpu", prompt_mode="visual_exemplar")
+        sam3 = SAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar")
 
         ref = Sample(
             bboxes=np.array([[100, 100, 200, 200]]),
-            category_ids=np.array([0]),
-            categories=["cat"],
+            categories=[Category(id=0, label="cat")],
         )
         with pytest.raises(ValueError, match="requires images"):
             sam3.fit(ref)
@@ -288,7 +293,7 @@ class TestEfficientSAM3Init:
     @patch("instantlearn.models.efficient_sam3.efficient_sam3.CLIPTokenizerFast.from_pretrained")
     def test_default_classic_mode(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """EfficientSAM3 defaults to CLASSIC prompt mode."""
-        model = EfficientSAM3(device="cpu")
+        model = EfficientSAM3(device=CPU_DEVICE)
         assert model.prompt_mode == Sam3PromptMode.CLASSIC
         assert model.drop_spatial_bias is False
         assert model.exemplar_geometry_features is None
@@ -300,7 +305,7 @@ class TestEfficientSAM3Init:
     @patch("instantlearn.models.efficient_sam3.efficient_sam3.CLIPTokenizerFast.from_pretrained")
     def test_visual_exemplar_mode(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """EfficientSAM3 can be initialized in VISUAL_EXEMPLAR mode."""
-        model = EfficientSAM3(device="cpu", prompt_mode="visual_exemplar", drop_spatial_bias=True)
+        model = EfficientSAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar", drop_spatial_bias=True)
         assert model.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR
         assert model.drop_spatial_bias is True
 
@@ -320,9 +325,9 @@ class TestEfficientSAM3ExemplarErrors:
     @patch("instantlearn.models.efficient_sam3.efficient_sam3.CLIPTokenizerFast.from_pretrained")
     def test_predict_without_fit_raises(self, _mock_tokenizer: MagicMock, _mock_model: MagicMock) -> None:  # noqa: ARG002, PT019
         """predict() in VISUAL_EXEMPLAR mode without fit() raises RuntimeError."""
-        model = EfficientSAM3(device="cpu", prompt_mode="visual_exemplar")
+        model = EfficientSAM3(device=CPU_DEVICE, prompt_mode="visual_exemplar")
 
-        target = Sample(image=torch.zeros(3, 100, 100))
+        target = Sample(image=_zero_hwc_image(100, 100))
         with pytest.raises(RuntimeError, match="No cached exemplar features"):
             model.predict(target)
 

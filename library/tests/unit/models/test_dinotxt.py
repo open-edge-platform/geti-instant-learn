@@ -9,11 +9,12 @@ import numpy as np
 import pytest
 import torch
 from skimage.draw import random_shapes
-from torchvision.tv_tensors import Image
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.prediction import Prediction
+from instantlearn.data.base.sample import Category, Sample
 from instantlearn.models.dinotxt import DinoTxtZeroShotClassification
+from tests import CPU_DEVICE
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def mock_dino_encoder() -> MagicMock:
     """Create a mock DinoTextEncoder."""
     mock_encoder = MagicMock()
     # Mock text embeddings: (embedding_dim, num_classes) - transposed for matrix multiplication
-    mock_encoder.encode_text.return_value = torch.randn(128, 3)  # 128 dim embeddings, 3 classes
+    mock_encoder.encode_text.side_effect = lambda categories, _templates: torch.randn(128, len(categories))
     # Mock image embeddings: (num_images, embedding_dim)
     mock_encoder.encode_image.return_value = torch.randn(9, 128)  # 9 images, 128 dim embeddings
     return mock_encoder
@@ -37,7 +38,7 @@ def model_instance(mock_dino_encoder: MagicMock) -> DinoTxtZeroShotClassificatio
     with patch("instantlearn.models.dinotxt.dinotxt.DinoTextEncoder") as mock_encoder_class:
         mock_encoder_class.return_value = mock_dino_encoder
         return DinoTxtZeroShotClassification(
-            device="cpu",  # Use CPU for testing
+            device=CPU_DEVICE,
             image_size=(224, 224),  # Smaller size for faster testing
             precision="bf16",
         )
@@ -79,9 +80,12 @@ def sample_reference_batch() -> Batch:
     """
     # Create a sample with categories
     sample = Sample(
-        image=torch.zeros((3, 224, 224)),
-        categories=["circle", "rectangle", "triangle"],
-        category_ids=np.array([0, 1, 2]),
+        image=np.zeros((224, 224, 3), dtype=np.uint8),
+        categories=[
+            Category(id=0, label="circle"),
+            Category(id=1, label="rectangle"),
+            Category(id=2, label="triangle"),
+        ],
         is_reference=[True, True, True],
     )
     return Batch.collate([sample])
@@ -101,32 +105,39 @@ class TestDinoTxtZeroShotClassification:
         pipeline = DinoTxtZeroShotClassification(
             prompt_templates=custom_templates,
             precision="fp16",
-            device="cpu",
+            device=CPU_DEVICE,
             image_size=(512, 512),
         )
         pytest.assume(pipeline.prompt_templates == custom_templates)
-        pytest.assume(pipeline.precision == torch.float16)
+        pytest.assume(pipeline.precision == "fp16")
+        pytest.assume(pipeline.torch_precision == torch.float16)
 
     @staticmethod
-    def test_learn_with_empty_reference_batch(model_instance: DinoTxtZeroShotClassification) -> None:
-        """Test that fit raises ValueError when no reference samples are provided."""
+    def test_learn_with_empty_reference_batch() -> None:
+        """Test that the retained Batch API rejects an empty sample sequence."""
         with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
-            empty_batch = Batch.collate([])
-            model_instance.fit(empty_batch)
+            Batch.collate([])
 
     @staticmethod
     def test_infer_without_learning(
         model_instance: DinoTxtZeroShotClassification,
         sample_dataset: tuple[list[np.ndarray], list[str]],
     ) -> None:
-        """Test that predict raises AttributeError when fit hasn't been called."""
+        """Test that target categories enable prediction without fit()."""
         sample_images, _ = sample_dataset
-        # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
-        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        samples = [
+            Sample(
+                image=image,
+                is_reference=[False],
+                categories=[Category(id=0, label="circle")],
+            )
+            for image in sample_images
+        ]
         target_batch = Batch.collate(samples)
-        with pytest.raises(AttributeError):
-            model_instance.predict(target_batch)
+        predictions = model_instance.predict(target_batch)
+
+        assert len(predictions) == len(samples)
+        assert all(isinstance(prediction, Prediction) for prediction in predictions)
 
     @staticmethod
     def test_infer(
@@ -139,10 +150,12 @@ class TestDinoTxtZeroShotClassification:
 
         # Fit first
         model_instance.fit(sample_reference_batch)
+        assert model_instance.categories.id_to_name == {0: "circle", 1: "rectangle", 2: "triangle"}
 
-        # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
-        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        samples = [
+            Sample(image=image, is_reference=[False], categories=[Category(id=0, label="object")])
+            for image in sample_images
+        ]
         target_batch = Batch.collate(samples)
 
         # Then predict
@@ -152,6 +165,7 @@ class TestDinoTxtZeroShotClassification:
         pytest.assume(isinstance(predictions, list))
         pytest.assume(len(predictions) == len(sample_images))
         for prediction in predictions:
-            pytest.assume(isinstance(prediction, dict))
-            pytest.assume(isinstance(prediction["pred_scores"], torch.Tensor))
-            pytest.assume(isinstance(prediction["pred_labels"], torch.Tensor))
+            pytest.assume(isinstance(prediction, Prediction))
+            pytest.assume(prediction.scores.shape == (1,))
+            pytest.assume(prediction.label_ids.shape == (1,))
+            pytest.assume(prediction.masks.shape == (0, 224, 224))

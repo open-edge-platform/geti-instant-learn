@@ -7,7 +7,6 @@ import re
 from logging import getLogger
 from pathlib import Path
 
-import numpy as np
 import polars as pl
 from rich.progress import (
     BarColumn,
@@ -19,8 +18,8 @@ from rich.progress import (
 )
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
-from instantlearn.data.folder.dataset import FolderDataset
+from instantlearn.data.base.sample import Category, Sample
+from instantlearn.data.torch.folder.dataset import FolderDataset
 from instantlearn.models import GroundedSAM, Model
 from instantlearn.utils.utils import setup_logger
 from instantlearn.visualizer import Visualizer
@@ -84,14 +83,12 @@ def run_model(
 
         # Parse text prompt
         split_text = [t.strip() for t in re.split(r"[.,]", text_prompt) if t.strip()]
-        class_strings = split_text
 
         # Create a minimal sample for category mapping (GroundedSAM only needs this for learn())
         sample = Sample(
             image=None,
             image_path=None,
-            categories=split_text,
-            category_ids=np.array(list(range(len(split_text))), dtype=np.int32),
+            categories=[Category(id=i, label=label) for i, label in enumerate(split_text)],
             is_reference=[True] * len(split_text),
             n_shot=[0] * len(split_text),
         )
@@ -115,6 +112,9 @@ def run_model(
                 f"Error: {e}"
             )
             raise ValueError(msg) from e
+
+        # Categories come from the parsed text prompt, not the folder structure.
+        class_map = {category.id: category.label for category in sample.categories}
     else:
         # Other models: require FolderDataset structure with masks
         if not data_root:
@@ -152,6 +152,7 @@ def run_model(
 
             reference_samples = [reference_dataset[i] for i in range(len(reference_dataset))]
             target_samples = [target_dataset[i] for i in range(len(target_dataset))]
+            class_map = {dataset.get_category_id(category): category for category in dataset.categories}
 
         except (FileNotFoundError, ValueError) as e:
             msg = (
@@ -194,9 +195,6 @@ def run_model(
                 else:
                     chunk_names.append(f"image_{idx}")
 
-            class_strings = dataset.categories
-            class_ids = [dataset.get_category_id(category) for category in class_strings]
-            class_map = {category: class_id for category, class_id in zip(class_strings, class_ids, strict=True)}
             Visualizer(str(output_location / "target"), class_map=class_map).visualize(
                 images=chunk_images,
                 predictions=predictions,

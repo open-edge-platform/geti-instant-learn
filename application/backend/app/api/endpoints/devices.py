@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from fastapi import status
+from instantlearn.device import DeviceInfo
 
 from api.routers import system_router
 from dependencies import DeviceServiceDep
-from domain.services.schemas.device import DeviceInfo
 
 
 @system_router.get(
@@ -20,5 +20,5 @@ from domain.services.schemas.device import DeviceInfo
 def get_available_devices(
     device_service: DeviceServiceDep,
 ) -> list[DeviceInfo]:
-    """List available runtime devices (e.g. CUDA, XPU, CPU)."""
+    """List physical devices and their available runtime identifiers."""
     return device_service.list_devices()

@@ -53,13 +53,14 @@ ref_mask, _, _ = predictor.forward(
     multimask_output=False,
 )
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher (selects a compatible device automatically)
+model = Matcher()
 
-# Create reference sample with the generated mask
+# Create reference sample with the generated mask. Sample.masks is numpy,
+# so convert the SAM output.
 ref_sample = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
-    masks=ref_mask[0],
+    masks=ref_mask[0].cpu().numpy(),
 )
 
 # Fit on reference
@@ -70,20 +71,39 @@ target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
-masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
+masks = predictions[0].masks  # Predicted segmentation masks
 ```
+
+### Manual Device Selection
+
+Models select a compatible device automatically when `device` is omitted. To
+use a specific physical device, discover the devices available on the system and
+select one by its public `key`:
+
+```python
+from instantlearn.device import get_supported_device
+from instantlearn.models import Matcher
+
+model = Matcher(
+    device=get_supported_device("gpu-0"),  # Choose a key available on your system
+)
+```
+
+Device keys use the physical device type and index, for example `cpu`, `gpu-0`,
+or `npu-0`. Runtime-specific identifiers such as `xpu:0` and `GPU.0` are managed
+internally and should not be passed to model constructors.
 
 ### Text-Based Prompting with GroundedSAM
 
 ```python
 from instantlearn.models import GroundedSAM
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
 # Initialize GroundedSAM (no reference masks needed)
-model = GroundedSAM(device="xpu")
+model = GroundedSAM()
 
 # Create reference with category labels only
-ref_sample = Sample(categories=["elephant"])
+ref_sample = Sample(categories=[Category(0, "elephant")])
 
 # Fit and predict
 model.fit(ref_sample)
@@ -91,49 +111,64 @@ target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
-masks = predictions[0]["pred_masks"]
-boxes = predictions[0]["pred_boxes"]
-labels = predictions[0]["pred_labels"]
+masks = predictions[0].masks
+boxes = predictions[0].boxes
+labels = predictions[0].label_names
 ```
 
 ### Zero-Shot Segmentation with SAM3 OpenVINO
 
-SAM3OpenVINO provides text, box, point, canvas, and visual exemplar prompting
-using pre-exported OpenVINO IR models — no PyTorch required at inference time.
+SAM3OpenVINO runs SAM3 from an exported OpenVINO IR. Export once with
+`SAM3.to_openvino()`, then load the IR from disk. SAM3 weights are licensed
+by Meta, so IRs are always converted locally rather than downloaded.
+
+`prompt_mode` selects how prompts are supplied and **defaults to
+`CANVAS`**, which requires `fit()` before `predict()`. For plain text
+prompting, pass `Sam3PromptMode.CLASSIC` explicitly:
 
 ```python
-from instantlearn.models import SAM3OpenVINO
-from instantlearn.models.sam3 import SAM3OVVariant
-from instantlearn.data import Sample
+from instantlearn.models import SAM3, SAM3OpenVINO
+from instantlearn.models.sam3 import Sam3PromptMode
+from instantlearn.models.torch_base import ExportConfig
+from instantlearn.utils.constants import CompressionMode
+from instantlearn.data import Category, Sample
 
-# Auto-downloads INT8_SYM model from HuggingFace (also supports FP16, INT4, FP32)
-model = SAM3OpenVINO(variant=SAM3OVVariant.INT8_SYM, device="CPU")
+# One-off export: Torch -> ONNX -> OpenVINO IR (also supports FP16, INT4, FP32)
+SAM3().to_openvino(
+    export_path="./sam3-openvino",
+    config=ExportConfig(compression=CompressionMode.INT8_SYM),
+)
+
+model = SAM3OpenVINO(
+    model_dir="./sam3-openvino/openvino-int8_sym",
+    prompt_mode=Sam3PromptMode.CLASSIC,   # text prompting; no fit() needed
+)
 
 # Text prompt — detect elephants
 predictions = model.predict([
-    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
 <details>
-<summary><strong>Canvas mode — fit on a reference crop, predict on any image (default)</strong></summary>
+<summary><strong>Canvas mode — fit on a reference crop, predict on any image (the default)</strong></summary>
+
+Canvas mode stitches the reference and target into one image, so it needs a
+reference via `fit()` before predicting.
 
 ```python
 from instantlearn.models.sam3 import Sam3PromptMode
-from instantlearn.models.sam3.sam3 import CanvasConfig
 import numpy as np
 
 model = SAM3OpenVINO(
-    variant=SAM3OVVariant.INT8_SYM,
-    prompt_mode=Sam3PromptMode.CANVAS,
-    device="CPU",
+    model_dir="./sam3-openvino/openvino-int8_sym",
+    prompt_mode=Sam3PromptMode.CANVAS,   # the default
 )
 
 ref = Sample(
     image_path="examples/assets/coco/000000286874.jpg",
     bboxes=np.array([[180, 105, 490, 370]]),
-    categories=["elephant"],
-    category_ids=[0],
+    categories=[Category(0, "elephant")],
 )
 model.fit(ref)
 predictions = model.predict([
@@ -143,7 +178,7 @@ predictions = model.predict([
 
 </details>
 
-See the full set of examples in [sam3_openvino_example.py](../examples/sam3_openvino_example.py).
+See the full set of examples in [sam3_openvino.ipynb](../examples/sam3_openvino.ipynb).
 
 ## CLI Usage
 
@@ -179,6 +214,8 @@ instantlearn benchmark --model all --dataset_name all
 
 ## Next Steps
 
-- [Tutorials: Getting Started](tutorials/01-getting-started.md) — Step-by-step walkthrough
+- [Core Concepts](concepts/01-concepts.md) — `Sample`, `Prediction` and the model API
+- [Architecture](concepts/02-architecture.md) — Class hierarchy and data flow
 - [How-To: Custom Datasets](how-to-guides/01-custom-dataset.md) — Use your own images
 - [How-To: Benchmarking](how-to-guides/02-benchmarking.md) — Evaluate model performance
+- [How-To: Custom Models](how-to-guides/03-custom-models.md) — Implement your own model

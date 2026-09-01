@@ -11,10 +11,10 @@ from collections.abc import Sequence
 from logging import getLogger
 from pathlib import Path
 
+import numpy as np
 import polars as pl
-import torch
 
-from instantlearn.data.base import Dataset
+from instantlearn.data.torch.base import Dataset
 from instantlearn.data.utils.image import read_mask
 
 # File extensions
@@ -51,7 +51,7 @@ class FolderDataset(Dataset):
 
     Example:
         >>> from pathlib import Path
-        >>> from instantlearn.data.folder import FolderDataset
+        >>> from instantlearn.data.torch import FolderDataset
 
         >>> dataset = FolderDataset(
         ...     root=Path("./datasets/fss-1000"),
@@ -61,12 +61,12 @@ class FolderDataset(Dataset):
 
         >>> sample = dataset[0]
         >>> sample.image.shape
-        torch.Size([3, 256, 256])  # CHW format
+        (256, 256, 3)  # HWC format
 
         >>> sample.masks.shape
-        torch.Size([1, 256, 256])  # Single instance
+        (1, 256, 256)  # Single instance
 
-        >>> sample.categories
+        >>> sample.category_labels
         ['apple']  # List with one element
     """
 
@@ -95,24 +95,24 @@ class FolderDataset(Dataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
         """Load single mask from file path.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            torch.Tensor with shape (1, H, W) for single-instance mask,
-            and dtype torch.bool, or None if no mask path is available.
+            Numpy array with shape (1, H, W) for single-instance mask,
+            and dtype bool, or None if no mask path is available.
         """
         mask_paths = raw_sample.get("mask_paths")
         if not mask_paths or mask_paths[0] is None:
             return None
 
         # Load single mask
-        mask = read_mask(mask_paths[0], as_tensor=True)  # (H, W)
+        mask = read_mask(mask_paths[0])  # (H, W)
         # Add instance dimension: (1, H, W) for consistency
-        return mask[None, ...].to(torch.bool)
+        return mask[None, ...].astype(bool)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load folder samples into Polars DataFrame."""
@@ -186,11 +186,11 @@ def make_folder_dataframe(
 
     # Filter categories if specified
     if categories is not None:
+        missing = sorted(set(categories) - set(available_categories))
+        if missing:
+            msg = f"Requested categories not found under {images_root}: {missing}"
+            raise ValueError(msg)
         available_categories = [cat for cat in available_categories if cat in categories]
-
-        # If no available categories are found, use the categories passed in
-        if not available_categories:
-            available_categories = categories
 
     if not available_categories:
         msg = "No valid categories found"
@@ -248,7 +248,7 @@ def make_folder_dataframe(
                 "image_path": str(img_file),
                 "categories": [category],  # List with single element
                 "category_ids": [category_id],  # List with single element
-                "mask_paths": [str(mask_file)] if mask_file is not None else [None],  # List with single element
+                "mask_paths": [str(mask_file)] if mask_file is not None else None,  # None if no mask
                 "is_reference": [is_reference],  # List with single element
                 "n_shot": [n_shot],  # List with single element
             })

@@ -71,15 +71,15 @@ You provide a list of categories you want to segment in any image.
 
 ```python
 from instantlearn.models import SAM3
-from instantlearn.data import Sample
+from instantlearn.data import Category, Sample
 
-# Initialize SAM3 (device: "xpu", "cuda", or "cpu")
-model = SAM3(device="xpu")
+# Initialize SAM3 with automatic device selection
+model = SAM3()
 
 # SAM3 is zero-shot — no fit() required. Just provide categories per sample.
 predictions = model.predict([
-    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=["elephant"]),
-    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=["elephant"]),
+    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
+    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=[Category(0, "elephant")]),
 ])
 ```
 
@@ -103,8 +103,8 @@ you fit once with a reference mask (one-shot) and predict on any number of new i
 from instantlearn.models import Matcher
 from instantlearn.data import Sample
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher with automatic device selection
+model = Matcher()
 
 # Create reference sample (auto-loads image and mask from paths)
 ref_sample = Sample(
@@ -124,8 +124,12 @@ predictions = model.predict([
 
 # Access results for each image
 for pred in predictions:
-    masks = pred["pred_masks"]  # Predicted segmentation masks
+    masks = pred.masks  # Predicted segmentation masks
 ```
+
+Models select a compatible device automatically. See
+[Manual Device Selection](library/docs/02-quick-start.md#manual-device-selection)
+to select a specific physical device.
 
 > For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
 

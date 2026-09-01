@@ -38,6 +38,33 @@ class ReferenceFeatures:
     flatten_ref_masks: torch.Tensor
     category_ids: list[int]
 
+    def __post_init__(self) -> None:
+        """Validate that ``flatten_ref_masks`` is strictly binary.
+
+        The export prompt paths threshold the reference masks (``> 0``) to pick
+        foreground patches. If the masks are not strictly ``{0, 1}`` — e.g. a
+        numpy ``Sample.mask`` scaled by torchvision ``ToTensor`` (``/255``) — the
+        threshold degenerates and prompts collapse to a raster grid (the "sky"
+        bug). Binarization happens upstream in ``MaskedFeatureExtractor``; this
+        guard makes a regression fail loudly at the source instead of silently
+        producing garbage masks.
+
+        Raises:
+            ValueError: If ``flatten_ref_masks`` holds values other than 0/1.
+        """
+        masks = self.flatten_ref_masks
+        # Cheap strict-binary check on the fast path: avoid torch.unique (sort +
+        # host sync) on every construction. Only the single boolean reduction syncs.
+        if not bool(((masks == 0) | (masks == 1)).all()):
+            unique_vals = torch.unique(masks)
+            msg = (
+                "flatten_ref_masks must be strictly binary (values in {0, 1}), but got "
+                f"unique values {unique_vals.tolist()}. Reference masks are expected to be "
+                "binarized in MaskedFeatureExtractor; a non-binary mask usually means a "
+                "numpy Sample.mask was rescaled by torchvision ToTensor (/255)."
+            )
+            raise ValueError(msg)
+
     @property
     def num_categories(self) -> int:
         """Return the number of unique categories."""

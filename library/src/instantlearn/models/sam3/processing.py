@@ -342,7 +342,7 @@ class Sam3Postprocessor(nn.Module):
         ...     "presence_logits": torch.randn(1, 1),
         ... }
         >>> target_sizes = [(480, 640)]
-        >>> results = postprocessor.forward_eager(outputs, target_sizes)
+        >>> results = postprocessor(outputs, target_sizes)
     """
 
     def __init__(

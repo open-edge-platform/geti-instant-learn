@@ -78,6 +78,12 @@ The Processor delegates inference to a backend framework:
 - **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: Graph optimizations, quantization, and support for CPUs, GPUs.
 - **PyTorch (XPU)**: Hardware acceleration on Intel GPUs via XPU device support.
 
+When an OpenVINO model must be generated, the application first builds and
+exports a temporary Torch model on CPU. The resulting OpenVINO IR is
+device-agnostic and is then compiled for inference on the device selected in the
+UI. CPU activity during initial model preparation does not mean that final
+inference has fallen back to CPU.
+
 ### Hardware
 
 The application runs on edge devices with CPU, GPU compute. The accelerator framework abstracts the hardware, allowing the same pipeline to execute on different platforms.

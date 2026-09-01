@@ -19,6 +19,9 @@ import torch
 
 if TYPE_CHECKING:
     from contextlib import nullcontext
+
+    from instantlearn.device import DeviceInfo
+    from instantlearn.models.model_card import ModelCard
 from transformers import CLIPTokenizerFast
 
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
@@ -33,8 +36,10 @@ from instantlearn.models.sam3.processing import (
     Sam3PromptPreprocessor as EfficientSam3PromptPreprocessor,
 )
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
 from instantlearn.utils import precision_to_torch_dtype
 
+from ._card import _EFFICIENT_SAM3_CARD
 from .constants import BACKBONE_CONFIG, STUDENT_CONTEXT_LENGTH
 from .model import EfficientSam3Model
 
@@ -64,16 +69,15 @@ class EfficientSAM3(SAM3):
     Examples:
         >>> from instantlearn.models import EfficientSAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
-        >>> from instantlearn.data.base.sample import Sample
-        >>> from instantlearn.data.base import Batch
-        >>> import torch
+        >>> from instantlearn.data.base.sample import Category, Sample
+        >>> import numpy as np
 
         >>> model = EfficientSAM3(backbone_type="efficientvit", variant="b2")
 
         >>> # Classic text prompting
-        >>> ref = Sample(categories=["cat", "dog"], category_ids=[0, 1])
+        >>> ref = Sample(categories=[Category(0, "cat"), Category(1, "dog")])
         >>> model.fit(ref)
-        >>> results = model.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode
         >>> model_ve = EfficientSAM3(
@@ -82,20 +86,28 @@ class EfficientSAM3(SAM3):
         ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
         ... )
         >>> ref = Sample(
-        ...     image=torch.zeros(3, 640, 480),
+        ...     image=np.zeros((640, 480, 3), dtype=np.uint8),
         ...     bboxes=[[100, 100, 200, 200]],
-        ...     category_ids=[0],
-        ...     categories=["cat"],
+        ...     categories=[Category(0, "cat")],
         ... )
         >>> model_ve.fit(ref)
-        >>> results = model_ve.predict(Sample(image=torch.zeros(3, 640, 480)))
+        >>> results = model_ve.predict(Sample(image=np.zeros((640, 480, 3), dtype=np.uint8)))
     """
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for EfficientSAM3.
+
+        Overrides :meth:`SAM3.card` so the distilled model reports its own
+        name and family rather than the one it inherits from.
+        """
+        return _EFFICIENT_SAM3_CARD
 
     def __init__(
         self,
         backbone_type: str = "efficientvit",
         variant: str = "b2",
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         confidence_threshold: float = 0.4,
         resolution: int = 1008,
         precision: str = "fp32",
@@ -112,7 +124,7 @@ class EfficientSAM3(SAM3):
                 'repvit' (variants: m0_9, m1_1, m2_3),
                 'tinyvit' (variants: 5m, 11m, 21m).
             variant: Model size variant within the backbone family.
-            device: Target device ('cuda', 'xpu', or 'cpu').
+            device: Physical device, or ``None`` to select automatically.
             confidence_threshold: Score threshold for filtering predictions.
                 Default is 0.4, balancing precision and IoU across datasets.
             resolution: Input image resolution. Default: 1008.
@@ -141,7 +153,7 @@ class EfficientSAM3(SAM3):
         # because EfficientSAM3 uses different model, tokenizer, and defaults.
         if postprocessor is None:
             postprocessor = default_postprocessor()
-        super(SAM3, self).__init__(postprocessor=postprocessor)
+        super(SAM3, self).__init__(device=device, precision=precision, postprocessor=postprocessor)
 
         key = (backbone_type, variant)
         if key not in BACKBONE_CONFIG:
@@ -154,14 +166,13 @@ class EfficientSAM3(SAM3):
 
         self.backbone_type = backbone_type
         self.variant = variant
-        self.device = device
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
         self.precision = precision
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
 
-        self.category_mapping: dict[str, int] | None = None
+        self.categories: CategoryRegistry = CategoryRegistry()
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None
@@ -171,14 +182,14 @@ class EfficientSAM3(SAM3):
         self.exemplar_category_ids: list[int] | None = None
 
         # Reuse SAM3 preprocessors (same image pipeline)
-        self.image_preprocessor = EfficientSam3Preprocessor(target_size=resolution).to(device)
-        self.prompt_preprocessor = EfficientSam3PromptPreprocessor(target_size=resolution).to(device)
+        self.image_preprocessor = EfficientSam3Preprocessor(target_size=resolution).to(self.device)
+        self.prompt_preprocessor = EfficientSam3PromptPreprocessor(target_size=resolution).to(self.device)
         self.sam3_postprocessor = EfficientSam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
             post_processing=post_processing,
-        ).to(device)
+        ).to(self.device)
 
         # Reuse SAM3 CLIP tokenizer (same BPE vocabulary)
         # Use pad_token_id=0 to match the original SimpleTokenizer's zero-padding
@@ -192,7 +203,7 @@ class EfficientSAM3(SAM3):
                 variant=variant,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
-            .to(device)
+            .to(self.device)
             .eval()
         )
 

@@ -8,15 +8,58 @@ from pathlib import Path
 
 
 class Backend(StrEnum):
-    """Enum for backends."""
+    """Inference backend identifier.
 
+    Attributes:
+        TORCH: Native PyTorch (eager or compiled).
+        ONNX: ONNX Runtime.
+        TENSORRT: NVIDIA TensorRT.
+        TORCHSCRIPT: TorchScript serialized graph.
+        OPENVINO: Intel OpenVINO IR.
+        HUGGINGFACE: Loaded via ``transformers`` / HuggingFace Hub.
+        TIMM: Loaded via the ``timm`` model zoo.
+    """
+
+    TORCH = "torch"
     ONNX = "onnx"
     TENSORRT = "tensorrt"
     TORCHSCRIPT = "torchscript"
     OPENVINO = "openvino"
-    PYTORCH = "pytorch"
     HUGGINGFACE = "huggingface"
     TIMM = "timm"
+
+
+class PromptType(StrEnum):
+    """Type of prompt a model accepts as input.
+
+    A model may accept several prompt types simultaneously.
+
+    Attributes:
+        TEXT: Free-text category name or description.
+        MASK: Binary segmentation mask used as a visual exemplar.
+        BOUNDING_BOX: Axis-aligned bounding box in xyxy format.
+        POINT: Foreground / background click point.
+    """
+
+    TEXT = "text"
+    MASK = "mask"
+    BOUNDING_BOX = "bounding_box"
+    POINT = "point"
+
+
+class ShotMode(StrEnum):
+    """Number-of-shots regime a model operates in.
+
+    Attributes:
+        ZERO_SHOT: No reference examples required — model uses only text or
+            built-in priors.
+        ONE_SHOT: Exactly one reference example per category.
+        FEW_SHOT: Two or more reference examples per category.
+    """
+
+    ZERO_SHOT = "zero_shot"
+    ONE_SHOT = "one_shot"
+    FEW_SHOT = "few_shot"
 
 
 class CompressionMode(StrEnum):
@@ -79,17 +122,6 @@ class DINOv3BackboneSize(Enum):
 
 
 DATA_PATH = Path("~/data").expanduser()
-DINOV3_WEIGHTS_PATH = DATA_PATH.joinpath("dinov3_weights")
-DINOV3_TXT_HEAD_FILENAME = "dinov3_vitl16_dinotxt_vision_head_and_text_encoder-a442d8f5.pth"
-
-# DINOv3 backbone model mapping
-DINOV3_BACKBONE_MAP = {
-    DINOv3BackboneSize.SMALL.value: "dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
-    DINOv3BackboneSize.SMALL_PLUS.value: "dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth",
-    DINOv3BackboneSize.BASE.value: "dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
-    DINOv3BackboneSize.LARGE.value: "dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth",
-    DINOv3BackboneSize.HUGE.value: "dinov3_vith16plus_pretrain_lvd1689m-7c1da9a5.pth",
-}
 
 MODEL_MAP = {
     SAMModelName.SAM2_TINY: {  # 1024x1024 input resolution

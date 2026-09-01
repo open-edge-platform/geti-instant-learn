@@ -6,7 +6,7 @@
 import numpy as np
 import torch
 
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 
 # Create a random generator for consistent testing
 _rng = np.random.default_rng(42)
@@ -25,8 +25,9 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories == ["object"]
-        assert sample.category_ids == [0]
+        assert sample.categories == [Category(id=0, label="object")]
+        assert sample.category_labels == ["object"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]
@@ -44,8 +45,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat"],
-            category_ids=np.array([0], dtype=np.int32),
+            categories=[Category(0, "cat")],
             mask_paths=["mask.png"],
             is_reference=[True],
             n_shot=[0],
@@ -55,8 +55,8 @@ class TestSample:
         assert sample.masks.shape == (1, 224, 224)
         assert sample.bboxes.shape == (1, 4)
         assert sample.points.shape == (1, 2)
-        assert sample.categories == ["cat"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths == ["mask.png"]
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
@@ -74,8 +74,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["person", "car", "dog"],
-            category_ids=np.array([0, 1, 2], dtype=np.int32),
+            categories=[Category(0, "person"), Category(1, "car"), Category(2, "dog")],
             mask_paths=["mask1.png", "mask2.png", "mask3.png"],
             is_reference=[True, False, True],
             n_shot=[0, -1, 1],
@@ -85,8 +84,8 @@ class TestSample:
         assert sample.masks.shape == (3, 512, 512)
         assert sample.bboxes.shape == (3, 4)
         assert sample.points.shape == (3, 2)
-        assert sample.categories == ["person", "car", "dog"]
-        assert sample.category_ids.tolist() == [0, 1, 2]
+        assert sample.category_labels == ["person", "car", "dog"]
+        assert sample.label_ids == [0, 1, 2]
         assert sample.mask_paths == ["mask1.png", "mask2.png", "mask3.png"]
         assert sample.is_reference == [True, False, True]
         assert sample.n_shot == [0, -1, 1]
@@ -104,8 +103,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat", "dog"],
-            category_ids=torch.tensor([0, 1], dtype=torch.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -114,7 +112,7 @@ class TestSample:
         assert isinstance(sample.masks, torch.Tensor)
         assert isinstance(sample.bboxes, torch.Tensor)
         assert isinstance(sample.points, torch.Tensor)
-        assert isinstance(sample.category_ids, torch.Tensor)
+        assert sample.label_ids == [0, 1]
 
     def test_sample_creation_minimal(self) -> None:
         """Test sample creation with minimal required fields."""
@@ -126,8 +124,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories == ["object"]
-        assert sample.category_ids == [0]
+        assert sample.category_labels == ["object"]
+        assert sample.label_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]
@@ -141,8 +139,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             bboxes=bboxes,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, True],
             n_shot=[0, 0],
         )
@@ -150,8 +147,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes.shape == (2, 4)
         assert sample.points is None
-        assert sample.categories == ["cat", "dog"]
-        assert sample.category_ids.tolist() == [0, 1]
+        assert sample.category_labels == ["cat", "dog"]
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, True]
         assert sample.n_shot == [0, 0]
 
@@ -164,8 +161,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             points=points,
-            categories=["person", "person"],
-            category_ids=np.array([2, 2], dtype=np.int32),
+            categories=[Category(2, "person"), Category(2, "person")],
             is_reference=[False, False],
             n_shot=[-1, -1],
         )
@@ -173,8 +169,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points.shape == (2, 2)
-        assert sample.categories == ["person", "person"]
-        assert sample.category_ids.tolist() == [2, 2]
+        assert sample.category_labels == ["person", "person"]
+        assert sample.label_ids == [2, 2]
         assert sample.is_reference == [False, False]
         assert sample.n_shot == [-1, -1]
 
@@ -191,8 +187,7 @@ class TestSample:
             masks=masks,
             bboxes=bboxes,
             points=points,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -201,7 +196,7 @@ class TestSample:
         assert isinstance(sample.masks, torch.Tensor)
         assert isinstance(sample.bboxes, np.ndarray)
         assert isinstance(sample.points, torch.Tensor)
-        assert isinstance(sample.category_ids, np.ndarray)
+        assert sample.label_ids == [0, 1]
 
     def test_sample_creation_empty_lists(self) -> None:
         """Test sample creation with empty lists for multi-instance fields."""
@@ -211,13 +206,12 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             categories=[],
-            category_ids=np.array([], dtype=np.int32),
             is_reference=[],
             n_shot=[],
         )
 
-        assert sample.categories == []
-        assert sample.category_ids.tolist() == []
+        assert sample.category_labels == []
+        assert sample.label_ids == []
         assert sample.is_reference == []
         assert sample.n_shot == []
 
@@ -230,15 +224,14 @@ class TestSample:
         sample = Sample(
             image=image,
             image_path="test.jpg",
-            categories=["cat", "dog"],  # 2 categories
-            category_ids=np.array([0], dtype=np.int32),  # 1 category_id
+            categories=[Category(0, "cat"), Category(1, "dog")],  # 2 categories
             is_reference=[True, False],  # 2 flags
             n_shot=[0],  # 1 shot
         )
 
         # Sample creation should succeed - validation happens elsewhere
-        assert sample.categories == ["cat", "dog"]
-        assert sample.category_ids.tolist() == [0]
+        assert sample.category_labels == ["cat", "dog"]
+        assert sample.label_ids == [0, 1]
         assert sample.is_reference == [True, False]
         assert sample.n_shot == [0]
 
@@ -278,8 +271,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             masks=masks,
-            categories=["cat", "dog"],
-            category_ids=np.array([0, 1], dtype=np.int32),
+            categories=[Category(0, "cat"), Category(1, "dog")],
             is_reference=[True, False],
             n_shot=[0, -1],
         )
@@ -297,8 +289,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             bboxes=bboxes,
-            categories=["cat"],
-            category_ids=np.array([0], dtype=np.int32),
+            categories=[Category(0, "cat")],
             is_reference=[True],
             n_shot=[0],
         )
@@ -318,8 +309,7 @@ class TestSample:
             image=image,
             image_path="test.jpg",
             points=points,
-            categories=["person", "person"],
-            category_ids=np.array([0, 0], dtype=np.int32),
+            categories=[Category(0, "person"), Category(0, "person")],
             is_reference=[False, False],
             n_shot=[-1, -1],
         )

@@ -6,12 +6,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import polars as pl
 import pytest
-import torch
 
 from instantlearn.data.base import Batch, Sample
-from instantlearn.data.folder import FolderDataset
+from instantlearn.data.torch.folder import FolderDataset
 
 
 class TestFolderDatasetBasic:
@@ -169,14 +169,14 @@ class TestFolderDatasetWithFSS1000:
         basketball_samples = dataset.df.filter(pl.col("categories").list.contains("basketball"))
         assert basketball_samples["is_reference"].list.first().sum() == 3  # First 3 are references
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_sample_loading(self, mock_read_image: MagicMock, fss1000_root: Path) -> None:
         """Test sample loading from fss-1000."""
         if not fss1000_root.exists():
             pytest.skip("fss-1000 dataset not found")
 
         # Mock image reading
-        mock_read_image.return_value = torch.zeros((3, 224, 224))
+        mock_read_image.return_value = np.zeros((224, 224, 3), dtype=np.uint8)
 
         dataset = FolderDataset(root=fss1000_root, categories=["apple"], n_shots=1)
 
@@ -224,8 +224,8 @@ class TestFolderDatasetSampleLoading:
 
         return FolderDataset(root=tmp_path, n_shots=2)
 
-    @patch("instantlearn.data.base.base.read_image")
-    @patch("instantlearn.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.torch.base.read_image")
+    @patch("instantlearn.data.torch.folder.dataset.read_mask")
     def test_sample_creation(
         self,
         mock_read_mask: MagicMock,
@@ -234,8 +234,8 @@ class TestFolderDatasetSampleLoading:
     ) -> None:
         """Test sample creation."""
         # Mock image and mask reading
-        mock_read_image.return_value = torch.zeros((3, 100, 100))
-        mock_read_mask.return_value = torch.zeros((100, 100), dtype=torch.uint8)
+        mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_read_mask.return_value = np.zeros((100, 100), dtype=np.uint8)
 
         sample = mock_folder_dataset[0]
 
@@ -244,12 +244,12 @@ class TestFolderDatasetSampleLoading:
         assert sample.masks is not None
         assert sample.masks.shape == (1, 100, 100)  # Single instance mask
         assert len(sample.categories) == 1
-        assert len(sample.category_ids) == 1
+        assert len(sample.label_ids) == 1
         assert len(sample.is_reference) == 1
         assert len(sample.n_shot) == 1
 
-    @patch("instantlearn.data.base.base.read_image")
-    @patch("instantlearn.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.torch.base.read_image")
+    @patch("instantlearn.data.torch.folder.dataset.read_mask")
     def test_sample_metadata(
         self,
         mock_read_mask: MagicMock,
@@ -258,8 +258,8 @@ class TestFolderDatasetSampleLoading:
     ) -> None:
         """Test sample metadata."""
         # Mock image and mask reading
-        mock_read_image.return_value = torch.zeros((3, 100, 100))
-        mock_read_mask.return_value = torch.zeros((100, 100), dtype=torch.uint8)
+        mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_read_mask.return_value = np.zeros((100, 100), dtype=np.uint8)
 
         # First sample should be a reference (n_shots=2, so first 2 are references)
         sample0 = mock_folder_dataset[0]
@@ -276,8 +276,8 @@ class TestFolderDatasetSampleLoading:
         assert sample2.is_reference == [False]
         assert sample2.n_shot == [-1]
 
-    @patch("instantlearn.data.base.base.read_image")
-    @patch("instantlearn.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.torch.base.read_image")
+    @patch("instantlearn.data.torch.folder.dataset.read_mask")
     def test_sample_image_path(
         self,
         mock_read_mask: MagicMock,
@@ -286,16 +286,16 @@ class TestFolderDatasetSampleLoading:
     ) -> None:
         """Test that sample has correct image path."""
         # Mock image and mask reading
-        mock_read_image.return_value = torch.zeros((3, 100, 100))
-        mock_read_mask.return_value = torch.zeros((100, 100), dtype=torch.uint8)
+        mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_read_mask.return_value = np.zeros((100, 100), dtype=np.uint8)
 
         sample = mock_folder_dataset[0]
         assert sample.image_path is not None
         assert sample.image_path.endswith(".jpg")
         assert "test_category" in sample.image_path
 
-    @patch("instantlearn.data.base.base.read_image")
-    @patch("instantlearn.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.torch.base.read_image")
+    @patch("instantlearn.data.torch.folder.dataset.read_mask")
     def test_sample_mask_paths(
         self,
         mock_read_mask: MagicMock,
@@ -304,8 +304,8 @@ class TestFolderDatasetSampleLoading:
     ) -> None:
         """Test that sample has correct mask paths."""
         # Mock image and mask reading
-        mock_read_image.return_value = torch.zeros((3, 100, 100))
-        mock_read_mask.return_value = torch.zeros((100, 100), dtype=torch.uint8)
+        mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_read_mask.return_value = np.zeros((100, 100), dtype=np.uint8)
 
         sample = mock_folder_dataset[0]
         assert sample.mask_paths is not None
@@ -385,8 +385,8 @@ class TestFolderDatasetBatch:
 
         return FolderDataset(root=tmp_path, n_shots=1)
 
-    @patch("instantlearn.data.base.base.read_image")
-    @patch("instantlearn.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.torch.base.read_image")
+    @patch("instantlearn.data.torch.folder.dataset.read_mask")
     def test_batch_creation(
         self,
         mock_read_mask: MagicMock,
@@ -395,8 +395,8 @@ class TestFolderDatasetBatch:
     ) -> None:
         """Test batch creation."""
         # Mock image and mask reading
-        mock_read_image.return_value = torch.zeros((3, 100, 100))
-        mock_read_mask.return_value = torch.zeros((100, 100), dtype=torch.uint8)
+        mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+        mock_read_mask.return_value = np.zeros((100, 100), dtype=np.uint8)
 
         samples = [batch_dataset[i] for i in range(len(batch_dataset))]
         batch = Batch.collate(samples)
@@ -404,7 +404,7 @@ class TestFolderDatasetBatch:
         assert isinstance(batch, Batch)
         assert len(batch) == 3
         assert len(batch.categories) == 3
-        assert len(batch.category_ids) == 3
+        assert len(batch.label_ids) == 3
         assert len(batch.is_reference) == 3
 
         # Each sample should have single instance

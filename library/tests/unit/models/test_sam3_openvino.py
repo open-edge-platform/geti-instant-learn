@@ -1,0 +1,182 @@
+# Copyright (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Unit tests for the SAM3OpenVINO public model contract."""
+
+import ast
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
+import torch
+
+from instantlearn.components.postprocessing import default_postprocessor
+from instantlearn.data.base.prediction import Prediction
+from instantlearn.data.base.sample import Category, Sample
+from instantlearn.models.openvino_base import OpenVINOModel
+from instantlearn.models.sam3 import SAM3, SAM3OpenVINO, Sam3PromptMode, sam3_openvino
+from instantlearn.models.torch_adapter import CategoryRegistry, TensorSample
+from instantlearn.utils import Backend
+from tests import CPU_DEVICE
+
+
+@pytest.fixture
+def openvino_model_dir(tmp_path: Path) -> Path:
+    """Create a minimal local SAM3 OpenVINO artifact directory."""
+    for model_name in [
+        "vision-encoder",
+        "text-encoder",
+        "geometry-encoder",
+        "prompt-decoder",
+    ]:
+        (tmp_path / f"{model_name}.xml").touch()
+    (tmp_path / "tokenizer.json").write_text("{}")
+    return tmp_path
+
+
+def _mock_openvino_core() -> MagicMock:
+    """Create a mock OpenVINO core with compilable model placeholders."""
+    compiled_model = MagicMock()
+    compiled_model.create_infer_request.return_value = MagicMock()
+    core = MagicMock()
+    core.compile_model.return_value = compiled_model
+    return core
+
+
+class TestSAM3OpenVINOInit:
+    """Initialization and static contract tests."""
+
+    def test_inherits_openvino_model(self, openvino_model_dir: Path) -> None:
+        """SAM3OpenVINO uses OpenVINOModel as its backend abstraction."""
+        mock_core = _mock_openvino_core()
+
+        with (
+            patch("instantlearn.models.openvino_base.ov.Core", return_value=mock_core),
+            patch("instantlearn.models.sam3.sam3_openvino.CLIPTokenizerFast.from_pretrained") as mock_tokenizer,
+        ):
+            model = SAM3OpenVINO(
+                model_dir=openvino_model_dir,
+                device=CPU_DEVICE,
+                prompt_mode=Sam3PromptMode.CLASSIC,
+            )
+
+        assert isinstance(model, OpenVINOModel)
+        assert model.backend == Backend.OPENVINO
+        assert model.ov_device == "CPU"
+        assert model.model_dir == openvino_model_dir
+        assert model.drop_spatial_bias is False
+        assert mock_core.compile_model.call_count == 4
+        mock_tokenizer.assert_called_once_with(str(openvino_model_dir))
+
+    def test_card_delegates_to_sam3(self) -> None:
+        """SAM3OpenVINO exposes the same model capabilities as SAM3."""
+        assert SAM3OpenVINO.card() == SAM3.card()
+
+
+class TestSAM3OpenVINOMaskPrompts:
+    """The card advertises PromptType.MASK, so masks must reach the encoder."""
+
+    @staticmethod
+    def _encode(sample: TensorSample) -> bool:
+        """Return whether the sample's prompts survived to the vision encoder."""
+
+        class _ReachedError(Exception):
+            pass
+
+        def _sentinel(*_args: object, **_kwargs: object) -> None:
+            raise _ReachedError
+
+        model = SAM3OpenVINO.__new__(SAM3OpenVINO)
+        model.image_preprocessor = _sentinel
+        try:
+            model._encode_sample_prompts(sample, {}, {})  # noqa: SLF001
+        except _ReachedError:
+            return True
+        return False
+
+    def test_mask_only_sample_is_encoded(self) -> None:
+        """A sample carrying only masks is encoded via its tight bounding box."""
+        masks = torch.zeros(1, 32, 32, dtype=torch.bool)
+        masks[0, 8:20, 4:16] = True
+        sample = TensorSample(image=torch.zeros(3, 32, 32), masks=masks, label_ids=torch.tensor([0]))
+
+        assert self._encode(sample)
+
+    def test_sample_without_prompts_is_skipped(self) -> None:
+        """A sample with no visual prompts short-circuits before encoding."""
+        sample = TensorSample(image=torch.zeros(3, 32, 32), label_ids=torch.tensor([0]))
+
+        assert not self._encode(sample)
+
+
+class TestSAM3OpenVINOPredict:
+    """Prediction return contract tests."""
+
+    @pytest.mark.parametrize(
+        ("prompt_mode", "method_name"),
+        [
+            (Sam3PromptMode.CLASSIC, "_predict_classic"),
+            (Sam3PromptMode.VISUAL_EXEMPLAR, "_predict_visual_exemplar"),
+            (Sam3PromptMode.CANVAS, "_predict_canvas"),
+        ],
+    )
+    def test_predict_returns_prediction(self, prompt_mode: Sam3PromptMode, method_name: str) -> None:
+        """Public predict() converts internal tensor dicts to Prediction objects."""
+        model = object.__new__(SAM3OpenVINO)
+        model.prompt_mode = prompt_mode
+        model.categories = CategoryRegistry.from_metadata({0: "shoe"})
+        model.output_postprocessor = default_postprocessor()
+
+        raw_prediction = {
+            "pred_masks": torch.ones(1, 4, 4, dtype=torch.uint8),
+            "pred_boxes": torch.tensor([[0.0, 1.0, 2.0, 3.0, 0.7]], dtype=torch.float32),
+            "pred_labels": torch.tensor([0], dtype=torch.int64),
+        }
+        sample = Sample(
+            image=np.zeros((4, 4, 3), dtype=np.uint8),
+            categories=[Category(id=0, label="shoe")],
+        )
+
+        with patch.object(model, method_name, return_value=[raw_prediction]) as mock_predict:
+            predictions = SAM3OpenVINO.predict(model, sample)
+
+        assert len(predictions) == 1
+        prediction = predictions[0]
+        assert isinstance(prediction, Prediction)
+        assert prediction.masks.shape == (1, 4, 4)
+        assert prediction.boxes is not None
+        np.testing.assert_allclose(prediction.boxes, np.array([[0.0, 1.0, 2.0, 3.0]], dtype=np.float32))
+        np.testing.assert_allclose(prediction.scores, np.array([0.7], dtype=np.float32))
+        np.testing.assert_array_equal(prediction.label_ids, np.array([0], dtype=np.int32))
+        np.testing.assert_array_equal(prediction.label_names, np.array(["shoe"], dtype=object))
+        tensor_samples = mock_predict.call_args.args[0]
+        assert tensor_samples[0].image.shape == (3, 4, 4)
+
+
+def test_openvino_backend_does_not_depend_on_the_torch_model_module() -> None:
+    """The OpenVINO backend must not import the torch SAM3 model definition.
+
+    Loading a pre-exported IR should never require the torch model definition
+    that produced it. This pins the module-level decoupling: everything
+    ``sam3_openvino`` needs from the SAM3 model lives in dependency-free
+    modules (``constants``, ``_card``).
+    """
+    source = Path(sam3_openvino.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    imported_from_torch_model_module = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[-1] == "sam3"
+    ]
+
+    assert not imported_from_torch_model_module, (
+        "sam3_openvino must not import from the torch-backed sam3 module; "
+        "move any shared symbol into sam3/constants.py instead"
+    )
+
+
+def test_openvino_card_matches_the_torch_card() -> None:
+    """Decoupling the card must not change what the card reports."""
+    assert SAM3OpenVINO.card() == SAM3.card()

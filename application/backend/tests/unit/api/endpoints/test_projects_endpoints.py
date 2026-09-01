@@ -400,9 +400,9 @@ def test_update_project(client, behavior, expected_status):
         def update_project(self, project_id: UUID, update_data):
             assert project_id == PROJECT_ID
             assert update_data.name == NEW_NAME
-            assert update_data.device == "cuda"
+            assert update_data.device == "gpu"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, device="cuda", prompt_mode="VISUAL")
+                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, device="gpu", prompt_mode="VISUAL")
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "conflict":
@@ -420,11 +420,11 @@ def test_update_project(client, behavior, expected_status):
 
     resp = client.put(
         f"/api/v1/projects/{PROJECT_ID_STR}",
-        json={"name": NEW_NAME, "active": False, "device": "cuda"},
+        json={"name": NEW_NAME, "active": False, "device": "gpu"},
     )
     assert resp.status_code == expected_status
     if behavior == "success":
-        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False, device="cuda")
+        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False, device="gpu")
     else:
         assert "detail" in resp.json()
 

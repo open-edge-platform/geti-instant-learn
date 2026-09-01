@@ -39,11 +39,15 @@ ref_image = "examples/assets/fss-1000/images/apple/1.jpg"
 ref_mask = "examples/assets/fss-1000/masks/apple/1.png"
 target_image = "examples/assets/fss-1000/images/apple/2.jpg"
 
-# Initialize Matcher (device: "xpu", "cuda", or "cpu")
-model = Matcher(device="xpu")
+# Initialize Matcher (selects a compatible device automatically)
+model = Matcher()
 model.fit(Sample(image_path=ref_image, mask_paths=[ref_mask]))
 predictions = model.predict(Sample(image_path=target_image))
 ```
+
+Models select a compatible device automatically. See
+[Manual Device Selection](02-quick-start.md#manual-device-selection) to select a
+specific physical device.
 
 ## Supported Models
 
@@ -72,8 +76,9 @@ predictions = model.predict(Sample(image_path=target_image))
 ## Next Steps
 
 - [Quick Start Guide](02-quick-start.md) — Installation and first inference
-- [Concepts](concepts/01-concepts.md) — Core concepts and architecture
-- [Tutorials](tutorials/01-getting-started.md) — Step-by-step guides
+- [Core Concepts](concepts/01-concepts.md) — `Sample`, `Prediction` and the model API
+- [Architecture](concepts/02-architecture.md) — Class hierarchy and data flow
+- [Custom Models](how-to-guides/03-custom-models.md) — Implement your own model
 
 ## Acknowledgements
 

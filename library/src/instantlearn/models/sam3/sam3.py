@@ -4,121 +4,80 @@
 """SAM3 model for text and visual prompting."""
 
 import logging
+import shutil
 from collections import defaultdict
 from contextlib import nullcontext
-from dataclasses import dataclass
-from enum import Enum
 from itertools import zip_longest
-from typing import Literal
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
 from transformers import CLIPTokenizerFast
 
-from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
-from instantlearn.data.base.batch import Batch, Collatable
+from instantlearn.components.postprocessing import PostProcessor, apply_postprocessing, default_postprocessor
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.prediction import Prediction
 from instantlearn.data.base.sample import Sample
-from instantlearn.models.base import Model
+from instantlearn.device import DeviceInfo
+from instantlearn.models.model_card import ModelCard
+from instantlearn.models.torch_adapter import (
+    CategoryRegistry,
+    TensorSample,
+    dict_to_prediction,
+    label_ids_as_ints,
+    prediction_categories_for_sample,
+    samples_to_tensors,
+)
+from instantlearn.models.torch_base import ExportConfig, TorchModel
 from instantlearn.utils import precision_to_torch_dtype
+from instantlearn.utils.constants import CompressionMode
 
-from .model import Sam3Model
-from .post_processing import PostProcessingConfig
-from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
+from ._card import _SAM3_CARD
 from .canvas_helpers import (
     build_canvas_multishot,
     build_canvas_shared_grouped,
     build_canvas_vertical,
+    category_registry_from_canvas_references,
     crop_around_bbox,
     extract_target_predictions,
     group_references_by_category,
     merge_cross_category,
+    reference_bboxes,
 )
+from .constants import (
+    GEOMETRY_ENCODER,
+    GEOMETRY_ENCODER_EXEMPLAR,
+    MODEL_NAMES,
+    PROMPT_DECODER,
+    SAM3_MODEL_ID,
+    TEXT_ENCODER,
+    VISION_ENCODER,
+    CanvasConfig,
+    Sam3PromptMode,
+)
+from .model import Sam3Model
+from .post_processing import PostProcessingConfig
+from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 logger = logging.getLogger(__name__)
 
-SAM3_LIBRARY_MODEL_ID = "facebook/sam3.1"
-SAM3_APPLICATION_MODEL_ID = "research21/sam3.1"
+
+_TOKENIZER_FILES = [
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "vocab.json",
+    "merges.txt",
+]
+
+_BOX_COLUMN_DIM = 1
+_BOX_COORDINATE_COLUMNS = 4
+_BOX_SCORE_COLUMN = _BOX_COORDINATE_COLUMNS
+_BOX_COLUMNS_WITH_SCORE = _BOX_COORDINATE_COLUMNS + 1
 
 
-@dataclass
-class CanvasConfig:
-    """Configuration for SAM3 canvas mode.
-
-    Canvas mode stitches reference and target images into a single canvas,
-    runs detection, and extracts predictions from the target region.
-
-    Args:
-        split_ratio: Fraction of the canvas allocated to the reference strip.
-            Lower values give more space to the target image. Must be in
-            (0, 1). Default: 0.3.
-        crop_padding: Padding factor around the reference bounding box when
-            cropping. A factor of 2.0 means the crop region is 2x the bbox
-            size. Must be positive. Default: 2.0.
-        cache_text: Cache text embeddings across canvas forward passes to
-            avoid redundant CLIP encoding. Default: True.
-        share_vision: Vision sharing strategy for multi-category canvas mode.
-            - ``"auto"``: Groups same-category refs together with gaps between
-              categories (equivalent to ``"grouped"``).
-            - ``"grouped"``: Same-category refs packed side-by-side, gaps only
-              between category groups.
-            - ``"spaced"``: Each ref in its own slot with gaps between all refs.
-            - ``False``: Sequential per-category canvases (no sharing).
-
-    Examples:
-        Use defaults:
-
-        >>> config = CanvasConfig()
-
-        Tune split ratio for small reference objects:
-
-        >>> config = CanvasConfig(split_ratio=0.25, crop_padding=3.0)
-    """
-
-    split_ratio: float = 0.3
-    crop_padding: float = 2.0
-    cache_text: bool = True
-    share_vision: Literal["auto", "grouped", "spaced"] | bool = "auto"
-
-    def __post_init__(self) -> None:
-        if not 0 < self.split_ratio < 1:
-            msg = f"split_ratio must be in (0, 1), got {self.split_ratio}"
-            raise ValueError(msg)
-        if self.crop_padding <= 0:
-            msg = f"crop_padding must be positive, got {self.crop_padding}"
-            raise ValueError(msg)
-        if not isinstance(self.share_vision, bool) and self.share_vision not in {
-            "auto",
-            "grouped",
-            "spaced",
-        }:
-            msg = (
-                "share_vision must be a bool or one of "
-                f"{{\"auto\", \"grouped\", \"spaced\"}}, got {self.share_vision!r}"
-            )
-            raise ValueError(msg)
-
-
-class Sam3PromptMode(str, Enum):
-    """Prompt mode for SAM3 inference.
-
-    Attributes:
-        CLASSIC: Original SAM3 behavior. Text/box prompts are provided per target
-            image. Boxes are encoded against the target image's own features.
-        VISUAL_EXEMPLAR: Cross-image visual query detection. Box prompts on a
-            reference image are encoded during fit() and reused for all target
-            images. Enables "draw box on image A → detect similar on images B, C, D".
-        CANVAS: FSS-SAM3 unified canvas approach. Stitches reference and target
-            images into a single canvas, runs CLASSIC mode with the reference bbox
-            mapped to canvas coordinates. Best visual-only performance.
-    """
-
-    CLASSIC = "classic"
-    VISUAL_EXEMPLAR = "visual_exemplar"
-    CANVAS = "canvas"
-
-
-class SAM3(Model):
+class SAM3(TorchModel):
     """SAM3 model for text and visual prompting.
 
     This model uses SAM3 (Segment Anything Model 3) for zero-shot segmentation
@@ -129,6 +88,9 @@ class SAM3(Model):
     directly during inference using:
     - Text prompts (category names) provided via ``fit()`` or per-sample ``categories``, OR
     - Visual prompts (bounding boxes) provided in the ``bboxes`` field of each sample
+
+    Masks are also accepted as visual prompts: when a sample carries ``masks``
+    but no ``bboxes``, each mask's tight bounding box is used as the box prompt.
 
     At least one of these prompt types must be provided for each sample during inference.
 
@@ -149,65 +111,61 @@ class SAM3(Model):
         >>> from instantlearn.models import SAM3
         >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base import Batch
-        >>> from instantlearn.data.base.sample import Sample
-        >>> import torch
+        >>> from instantlearn.data.base.sample import Category, Sample
         >>> import numpy as np
 
         >>> # Classic mode (default)
         >>> sam3 = SAM3()
-        >>> ref_sample = Sample(categories=["shoe", "person"], category_ids=[0, 1])
+        >>> ref_sample = Sample(categories=[Category(0, "shoe"), Category(1, "person")])
         >>> sam3.fit(ref_sample)
-        >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with boxes
         >>> sam3_ve = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x1, y1, x2, y2] on reference
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_ve.fit(ref_sample)
-        >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_ve.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Visual exemplar mode with points
         >>> sam3_pt = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[150, 150]]),  # [x, y] on reference
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "object")],
         ... )
         >>> sam3_pt.fit(ref_sample)
-        >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_pt.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot: multiple point prompts for the same category (same image)
         >>> sam3_nshot = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     points=np.array([[100, 100], [200, 300], [400, 500]]),  # 3 shots
-        ...     categories=["shoe", "shoe", "shoe"],
-        ...     category_ids=np.array([0, 0, 0]),  # same category
+        ...     categories=[Category(0, "shoe"), Category(0, "shoe"), Category(0, "shoe")],  # same category
         ... )
         >>> sam3_nshot.fit(ref_sample)  # encodes 3 points together
-        >>> results = sam3_nshot.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_nshot.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # N-shot across multiple reference images
         >>> sam3_cross = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> refs = [
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[100, 100]]),
-        ...         categories=["shoe"],
-        ...         category_ids=np.array([0]),
+        ...         categories=[Category(0, "shoe")],
         ...     ),
         ...     Sample(
-        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...         points=np.array([[200, 200]]),
-        ...         categories=["shoe"],
-        ...         category_ids=np.array([0]),  # same category, different image
+        ...         categories=[Category(0, "shoe")],  # same category, different image
         ...     ),
         ... ]
         >>> sam3_cross.fit(refs)  # features concatenated across images
-        >>> results = sam3_cross.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_cross.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
 
         >>> # Canvas mode — stitches ref + target into one image
         >>> from instantlearn.models.sam3.sam3 import CanvasConfig
@@ -216,23 +174,22 @@ class SAM3(Model):
         ...     canvas_config=CanvasConfig(split_ratio=0.3, crop_padding=2.0),
         ... )
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     image=np.zeros((1024, 1024, 3), dtype=np.uint8),
         ...     bboxes=np.array([[100, 100, 200, 200]]),
-        ...     categories=["shoe"], # Optional, if not provided, then just the bounding box features are used.
-        ...     category_ids=np.array([0]),
+        ...     categories=[Category(0, "shoe")],  # Optional, if omitted only the bounding box features are used.
         ... )
         >>> sam3_canvas.fit(ref_sample)
-        >>> results = sam3_canvas.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = sam3_canvas.predict(Sample(image=np.zeros((1024, 1024, 3), dtype=np.uint8)))
     """
 
     def __init__(
         self,
-        device: str = "cuda",
+        device: DeviceInfo | None = None,
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         precision: str | None = None,
         compile_models: bool = False,
-        model_id: str = SAM3_LIBRARY_MODEL_ID,
+        model_id: str = SAM3_MODEL_ID,
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
@@ -242,15 +199,14 @@ class SAM3(Model):
         """Initialize the SAM3 model.
 
         Args:
-            device: The device to use ('cuda', 'xpu', or 'cpu').
+            device: Physical device, or ``None`` to select automatically.
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: Model precision (``'fp16'``, ``'bf16'``, or ``'fp32'``).
-                Default ``None`` auto-selects ``'fp16'`` on GPU (CUDA / XPU)
-                for ~2.8x faster inference and ``'fp32'`` on CPU.
+                ``None`` selects ``'fp16'`` for CUDA/XPU and ``'fp32'`` for CPU.
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
-                and tokenizer from. Default: SAM3_LIBRARY_MODEL_ID.
+                and tokenizer from. Default: SAM3_MODEL_ID.
             post_processing: Optional post-processing configuration for NMS,
                 mask overlap removal, and non-overlapping pixel constraints.
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
@@ -269,25 +225,22 @@ class SAM3(Model):
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
-        super().__init__(postprocessor=postprocessor)
+        super().__init__(device=device, precision=precision or "fp32", postprocessor=postprocessor)
+        if precision is None:
+            device_type = torch.device(self.device).type
+            precision = "fp16" if device_type in {"cuda", "xpu"} else "fp32"
+            self.precision = precision
 
-        self.device = device
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
-
-        # Auto-select precision: fp16 for GPU (2.8× faster), fp32 for CPU.
-        if precision is None:
-            device_type = torch.device(device).type
-            precision = "fp16" if device_type in {"cuda", "xpu"} else "fp32"
-        self.precision = precision
         self.compile_models = compile_models
         self.model_id = model_id
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
         self.canvas_config = canvas_config or CanvasConfig()
 
-        # Category mapping from fit() - optional for consistency with GroundedSAM
-        self.category_mapping: dict[str, int] | None = None
+        # Category identity from fit(), used to build Prediction.label_names.
+        self.categories: CategoryRegistry = CategoryRegistry()
 
         # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
         self.exemplar_geometry_features: list[torch.Tensor] | None = None
@@ -301,14 +254,14 @@ class SAM3(Model):
         self._canvas_text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
 
         # Preprocessors and postprocessor
-        self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
-        self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
+        self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(self.device)
+        self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(self.device)
         self.sam3_postprocessor = Sam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
             post_processing=post_processing,
-        ).to(device)
+        ).to(self.device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
         self.tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
@@ -318,9 +271,500 @@ class SAM3(Model):
                 model_id,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
-            .to(device)
+            .to(self.device)
             .eval()
         )
+
+    @torch.no_grad()
+    def to_openvino(self, export_path: str | Path | None = None, config: ExportConfig | None = None) -> Path:
+        """Export this SAM3 model to an OpenVINO IR directory.
+
+        Conversion goes Torch -> ONNX -> OpenVINO IR. The intermediate image
+        resolution is taken from ``self.resolution``; weight precision and
+        compression are driven entirely by ``config.compression``:
+
+        - ``FP32`` / ``FP16``: IR weight storage precision, no NNCF pass.
+        - ``INT8_SYM`` / ``INT8_ASYM``: FP16 IR followed by INT8 weight compression.
+        - ``INT4_SYM`` / ``INT4_ASYM``: FP16 IR followed by INT4 weight
+          compression (per-channel, ``group_size=-1``).
+
+        For the compressed modes the FP16 IR is written to a separate
+        ``openvino-<mode>-fp16-source`` directory that serves as the compression
+        input, keeping it distinct from the final ``openvino-<mode>`` output so
+        the compression pass never reads and writes the same files.
+
+        Args:
+            export_path: Destination directory for the IR. ``None`` writes to a
+                temporary directory that is *not* auto-deleted.
+            config: Export options. ``None`` uses :class:`ExportConfig` defaults.
+
+        Returns:
+            Path to the exported IR **directory**.
+
+        Raises:
+            ImportError: If OpenVINO is not installed.
+        """
+        config = config or ExportConfig()
+
+        try:
+            import openvino  # noqa: F401, PLC0415
+        except ImportError as e:
+            msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
+            raise ImportError(msg) from e
+
+        export_root = self._resolve_export_dir(export_path)
+
+        onnx_dir, exported = SAM3.export_to_onnx(
+            model_id=self.model_id,
+            export_root=export_root,
+            opset_version=config.opset,
+            resolution=self.resolution,
+        )
+        logger.info("ONNX export complete: %s", list(exported.keys()))
+
+        compress_modes = {
+            CompressionMode.INT8_SYM,
+            CompressionMode.INT8_ASYM,
+            CompressionMode.INT4_SYM,
+            CompressionMode.INT4_ASYM,
+        }
+        needs_compression = config.compression in compress_modes
+        ir_precision = "fp16" if config.compression in {CompressionMode.FP16, *compress_modes} else "fp32"
+
+        if needs_compression:
+            # Write the FP16 IR to a dedicated source directory so the weight
+            # compression pass reads from and writes to distinct locations.
+            source_ir_dir = export_root / f"openvino-{config.compression.value}-fp16-source"
+            logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
+            SAM3._convert_to_openvino(onnx_dir=onnx_dir, ir_dir=source_ir_dir, precision=ir_precision)
+            SAM3._ensure_openvino_export_complete(source_ir_dir)
+
+            logger.info("Applying SAM3 OpenVINO weight compression: %s", config.compression.value)
+            ir_dir = SAM3.apply_weight_compression(source_ir_dir, export_root, config.compression.value)
+            SAM3._ensure_openvino_export_complete(ir_dir)
+
+            if not config.keep_intermediate:
+                shutil.rmtree(source_ir_dir, ignore_errors=True)
+        else:
+            ir_dir = export_root / f"openvino-{config.compression.value}"
+            logger.info("Converting ONNX -> OpenVINO IR (precision=%s)...", ir_precision)
+            SAM3._convert_to_openvino(onnx_dir=onnx_dir, ir_dir=ir_dir, precision=ir_precision)
+            SAM3._ensure_openvino_export_complete(ir_dir)
+
+        if not config.keep_intermediate:
+            shutil.rmtree(onnx_dir, ignore_errors=True)
+
+        logger.info("SAM3 OpenVINO export complete: %s", ir_dir)
+        return ir_dir
+
+    @staticmethod
+    def _resolve_export_dir(export_path: str | Path | None) -> Path:
+        """Resolve *export_path* to an existing export root (temp dir when ``None``)."""
+        if export_path is None:
+            import tempfile  # noqa: PLC0415
+
+            return Path(tempfile.mkdtemp(prefix="sam3_export_"))
+        export_root = Path(export_path)
+        export_root.mkdir(parents=True, exist_ok=True)
+        return export_root
+
+    @staticmethod
+    def export_to_onnx(  # noqa: PLR0915
+        model_id: str,
+        export_root: Path,
+        *,
+        resolution: int = 1008,
+        opset_version: int = 17,
+    ) -> tuple[Path, dict[str, Path]]:
+        """Load SAM3 weights and export all sub-components to ONNX.
+
+        Args:
+            model_id: HuggingFace model id or local path to load SAM3 weights.
+            export_root: Base export directory. ONNX files are written to its
+                ``onnx`` subdirectory.
+            resolution: Input image resolution used for the dummy trace inputs.
+            opset_version: ONNX opset version for the exported graphs.
+
+        Returns:
+            Tuple of ``(onnx_dir, exported)`` where ``onnx_dir`` is the
+            ``export_root/onnx`` directory and ``exported`` maps sub-model names
+            to their ONNX file paths.
+        """
+        from instantlearn.scripts.sam3.onnx_wrappers import (  # noqa: PLC0415
+            OnnxGeometryEncoder,
+            OnnxPromptDecoder,
+            OnnxTextEncoder,
+            OnnxVisionEncoder,
+        )
+
+        logger.info("Loading Sam3Model from '%s'...", model_id)
+        model = Sam3Model.from_pretrained(model_id, device="cpu", dtype=torch.float32)
+        model.eval()
+        logger.info("Model loaded successfully.")
+
+        onnx_dir = export_root / "onnx"
+        onnx_dir.mkdir(parents=True, exist_ok=True)
+        device = next(model.parameters()).device
+
+        exported: dict[str, Path] = {}
+
+        logger.info("Exporting vision encoder...")
+        vision_wrapper = OnnxVisionEncoder(model)
+        vision_wrapper.eval()
+        dummy_pixel = torch.randn(1, 3, resolution, resolution, device=device)
+        vision_path = onnx_dir / f"{VISION_ENCODER}.onnx"
+        torch.onnx.export(
+            vision_wrapper,
+            (dummy_pixel,),
+            str(vision_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=["pixel_values"],
+            output_names=["fpn_feat_0", "fpn_feat_1", "fpn_feat_2", "fpn_pos_2"],
+            dynamic_axes={"pixel_values": {0: "batch"}},
+        )
+        exported[VISION_ENCODER] = vision_path
+        logger.info("  -> %s", vision_path)
+
+        logger.info("Exporting text encoder...")
+        text_wrapper = OnnxTextEncoder(model)
+        text_wrapper.eval()
+        dummy_ids = torch.ones(1, 32, dtype=torch.long, device=device)
+        dummy_mask = torch.ones(1, 32, dtype=torch.long, device=device)
+        text_path = onnx_dir / f"{TEXT_ENCODER}.onnx"
+        torch.onnx.export(
+            text_wrapper,
+            (dummy_ids, dummy_mask),
+            str(text_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=["input_ids", "attention_mask"],
+            output_names=["text_features", "text_mask"],
+            dynamic_axes={
+                "input_ids": {0: "batch"},
+                "attention_mask": {0: "batch"},
+            },
+        )
+        exported[TEXT_ENCODER] = text_path
+        logger.info("  -> %s", text_path)
+
+        logger.info("Exporting geometry encoder (classic)...")
+        geo_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=False)
+        geo_wrapper.eval()
+        feat_size = resolution // 14
+        dummy_fpn = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_pos = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_boxes = torch.rand(1, 1, _BOX_COORDINATE_COLUMNS, device=device)
+        dummy_box_labels = torch.ones(1, 1, dtype=torch.long, device=device)
+        dummy_points = torch.rand(1, 1, 2, device=device)
+        dummy_point_labels = torch.full((1, 1), -10, dtype=torch.long, device=device)
+
+        geo_path = onnx_dir / f"{GEOMETRY_ENCODER}.onnx"
+        torch.onnx.export(
+            geo_wrapper,
+            (dummy_fpn, dummy_pos, dummy_boxes, dummy_box_labels, dummy_points, dummy_point_labels),
+            str(geo_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "input_boxes",
+                "input_boxes_labels",
+                "input_points",
+                "input_points_labels",
+            ],
+            output_names=["geometry_features", "geometry_mask"],
+            dynamic_axes={
+                "input_boxes": {0: "batch", 1: "num_boxes"},
+                "input_boxes_labels": {0: "batch", 1: "num_boxes"},
+                "input_points": {0: "batch", 1: "num_points"},
+                "input_points_labels": {0: "batch", 1: "num_points"},
+            },
+        )
+        exported[GEOMETRY_ENCODER] = geo_path
+        logger.info("  -> %s", geo_path)
+
+        logger.info("Exporting geometry encoder (exemplar)...")
+        geo_exemplar_wrapper = OnnxGeometryEncoder(model, drop_spatial_bias=True)
+        geo_exemplar_wrapper.eval()
+        dummy_boxes_ignore = torch.zeros(1, 1, _BOX_COORDINATE_COLUMNS, device=device)
+        dummy_box_labels_ignore = torch.full((1, 1), -10, dtype=torch.long, device=device)
+        dummy_ex_points = torch.rand(1, 1, 2, device=device)
+        dummy_ex_point_labels = torch.ones(1, 1, dtype=torch.long, device=device)
+
+        geo_exemplar_path = onnx_dir / f"{GEOMETRY_ENCODER_EXEMPLAR}.onnx"
+        torch.onnx.export(
+            geo_exemplar_wrapper,
+            (
+                dummy_fpn,
+                dummy_pos,
+                dummy_boxes_ignore,
+                dummy_box_labels_ignore,
+                dummy_ex_points,
+                dummy_ex_point_labels,
+            ),
+            str(geo_exemplar_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "input_boxes",
+                "input_boxes_labels",
+                "input_points",
+                "input_points_labels",
+            ],
+            output_names=["geometry_features", "geometry_mask"],
+            dynamic_axes={
+                "input_boxes": {0: "batch", 1: "num_boxes"},
+                "input_boxes_labels": {0: "batch", 1: "num_boxes"},
+                "input_points": {0: "batch", 1: "num_points"},
+                "input_points_labels": {0: "batch", 1: "num_points"},
+            },
+        )
+        exported[GEOMETRY_ENCODER_EXEMPLAR] = geo_exemplar_path
+        logger.info("  -> %s", geo_exemplar_path)
+
+        logger.info("Exporting prompt decoder...")
+        decoder_wrapper = OnnxPromptDecoder(model)
+        decoder_wrapper.eval()
+        feat_4x = feat_size * 4
+        feat_2x = feat_size * 2
+        dummy_f0 = torch.randn(1, 256, feat_4x, feat_4x, device=device)
+        dummy_f1 = torch.randn(1, 256, feat_2x, feat_2x, device=device)
+        dummy_f2 = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_p2 = torch.randn(1, 256, feat_size, feat_size, device=device)
+        dummy_prompt = torch.randn(1, 32, 256, device=device)
+        dummy_pmask = torch.ones(1, 32, dtype=torch.bool, device=device)
+
+        decoder_path = onnx_dir / f"{PROMPT_DECODER}.onnx"
+        torch.onnx.export(
+            decoder_wrapper,
+            (dummy_f0, dummy_f1, dummy_f2, dummy_p2, dummy_prompt, dummy_pmask),
+            str(decoder_path),
+            opset_version=opset_version,
+            dynamo=False,
+            input_names=[
+                "fpn_feat_0",
+                "fpn_feat_1",
+                "fpn_feat_2",
+                "fpn_pos_2",
+                "prompt_features",
+                "prompt_mask",
+            ],
+            output_names=["pred_masks", "pred_boxes", "pred_logits", "presence_logits"],
+            dynamic_axes={
+                "prompt_features": {0: "batch", 1: "prompt_len"},
+                "prompt_mask": {0: "batch", 1: "prompt_len"},
+            },
+        )
+        exported[PROMPT_DECODER] = decoder_path
+        logger.info("  -> %s", decoder_path)
+
+        logger.info("Saving tokenizer...")
+        tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
+        tokenizer.save_pretrained(str(onnx_dir))
+        logger.info("  Tokenizer saved to %s", onnx_dir)
+
+        logger.info("ONNX export complete. %d models written to %s", len(exported), onnx_dir)
+        return onnx_dir, exported
+
+    @staticmethod
+    def _convert_to_openvino(
+        onnx_dir: Path,
+        ir_dir: Path,
+        *,
+        precision: str = "fp16",
+    ) -> dict[str, Path]:
+        """Convert SAM3 ONNX models to OpenVINO IR and copy tokenizer files.
+
+        Args:
+            onnx_dir: Directory containing the exported ONNX sub-models.
+            ir_dir: Destination directory for the OpenVINO IR files.
+            precision: IR weight storage precision (``"fp16"`` or ``"fp32"``).
+
+        Returns:
+            Mapping of sub-model names to their written ``.xml`` IR paths.
+        """
+        import openvino as ov  # noqa: PLC0415
+
+        ir_dir = Path(ir_dir)
+        ir_dir.mkdir(parents=True, exist_ok=True)
+        compress_to_fp16 = precision == "fp16"
+
+        converted: dict[str, Path] = {}
+        for name in MODEL_NAMES:
+            onnx_path = onnx_dir / f"{name}.onnx"
+            if not onnx_path.exists():
+                onnx_path = onnx_dir / f"{name}-fp16.onnx"
+            if not onnx_path.exists():
+                logger.warning("Skipping %s - ONNX file not found.", name)
+                continue
+
+            logger.info("Converting %s to OpenVINO IR...", name)
+            ov_model = ov.convert_model(str(onnx_path))
+            ir_path = ir_dir / f"{name}.xml"
+            ov.save_model(ov_model, str(ir_path), compress_to_fp16=compress_to_fp16)
+            converted[name] = ir_path
+            logger.info("  -> %s", ir_path)
+
+        for filename in _TOKENIZER_FILES:
+            src = onnx_dir / filename
+            dst = ir_dir / filename
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+                logger.info("Copied tokenizer file: %s", filename)
+
+        logger.info("OpenVINO conversion complete. %d models written to %s", len(converted), ir_dir)
+        return converted
+
+    @staticmethod
+    def _ensure_openvino_export_complete(ir_dir: Path) -> None:
+        """Validate that all expected SAM3 OpenVINO sub-model files are usable.
+
+        A sub-model is considered incomplete if its ``.xml`` or ``.bin`` file is
+        missing or empty (0 bytes). Empty files can result from an interrupted
+        or corrupted export and would otherwise only surface later at load time.
+
+        Args:
+            ir_dir (Path): The directory containing the exported OpenVINO IR files.
+
+        Raises:
+            FileNotFoundError: If any expected .xml or .bin file is missing or empty.
+        """
+        incomplete: list[str] = []
+        for model_name in MODEL_NAMES:
+            xml_path = ir_dir / f"{model_name}.xml"
+            bin_path = ir_dir / f"{model_name}.bin"
+            if not xml_path.exists() or xml_path.stat().st_size == 0:
+                incomplete.append(xml_path.name)
+            elif not bin_path.exists() or bin_path.stat().st_size == 0:
+                incomplete.append(bin_path.name)
+        if incomplete:
+            incomplete_names = ", ".join(incomplete)
+            msg = f"Incomplete SAM3 OpenVINO export in {ir_dir}: missing or empty {incomplete_names}"
+            raise FileNotFoundError(msg)
+
+    @staticmethod
+    def apply_weight_compression(
+        source_ir_dir: Path,
+        export_root: Path,
+        mode: str = "int8_sym",
+    ) -> Path:
+        """Apply weight compression to SAM3 OpenVINO IR models.
+
+        Args:
+            source_ir_dir: Directory containing the uncompressed (FP16) IR
+                sub-models to compress.
+            export_root: Base export directory; the compressed IR is written to
+                its ``openvino-<mode>`` subdirectory.
+            mode: Compression mode string (e.g. ``"int8_sym"``, ``"int4_sym"``).
+
+        Returns:
+            Path to the ``openvino-<mode>`` directory containing the compressed IR.
+        """
+        import openvino as ov  # noqa: PLC0415
+
+        from instantlearn.utils.compression import compress_model  # noqa: PLC0415
+        from instantlearn.utils.constants import CompressionMode  # noqa: PLC0415
+
+        compression_mode = CompressionMode(mode)
+
+        logger.info("=" * 60)
+        logger.info("Applying %s weight compression", mode.upper())
+        logger.info("=" * 60)
+
+        ir_dir = export_root / f"openvino-{mode}"
+        ir_dir.mkdir(parents=True, exist_ok=True)
+
+        core = ov.Core()
+        logger.info("Compressing %d models", len(MODEL_NAMES))
+
+        for model_name in MODEL_NAMES:
+            xml_path = source_ir_dir / f"{model_name}.xml"
+            if not xml_path.exists():
+                logger.warning("Source model not found: %s", xml_path)
+                continue
+
+            logger.info("Compressing %s with %s...", model_name, mode.upper())
+            ov_model = core.read_model(xml_path)
+
+            try:
+                compressed_model = compress_model(ov_model, mode=compression_mode, group_size=-1)
+            except Exception:
+                logger.exception("Failed to compress %s with %s", model_name, mode)
+                continue
+
+            out_xml = ir_dir / f"{model_name}.xml"
+            ov.save_model(compressed_model, out_xml)
+
+            bin_path = ir_dir / f"{model_name}.bin"
+            size_mb = bin_path.stat().st_size / (1024 * 1024)
+            logger.info("Saved: %s (%.1f MB)", out_xml, size_mb)
+
+        for filename in _TOKENIZER_FILES:
+            src = source_ir_dir / filename
+            dst = ir_dir / filename
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+
+        return ir_dir
+
+    @staticmethod
+    def get_dir_size(directory: Path) -> float:
+        """Return total size of model files in a directory in MB."""
+        total = 0
+        for ext in ("*.xml", "*.bin", "*.onnx"):
+            for file_path in directory.glob(ext):
+                total += file_path.stat().st_size
+        return total / (1024 * 1024)
+
+    @staticmethod
+    def print_comparison_table(export_root: Path) -> None:
+        """Print a comparison table of all quantized variants."""
+        from rich.console import Console  # noqa: PLC0415
+        from rich.table import Table  # noqa: PLC0415
+
+        console = Console()
+        table = Table(title="SAM3 Quantization Comparison", show_header=True)
+        table.add_column("Variant", style="cyan", width=20)
+        table.add_column("Total", justify="right", style="bold")
+        table.add_column("Model Count", justify="right")
+        table.add_column("Status", style="green")
+
+        variant_dirs = sorted([*export_root.glob("openvino-*"), *export_root.glob("onnx-*")])
+        for variant_dir in variant_dirs:
+            if not variant_dir.is_dir():
+                continue
+            variant_name = variant_dir.name
+            for prefix in ("openvino-", "onnx-"):
+                variant_name = variant_name.replace(prefix, "", 1) if variant_name.startswith(prefix) else variant_name
+            fmt = "IR" if variant_dir.name.startswith("openvino") else "ONNX"
+            variant_label = f"{variant_name} ({fmt})"
+
+            total_size = 0.0
+            found = 0
+            for model_name in MODEL_NAMES:
+                bin_path = variant_dir / f"{model_name}.bin"
+                if bin_path.exists():
+                    total_size += bin_path.stat().st_size / (1024 * 1024)
+                    found += 1
+                else:
+                    onnx_files = list(variant_dir.glob(f"{model_name}*.onnx"))
+                    if onnx_files:
+                        total_size += onnx_files[0].stat().st_size / (1024 * 1024)
+                        found += 1
+
+            status = "OK" if found == len(MODEL_NAMES) else f"Missing {len(MODEL_NAMES) - found}"
+            table.add_row(variant_label, f"{total_size:.1f} MB", f"{found}/{len(MODEL_NAMES)}", status)
+
+        console.print(table)
+
+    @classmethod
+    def card(cls) -> ModelCard:
+        """Return the static model card for SAM3 capabilities."""
+        return _SAM3_CARD
 
     # Hook methods for subclass customization
 
@@ -329,7 +773,7 @@ class SAM3(Model):
 
         When ``precision`` is ``"fp16"`` or ``"bf16"`` **and** the device is a
         GPU (CUDA / XPU), returns ``torch.autocast`` for mixed-precision
-        inference (~1.9× speedup on CUDA, ~3.4× on XPU).  For ``"fp32"`` or
+        inference (~1.9x speedup on CUDA, ~3.4x on XPU).  For ``"fp32"`` or
         CPU devices the method returns ``nullcontext`` to preserve the original
         full-precision behaviour.
 
@@ -376,7 +820,7 @@ class SAM3(Model):
                 - list[Sample]: A list of reference samples
                 - Batch: A batch of reference samples
         """
-        reference_batch = Batch.collate(reference)
+        reference_batch = samples_to_tensors(reference, self.device)
 
         if self.prompt_mode == Sam3PromptMode.CLASSIC:
             self._fit_classic(reference_batch)
@@ -386,7 +830,7 @@ class SAM3(Model):
             self._fit_visual_exemplar(reference_batch)
 
     @torch.inference_mode()
-    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[Prediction]:
         """Perform inference on target images.
 
         In CLASSIC mode, processes text/box prompts per target image.
@@ -397,28 +841,64 @@ class SAM3(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
-                - str | Path: A single image path
-                - list[str] | list[Path]: Multiple image paths
 
         Returns:
-            List of prediction dicts per image with 'pred_masks', 'pred_boxes',
-            'pred_labels'.
+            List of prediction objects per image.
         """
+        target_batch = samples_to_tensors(target, self.device)
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
-            return self.apply_postprocessing(self._predict_visual_exemplar(target))
-        if self.prompt_mode == Sam3PromptMode.CANVAS:
-            return self.apply_postprocessing(self._predict_canvas(target))
-        return self.apply_postprocessing(self._predict_classic(target))
+            raw_predictions = self._predict_visual_exemplar(target_batch)
+        elif self.prompt_mode == Sam3PromptMode.CANVAS:
+            raw_predictions = self._predict_canvas(target_batch)
+        else:
+            raw_predictions = self._predict_classic(target_batch)
 
-    def _fit_classic(self, reference_batch: Batch) -> None:
+        raw_predictions = self._ensure_prediction_scores(raw_predictions)
+        processed_predictions = apply_postprocessing(raw_predictions, self.postprocessor)
+        return [
+            dict_to_prediction(prediction, prediction_categories_for_sample(self.categories, sample))
+            for prediction, sample in zip(processed_predictions, target_batch, strict=True)
+        ]
+
+    @staticmethod
+    def _has_values(value: np.ndarray | torch.Tensor | None) -> bool:
+        """Return whether an optional array/tensor contains at least one value."""
+        if value is None:
+            return False
+        if isinstance(value, torch.Tensor):
+            return value.numel() > 0
+        return value.size > 0
+
+    @staticmethod
+    def _ensure_prediction_scores(predictions: list[dict[str, torch.Tensor]]) -> list[dict[str, torch.Tensor]]:
+        """Ensure raw SAM3 predictions contain ``pred_scores``.
+
+        Args:
+            predictions: Raw prediction dictionaries from SAM3 mode-specific paths.
+
+        Returns:
+            The same prediction dictionaries with ``pred_scores`` populated.
+        """
+        for prediction in predictions:
+            if "pred_scores" in prediction:
+                continue
+            boxes = prediction.get("pred_boxes")
+            if boxes is not None and boxes.numel() > 0 and boxes.shape[_BOX_COLUMN_DIM] > _BOX_SCORE_COLUMN:
+                prediction["pred_scores"] = boxes[:, _BOX_SCORE_COLUMN]
+            else:
+                masks = prediction["pred_masks"]
+                prediction["pred_scores"] = torch.ones(masks.shape[0], dtype=torch.float32, device=masks.device)
+        return predictions
+
+    def _fit_classic(self, reference_batch: list[TensorSample]) -> None:
         """Store category mapping from reference batch.
 
         Args:
             reference_batch: Batch of reference samples.
         """
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
-    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+    def _fit_visual_exemplar(self, reference_batch: list[TensorSample]) -> None:
         """Encode visual exemplar features from reference images and boxes/points.
 
         Supports n-shot encoding: multiple prompts for the same category are
@@ -436,15 +916,15 @@ class SAM3(Model):
             region.
 
         Args:
-            reference_batch: Batch of reference samples with images and bboxes/points.
+            reference_batch: Batch of reference samples with images and bboxes/masks/points.
 
         Raises:
-            ValueError: If no reference samples contain bboxes or points.
+            ValueError: If no reference samples contain bboxes, masks or points.
         """
         encoded_by_category, category_text_map = self._encode_batch_prompts(reference_batch)
 
         if not encoded_by_category:
-            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes, masks or points."
             raise ValueError(msg)
 
         geometry_features, geometry_masks, category_ids, text_prompts = self._aggregate_category_features(
@@ -455,7 +935,7 @@ class SAM3(Model):
         self.exemplar_geometry_mask = geometry_masks
         self.exemplar_category_ids = category_ids
         self.exemplar_text_features, self.exemplar_text_mask = self._cache_text_features(text_prompts)
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = CategoryRegistry.from_samples(reference_batch)
 
         # Log shot counts per category
         shot_info = {
@@ -492,31 +972,31 @@ class SAM3(Model):
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]] = defaultdict(list)
         category_text_map: dict[int, str] = {}
 
-        for sample in reference_batch.samples:
+        for sample in reference_batch:
             self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
 
         return encoded_by_category, category_text_map
 
     def _encode_sample_prompts(
         self,
-        sample: Sample,
+        sample: TensorSample,
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]],
         category_text_map: dict[int, str],
     ) -> None:
         """Encode one sample's box/point prompts into per-category geometry features.
 
         Args:
-            sample: Reference sample with image and bboxes/points.
+            sample: Reference sample with image and bboxes/masks/points.
             encoded_by_category: Accumulator mapping cat_id to encoded features.
             category_text_map: Accumulator mapping cat_id to text name.
 
         Raises:
             ValueError: If the sample has prompts but no image.
         """
-        bboxes = sample.bboxes
+        bboxes = reference_bboxes(sample)
         points = sample.points
-        has_bboxes = bboxes is not None and not (isinstance(bboxes, (np.ndarray, torch.Tensor)) and bboxes.size == 0)
-        has_points = points is not None and not (isinstance(points, (np.ndarray, torch.Tensor)) and points.size == 0)
+        has_bboxes = self._has_values(bboxes)
+        has_points = self._has_values(points)
 
         if not has_bboxes and not has_points:
             return
@@ -534,8 +1014,8 @@ class SAM3(Model):
 
         # Build aligned metadata lists
         num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
-        categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
-        category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
+        categories = sample.category_labels or ["visual"] * num_prompts
+        category_ids = label_ids_as_ints(sample) or [0] * num_prompts
 
         # Convert prompts to point coords grouped by category
         category_coords: dict[int, list[torch.Tensor]] = defaultdict(list)
@@ -634,7 +1114,7 @@ class SAM3(Model):
             [text_cache[p][1] for p in text_prompts],
         )
 
-    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
+    def _predict_classic(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
         """Classic SAM3 prediction with per-image text/box/point prompts.
 
         Args:
@@ -643,15 +1123,13 @@ class SAM3(Model):
         Returns:
             List of prediction dicts per image.
         """
-        target_batch = Batch.collate(target)
         results = []
-        samples = target_batch.samples
 
         # Use stored categories from fit() if available, otherwise use per-sample
-        use_fitted_categories = self.category_mapping is not None
+        use_fitted_categories = bool(self.categories)
 
         # Process each image's prompts individually
-        for sample in samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
             points = sample.points if sample.points is not None else []
@@ -664,11 +1142,11 @@ class SAM3(Model):
 
             # Determine text prompts and category IDs
             if use_fitted_categories:
-                texts = list(self.category_mapping.keys())
-                category_ids = list(self.category_mapping.values())
+                texts = list(self.categories.name_to_id.keys())
+                category_ids = list(self.categories.name_to_id.values())
             else:
-                texts = sample.categories or []
-                category_ids = sample.category_ids
+                texts = sample.category_labels or []
+                category_ids = label_ids_as_ints(sample)
                 # Use "visual" placeholder when only bboxes/points are provided
                 num_visual_prompts = max(len(bboxes), len(points))
                 if num_visual_prompts and len(texts) != num_visual_prompts:
@@ -737,7 +1215,7 @@ class SAM3(Model):
 
         return results
 
-    def _predict_visual_exemplar(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_visual_exemplar(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Visual exemplar prediction using cached geometry features from fit().
 
         For each target image, reuses the cached exemplar geometry features
@@ -756,10 +1234,9 @@ class SAM3(Model):
             msg = "No cached exemplar features. Call fit() with reference images and bboxes first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
 
-        for sample in target_batch.samples:
+        for sample in target:
             img_size = sample.image.shape[-2:]
 
             # Preprocess target image
@@ -805,7 +1282,7 @@ class SAM3(Model):
 
         return results
 
-    def _fit_canvas(self, reference_batch: Batch) -> None:
+    def _fit_canvas(self, reference_batch: list[TensorSample]) -> None:
         """Store reference images and bboxes for canvas-based prediction.
 
         References are grouped by category so that each category gets its own
@@ -814,14 +1291,12 @@ class SAM3(Model):
         Args:
             reference_batch: Batch of reference samples with images and bboxes.
 
-        Raises:
-            ValueError: If no reference samples contain bboxes.
         """
-        refs_by_category = group_references_by_category(reference_batch.samples)
+        refs_by_category = group_references_by_category(reference_batch)
 
         self._canvas_refs_by_category = refs_by_category
         self._canvas_text_cache = {}  # Clear stale cache from previous fit()
-        self.category_mapping = self._build_category_mapping(reference_batch)
+        self.categories = category_registry_from_canvas_references(refs_by_category)
 
         # Pre-cache text features (T4 optimization)
         for cat_refs in refs_by_category.values():
@@ -839,15 +1314,14 @@ class SAM3(Model):
                 )
 
         logger.info(
-            "Canvas mode: stored %d reference(s) across %d category(ies), "
-            "ratio=%.2f, cached %d text embeddings",
+            "Canvas mode: stored %d reference(s) across %d category(ies), ratio=%.2f, cached %d text embeddings",
             sum(len(g["images"]) for g in refs_by_category.values()),
             len(refs_by_category),
             self.canvas_config.split_ratio,
             len(self._canvas_text_cache),
         )
 
-    def _predict_canvas(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_canvas(self, target: list[TensorSample]) -> list[dict[str, torch.Tensor]]:
         """Canvas prediction with shared vision encoder and cached text features.
 
         Routing (multi-category):
@@ -871,11 +1345,10 @@ class SAM3(Model):
             msg = "Canvas mode requires fit() to be called first."
             raise RuntimeError(msg)
 
-        target_batch = Batch.collate(target)
         results = []
         n_categories = len(self._canvas_refs_by_category)
 
-        for sample in target_batch.samples:
+        for sample in target:
             tgt_image = sample.image
             tgt_h, tgt_w = tgt_image.shape[-2:]
 
@@ -883,7 +1356,9 @@ class SAM3(Model):
                 result = self._predict_canvas_single_category(tgt_image, tgt_h, tgt_w)
             elif isinstance(self.canvas_config.share_vision, str):
                 result = self._predict_canvas_shared_spaced(
-                    tgt_image, tgt_h, tgt_w,
+                    tgt_image,
+                    tgt_h,
+                    tgt_w,
                     spacing=self.canvas_config.share_vision,
                 )
             else:
@@ -914,16 +1389,20 @@ class SAM3(Model):
         cat_text = cat_refs["text"]
 
         canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
-            cat_images, tgt_image, cat_bboxes,
+            cat_images,
+            tgt_image,
+            cat_bboxes,
         )
 
         pred = self._run_canvas_forward(canvas, canvas_bboxes, cat_text)
         remapped = self._extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
 
-        boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+        boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
         if boxes.shape[0] > 0:
             remapped["pred_labels"] = torch.full(
-                (boxes.shape[0],), cat_id, dtype=torch.int64,
+                (boxes.shape[0],),
+                cat_id,
+                dtype=torch.int64,
             )
         else:
             remapped["pred_labels"] = torch.empty(0, dtype=torch.int64)
@@ -954,7 +1433,8 @@ class SAM3(Model):
             Merged prediction dict with cross-category NMS.
         """
         canvas, per_cat_bboxes, tgt_region = self._build_canvas_shared_spaced(
-            tgt_image, spacing=spacing,
+            tgt_image,
+            spacing=spacing,
         )
 
         # Single ViT pass on the shared canvas
@@ -973,13 +1453,19 @@ class SAM3(Model):
         for cat_id, cat_refs in self._canvas_refs_by_category.items():
             cat_bboxes = per_cat_bboxes[cat_id]
             pred = self._run_canvas_forward_with_vision(
-                vision_embeds, original_sizes,
-                canvas.shape[-2:], cat_bboxes, cat_refs["text"],
+                vision_embeds,
+                original_sizes,
+                canvas.shape[-2:],
+                cat_bboxes,
+                cat_refs["text"],
             )
             remapped = self._extract_target_predictions(
-                pred, tgt_region, tgt_h, tgt_w,
+                pred,
+                tgt_region,
+                tgt_h,
+                tgt_w,
             )
-            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
                 all_boxes_list.append(boxes)
                 all_masks_list.append(
@@ -991,10 +1477,13 @@ class SAM3(Model):
 
         if all_boxes_list:
             return self._merge_cross_category(
-                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+                all_boxes_list,
+                all_masks_list,
+                all_labels_list,
+                (tgt_h, tgt_w),
             )
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, tgt_h, tgt_w),
             "pred_labels": torch.empty(0, dtype=torch.int64),
         }
@@ -1039,7 +1528,7 @@ class SAM3(Model):
             )
 
         # "spaced" — every ref individually separated
-        C = tgt_image.shape[0]
+        channels = tgt_image.shape[0]
         canvas_w = tgt_image.shape[2]
         for cat_refs in self._canvas_refs_by_category.values():
             for img in cat_refs["images"]:
@@ -1051,19 +1540,23 @@ class SAM3(Model):
         tgt_canvas_h = canvas_h - ref_strip_h
 
         tgt_resized = F.interpolate(
-            tgt_image.unsqueeze(0).float(), size=(tgt_canvas_h, canvas_w),
-            mode="bilinear", align_corners=False,
+            tgt_image.unsqueeze(0).float(),
+            size=(tgt_canvas_h, canvas_w),
+            mode="bilinear",
+            align_corners=False,
         ).squeeze(0)
 
         cat_items = list(self._canvas_refs_by_category.items())
 
-        ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+        ref_strip = torch.zeros(channels, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
         per_cat_bboxes: dict[int, list[np.ndarray]] = {}
 
         all_refs: list[tuple[int, torch.Tensor, np.ndarray]] = []
         for cat_id, cat_refs in cat_items:
             for ref_img, ref_bbox in zip(
-                cat_refs["images"], cat_refs["bboxes"], strict=True,
+                cat_refs["images"],
+                cat_refs["bboxes"],
+                strict=True,
             ):
                 all_refs.append((cat_id, ref_img, ref_bbox))
 
@@ -1082,21 +1575,27 @@ class SAM3(Model):
             ref_resized = F.interpolate(
                 ref_img.unsqueeze(0).float(),
                 size=(ref_strip_h, this_w),
-                mode="bilinear", align_corners=False,
+                mode="bilinear",
+                align_corners=False,
             ).squeeze(0)
-            ref_strip[:, :, slot_x:slot_x + this_w] = ref_resized
+            ref_strip[:, :, slot_x : slot_x + this_w] = ref_resized
 
             sx = this_w / ref_w
             sy = ref_strip_h / ref_h
-            x1, y1, x2, y2 = ref_bbox[:4]
-            per_cat_bboxes[cat_id].append(np.array([
-                x1 * sx + slot_x,
-                y1 * sy + tgt_canvas_h,
-                x2 * sx + slot_x,
-                y2 * sy + tgt_canvas_h,
-            ], dtype=np.float32))
+            x1, y1, x2, y2 = ref_bbox[:_BOX_COORDINATE_COLUMNS]
+            per_cat_bboxes[cat_id].append(
+                np.array(
+                    [
+                        x1 * sx + slot_x,
+                        y1 * sy + tgt_canvas_h,
+                        x2 * sx + slot_x,
+                        y2 * sy + tgt_canvas_h,
+                    ],
+                    dtype=np.float32,
+                ),
+            )
 
-        canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+        canvas = torch.zeros(channels, canvas_h, canvas_w, dtype=tgt_resized.dtype)
         canvas[:, :tgt_canvas_h, :] = tgt_resized
         canvas[:, tgt_canvas_h:, :] = ref_strip
 
@@ -1127,15 +1626,22 @@ class SAM3(Model):
 
         for cat_id, cat_refs in self._canvas_refs_by_category.items():
             canvas, canvas_bboxes, tgt_region = self._build_category_canvas(
-                cat_refs["images"], tgt_image, cat_refs["bboxes"],
+                cat_refs["images"],
+                tgt_image,
+                cat_refs["bboxes"],
             )
             pred = self._run_canvas_forward(
-                canvas, canvas_bboxes, cat_refs["text"],
+                canvas,
+                canvas_bboxes,
+                cat_refs["text"],
             )
             remapped = self._extract_target_predictions(
-                pred, tgt_region, tgt_h, tgt_w,
+                pred,
+                tgt_region,
+                tgt_h,
+                tgt_w,
             )
-            boxes = remapped.get("pred_boxes", torch.empty(0, 5))
+            boxes = remapped.get("pred_boxes", torch.empty(0, _BOX_COLUMNS_WITH_SCORE))
             if boxes.shape[0] > 0:
                 all_boxes_list.append(boxes)
                 all_masks_list.append(
@@ -1147,10 +1653,13 @@ class SAM3(Model):
 
         if all_boxes_list:
             return self._merge_cross_category(
-                all_boxes_list, all_masks_list, all_labels_list, (tgt_h, tgt_w),
+                all_boxes_list,
+                all_masks_list,
+                all_labels_list,
+                (tgt_h, tgt_w),
             )
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, tgt_h, tgt_w),
             "pred_labels": torch.empty(0, dtype=torch.int64),
         }
@@ -1180,7 +1689,8 @@ class SAM3(Model):
             text_embeds, attention_mask = (None, None)
             if self.canvas_config.cache_text:
                 text_embeds, attention_mask = self._canvas_text_cache.get(
-                    text, (None, None),
+                    text,
+                    (None, None),
                 )
 
             all_masks: list[torch.Tensor] = []
@@ -1188,10 +1698,13 @@ class SAM3(Model):
 
             for bbox in canvas_bboxes:
                 input_boxes, _ = self.prompt_preprocessor(
-                    original_sizes, input_boxes=bbox,
+                    original_sizes,
+                    input_boxes=bbox,
                 )
                 input_boxes_labels = torch.ones(
-                    (1, 1), dtype=torch.long, device=self.device,
+                    (1, 1),
+                    dtype=torch.long,
+                    device=self.device,
                 )
 
                 if text_embeds is not None:
@@ -1213,7 +1726,8 @@ class SAM3(Model):
                     )
 
                 result = self.sam3_postprocessor(
-                    outputs, target_sizes=[canvas_size],
+                    outputs,
+                    target_sizes=[canvas_size],
                 )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
@@ -1228,7 +1742,7 @@ class SAM3(Model):
                 "pred_masks": torch.cat(all_masks, dim=0),
             }
         return {
-            "pred_boxes": torch.empty(0, 5),
+            "pred_boxes": torch.empty(0, _BOX_COLUMNS_WITH_SCORE),
             "pred_masks": torch.empty(0, *canvas_size),
         }
 
@@ -1251,7 +1765,9 @@ class SAM3(Model):
         n_refs = len(cat_images)
         if n_refs == 1:
             canvas, cbbox, tgt_region = self._build_canvas_vertical(
-                cat_images[0], tgt_image, cat_bboxes[0],
+                cat_images[0],
+                tgt_image,
+                cat_bboxes[0],
             )
             return canvas, [cbbox], tgt_region
         return self._build_canvas_multishot(cat_images, tgt_image, cat_bboxes)
@@ -1296,7 +1812,8 @@ class SAM3(Model):
             text_embeds, attention_mask = (None, None)
             if self.canvas_config.cache_text:
                 text_embeds, attention_mask = self._canvas_text_cache.get(
-                    text, (None, None),
+                    text,
+                    (None, None),
                 )
 
             all_masks: list[torch.Tensor] = []
@@ -1304,10 +1821,13 @@ class SAM3(Model):
 
             for bbox in canvas_bboxes:
                 input_boxes, _ = self.prompt_preprocessor(
-                    original_sizes, input_boxes=bbox,
+                    original_sizes,
+                    input_boxes=bbox,
                 )
                 input_boxes_labels = torch.ones(
-                    (1, 1), dtype=torch.long, device=self.device,
+                    (1, 1),
+                    dtype=torch.long,
+                    device=self.device,
                 )
 
                 if text_embeds is not None:
@@ -1330,7 +1850,8 @@ class SAM3(Model):
                     )
 
                 result = self.sam3_postprocessor(
-                    outputs, target_sizes=[img_size],
+                    outputs,
+                    target_sizes=[img_size],
                 )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
@@ -1344,7 +1865,7 @@ class SAM3(Model):
             merged_boxes = torch.cat(all_boxes, dim=0)
             merged_masks = torch.cat(all_masks, dim=0)
         else:
-            merged_boxes = torch.empty(0, 5)
+            merged_boxes = torch.empty(0, _BOX_COLUMNS_WITH_SCORE)
             merged_masks = torch.empty(0, *img_size)
 
         return {
@@ -1389,8 +1910,11 @@ class SAM3(Model):
     ) -> tuple[torch.Tensor, list[np.ndarray], tuple[int, int, int, int]]:
         """Build multi-shot canvas: multiple cropped references in a strip."""
         return build_canvas_multishot(
-            ref_images, tgt_image, ref_bboxes,
-            self.canvas_config.split_ratio, self.canvas_config.crop_padding,
+            ref_images,
+            tgt_image,
+            ref_bboxes,
+            self.canvas_config.split_ratio,
+            self.canvas_config.crop_padding,
         )
 
     @staticmethod
@@ -1402,25 +1926,6 @@ class SAM3(Model):
     ) -> dict[str, torch.Tensor]:
         """Extract predictions from the target region and remap to original coords."""
         return extract_target_predictions(pred, tgt_region, tgt_h, tgt_w)
-
-    @staticmethod
-    def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
-        """Build category name → id mapping from reference samples.
-
-        Args:
-            reference_batch: Batch of reference samples.
-
-        Returns:
-            Mapping from category name to category id.
-        """
-        mapping: dict[str, int] = {}
-        for sample in reference_batch.samples:
-            if sample.categories is None or sample.category_ids is None:
-                continue
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
-                if category not in mapping:
-                    mapping[category] = int(category_id)
-        return mapping
 
     @staticmethod
     def _aggregate_results(
@@ -1452,7 +1957,7 @@ class SAM3(Model):
         else:
             # No predictions found
             aggregated_masks = torch.empty(0, *img_size)
-            aggregated_boxes = torch.empty(0, 5)
+            aggregated_boxes = torch.empty(0, _BOX_COLUMNS_WITH_SCORE)
             aggregated_labels = torch.empty(0, dtype=torch.long)
 
         return {

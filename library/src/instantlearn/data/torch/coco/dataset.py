@@ -12,13 +12,13 @@ from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
 import polars as pl
-import torch
 from pycocotools import mask as mask_utils
 from pycocotools.coco import COCO
 
-from instantlearn.data.base import Dataset
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.torch.base import Dataset
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 
 
 class COCODataset(Dataset):
@@ -69,7 +69,7 @@ class COCODataset(Dataset):
         self.df = self._load_dataframe()
 
     @staticmethod
-    def _decode_single(segmentation: list | dict, h: int, w: int) -> torch.Tensor:
+    def _decode_single(segmentation: list | dict, h: int, w: int) -> np.ndarray:
         """Decode a single COCO segmentation (RLE or polygon) to a binary mask.
 
         Raises:
@@ -84,19 +84,17 @@ class COCODataset(Dataset):
             msg = f"Unknown segmentation format: {type(segmentation)}"
             raise TypeError(msg)
 
-        mask = torch.from_numpy(mask)
-        if mask.ndim > 2:
-            mask = torch.max(mask, dim=-1).values
-        return mask.bool()
+        mask = mask.max(axis=-1) if mask.ndim > 2 else mask
+        return mask.astype(bool)
 
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
         """Decode masks from COCO segmentation format.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            Tensor with shape (N, H, W) or None.
+            Array with shape (N, H, W) and dtype bool, or None.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:
@@ -105,14 +103,14 @@ class COCODataset(Dataset):
         h, w = raw_sample.get("img_dim")
 
         if self.annotation_mode == LVISAnnotationMode.SEMANTIC:
-            category_mask = torch.zeros((h, w), dtype=torch.bool)
+            category_mask = np.zeros((h, w), dtype=bool)
             for segmentation in segmentations:
                 mask = self._decode_single(segmentation, h, w)
                 category_mask = category_mask | mask  # noqa: PLR6104
-            return category_mask.unsqueeze(0)  # (1, H, W)
+            return category_mask[None, ...]  # (1, H, W)
 
         # INSTANCE mode
-        category_masks = torch.zeros((len(segmentations), h, w), dtype=torch.bool)
+        category_masks = np.zeros((len(segmentations), h, w), dtype=bool)
         for idx, segmentation in enumerate(segmentations):
             category_masks[idx] = self._decode_single(segmentation, h, w)
         return category_masks  # (num_instances, H, W)
@@ -142,7 +140,11 @@ class COCODataset(Dataset):
         cat_name_to_id = {cat["name"]: cat["id"] for cat in all_cats}
 
         if self.categories_filter is not None:
-            valid_cat_ids = [cat_name_to_id[c] for c in self.categories_filter if c in cat_name_to_id]
+            missing = sorted(set(self.categories_filter) - set(cat_name_to_id))
+            if missing:
+                msg = f"Requested categories not found in COCO annotations: {missing}"
+                raise ValueError(msg)
+            valid_cat_ids = [cat_name_to_id[c] for c in self.categories_filter]
         else:
             valid_cat_ids = list(cat_name_to_id.values())
 

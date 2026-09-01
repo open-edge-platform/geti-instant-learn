@@ -15,8 +15,14 @@ import pytest
 import torch
 
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.prediction import Prediction
+from instantlearn.data.base.sample import Category, Sample
+from instantlearn.device import DeviceInfo
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
+from instantlearn.models.torch_adapter import CategoryRegistry
+from instantlearn.utils import Backend, PromptType, ShotMode
+from tests import CPU_DEVICE, CUDA_DEVICE
+
 
 def _make_mock_model() -> MagicMock:
     """Create a mock Sam3Model with plausible return values."""
@@ -99,12 +105,15 @@ def _make_mock_prompt_preprocessor() -> MagicMock:
     """Create a mock Sam3PromptPreprocessor."""
     pre = MagicMock()
     pre.to.return_value = pre
-    # Return (normalized_boxes, normalized_points)
     pre.return_value = (
         torch.tensor([[[0.3, 0.3, 0.1, 0.1]]]),  # cxcywh
         torch.tensor([[[0.5, 0.5]]]),  # xy
     )
     return pre
+
+
+def _zero_hwc_image(height: int = 224, width: int = 224) -> np.ndarray:
+    return np.zeros((height, width, 3), dtype=np.uint8)
 
 
 @pytest.fixture
@@ -134,12 +143,54 @@ def _build_sam3(mock_deps: dict[str, Any], prompt_mode: Sam3PromptMode = Sam3Pro
         mock_ppre_cls.return_value = mock_deps["prompt_preprocessor"]
         mock_post_cls.return_value = mock_deps["postprocessor"]
 
-        return SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
-
+        return SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode=prompt_mode)
 
 
 class TestSAM3Initialization:
     """Test SAM3 initialization for both prompt modes."""
+
+    def test_card_advertises_all_prompt_capabilities(self) -> None:
+        """Test SAM3 card exposes text, spatial, and mask prompts."""
+        card = SAM3.card()
+
+        assert card.prompt_types == frozenset({
+            PromptType.TEXT,
+            PromptType.MASK,
+            PromptType.BOUNDING_BOX,
+            PromptType.POINT,
+        })
+        assert card.shot_modes == frozenset({ShotMode.ZERO_SHOT, ShotMode.ONE_SHOT, ShotMode.FEW_SHOT})
+        assert card.exportable_to == frozenset({Backend.OPENVINO, Backend.ONNX})
+
+    @pytest.mark.parametrize(
+        ("device", "expected_precision", "expected_dtype"),
+        [(CPU_DEVICE, "fp32", torch.float32), (CUDA_DEVICE, "fp16", torch.float16)],
+    )
+    def test_default_precision_matches_device(
+        self,
+        mock_sam3_deps: dict[str, Any],
+        device: DeviceInfo,
+        expected_precision: str,
+        expected_dtype: torch.dtype,
+    ) -> None:
+        """Test default precision avoids fp16 on CPU and keeps fp16 on GPU."""
+        with (
+            patch("instantlearn.models.sam3.sam3.Sam3Model") as mock_model_cls,
+            patch("instantlearn.models.sam3.sam3.CLIPTokenizerFast") as mock_tok_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3Preprocessor") as mock_pre_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3PromptPreprocessor") as mock_ppre_cls,
+            patch("instantlearn.models.sam3.sam3.Sam3Postprocessor") as mock_post_cls,
+        ):
+            mock_model_cls.from_pretrained.return_value = mock_sam3_deps["model"]
+            mock_tok_cls.from_pretrained.return_value = mock_sam3_deps["tokenizer"]
+            mock_pre_cls.return_value = mock_sam3_deps["preprocessor"]
+            mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
+            mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
+
+            model = SAM3(device=device)
+
+        assert model.precision == expected_precision
+        assert mock_model_cls.from_pretrained.call_args.kwargs["torch_dtype"] is expected_dtype
 
     @pytest.mark.parametrize("prompt_mode", [Sam3PromptMode.CLASSIC, Sam3PromptMode.VISUAL_EXEMPLAR])
     def test_initialization(self, mock_sam3_deps: dict[str, Any], prompt_mode: Sam3PromptMode) -> None:
@@ -169,7 +220,7 @@ class TestSAM3Initialization:
             mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
             mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
 
-            model = SAM3(device="cpu", precision="fp32", prompt_mode="visual_exemplar")
+            model = SAM3(device=CPU_DEVICE, precision="fp32", prompt_mode="visual_exemplar")
 
         assert model.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR
 
@@ -188,7 +239,7 @@ class TestSAM3Initialization:
             mock_ppre_cls.return_value = mock_sam3_deps["prompt_preprocessor"]
             mock_post_cls.return_value = mock_sam3_deps["postprocessor"]
 
-            model = SAM3(device="cpu", precision="fp32")
+            model = SAM3(device=CPU_DEVICE, precision="fp32")
 
         assert model.prompt_mode == Sam3PromptMode.CLASSIC
 
@@ -210,83 +261,88 @@ class TestSAM3Classic:
         """Test fit() in classic mode stores category mapping."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe", "bag"], category_ids=[0, 1])
+        ref = Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")])
         model.fit(ref)
 
-        assert model.category_mapping is not None
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.categories is not None
+        assert model.categories.name_to_id == {"shoe": 0, "bag": 1}
 
     def test_fit_multiple_samples(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() merges categories across samples."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
         refs = [
-            Sample(categories=["shoe"], category_ids=[0]),
-            Sample(categories=["bag"], category_ids=[1]),
+            Sample(categories=[Category(id=0, label="shoe")]),
+            Sample(categories=[Category(id=1, label="bag")]),
         ]
         model.fit(refs)
 
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.categories.name_to_id == {"shoe": 0, "bag": 1}
 
     def test_predict_returns_correct_structure(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() in classic mode returns expected keys and shapes."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
-        assert "pred_masks" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
-        assert isinstance(predictions[0]["pred_masks"], torch.Tensor)
+        prediction = predictions[0]
+        assert isinstance(prediction, Prediction)
+        assert isinstance(prediction.masks, np.ndarray)
+        assert isinstance(prediction.scores, np.ndarray)
+        assert isinstance(prediction.label_ids, np.ndarray)
+        assert isinstance(prediction.label_names, np.ndarray)
+        assert isinstance(prediction.boxes, np.ndarray)
 
     def test_predict_mask_spatial_shape(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test that masks match target image spatial dims."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
-        masks = predictions[0]["pred_masks"]
-        if masks.numel() > 0:
+        masks = predictions[0].masks
+        if masks.size > 0:
             assert masks.shape[-2:] == (224, 224)
 
     def test_predict_multiple_targets(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() with multiple target images."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=[Category(id=0, label="shoe")])
         model.fit(ref)
 
         targets = [
-            Sample(image=torch.zeros(3, 224, 224)),
-            Sample(image=torch.zeros(3, 320, 320)),
+            Sample(image=_zero_hwc_image(224, 224)),
+            Sample(image=_zero_hwc_image(320, 320)),
         ]
         predictions = model.predict(targets)
 
         assert len(predictions) == 2
         for pred in predictions:
-            assert "pred_masks" in pred
-            assert "pred_boxes" in pred
-            assert "pred_labels" in pred
+            assert isinstance(pred, Prediction)
+            assert isinstance(pred.masks, np.ndarray)
+            assert isinstance(pred.scores, np.ndarray)
+            assert isinstance(pred.label_ids, np.ndarray)
+            assert isinstance(pred.label_names, np.ndarray)
+            assert isinstance(pred.boxes, np.ndarray)
 
     def test_predict_with_bbox_prompts(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test classic predict with bounding box prompts on target."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
         target = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=[0],
+            categories=[Category(id=0, label="shoe")],
         )
         predictions = model.predict(target)
 
@@ -307,10 +363,9 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -326,10 +381,25 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             points=np.array([[100, 100]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
+        )
+        model.fit(ref)
+
+        assert model.exemplar_geometry_features is not None
+        assert model.exemplar_category_ids is not None
+
+    def test_fit_with_masks(self, mock_sam3_deps: dict[str, Any]) -> None:
+        """Test fit() in visual mode with mask prompts."""
+        model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
+
+        masks = np.zeros((1, 224, 224), dtype=bool)
+        masks[0, 50:150, 60:160] = True
+        ref = Sample(
+            image=_zero_hwc_image(224, 224),
+            masks=masks,
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
@@ -337,16 +407,15 @@ class TestSAM3VisualExemplar:
         assert model.exemplar_category_ids is not None
 
     def test_fit_raises_without_prompts(self, mock_sam3_deps: dict[str, Any]) -> None:
-        """Test fit() raises ValueError without bboxes or points."""
+        """Test fit() raises ValueError without bboxes, masks or points."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
-            categories=["shoe"],
-            category_ids=[0],
+            image=_zero_hwc_image(224, 224),
+            categories=[Category(id=0, label="shoe")],
         )
 
-        with pytest.raises(ValueError, match="bboxes or points"):
+        with pytest.raises(ValueError, match="bboxes, masks or points"):
             model.fit(ref)
 
     def test_fit_raises_without_image(self, mock_sam3_deps: dict[str, Any]) -> None:
@@ -355,8 +424,7 @@ class TestSAM3VisualExemplar:
 
         ref = Sample(
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
 
         with pytest.raises(ValueError, match="images"):
@@ -367,15 +435,14 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
-        assert model.category_mapping is not None
-        assert "shoe" in model.category_mapping
+        assert model.categories is not None
+        assert "shoe" in model.categories.name_to_id
 
     def test_fit_multi_category(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() with multiple categories across samples."""
@@ -383,16 +450,14 @@ class TestSAM3VisualExemplar:
 
         refs = [
             Sample(
-                image=torch.zeros(3, 224, 224),
+                image=_zero_hwc_image(224, 224),
                 bboxes=np.array([[10, 10, 50, 50]]),
-                categories=["shoe"],
-                category_ids=np.array([0]),
+                categories=[Category(id=0, label="shoe")],
             ),
             Sample(
-                image=torch.zeros(3, 224, 224),
+                image=_zero_hwc_image(224, 224),
                 bboxes=np.array([[60, 60, 100, 100]]),
-                categories=["bag"],
-                category_ids=np.array([1]),
+                categories=[Category(id=1, label="bag")],
             ),
         ]
         model.fit(refs)
@@ -405,27 +470,30 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
         predictions = model.predict(target)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
-        assert "pred_masks" in predictions[0]
-        assert "pred_boxes" in predictions[0]
-        assert "pred_labels" in predictions[0]
+        prediction = predictions[0]
+        assert isinstance(prediction, Prediction)
+        assert isinstance(prediction.masks, np.ndarray)
+        assert isinstance(prediction.scores, np.ndarray)
+        assert isinstance(prediction.label_ids, np.ndarray)
+        assert isinstance(prediction.label_names, np.ndarray)
+        assert isinstance(prediction.boxes, np.ndarray)
 
     def test_predict_raises_without_fit(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() raises RuntimeError before fit() is called."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
-        target = Sample(image=torch.zeros(3, 224, 224))
+        target = Sample(image=_zero_hwc_image(224, 224))
 
         with pytest.raises(RuntimeError, match="fit"):
             model.predict(target)
@@ -435,16 +503,15 @@ class TestSAM3VisualExemplar:
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
 
         ref = Sample(
-            image=torch.zeros(3, 224, 224),
+            image=_zero_hwc_image(224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
-            categories=["shoe"],
-            category_ids=np.array([0]),
+            categories=[Category(id=0, label="shoe")],
         )
         model.fit(ref)
 
         targets = [
-            Sample(image=torch.zeros(3, 224, 224)),
-            Sample(image=torch.zeros(3, 320, 320)),
+            Sample(image=_zero_hwc_image(224, 224)),
+            Sample(image=_zero_hwc_image(320, 320)),
         ]
         predictions = model.predict(targets)
 
@@ -460,28 +527,27 @@ class TestSAM3Utilities:
     """Test SAM3 static utility methods."""
 
     def test_build_category_mapping(self) -> None:
-        """Test _build_category_mapping builds correct mapping."""
+        """Test CategoryRegistry builds correct name->id mapping."""
         samples = [
-            Sample(categories=["shoe", "bag"], category_ids=[0, 1]),
-            Sample(categories=["hat"], category_ids=[2]),
+            Sample(categories=[Category(id=0, label="shoe"), Category(id=1, label="bag")]),
+            Sample(categories=[Category(id=2, label="hat")]),
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)
+        mapping = CategoryRegistry.from_samples(batch).name_to_id
 
         assert mapping == {"shoe": 0, "bag": 1, "hat": 2}
 
-    def test_build_category_mapping_no_duplicates(self) -> None:
-        """Test _build_category_mapping keeps first occurrence."""
+    def test_build_category_mapping_no_duplicate_names(self) -> None:
+        """Test CategoryRegistry rejects duplicate names with different ids."""
         samples = [
-            Sample(categories=["shoe"], category_ids=[0]),
-            Sample(categories=["shoe"], category_ids=[5]),
+            Sample(categories=[Category(id=0, label="shoe")]),
+            Sample(categories=[Category(id=5, label="shoe")]),
         ]
         batch = Batch.collate(samples)
 
-        mapping = SAM3._build_category_mapping(batch)
-
-        assert mapping == {"shoe": 0}
+        with pytest.raises(ValueError, match="Category name 'shoe' is assigned to multiple ids"):
+            CategoryRegistry.from_samples(batch)
 
     def test_aggregate_results_with_detections(self) -> None:
         """Test _aggregate_results concatenates non-empty results."""
@@ -489,7 +555,7 @@ class TestSAM3Utilities:
         boxes = [torch.rand(2, 5), torch.rand(1, 5)]
         labels = [torch.tensor([0, 0]), torch.tensor([1])]
 
-        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))
+        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))  # noqa: SLF001
 
         assert result["pred_masks"].shape == (3, 64, 64)
         assert result["pred_boxes"].shape == (3, 5)
@@ -501,7 +567,7 @@ class TestSAM3Utilities:
         boxes: list[torch.Tensor] = [torch.empty(0, 5)]
         labels: list[torch.Tensor] = [torch.empty(0, dtype=torch.long)]
 
-        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))
+        result = SAM3._aggregate_results(masks, boxes, labels, (64, 64))  # noqa: SLF001
 
         assert result["pred_masks"].shape == (0, 64, 64)
         assert result["pred_boxes"].shape == (0, 5)
@@ -531,5 +597,5 @@ class TestSam3PromptMode:
 
     def test_invalid_string_raises(self) -> None:
         """Test invalid string raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="invalid_mode"):
             Sam3PromptMode("invalid_mode")

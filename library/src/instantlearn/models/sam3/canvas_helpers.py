@@ -17,36 +17,65 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torchvision.ops import nms as torchvision_nms
 
+from instantlearn.components.sam.decoder import masks_to_boxes_traceable
+from instantlearn.models.torch_adapter import CategoryRegistry
+
 if TYPE_CHECKING:
-    from instantlearn.data.base.sample import Sample
+    from instantlearn.models.torch_adapter import TensorSample
+
+
+def reference_bboxes(sample: TensorSample) -> torch.Tensor | None:
+    """Return the sample's box prompts, deriving them from masks if needed.
+
+    SAM3 prompts on boxes, so a mask is accepted as a box prompt by taking its
+    tight bounding box. Explicit ``bboxes`` win when both are present.
+
+    Args:
+        sample: Reference sample carrying ``bboxes`` and/or ``masks``.
+
+    Returns:
+        Boxes of shape ``(N, 4)`` in xyxy format, or ``None`` if the sample
+        carries neither box nor mask prompts.
+    """
+    if sample.bboxes is not None and len(sample.bboxes) > 0:
+        return sample.bboxes
+    if sample.masks is not None and len(sample.masks) > 0:
+        return masks_to_boxes_traceable(sample.masks.bool())
+    return None
 
 
 def group_references_by_category(
-    samples: list[Sample],
+    samples: list[TensorSample],
 ) -> dict[int, dict]:
     """Group reference samples by category id for canvas mode.
 
-    Samples without bounding boxes are silently skipped.
+    Box prompts are taken from ``bboxes``, falling back to the tight bounding
+    box of ``masks``. Samples carrying neither are silently skipped.
 
     Args:
-        samples: Reference samples with images, bboxes, categories.
+        samples: Reference samples with images, bboxes or masks, categories.
 
     Returns:
         ``{cat_id: {"images": [Tensor], "bboxes": [ndarray], "text": str}}``
 
     Raises:
-        ValueError: If no sample contains bboxes.
+        ValueError: If no sample contains box or mask prompts.
     """
     refs_by_category: dict[int, dict] = {}
 
     for sample in samples:
-        if sample.bboxes is None or len(sample.bboxes) == 0:
+        bboxes = reference_bboxes(sample)
+        if bboxes is None:
             continue
-        bbox = np.asarray(sample.bboxes[0][:4], dtype=np.float32)
-        cat_id = int(sample.category_ids[0]) if sample.category_ids is not None else 0
+        bbox_value = bboxes[0][:4]
+        if isinstance(bbox_value, torch.Tensor):
+            bbox_value = bbox_value.detach().cpu().numpy()
+        bbox = np.asarray(bbox_value, dtype=np.float32)
+        label_ids = sample.label_ids.detach().cpu().tolist() if sample.label_ids is not None else []
+        cat_id = int(label_ids[0]) if label_ids else 0
         cat_text = (
-            sample.categories[0]
-            if sample.categories and sample.categories[0] != "visual"
+            sample.category_labels[0]
+            if sample.category_labels and sample.category_labels[0] != "visual"
             else "visual"
         )
 
@@ -58,10 +87,20 @@ def group_references_by_category(
             refs_by_category[cat_id]["text"] = cat_text
 
     if not refs_by_category:
-        msg = "CANVAS mode requires at least one reference sample with bboxes."
+        msg = "CANVAS mode requires at least one reference sample with bboxes or masks."
         raise ValueError(msg)
 
     return refs_by_category
+
+
+def category_registry_from_canvas_references(refs_by_category: dict[int, dict]) -> CategoryRegistry:
+    """Build prediction label metadata for grouped canvas references."""
+    visual_count = sum(1 for cat_refs in refs_by_category.values() if cat_refs.get("text") == "visual")
+    id_to_name = {
+        cat_id: f"visual_{cat_id}" if cat_refs.get("text") == "visual" and visual_count > 1 else cat_refs["text"]
+        for cat_id, cat_refs in refs_by_category.items()
+    }
+    return CategoryRegistry.from_metadata(id_to_name)
 
 
 def build_canvas_shared_grouped(
@@ -90,7 +129,7 @@ def build_canvas_shared_grouped(
     Raises:
         ValueError: If the canvas is too narrow for the number of category slots.
     """
-    C = tgt_image.shape[0]
+    channels = tgt_image.shape[0]
     canvas_w = tgt_image.shape[2]
     for cat_refs in refs_by_category.values():
         for img in cat_refs["images"]:
@@ -118,7 +157,7 @@ def build_canvas_shared_grouped(
         raise ValueError(msg)
     slot_w = canvas_w // n_slots
 
-    ref_strip = torch.zeros(C, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
+    ref_strip = torch.zeros(channels, ref_strip_h, canvas_w, dtype=tgt_resized.dtype)
     per_cat_bboxes: dict[int, list[np.ndarray]] = {}
 
     for cat_idx, (cat_id, cat_refs) in enumerate(cat_items):
@@ -158,7 +197,7 @@ def build_canvas_shared_grouped(
 
         per_cat_bboxes[cat_id] = cat_bboxes_list
 
-    canvas = torch.zeros(C, canvas_h, canvas_w, dtype=tgt_resized.dtype)
+    canvas = torch.zeros(channels, canvas_h, canvas_w, dtype=tgt_resized.dtype)
     canvas[:, :tgt_canvas_h, :] = tgt_resized
     canvas[:, tgt_canvas_h:, :] = ref_strip
 

@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import polars as pl
 import pytest
-import torch
 from pycocotools import mask as mask_utils
 
-from instantlearn.data.base import Batch, Dataset, Sample
-from instantlearn.data.coco import COCODataset
-from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.data.base import Batch, Sample
+from instantlearn.data.torch import Dataset
+from instantlearn.data.torch.coco import COCODataset
+from instantlearn.data.torch.lvis import LVISAnnotationMode
 
 
 class TestCOCODatasetMock:
@@ -89,7 +89,7 @@ class TestCOCODatasetMock:
         dog_ref = mock_coco_dataset.get_reference_samples_df(category="dog")
         assert len(dog_ref) == 1
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_sample_creation(self, mock_read_image: MagicMock, mock_coco_dataset: Dataset) -> None:
         """Samples are created with correct structure."""
         mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -97,11 +97,11 @@ class TestCOCODatasetMock:
         sample = mock_coco_dataset[0]
         assert isinstance(sample, Sample)
         assert len(sample.categories) == 1
-        assert sample.categories == ["cat"]
+        assert sample.category_labels == ["cat"]
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_sample_metadata(self, mock_read_image: MagicMock, mock_coco_dataset: Dataset) -> None:
         """Sample metadata fields are correct."""
         mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -110,7 +110,7 @@ class TestCOCODatasetMock:
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_batch_creation(self, mock_read_image: MagicMock, mock_coco_dataset: Dataset) -> None:
         """Batch collation preserves multi-sample structure."""
         mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -123,14 +123,14 @@ class TestCOCODatasetMock:
         assert len(batch.categories) == 4
         assert len(batch.images) == 4
 
-    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.torch.base.read_image")
     def test_data_consistency(self, mock_read_image: MagicMock, mock_coco_dataset: Dataset) -> None:
         """All samples have consistent metadata lengths."""
         mock_read_image.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
 
         for i in range(len(mock_coco_dataset)):
             sample = mock_coco_dataset[i]
-            assert len(sample.categories) == len(sample.category_ids)
+            assert len(sample.categories) == len(sample.label_ids)
             assert len(sample.categories) == len(sample.is_reference)
             assert len(sample.categories) == len(sample.n_shot)
 
@@ -142,8 +142,8 @@ class TestCOCODatasetMaskDecoding:
         """Polygon segmentation decodes to a binary mask."""
         polygon = [[10, 10, 90, 10, 90, 90, 10, 90]]
         mask = COCODataset._decode_single(polygon, h=100, w=100)  # noqa: SLF001
-        assert isinstance(mask, torch.Tensor)
-        assert mask.dtype == torch.bool
+        assert isinstance(mask, np.ndarray)
+        assert mask.dtype == bool
         assert mask.shape == (100, 100)
         assert mask.any()
 
@@ -153,8 +153,8 @@ class TestCOCODatasetMaskDecoding:
         rle = mask_utils.frPyObjects([[10, 10, 90, 10, 90, 90, 10, 90]], 100, 100)
         merged_rle = mask_utils.merge(rle)
         mask = COCODataset._decode_single(merged_rle, h=100, w=100)  # noqa: SLF001
-        assert isinstance(mask, torch.Tensor)
-        assert mask.dtype == torch.bool
+        assert isinstance(mask, np.ndarray)
+        assert mask.dtype == bool
         assert mask.shape == (100, 100)
         assert mask.any()
 

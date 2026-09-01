@@ -11,10 +11,8 @@ from uuid import UUID
 import cv2
 import numpy as np
 from instantlearn.data.base.batch import Batch
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import Category, Sample
 from sqlalchemy.orm import Session, sessionmaker
-from torch import from_numpy
-from torchvision import tv_tensors
 
 from domain.db.models import PromptDB, PromptType
 from domain.errors import ServiceError
@@ -61,7 +59,8 @@ class ReferenceBatchService:
         models_metadata = self._supported_model_repo.get_by_model_type(model_type)
         supported_prompt_types = set(models_metadata.supported_prompt_types) if models_metadata else set()
         needs_bboxes = SupportedPromptType.VISUAL_BOUNDING_BOX in supported_prompt_types
-        use_label_names = needs_bboxes and get_settings().sam3_hybrid_mode
+        sam3_without_hybrid_mode = model_type == ModelType.SAM3 and not get_settings().sam3_hybrid_mode
+        use_label_names = not sam3_without_hybrid_mode
         return self._build_visual_batch(
             project_id=config.project_id, output_bboxes=needs_bboxes, use_label_names=use_label_names
         )
@@ -94,8 +93,10 @@ class ReferenceBatchService:
             logger.info("No valid text prompts found: project_id=%s", project_id)
             return None
 
-        category_ids = list(range(len(categories)))
-        sample = Sample(categories=categories, category_ids=category_ids, is_reference=[True] * len(categories))
+        sample = Sample(
+            categories=[Category(id=idx, label=label) for idx, label in enumerate(categories)],
+            is_reference=[True] * len(categories),
+        )
         batch = Batch.collate([sample])
         category_id_to_text = dict(enumerate(categories))
 
@@ -115,8 +116,10 @@ class ReferenceBatchService:
         Args:
             project_id: Project to build the batch for.
             output_bboxes: Produce bboxes instead of masks.
-            use_label_names: Pass real label names to samples; when False, ``"visual"``
-                placeholder is used instead.
+            use_label_names: Pass real label names to samples; when ``False``, the
+                ``"visual"`` sentinel is used instead so that SAM3 canvas helpers
+                recognise it as "no real category name" and do not forward it to
+                the text encoder.
 
         Returns:
             (Batch, category_id → label_id mapping) or None if no valid samples.
@@ -239,9 +242,7 @@ class ReferenceBatchService:
                 "Cannot create training sample: visual prompt must have at least one polygon annotation."
             )
 
-        # Convert frame: HWC numpy → CHW tensor
-        frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
-        height, width = frame_chw.shape[-2:]
+        height, width = frame.shape[:2]
 
         # Group annotations by label_id
         label_groups: dict[UUID, list[Any]] = {}
@@ -255,8 +256,7 @@ class ReferenceBatchService:
 
         all_masks: list[np.ndarray] = []
         all_bboxes: list[list[float]] = []
-        categories: list[str] = []
-        category_ids: list[int] = []
+        categories: list[Category] = []
         is_reference: list[bool] = []
 
         for label_id, polygons in sorted(label_groups.items(), key=lambda x: str(x[0])):
@@ -264,23 +264,20 @@ class ReferenceBatchService:
                 continue
 
             category_id = label_to_category_id[label_id]
-            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else "object"
+            category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else "visual"
 
             if output_bboxes:
                 for polygon in polygons:
                     xs = [pt.x for pt in polygon.points]
                     ys = [pt.y for pt in polygon.points]
                     all_bboxes.append([min(xs), min(ys), max(xs), max(ys)])
-                    if category_name is not None:
-                        categories.append(category_name)
-                    category_ids.append(category_id)
+                    categories.append(Category(id=category_id, label=category_name))
                     is_reference.append(True)
             else:
                 instance_masks = polygons_to_masks(polygons, height, width)
                 semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)
                 all_masks.append(semantic_mask)
-                categories.append(category_name)
-                category_ids.append(category_id)
+                categories.append(Category(id=category_id, label=category_name))
                 is_reference.append(True)
 
         has_annotations = all_bboxes if output_bboxes else all_masks
@@ -288,10 +285,9 @@ class ReferenceBatchService:
             raise ServiceError(f"No valid annotations for prompt {prompt.id}")
 
         return Sample(
-            image=frame_chw,
+            image=frame,
             masks=np.stack(all_masks, axis=0) if all_masks else None,
             bboxes=np.array(all_bboxes, dtype=np.float32) if all_bboxes else None,
-            category_ids=np.array(category_ids, dtype=np.int32),
             categories=categories,
             is_reference=is_reference,
             image_path=str(prompt.frame_id),
