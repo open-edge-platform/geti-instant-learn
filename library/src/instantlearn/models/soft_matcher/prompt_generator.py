@@ -34,6 +34,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         approximate_matching: Whether to use RFF to approximate the similarity map.
         softmatching_score_threshold: Threshold for selecting points based on normalized scores.
         softmatching_bidirectional: Whether to use bidirectional soft matching.
+        num_grid_cells: Grid cells per dimension for spatial diversity filtering (inherited
+            from :class:`BidirectionalPromptGenerator`). When > 0, foreground points are
+            deduplicated per grid cell before top-k selection, preventing point clustering
+            on large objects. Set to 0 to disable. Default: 8.
 
     Examples:
         >>> import torch
@@ -90,6 +94,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
+        num_grid_cells: int = 8,
     ) -> None:
         """Initialize the SoftmatcherPromptGenerator."""
         super().__init__(
@@ -98,6 +103,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             encoder_feature_size=encoder_feature_size,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
+            num_grid_cells=num_grid_cells,
         )
         self.use_sampling = use_sampling
         self.use_spatial_sampling = use_spatial_sampling

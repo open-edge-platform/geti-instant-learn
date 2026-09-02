@@ -75,6 +75,7 @@ class SoftMatcher(Matcher):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
+        num_grid_cells: int = 8,
         encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -95,6 +96,10 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
+            num_grid_cells: Grid cells per dimension for spatial diversity filtering of
+                foreground points. Prevents point clustering on large objects. Set to 0
+                to disable. Default: 8 (matches the mechanism already used by
+                :class:`~instantlearn.models.matcher.Matcher`).
             encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -130,6 +135,7 @@ class SoftMatcher(Matcher):
             approximate_matching=approximate_matching,
             softmatching_score_threshold=softmatching_score_threshold,
             softmatching_bidirectional=softmatching_bidirectional,
+            num_grid_cells=num_grid_cells,
         )
 
     @classmethod
