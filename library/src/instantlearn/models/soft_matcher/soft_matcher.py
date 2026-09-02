@@ -80,7 +80,7 @@ class SoftMatcher(Matcher):
         compile_models: bool = False,
         device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
-        num_export_instances: int = 8,
+        max_instances_when_exported: int | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -102,9 +102,10 @@ class SoftMatcher(Matcher):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
-            num_export_instances: Maximum instances per category the **exported**
+            max_instances_when_exported: Maximum instances per category the **exported**
                 (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
-                Only affects export; the PyTorch path is unbounded. Default: 8.
+                Only affects export; the PyTorch path is unbounded. Defaults to ``None``,
+                which resolves to 8 (see :class:`~instantlearn.models.matcher.Matcher`).
         """
         super().__init__(
             sam=sam,
@@ -116,7 +117,7 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             device=device,
             postprocessor=postprocessor,
-            num_export_instances=num_export_instances,
+            max_instances_when_exported=max_instances_when_exported,
         )
         self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,

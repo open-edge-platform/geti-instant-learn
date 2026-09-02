@@ -69,7 +69,7 @@ class SamDecoder(nn.Module):
             this are downscaled (preserving aspect ratio) before SAM, then masks are
             upscaled back. SAM works internally at 1024x1024, so larger images just
             increase mask memory without improving quality. Default: 1024.
-        num_export_instances: Number of instance slots per category in the **export**
+        max_instances_when_exported: Number of instance slots per category in the **export**
             graph. Each slot runs one foreground point through the SAM decoder, so
             this is the maximum number of instances the exported model can detect per
             category. Decoder cost scales linearly with this value. Foreground points
@@ -87,7 +87,7 @@ class SamDecoder(nn.Module):
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
         max_image_side: int = 1024,
-        num_export_instances: int = 8,
+        max_instances_when_exported: int = 8,
         num_background_points: int = 2,
     ) -> None:
         """Initialize the traceable SAM decoder."""
@@ -97,7 +97,7 @@ class SamDecoder(nn.Module):
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
         self.max_image_side = max_image_side
-        self.num_export_instances = num_export_instances
+        self.max_instances_when_exported = max_instances_when_exported
         self.num_background_points = num_background_points
         self.device = sam_predictor.device
 
@@ -206,7 +206,7 @@ class SamDecoder(nn.Module):
         Mirrors the PyTorch runtime path, which pairs *each* foreground point with all
         background points so SAM segments one object per prompt set.  The export graph
         cannot use boolean indexing to collect foreground points (the count is
-        data-dependent), so it selects a fixed ``num_export_instances`` of them with
+        data-dependent), so it selects a fixed ``max_instances_when_exported`` of them with
         farthest-point sampling instead.
 
         Foreground points arrive sorted by score, which clusters them on whichever
@@ -226,7 +226,7 @@ class SamDecoder(nn.Module):
                     0.0 for slots that ran out of points (their scores get zeroed).
         """
         device = points.device
-        k = self.num_export_instances
+        k = self.max_instances_when_exported
         labels_col = points[:, 3]
         coords = points[:, :2]
 
@@ -770,7 +770,7 @@ class SamDecoder(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Export-friendly forward for single image returning flat tensors.
 
-        Produces ``K = num_export_instances`` mask slots per category, each decoded
+        Produces ``K = max_instances_when_exported`` mask slots per category, each decoded
         from its own foreground point, giving true **instance** segmentation in the
         exported graph.  Slots that ran out of foreground points, or that fall below
         ``confidence_threshold``, carry a score of 0 and are removed by the
@@ -801,7 +801,7 @@ class SamDecoder(nn.Module):
         self.predictor.set_image(image)
 
         num_categories = category_ids.shape[0]
-        k = self.num_export_instances
+        k = self.max_instances_when_exported
 
         masks_per_category: list[torch.Tensor] = []
         scores_per_category: list[torch.Tensor] = []

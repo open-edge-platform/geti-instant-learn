@@ -381,7 +381,7 @@ class TestSamDecoderExportPrompts:
     @pytest.fixture
     def sam_decoder(self) -> SamDecoder:
         """Create a SamDecoder with a stub predictor (unused by these tests)."""
-        return SamDecoder(sam_predictor=MagicMock(), num_export_instances=4, num_background_points=2)
+        return SamDecoder(sam_predictor=MagicMock(), max_instances_when_exported=4, num_background_points=2)
 
     @staticmethod
     def _points(foreground: list[tuple[float, float]], background: int = 2) -> torch.Tensor:

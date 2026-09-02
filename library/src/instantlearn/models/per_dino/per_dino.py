@@ -42,6 +42,12 @@ from .prompt_generators import GridPromptGenerator
 
 logger = logging.getLogger(__name__)
 
+# Default instance-slot budget for the exported (ONNX/OpenVINO) graph, used when
+# ``max_instances_when_exported`` is left as ``None``. PerDino always runs its
+# similarity-based point selection (unlike Matcher's optional small-object mode),
+# so there is no separate "small object" budget here.
+_DEFAULT_MAX_INSTANCES_WHEN_EXPORTED = 8
+
 
 class PerDinoInferenceGraph(nn.Module):
     """Traceable PerDino inference graph with frozen reference features for ONNX export.
@@ -172,7 +178,7 @@ class PerDino(TorchModel):
         compile_models: bool = False,
         device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
-        num_export_instances: int = 8,
+        max_instances_when_exported: int | None = None,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -196,12 +202,15 @@ class PerDino(TorchModel):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
-            num_export_instances: Maximum instances per category the **exported**
+            max_instances_when_exported: Maximum instances per category the **exported**
                 (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
-                Only affects export; the PyTorch path is unbounded. Default: 8.
+                Only affects export; the PyTorch path is unbounded. Defaults to ``None``,
+                which resolves to 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
+        if max_instances_when_exported is None:
+            max_instances_when_exported = _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED
         super().__init__(device=device, precision=precision, postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
@@ -238,7 +247,7 @@ class PerDino(TorchModel):
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
-            num_export_instances=num_export_instances,
+            max_instances_when_exported=max_instances_when_exported,
             num_background_points=num_background_points,
         )
 
@@ -381,7 +390,7 @@ class PerDino(TorchModel):
                 sam_predictor=fallback_predictor,
                 confidence_threshold=self.segmenter.confidence_threshold,
                 use_mask_refinement=self.segmenter.use_mask_refinement,
-                num_export_instances=self.segmenter.num_export_instances,
+                max_instances_when_exported=self.segmenter.max_instances_when_exported,
                 num_background_points=self.segmenter.num_background_points,
             )
 
