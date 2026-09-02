@@ -3,6 +3,7 @@
 
 """Masked Feature Extractor module."""
 
+import logging
 from collections import defaultdict
 
 import torch
@@ -11,6 +12,8 @@ from torchvision import transforms
 
 from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
 from instantlearn.data.torch.transforms import ToTensor
+
+logger = logging.getLogger(__name__)
 
 
 class MaskedFeatureExtractor(nn.Module):
@@ -135,10 +138,23 @@ class MaskedFeatureExtractor(nn.Module):
                 averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
             else:
                 # No mask pixels overlapped any encoder patches (mask too small
-                # or misaligned at patch-grid resolution). Return an empty tensor
-                # so the shape reflects zero masked embeddings.
+                # or misaligned at patch-grid resolution). Return a zero vector
+                # shaped [1, embed_dim] so that torch.stack across categories
+                # succeeds regardless of which categories have coverage.
+                # The zero embedding produces near-zero similarity scores during
+                # matching, so this category will generate no detections —
+                # a graceful degradation rather than a crash.
+                logger.warning(
+                    "Category id=%d: annotation mask covers zero encoder patch cells "
+                    "after downsampling to the %dx%d patch grid. "
+                    "The polygon may be too small relative to the image size. "
+                    "A zero embedding will be used; this category will not be detected.",
+                    cat_id,
+                    int(self.input_size // self.patch_size),
+                    int(self.input_size // self.patch_size),
+                )
                 averaged_embed = torch.zeros(
-                    0,
+                    1,
                     cat_masked_embeds.shape[-1],
                     device=cat_masked_embeds.device,
                     dtype=cat_masked_embeds.dtype,
@@ -166,9 +182,41 @@ class MaskedFeatureExtractor(nn.Module):
             ref_embeddings_list.append(ref_embed)
             flatten_ref_masks_list.append(flatten_mask)
 
+        self._validate_masked_embeddings(masked_ref_embeddings_list, unique_cats)
+
         return ReferenceFeatures(
             ref_embeddings=torch.stack(ref_embeddings_list, dim=0),
             masked_ref_embeddings=torch.stack(masked_ref_embeddings_list, dim=0),
             flatten_ref_masks=torch.stack(flatten_ref_masks_list, dim=0),
             category_ids=unique_cats,
         )
+
+    @staticmethod
+    def _validate_masked_embeddings(
+        masked_ref_embeddings_list: list[torch.Tensor],
+        unique_cats: list[int],
+    ) -> None:
+        """Fail-fast invariant for the multi-category ``torch.stack`` contract.
+
+        Every category must contribute a ``[1, embed_dim]`` masked embedding (a real
+        average or the zero-coverage fallback).
+
+        Args:
+            masked_ref_embeddings_list: Per-category masked embeddings to be stacked.
+            unique_cats: Category IDs aligned with ``masked_ref_embeddings_list``.
+
+        Raises:
+            ValueError: If the list is empty or any entry is not shaped ``[1, embed_dim]``.
+        """
+        if not masked_ref_embeddings_list:
+            msg = "No categories produced masked reference embeddings; the reference batch is empty."
+            raise ValueError(msg)
+        for cat_id, entry in zip(unique_cats, masked_ref_embeddings_list, strict=True):
+            if entry.dim() != 2 or entry.shape[0] != 1:
+                msg = (
+                    f"Category id={cat_id}: masked reference embedding must be shaped [1, embed_dim], "
+                    f"but got {list(entry.shape)}. Zero-coverage categories are expected to fall back to a "
+                    "zero-filled [1, embed_dim] row in MaskedFeatureExtractor; a different shape indicates a "
+                    "regression in the per-category aggregation."
+                )
+                raise ValueError(msg)
