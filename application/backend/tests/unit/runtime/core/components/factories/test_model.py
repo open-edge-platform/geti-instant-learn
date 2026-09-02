@@ -288,6 +288,7 @@ class TestModelFactory:
             approximate_matching=True,
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
+            num_grid_cells=4,
             precision="bf16",
         )
 
@@ -306,6 +307,7 @@ class TestModelFactory:
             approximate_matching=True,
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
+            num_grid_cells=4,
             precision="bf16",
             device=_cuda(),
         )
