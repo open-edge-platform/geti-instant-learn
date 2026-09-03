@@ -96,10 +96,8 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
-            num_grid_cells: Grid cells per dimension for spatial diversity filtering of
-                foreground points. Prevents point clustering on large objects. Set to 0
-                to disable. Default: 8 (matches the mechanism already used by
-                :class:`~instantlearn.models.matcher.Matcher`).
+            num_grid_cells: Grid cells per dimension for anti-clustering on large
+                objects. 0 disables it. Default: 8 (same as :class:`Matcher`).
             encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -107,10 +105,9 @@ class SoftMatcher(Matcher):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
-            max_instances_when_exported: Maximum instances per category the **exported**
-                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
-                Only affects export; the PyTorch path is unbounded. Defaults to ``None``,
-                which resolves to 8 (see :class:`~instantlearn.models.matcher.Matcher`).
+            max_instances_when_exported: Max instances per category in the
+                **exported** model; each costs one SAM decoder pass. Only affects
+                export, not the PyTorch path. ``None`` resolves to 8.
         """
         super().__init__(
             sam=sam,

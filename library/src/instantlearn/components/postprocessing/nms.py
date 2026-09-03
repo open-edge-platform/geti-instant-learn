@@ -20,10 +20,8 @@ from instantlearn.components.sam.decoder import masks_to_boxes_traceable
 
 logger = logging.getLogger(__name__)
 
-# Cascade iterations for the exportable matrix NMS. Each round finalizes at least
-# one more mask, so this bounds the longest suppression chain that is resolved
-# exactly. Rounds are cheap ([N, N] elementwise, N is the mask count), and the
-# value comfortably exceeds the mask counts these pipelines produce.
+# Cascade iterations for the exportable matrix NMS: each round finalizes at least
+# one more mask, so this bounds the suppression-chain depth resolved exactly.
 _NMS_CASCADE_ROUNDS = 16
 
 
@@ -194,25 +192,13 @@ def _matrix_nms(
 ) -> torch.Tensor:
     """Vectorized (matrix) NMS using a precomputed overlap matrix.
 
-    Unlike :func:`_greedy_nms`, this implementation uses **no data-dependent
-    Python loops** and is fully ONNX/OpenVINO exportable.  It sorts masks by
-    descending score, builds a strictly-lower-triangular view of the overlap
-    matrix (each mask only sees higher-scored masks), and keeps masks whose
-    maximum overlap with any *surviving* higher-scored mask is at or below
-    ``threshold``.
-
-    Suppression is **cascaded**: a mask that has itself been suppressed must not
-    suppress anything else.  A single pass would over-suppress chains — if A
-    suppresses B and B overlaps C, C would be dropped even though B is already
-    gone.  This matters in crowded scenes (e.g. a herd of overlapping animals),
-    where a single pass can collapse a whole group down to one detection.
-
-    The cascade is a fixed-point iteration over the survivor mask.  Because a
-    mask's fate depends only on higher-scored masks, each round finalizes at
-    least one more entry, so ``num_rounds`` iterations reproduce
-    :func:`_greedy_nms` exactly for suppression chains up to that depth.  The
-    loop count is a compile-time constant, so it unrolls cleanly during tracing,
-    and each round is a cheap ``[N, N]`` elementwise reduction.
+    No Python loops, so it's ONNX/OpenVINO exportable. Sorts by descending score,
+    then keeps masks whose overlap with any *surviving* higher-scored mask is at
+    or below ``threshold``. Suppression is cascaded over ``num_rounds`` fixed-point
+    iterations so a suppressed mask can't itself suppress others (a single pass
+    would over-suppress chains, e.g. collapsing a herd of overlapping animals to
+    one detection). ``num_rounds`` iterations match :func:`_greedy_nms` exactly for
+    chains up to that depth.
 
     To avoid empty-tensor issues during ONNX tracing (when the decoder
     produces 0 masks for the random trace input), a dummy entry with
@@ -251,11 +237,9 @@ def _matrix_nms(
 
     keep_sorted = alive > 0
 
-    # Map back to original indices and drop the dummy entry.
-    # The dummy is identified by its sentinel score rather than by comparing
-    # against ``scores.shape[0]``: under static ONNX tracing that shape becomes a
-    # baked-in constant from the trace-time input, which would silently truncate
-    # the output whenever the real mask count differs.
+    # Map back to original indices, dropping the dummy entry via its sentinel score
+    # (not ``scores.shape[0]``, which static ONNX tracing bakes as a constant and
+    # would silently truncate output for any other mask count).
     kept = order[keep_sorted]
     return kept[padded_scores[kept] > -1e8]
 

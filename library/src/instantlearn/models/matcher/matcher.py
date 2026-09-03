@@ -40,8 +40,8 @@ from ._card import _MATCHER_CARD
 from .prompt_generators import BidirectionalPromptGenerator
 
 # Default instance-slot budget for the exported (ONNX/OpenVINO) graph. Small-object
-# detection (``similarity_threshold`` set) tends to surface far more instances per
-# category, so it gets a larger budget unless the caller pins an explicit value.
+# mode (``similarity_threshold`` set) tends to surface more instances, so it gets a
+# larger default.
 _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED = 8
 _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED_SMALL_OBJECTS = 20
 
@@ -273,12 +273,10 @@ class Matcher(TorchModel):
             num_grid_cells: Grid cells per dimension for spatial diversity filtering.
                 When > 0, foreground points are deduplicated per grid cell before top-k
                 selection, preventing point clustering on large objects. Default: 8.
-            max_instances_when_exported: Maximum instances per category the **exported**
-                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass,
-                so latency scales linearly with this value. Only affects export; the
-                PyTorch path is unbounded. Defaults to ``None``, which resolves to 20
-                when ``similarity_threshold`` is set (small-object detection tends to
-                surface more instances per category) and 8 otherwise.
+            max_instances_when_exported: Max instances per category in the
+                **exported** model; each costs one SAM decoder pass. Only affects
+                export, not the PyTorch path. ``None`` resolves to 20 if
+                ``similarity_threshold`` is set (small-object mode), else 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()

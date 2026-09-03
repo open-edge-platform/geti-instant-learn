@@ -69,15 +69,11 @@ class SamDecoder(nn.Module):
             this are downscaled (preserving aspect ratio) before SAM, then masks are
             upscaled back. SAM works internally at 1024x1024, so larger images just
             increase mask memory without improving quality. Default: 1024.
-        max_instances_when_exported: Number of instance slots per category in the **export**
-            graph. Each slot runs one foreground point through the SAM decoder, so
-            this is the maximum number of instances the exported model can detect per
-            category. Decoder cost scales linearly with this value. Foreground points
-            are chosen by farthest-point sampling, which reaches the recall of the
-            full point budget at a fraction of the cost. Default: 8.
-        num_background_points: Number of background points the prompt generator emits
-            per category. Used to slice background points out of the padded prompt
-            tensor during export. Default: 2.
+        max_instances_when_exported: Instance slots per category in the **export**
+            graph; each slot is one SAM decoder pass, chosen via farthest-point
+            sampling. Only affects export. Default: 8.
+        num_background_points: Background points per category to slice out of the
+            padded prompt tensor during export. Default: 2.
     """
 
     def __init__(
@@ -201,29 +197,18 @@ class SamDecoder(nn.Module):
         return (delta * delta).sum(dim=1)
 
     def _build_export_prompts(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Build one prompt set per instance slot, fully traceable with static shapes.
+        """Build one static-shaped SAM prompt set per slot.
 
-        Mirrors the PyTorch runtime path, which pairs *each* foreground point with all
-        background points so SAM segments one object per prompt set.  The export graph
-        cannot use boolean indexing to collect foreground points (the count is
-        data-dependent), so it selects a fixed ``max_instances_when_exported`` of them with
-        farthest-point sampling instead.
-
-        Foreground points arrive sorted by score, which clusters them on whichever
-        object matched best.  Spreading the selection spatially reaches the recall of
-        the full point budget using far fewer decoder passes.
+        Selects up to K foreground points via farthest-point sampling, mirroring
+        the per-point PyTorch path.
 
         Args:
-            points: Padded prompt tensor ``[max_points, 4]`` with (x, y, score, label),
-                laid out as foreground (label 1), then background (label -1), then
-                zero padding (label 0).
+            points: Padded prompt tensor ``[max_points, 4]`` with (x, y, score, label);
+                foreground (label 1), then background (label -1), then zero padding.
 
         Returns:
-            Tuple of:
-                point_coords: ``[K, 1 + num_background_points, 2]``
-                point_labels: ``[K, 1 + num_background_points]``
-                valid: ``[K]`` — 1.0 for slots backed by a real foreground point,
-                    0.0 for slots that ran out of points (their scores get zeroed).
+            point_coords ``[K, 1+num_background_points, 2]``, point_labels
+            ``[K, 1+num_background_points]``, valid ``[K]`` (1.0 = real point).
         """
         device = points.device
         k = self.max_instances_when_exported
@@ -237,16 +222,11 @@ class SamDecoder(nn.Module):
         seed_scores = torch.where(is_foreground, points[:, 2], neg_inf)
         first = torch.argmax(seed_scores).reshape(1)
         selected = [first]
-        # A slot is valid only if it was backed by a *fresh* foreground point. Both
-        # non-foreground rows and already-selected rows are pinned to the sentinel,
-        # so testing the pre-selection score/distance distinguishes the two cases
-        # without any data-dependent control flow.
         valid_flags = [(seed_scores[first] > -1.0e8).to(points.dtype)]
 
-        # Squared distance to the nearest already-selected point (monotonic in
-        # distance, so it gives identical selections while staying ONNX-exportable —
-        # torch.cdist has no usable ONNX symbolic here). Non-foreground slots are
-        # pinned below zero so they are never picked while real points remain.
+        # Iteratively pick the point farthest from any already-selected point
+        # (squared distance, monotonic — torch.cdist has no ONNX symbolic here).
+        # Non-foreground rows are pinned below zero so real points are exhausted first.
         distance = self._squared_distance_to(coords, first)
         distance = torch.where(is_foreground, distance, neg_inf)
         distance = distance.index_fill(0, first, -1.0e9)
@@ -263,8 +243,8 @@ class SamDecoder(nn.Module):
         foreground = coords[indices]  # [K, 2]
         valid = torch.cat(valid_flags, dim=0)  # [K]
 
-        # Background points sit right after the foreground block. topk on the
-        # background indicator keeps the slice static-shaped and traceable.
+        # Background points sit right after the foreground block; topk keeps the
+        # slice static-shaped and traceable.
         num_background = self.num_background_points
         background_rank = (labels_col == -1).to(points.dtype)
         background_idx = torch.topk(background_rank, num_background).indices
@@ -354,18 +334,10 @@ class SamDecoder(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Export-safe prediction: no data-dependent control flow, no NMS.
 
-        Each row of ``point_coords`` is an independent prompt set (one foreground
-        point plus the background points), so SAM returns one mask per instance
-        slot.  This matches the semantics of the PyTorch runtime path
-        (:meth:`_predict_masks_for_category`); the only difference is that the number
-        of slots is fixed at trace time.
-
-        SAM returns 3 candidate masks per prompt (``multimask_output=True``); the best
-        one by predicted IoU is kept.  Scoring uses similarity weighting, and slots
-        with no backing foreground point are zeroed so the downstream
+        Each row of ``point_coords`` is an independent prompt set, so SAM returns one
+        mask per instance slot (matches :meth:`_predict_masks_for_category`, but with
+        a slot count fixed at trace time). Invalid/low-confidence slots are zeroed so
         :class:`~instantlearn.components.postprocessing.ScoreFilter` drops them.
-        Duplicate masks from points landing on the same object are collapsed by the
-        NMS stages of the post-processor.
 
         Args:
             point_coords: Prompt coordinates ``[K, num_points, 2]``.
@@ -770,19 +742,10 @@ class SamDecoder(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Export-friendly forward for single image returning flat tensors.
 
-        Produces ``K = max_instances_when_exported`` mask slots per category, each decoded
-        from its own foreground point, giving true **instance** segmentation in the
-        exported graph.  Slots that ran out of foreground points, or that fall below
-        ``confidence_threshold``, carry a score of 0 and are removed by the
-        :class:`~instantlearn.components.postprocessing.ScoreFilter` stage of the
-        post-processor.  Duplicate slots landing on the same object are collapsed by
-        the NMS stages.
-
-        Output shape is static (``[C * K, H, W]``); the variable instance count is
-        expressed through the scores, matching the standard OpenVINO convention of a
-        fixed-size padded output filtered by score.
-
-        No data-dependent control flow and no Python-level branching on tensor values.
+        Produces ``K = max_instances_when_exported`` mask slots per category, each
+        decoded from its own foreground point — true instance segmentation with a
+        static output shape (``[C * K, H, W]``). Unused/low-confidence slots score 0
+        and are dropped by :class:`~instantlearn.components.postprocessing.ScoreFilter`.
 
         Args:
             image: Single input image [3, H, W]

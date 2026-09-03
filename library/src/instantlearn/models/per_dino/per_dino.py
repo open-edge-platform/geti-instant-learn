@@ -43,9 +43,7 @@ from .prompt_generators import GridPromptGenerator
 logger = logging.getLogger(__name__)
 
 # Default instance-slot budget for the exported (ONNX/OpenVINO) graph, used when
-# ``max_instances_when_exported`` is left as ``None``. PerDino always runs its
-# similarity-based point selection (unlike Matcher's optional small-object mode),
-# so there is no separate "small object" budget here.
+# ``max_instances_when_exported`` is ``None``.
 _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED = 8
 
 
@@ -202,10 +200,9 @@ class PerDino(TorchModel):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
-            max_instances_when_exported: Maximum instances per category the **exported**
-                (ONNX/OpenVINO) model can detect. Each slot costs one SAM decoder pass.
-                Only affects export; the PyTorch path is unbounded. Defaults to ``None``,
-                which resolves to 8.
+            max_instances_when_exported: Max instances per category in the
+                **exported** model; each costs one SAM decoder pass. Only affects
+                export, not the PyTorch path. ``None`` resolves to 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()

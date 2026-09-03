@@ -34,10 +34,9 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         approximate_matching: Whether to use RFF to approximate the similarity map.
         softmatching_score_threshold: Threshold for selecting points based on normalized scores.
         softmatching_bidirectional: Whether to use bidirectional soft matching.
-        num_grid_cells: Grid cells per dimension for spatial diversity filtering (inherited
-            from :class:`BidirectionalPromptGenerator`). When > 0, foreground points are
-            deduplicated per grid cell before top-k selection, preventing point clustering
-            on large objects. Set to 0 to disable. Default: 8.
+        num_grid_cells: Grid cells per dimension for anti-clustering filtering on
+            large objects (inherited from :class:`BidirectionalPromptGenerator`).
+            0 disables it. Default: 8.
 
     Examples:
         >>> import torch
@@ -598,7 +597,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         if len(foreground_scores) > 0:
             foreground_points = self._extract_point_coordinates(foreground_indices, foreground_scores)
             foreground_points = self._convert_to_image_coords(foreground_points, original_size)
-            foreground_labels = torch.ones_like(foreground_points[:, :1])
+            foreground_labels = torch.ones((len(foreground_points), 1)).to(foreground_points)
             foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
             foreground_points = self._filter_foreground_points(foreground_points)
         else:
@@ -608,7 +607,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
             background_points = self._extract_point_coordinates([None, background_indices], background_scores)
             background_points = self._convert_to_image_coords(background_points, original_size)
-            background_labels = -torch.ones_like(background_points[:, :1])
+            background_labels = -torch.ones((len(background_points), 1)).to(background_points)
             background_points = torch.cat([background_points, background_labels], dim=1)
         else:
             background_points = torch.empty(0, 4).to(cls_similarity_map)
