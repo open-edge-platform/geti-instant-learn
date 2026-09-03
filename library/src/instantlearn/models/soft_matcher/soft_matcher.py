@@ -75,11 +75,13 @@ class SoftMatcher(Matcher):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
+        num_grid_cells: int = 8,
         encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         device: DeviceInfo | None = None,
         postprocessor: PostProcessor | None = None,
+        max_instances_when_exported: int | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -94,6 +96,8 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
+            num_grid_cells: Grid cells per dimension for anti-clustering on large
+                objects. 0 disables it. Default: 8 (same as :class:`Matcher`).
             encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -101,6 +105,9 @@ class SoftMatcher(Matcher):
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
+            max_instances_when_exported: Max instances per category in the
+                **exported** model; each costs one SAM decoder pass. Only affects
+                export, not the PyTorch path. ``None`` resolves to 8.
         """
         super().__init__(
             sam=sam,
@@ -112,6 +119,7 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             device=device,
             postprocessor=postprocessor,
+            max_instances_when_exported=max_instances_when_exported,
         )
         self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,
@@ -124,6 +132,7 @@ class SoftMatcher(Matcher):
             approximate_matching=approximate_matching,
             softmatching_score_threshold=softmatching_score_threshold,
             softmatching_bidirectional=softmatching_bidirectional,
+            num_grid_cells=num_grid_cells,
         )
 
     @classmethod
