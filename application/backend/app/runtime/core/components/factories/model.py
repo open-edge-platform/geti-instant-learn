@@ -227,6 +227,7 @@ class ModelFactory:
                     approximate_matching=config.approximate_matching,
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
+                    num_grid_cells=config.num_grid_cells,
                     precision=precision,
                     device=torch_device,
                 )
