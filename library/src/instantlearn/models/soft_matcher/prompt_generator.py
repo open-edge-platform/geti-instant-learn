@@ -469,6 +469,14 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         mask_float = (flatten_ref_mask > 0).to(similarity_map.dtype)  # [num_ref]
         mask_count = mask_float.sum().clamp(min=1.0)
 
+        # Zero-coverage gate (trace-safe, static shape): when the mask covers no encoder
+        # patch cells, ``mask_count`` is clamped to 1 and ``log_correspondence`` collapses
+        # to 0, so ``soft_scores = exp(0) = 1`` everywhere — i.e. the empty category would
+        # otherwise seed SAM with arbitrary top-K foreground points. Multiply the emitted
+        # similarity and foreground scores by this coverage flag so the decoder scores the
+        # category 0 and post-processing drops it (graceful no-detection, no wasted signal).
+        coverage = (mask_float.sum() > 0).to(dtype)  # scalar 1.0 / 0.0
+
         # Soft correspondence in log-space. log_softmax over targets is the
         # forward score; masked-mean over reference rows == indexing masked refs
         # then averaging, but with static shapes (no nonzero).
@@ -485,6 +493,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         # for torch.topk / ONNX TopK; clamp to the available targets.
         fg_k = min(self.num_foreground_points, num_target)
         fg_scores, fg_indices = torch.topk(soft_scores, fg_k, largest=True)
+
+        # Gate foreground scores by coverage so a zero-coverage category's arbitrary
+        # (all-equal) points cannot outrank real detections during host-side selection.
+        fg_scores *= coverage
 
         # Background: lowest average masked similarity (single topk).
         avg_similarity = (similarity_map * mask_float.unsqueeze(1)).sum(dim=0) / mask_count  # [num_target]
@@ -515,7 +527,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         soft_map = soft_scores.reshape(feat_size, feat_size)
         soft_map = (soft_map - soft_map.min()) / (soft_map.max() - soft_map.min() + 1e-6)
         combined_similarity = (local_similarity_grid + soft_map) / 2
-        return points, combined_similarity
+        return points, combined_similarity * coverage
 
     def _process_single_category(
         self,
