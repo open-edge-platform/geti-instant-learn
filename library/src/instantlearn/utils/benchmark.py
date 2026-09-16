@@ -265,6 +265,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 approximate_matching=args.approximate_matching,
                 softmatching_score_threshold=args.softmatching_score_threshold,
                 softmatching_bidirectional=args.softmatching_bidirectional,
+                num_grid_cells=args.num_grid_cells,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=device,

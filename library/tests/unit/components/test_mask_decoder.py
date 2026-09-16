@@ -373,3 +373,52 @@ class TestSamDecoderEmptyTensorHandling:
         prediction = result[0]
         # Empty masks should have correct spatial dimensions
         assert prediction["pred_masks"].shape[1:] == (320, 480)
+
+
+class TestSamDecoderExportPrompts:
+    """Test the export-path prompt builder that enables per-instance masks."""
+
+    @pytest.fixture
+    def sam_decoder(self) -> SamDecoder:
+        """Create a SamDecoder with a stub predictor (unused by these tests)."""
+        return SamDecoder(sam_predictor=MagicMock(), max_instances_when_exported=4, num_background_points=2)
+
+    @staticmethod
+    def _points(foreground: list[tuple[float, float]], background: int = 2) -> torch.Tensor:
+        """Build a ``[N, 4]`` prompt tensor of ``(x, y, score, label)`` rows."""
+        rows = [[x, y, 0.9, 1.0] for x, y in foreground]
+        rows += [[0.0, 0.0, 0.5, -1.0]] * background
+        return torch.tensor(rows)
+
+    def test_builds_one_prompt_set_per_instance(self, sam_decoder: SamDecoder) -> None:
+        """Each slot pairs its own foreground point with the shared background points."""
+        points = self._points([(10.0, 10.0), (200.0, 200.0), (10.0, 200.0)])
+        coords, labels, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+
+        assert coords.shape == (4, 3, 2)
+        assert labels.shape == (4, 3)
+        assert valid.tolist() == [1.0, 1.0, 1.0, 0.0]
+        assert labels[0].tolist() == [1.0, -1.0, -1.0]
+
+    def test_selects_spatially_diverse_points(self, sam_decoder: SamDecoder) -> None:
+        """Farthest-point sampling picks the outlier point, not just top-scored ones."""
+        points = torch.tensor(
+            [[10.0, 10.0, 0.9, 1.0], [11.0, 11.0, 0.8, 1.0], [12.0, 12.0, 0.7, 1.0], [400.0, 400.0, 0.6, 1.0]],
+        )
+        coords, _, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+
+        selected = coords[valid > 0][:, 0, :]
+        assert any(torch.allclose(p, torch.tensor([400.0, 400.0])) for p in selected)
+
+    @pytest.mark.parametrize(("num_points", "expected_valid"), [(1, [1.0, 0.0, 0.0, 0.0]), (10, [1.0] * 4)])
+    def test_slot_count_is_fixed(
+        self,
+        sam_decoder: SamDecoder,
+        num_points: int,
+        expected_valid: list[float],
+    ) -> None:
+        """Output has exactly K slots, whether there are fewer or more points than K."""
+        points = self._points([(float(i * 30), float(i * 30)) for i in range(num_points)])
+        coords, _, valid = sam_decoder._build_export_prompts(points)  # noqa: SLF001
+        assert coords.shape[0] == 4
+        assert valid.tolist() == expected_valid
