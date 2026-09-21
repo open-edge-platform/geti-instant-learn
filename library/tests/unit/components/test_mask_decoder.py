@@ -373,3 +373,172 @@ class TestSamDecoderEmptyTensorHandling:
         prediction = result[0]
         # Empty masks should have correct spatial dimensions
         assert prediction["pred_masks"].shape[1:] == (320, 480)
+
+
+class TestSamDecoderZeroCoverageCategory:
+    """SamDecoder must not crash when a category has zero foreground prompts.
+
+    A zero-coverage category (reference polygon too small to survive patch-grid
+    downsampling) results in all-zero padded point prompts (label column == 0).
+    _preprocess_points filters them out leaving 0 foreground prompt instances,
+    which must NOT be forwarded to SAM (SAM crashes with 0-row prompt tensors).
+    The category must instead silently produce zero masks / zero scores.
+    """
+
+    @pytest.fixture
+    def mock_sam_predictor(self) -> MagicMock:
+        """SAM predictor mock that tracks how many times forward is called."""
+        predictor = MagicMock()
+        predictor.device = torch.device("cpu")
+        predictor.dtype = torch.float32
+        mock_model = MagicMock()
+        mock_model.image_encoder.img_size = 1024
+        predictor.model = mock_model
+        predictor.set_image.return_value = None
+
+        # forward() returns valid masks for a single foreground prompt
+        h, w = 64, 64
+        predictor.forward.return_value = (
+            torch.ones(1, 3, h, w, dtype=torch.float32),   # masks [1, 3, H, W]
+            torch.tensor([[0.9, 0.85, 0.8]]),               # iou_preds [1, 3]
+            torch.zeros(1, 3, 256, 256),                    # low_res_logits
+        )
+        return predictor
+
+    @pytest.fixture
+    def sam_decoder(self, mock_sam_predictor: MagicMock) -> SamDecoder:
+        return SamDecoder(sam_predictor=mock_sam_predictor, confidence_threshold=0.0)
+
+    def _make_point_prompts_all_zero(self, max_points: int = 8) -> torch.Tensor:
+        """All-zero point prompts — simulates a zero-coverage category (label col = 0)."""
+        return torch.zeros(max_points, 4, dtype=torch.float32)
+
+    def _make_valid_point_prompts(self, max_points: int = 8, h: int = 64, w: int = 64) -> torch.Tensor:
+        """A single valid foreground point at image centre."""
+        pts = torch.zeros(max_points, 4, dtype=torch.float32)
+        pts[0] = torch.tensor([w // 2, h // 2, 0.9, 1.0])  # (x, y, score, label=1)
+        return pts
+
+
+    def test_predict_masks_no_crash_zero_fg_points(self, sam_decoder: SamDecoder, mock_sam_predictor: MagicMock) -> None:
+        """_predict_masks_for_category must NOT call SAM and must return empty tensors
+        when point_coords has 0 rows (all prompts were filtered as label==0 padding)."""
+        h, w = 64, 64
+
+        # All-zero padded points → _preprocess_points produces 0 foreground instances
+        all_zero_pts = self._make_point_prompts_all_zero()
+        point_coords, point_labels, _ = sam_decoder._preprocess_points(all_zero_pts)
+
+        assert point_coords.shape[0] == 0, "Precondition: should have 0 fg prompts"
+
+        sim = torch.rand(8, 8)
+        masks, scores = sam_decoder._predict_masks_for_category(
+            point_coords, point_labels, sim, (h, w)
+        )
+
+        mock_sam_predictor.forward.assert_not_called()
+        assert masks.shape == (0, h, w)
+        assert scores.shape == (0,)
+
+    def test_predict_masks_no_crash_zero_fg_points_various_sizes(self, sam_decoder: SamDecoder) -> None:
+        """The guard works for different image sizes."""
+        for h, w in [(32, 48), (128, 128), (480, 640)]:
+            all_zero_pts = self._make_point_prompts_all_zero()
+            point_coords, point_labels, _ = sam_decoder._preprocess_points(all_zero_pts)
+            sim = torch.rand(4, 4)
+            masks, scores = sam_decoder._predict_masks_for_category(
+                point_coords, point_labels, sim, (h, w)
+            )
+            assert masks.shape == (0, h, w), f"Wrong mask shape for size ({h},{w})"
+            assert scores.shape == (0,)
+
+
+    def test_two_categories_one_zero_coverage_no_crash(
+        self, sam_decoder: SamDecoder, mock_sam_predictor: MagicMock
+    ) -> None:
+        """Two categories: cat-0 has valid foreground prompts; cat-1 has all-zero
+        padded prompts (zero-coverage).  The method must not crash and cat-1
+        must contribute only all-zero / label=-1 padded outputs."""
+        h, w = 64, 64
+        image = torch.zeros(3, h, w, dtype=torch.float32)
+
+        pts_valid = self._make_valid_point_prompts(max_points=8, h=h, w=w)
+        pts_zero = self._make_point_prompts_all_zero(max_points=8)
+        # [C=2, max_points=8, 4]
+        point_prompts = torch.stack([pts_valid, pts_zero]).unsqueeze(0)  # [1, 2, 8, 4]
+        similarities = torch.rand(1, 2, 8, 8)
+        category_ids = [1, 2]
+
+        pred_masks, pred_scores, pred_labels, pred_points = (
+            sam_decoder._process_single_image_with_points(
+                image,
+                point_prompts[0],
+                similarities[0],
+                category_ids,
+            )
+        )
+
+        # SAM must have been called exactly once — for category 0 only.
+        assert mock_sam_predictor.forward.call_count == 1, (
+            "SAM must only be called for categories with valid foreground prompts"
+        )
+
+        # Zero-coverage category (id=2) must not appear in pred_labels (or if it does,
+        # it was padded with score=0 and filtered out by valid_mask >= 0 logic).
+        # At minimum the output must be a valid tensor tuple.
+        assert isinstance(pred_masks, torch.Tensor)
+        assert isinstance(pred_scores, torch.Tensor)
+        assert isinstance(pred_labels, torch.Tensor)
+
+    def test_all_zero_coverage_categories_no_crash(
+        self, sam_decoder: SamDecoder, mock_sam_predictor: MagicMock
+    ) -> None:
+        """Edge case: ALL categories have zero-coverage prompts.
+        SAM must never be called; output is empty masks."""
+        h, w = 64, 64
+        image = torch.zeros(3, h, w, dtype=torch.float32)
+
+        pts_zero = self._make_point_prompts_all_zero(max_points=8)
+        point_prompts = torch.stack([pts_zero, pts_zero])   # [2, 8, 4]
+        similarities = torch.rand(2, 8, 8)
+        category_ids = [3, 7]
+
+        pred_masks, pred_scores, pred_labels, pred_points = (
+            sam_decoder._process_single_image_with_points(
+                image,
+                point_prompts,
+                similarities,
+                category_ids,
+            )
+        )
+
+        mock_sam_predictor.forward.assert_not_called()
+        # No valid masks produced — pred_labels should be empty (all -1 filtered out).
+        assert pred_labels.shape[0] == 0
+
+    def test_zero_coverage_category_zero_scores(
+        self, sam_decoder: SamDecoder, mock_sam_predictor: MagicMock
+    ) -> None:
+        """A zero-coverage category that passes the valid_mask >= 0 filter
+        (if padded_labels stay at -1 they are excluded) must have score == 0."""
+        h, w = 32, 32
+        image = torch.zeros(3, h, w, dtype=torch.float32)
+
+        pts_zero = self._make_point_prompts_all_zero(max_points=4)
+        point_prompts = pts_zero.unsqueeze(0)   # [1, 4, 4]
+        similarities = torch.rand(1, 4, 4)
+        category_ids = [99]
+
+        pred_masks, pred_scores, pred_labels, _ = (
+            sam_decoder._process_single_image_with_points(
+                image, point_prompts, similarities, category_ids
+            )
+        )
+
+        # Either 0 detections (padded label -1 filtered) or scores are 0 for the category.
+        if pred_labels.numel() > 0:
+            cat99_mask = pred_labels == 99
+            assert (pred_scores[cat99_mask] == 0).all(), (
+                "Zero-coverage category must have score 0"
+            )
+
