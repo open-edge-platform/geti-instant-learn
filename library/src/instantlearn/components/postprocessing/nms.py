@@ -20,6 +20,10 @@ from instantlearn.components.sam.decoder import masks_to_boxes_traceable
 
 logger = logging.getLogger(__name__)
 
+# Cascade iterations for the exportable matrix NMS: each round finalizes at least
+# one more mask, so this bounds the suppression-chain depth resolved exactly.
+_NMS_CASCADE_ROUNDS = 16
+
 
 def _pairwise_mask_iou(masks: torch.Tensor) -> torch.Tensor:
     """Compute pairwise IoU between all mask pairs.
@@ -184,19 +188,17 @@ def _matrix_nms(
     scores: torch.Tensor,
     overlap_matrix: torch.Tensor,
     threshold: float,
+    num_rounds: int = _NMS_CASCADE_ROUNDS,
 ) -> torch.Tensor:
     """Vectorized (matrix) NMS using a precomputed overlap matrix.
 
-    Unlike :func:`_greedy_nms`, this implementation uses **no Python
-    loops** and is fully ONNX/OpenVINO exportable.  It sorts masks by
-    descending score, builds a strictly-lower-triangular view of the
-    overlap matrix (each mask only sees higher-scored masks), and keeps
-    masks whose maximum overlap with any higher-scored mask is at or
-    below ``threshold``.
-
-    Trade-off vs greedy: matrix NMS does not cascade suppressions (if A
-    suppresses B, B cannot influence C).  In practice, results are very
-    similar for typical mask counts.
+    No Python loops, so it's ONNX/OpenVINO exportable. Sorts by descending score,
+    then keeps masks whose overlap with any *surviving* higher-scored mask is at
+    or below ``threshold``. Suppression is cascaded over ``num_rounds`` fixed-point
+    iterations so a suppressed mask can't itself suppress others (a single pass
+    would over-suppress chains, e.g. collapsing a herd of overlapping animals to
+    one detection). ``num_rounds`` iterations match :func:`_greedy_nms` exactly for
+    chains up to that depth.
 
     To avoid empty-tensor issues during ONNX tracing (when the decoder
     produces 0 masks for the random trace input), a dummy entry with
@@ -207,12 +209,11 @@ def _matrix_nms(
         scores: Confidence scores ``[N]``.
         overlap_matrix: Pairwise overlap values ``[N, N]`` (IoU or IoM).
         threshold: Overlap threshold for suppression.
+        num_rounds: Cascade iterations. Defaults to :data:`_NMS_CASCADE_ROUNDS`.
 
     Returns:
         Indices of kept masks (in original ordering) as a 1-D int64 tensor.
     """
-    n = scores.shape[0]
-
     # Pad with a dummy entry to guarantee at least 1 row for .max()
     # The dummy has score=-inf (always last after sort) and zero overlap
     padded_scores = torch.cat([scores, torch.full((1,), -1e9, device=scores.device)])
@@ -225,16 +226,22 @@ def _matrix_nms(
 
     # Lower-triangular mask (row i only sees columns 0..i-1 = higher-scored)
     lower_tri = torch.ones_like(sorted_overlap).tril(diagonal=-1)
+    higher_scored_overlap = sorted_overlap * lower_tri
 
-    # Max overlap of each mask with any higher-scored mask
-    max_overlap = (sorted_overlap * lower_tri).max(dim=1).values  # [N+1]
+    # Fixed-point cascade: suppressed masks contribute zero overlap, so they can
+    # no longer suppress lower-scored masks.
+    alive = torch.ones_like(padded_scores)
+    for _ in range(num_rounds):
+        max_overlap = (higher_scored_overlap * alive.unsqueeze(0)).max(dim=1).values  # [N+1]
+        alive = (max_overlap <= threshold).to(alive.dtype)
 
-    # Keep masks where max overlap with higher-scored masks <= threshold
-    keep_sorted = max_overlap <= threshold
+    keep_sorted = alive > 0
 
-    # Map back to original indices and remove the dummy entry (index == n)
+    # Map back to original indices, dropping the dummy entry via its sentinel score
+    # (not ``scores.shape[0]``, which static ONNX tracing bakes as a constant and
+    # would silently truncate output for any other mask count).
     kept = order[keep_sorted]
-    return kept[kept < n]
+    return kept[padded_scores[kept] > -1e8]
 
 
 def _matrix_soft_nms(
@@ -268,8 +275,6 @@ def _matrix_soft_nms(
     Returns:
         Tuple of (kept_indices, decayed_scores_for_kept) in original ordering.
     """
-    n = scores.shape[0]
-
     # Pad with a dummy entry to guarantee at least 1 row
     padded_scores = torch.cat([scores, torch.full((1,), -1e9, device=scores.device)])
     padded_iou = torch.nn.functional.pad(iou_matrix, [0, 1, 0, 1], value=0.0)
@@ -292,11 +297,12 @@ def _matrix_soft_nms(
 
     keep_sorted = decayed > score_threshold
 
-    # Map back to original indices and remove the dummy entry
+    # Map back to original indices and remove the dummy entry, identified by its
+    # sentinel score (see :func:`_matrix_nms` for why the shape is not used).
     kept_original = order[keep_sorted]
     kept_scores = decayed[keep_sorted]
 
-    real_mask = kept_original < n
+    real_mask = padded_scores[kept_original] > -1e8
     return kept_original[real_mask], kept_scores[real_mask]
 
 

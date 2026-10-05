@@ -130,6 +130,7 @@ class SoftMatcherConfig(BaseModelConfig):
     approximate_matching: bool = Field(default=False)
     softmatching_score_threshold: float = Field(default=0.4, gt=0.0, lt=1.0)
     softmatching_bidirectional: bool = Field(default=False)
+    num_grid_cells: int = Field(default=8, ge=0, le=100)
 
     model_config = {
         "json_schema_extra": {
@@ -145,6 +146,7 @@ class SoftMatcherConfig(BaseModelConfig):
                 "approximate_matching": False,
                 "softmatching_score_threshold": 0.4,
                 "softmatching_bidirectional": False,
+                "num_grid_cells": 8,
                 "precision": "bf16",
                 "ov_compression": "int8_sym",
             }
