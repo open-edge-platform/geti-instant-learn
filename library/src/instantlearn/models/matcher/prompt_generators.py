@@ -231,7 +231,18 @@ class BidirectionalPromptGenerator(nn.Module):
         """
         # Use nonzero().squeeze(-1) instead of nonzero(as_tuple=True)[0] for OpenVINO compatibility
         ref_idx = ref_mask.nonzero().squeeze(-1)
-        avg_similarity = similarity_map[ref_idx].mean(dim=0)
+
+        # Zero-coverage guard: when no reference foreground patches exist (mask too small
+        # to survive patch-grid downsampling) ref_idx is empty and indexing produces a
+        # [0, num_target] tensor whose .mean(dim=0) returns NaN.  Fall back to uniform
+        # zero similarity so top k picks the first k target indices deterministically
+        # instead of propagating NaN into background-point coordinates.
+        if ref_idx.numel() == 0:
+            num_target = similarity_map.size(1)
+            avg_similarity = torch.zeros(num_target, device=similarity_map.device, dtype=similarity_map.dtype)
+        else:
+            avg_similarity = similarity_map[ref_idx].mean(dim=0)
+
         k = torch.minimum(
             torch.tensor(self.num_background_points, device=avg_similarity.device),
             torch.tensor(avg_similarity.size(0), device=avg_similarity.device),
@@ -427,6 +438,15 @@ class BidirectionalPromptGenerator(nn.Module):
         similarity_map = ref_embed @ target_embed.T
         mask_float = flatten_ref_mask.float()  # [num_ref]
 
+        # Zero-coverage gate (trace-safe, static shape): when the reference mask covers
+        # no encoder patch cells (polygon too small), masked_ref_embed is a zero row, so
+        # the foreground scoring below is meaningless. Rather than rely on incidental
+        # exact-zero embeddings to be discarded downstream, explicitly zero the emitted
+        # similarity map and foreground scores. The decoder derives its confidence from
+        # the similarity map, so a zero map yields a zero score that post-processing
+        # drops — turning a garbage SAM decode into a graceful no-detection.
+        coverage = (mask_float.sum() > 0).to(dtype)  # scalar 1.0 / 0.0
+
         # Max-pooled similarity: for each target, max similarity to any masked ref.
         neg_inf = torch.tensor(-65504.0, device=device, dtype=similarity_map.dtype)
         masked_sim = torch.where(
@@ -445,6 +465,10 @@ class BidirectionalPromptGenerator(nn.Module):
         # be a Python int for torch.topk / ONNX TopK; clamp to the available targets.
         fg_k = min(self.num_foreground_points, num_target)
         fg_scores, fg_indices = torch.topk(max_sim_per_target, fg_k, largest=True)
+
+        # Gate foreground scores by coverage so a zero-coverage category cannot rank
+        # its (arbitrary) points above real detections during host-side selection.
+        fg_scores *= coverage
 
         # Background: top-K lowest avg-similarity targets (single topk)
         bg_k = min(self.num_background_points, num_target)
@@ -468,7 +492,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         points = torch.cat([fg_points, bg_points], dim=0)
         padded_points = self._pad_points(points, device, dtype)
-        return padded_points, local_similarity_grid
+        return padded_points, local_similarity_grid * coverage
 
     def _process_single_category(
         self,
