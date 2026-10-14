@@ -10,10 +10,7 @@ The application relies on **Zero-Shot Learning (ZSL)** models, which allows it t
 
 The core of the application is the **Pipeline**, a multi-threaded streaming engine that orchestrates the flow of data from ingestion to inference and finally to output. It follows a classic **Source-Processor-Sink** pattern, where each component runs in its own thread to ensure non-blocking execution.
 
-<div align="center">
-
-<img src="media/concepts.svg" width="600px" alt="Diagram showing the sequence of processing stages"/>
-</div>
+![Diagram showing the sequence of processing stages](./media/concepts.svg)
 
 Data flows through the pipeline via **Broadcasters**, thread-safe intermediaries that allow multiple consumers to receive frames simultaneously. This architecture allows:
 
@@ -54,10 +51,7 @@ The application abstracts input and output devices to make the system flexible a
 
 The application is structured as a layered edge server. Each layer has a clear responsibility, from user interaction down to hardware execution.
 
-<div align="center">
-
-<img src="media/system-architecture.svg" width="1200px" alt="Diagram showing the application system architecture"/>
-</div>
+![Diagram showing the application system architecture](./media/system-architecture.svg)
 
 ### API Layer
 
