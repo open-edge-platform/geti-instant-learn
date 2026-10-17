@@ -16,7 +16,7 @@ jobs:
         ai-device: [cpu, cuda, xpu]
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           disable-sudo: false
           disable-telemetry: true
@@ -46,7 +46,7 @@ jobs:
             toolbox-data.anchore.com:443
 
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -89,7 +89,7 @@ jobs:
           ] | unique[]' > pkg_list_$DEVICE.txt
 
       - name: Upload packages list
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pkg_list_${{ matrix.ai-device }}
           path: pkg_list_*
@@ -103,7 +103,7 @@ jobs:
       unique_package_names_oneline: ${{ steps.transform-list.outputs.unique_package_names_oneline }}
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           disable-sudo: true
           disable-telemetry: true
@@ -119,7 +119,7 @@ jobs:
 
       # Download all reports
       - name: Download all reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: "pkg_list_*"
           merge-multiple: true
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: get-unique-names
     container:
-      image: debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+      image: debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
     steps:
       # This job is running in a container. Such jobs can be monitored by installing Harden Runner in a custom VM image for GitHub-hosted runners.
 
@@ -177,7 +177,7 @@ jobs:
           tar -czf "$ARCHIVE_NAME" -C "$OUTPUT_DIR" .
 
       - name: Upload source code archive
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: source-code-archive
           path: source_code.tar.gz
