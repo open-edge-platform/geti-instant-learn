@@ -39,6 +39,12 @@ from instantlearn.utils.errors import ModelNotFittedError
 from ._card import _MATCHER_CARD
 from .prompt_generators import BidirectionalPromptGenerator
 
+# Default instance-slot budget for the exported (ONNX/OpenVINO) graph. Small-object
+# mode (``similarity_threshold`` set) tends to surface more instances, so it gets a
+# larger default.
+_DEFAULT_MAX_INSTANCES_WHEN_EXPORTED = 8
+_DEFAULT_MAX_INSTANCES_WHEN_EXPORTED_SMALL_OBJECTS = 20
+
 logger = logging.getLogger(__name__)
 
 
@@ -242,6 +248,7 @@ class Matcher(TorchModel):
         postprocessor: PostProcessor | None = None,
         similarity_threshold: float | None = None,
         num_grid_cells: int = 8,
+        max_instances_when_exported: int | None = None,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -266,9 +273,19 @@ class Matcher(TorchModel):
             num_grid_cells: Grid cells per dimension for spatial diversity filtering.
                 When > 0, foreground points are deduplicated per grid cell before top-k
                 selection, preventing point clustering on large objects. Default: 8.
+            max_instances_when_exported: Max instances per category in the
+                **exported** model; each costs one SAM decoder pass. Only affects
+                export, not the PyTorch path. ``None`` resolves to 20 if
+                ``similarity_threshold`` is set (small-object mode), else 8.
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()
+        if max_instances_when_exported is None:
+            max_instances_when_exported = (
+                _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED_SMALL_OBJECTS
+                if similarity_threshold is not None
+                else _DEFAULT_MAX_INSTANCES_WHEN_EXPORTED
+            )
         super().__init__(device=device, precision=precision, postprocessor=postprocessor)
         # SAM predictor
         self.sam_predictor = load_sam_model(
@@ -310,6 +327,8 @@ class Matcher(TorchModel):
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
+            max_instances_when_exported=max_instances_when_exported,
+            num_background_points=num_background_points,
         )
 
         # Reference features (set during fit)
@@ -450,6 +469,8 @@ class Matcher(TorchModel):
                 sam_predictor=fallback_predictor,
                 confidence_threshold=self.segmenter.confidence_threshold,
                 use_mask_refinement=self.segmenter.use_mask_refinement,
+                max_instances_when_exported=self.segmenter.max_instances_when_exported,
+                num_background_points=self.segmenter.num_background_points,
             )
 
         self.sam_predictor.sync_device(export_device, dtype=torch.float32)
