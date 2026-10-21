@@ -15,6 +15,7 @@ from unittest.mock import patch
 import torch
 from torch.nn import functional
 
+from instantlearn.models.matcher.prompt_generators import BidirectionalPromptGenerator
 from instantlearn.models.per_dino.prompt_generators import GridPromptGenerator
 from instantlearn.models.soft_matcher.prompt_generator import SoftmatcherPromptGenerator
 
@@ -158,3 +159,121 @@ class TestSoftMatcherPromptExport:
         # Foreground + background each clamp to at most num_patches.
         assert points.shape[0] <= 2 * num_patches
         assert points.shape[1] == 4
+
+
+class TestExportZeroCoverageGate:
+    """Zero-coverage categories must be gated to a zero-score similarity in export.
+
+    When a reference polygon covers no encoder patch cells, ``MaskedFeatureExtractor``
+    emits a zero ``masked_ref_embed`` and an all-zero ``flatten_ref_mask``. The export
+    prompt paths keep static shapes (they cannot drop the category), so instead they
+    must zero the emitted similarity map — the decoder derives its confidence from that
+    map, so a zero map yields a zero score that host-side post-processing discards.
+    """
+
+    def test_matcher_export_zero_mask_yields_zero_similarity(self) -> None:
+        """Matcher export: all-zero ref mask -> zero similarity map and zero fg scores."""
+        torch.manual_seed(0)
+        feat, embed = 16, 8
+        num_patches = feat * feat
+        ref_embed = torch.randn(num_patches, embed)
+        target_embed = torch.randn(num_patches, embed)
+        masked_ref_embed = torch.zeros(embed)  # zero-coverage fallback embedding
+        mask = torch.zeros(num_patches)  # no foreground patches
+        original_size = torch.tensor([224, 224])
+
+        gen = BidirectionalPromptGenerator(
+            encoder_input_size=224,
+            encoder_patch_size=14,
+            encoder_feature_size=feat,
+            num_foreground_points=5,
+            num_background_points=2,
+        )
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            points, similarity = gen._process_single_category_export(  # noqa: SLF001
+                ref_embed, masked_ref_embed, mask, target_embed, original_size,
+            )
+
+        # Similarity map is fully zeroed -> decoder scores this category 0 (discarded).
+        assert torch.count_nonzero(similarity) == 0
+        # Foreground point scores (column index 2) are gated to zero.
+        fg_scores = points[points[:, 3] == 1][:, 2]
+        assert torch.count_nonzero(fg_scores) == 0
+
+    def test_matcher_export_nonzero_mask_keeps_similarity(self) -> None:
+        """Sanity: a covered category still produces a non-zero similarity map."""
+        torch.manual_seed(1)
+        feat, embed = 16, 8
+        num_patches = feat * feat
+        ref_embed = torch.randn(num_patches, embed)
+        target_embed = torch.randn(num_patches, embed)
+        mask = torch.zeros(num_patches)
+        mask[:10] = 1.0
+        masked_ref_embed = ref_embed[:10].mean(dim=0)
+        original_size = torch.tensor([224, 224])
+
+        gen = BidirectionalPromptGenerator(
+            encoder_input_size=224,
+            encoder_patch_size=14,
+            encoder_feature_size=feat,
+            num_foreground_points=5,
+            num_background_points=2,
+        )
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            _, similarity = gen._process_single_category_export(  # noqa: SLF001
+                ref_embed, masked_ref_embed, mask, target_embed, original_size,
+            )
+        assert torch.count_nonzero(similarity) > 0
+
+    def test_softmatcher_export_zero_mask_yields_zero_similarity(self) -> None:
+        """SoftMatcher export: all-zero ref mask -> zero similarity map and zero fg scores.
+
+        SoftMatcher is the model in the production traceback. Its ``soft_scores`` collapse
+        to ``exp(0) = 1`` for an empty mask (not 0), so without the coverage gate it would
+        seed SAM with arbitrary top-K foreground points at score 1.
+        """
+        torch.manual_seed(0)
+        feat, embed = 16, 8
+        num_patches = feat * feat
+        ref_embed = torch.randn(num_patches, embed)
+        target_embed = torch.randn(num_patches, embed)
+        masked_ref_embed = torch.zeros(embed)
+        mask = torch.zeros(num_patches)
+        original_size = torch.tensor([224, 224])
+
+        gen = SoftmatcherPromptGenerator(
+            encoder_input_size=224,
+            encoder_patch_size=14,
+            encoder_feature_size=feat,
+            num_foreground_points=5,
+            num_background_points=2,
+        )
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            points, similarity = gen._process_single_category_export(  # noqa: SLF001
+                ref_embed, masked_ref_embed, mask, target_embed, original_size,
+            )
+
+        assert torch.count_nonzero(similarity) == 0
+        fg_scores = points[points[:, 3] == 1][:, 2]
+        assert torch.count_nonzero(fg_scores) == 0
+
+    def test_perdino_export_zero_similarity_is_discardable(self) -> None:
+        """PerDino export: a pre-computed all-zero similarity map stays zero-scored.
+
+        PerDino receives an already-computed similarity map (masked_ref_embed @ target),
+        which is exactly zero for a zero-coverage category, so no explicit gate is needed.
+        """
+        gen = GridPromptGenerator(
+            num_grid_cells=2,
+            point_selection_threshold=0.5,
+            num_bg_points=2,
+            num_foreground_points=5,
+            max_points=7,
+        )
+        zero_sim = torch.zeros(1, 1, 8, 8)
+        original_sizes = torch.tensor([[64, 64]])
+        with patch("torch.onnx.is_in_onnx_export", return_value=True):
+            out = gen(zero_sim, [1], original_sizes)
+        # Static shape preserved; all point scores (column 2) are zero -> discardable.
+        assert out.shape == (1, 1, 7, 4)
+        assert torch.count_nonzero(out[..., 2]) == 0
