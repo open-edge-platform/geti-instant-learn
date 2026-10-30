@@ -22,7 +22,7 @@ jobs:
       contents: read
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           disable-sudo: true
           disable-telemetry: true
@@ -31,7 +31,7 @@ jobs:
             github.com:443
 
       - name: Checkout configuration
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -53,7 +53,7 @@ jobs:
       contents: read # to checkout code
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           disable-sudo: true
           disable-telemetry: true
@@ -64,14 +64,14 @@ jobs:
             pkg-containers.githubusercontent.com:443
 
       - name: Checkout configuration
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Validate configuration
         run: |
           # renovate: datasource=docker
-          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:43.265.4@sha256:96abb1a8386f21e137be23e01c756d1b9687c13237902f56471442138f4b7953
+          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:44.198.0@sha256:9ace7c60234605b242fa7edf44f77a70a17f3b0e963e8e969bd59341a5b4295d
           docker run --rm --entrypoint "renovate-config-validator" \
           -v "${{ github.workspace }}/.github/renovate.json5":"/renovate.json5" \
           ${RENOVATE_IMAGE} "/renovate.json5"
